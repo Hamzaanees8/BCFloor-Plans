@@ -393,6 +393,7 @@ export async function UploadFilesData(
               is_admin_approved: fileObj.is_admin_approved !== false,
               is_agent_approved: fileObj.is_agent_approved || false,
               is_complimentary: fileObj.is_complimentary || false,
+              image_type: fileObj.isPanorama ? "panorama" : "normal",
               sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : files.indexOf(fileObj) + 1,
               ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
             });
@@ -549,6 +550,7 @@ export async function UpdateFilesData(
               is_admin_approved: fileObj.is_admin_approved !== false,
               is_agent_approved: fileObj.is_agent_approved || false,
               is_complimentary: fileObj.is_complimentary || false,
+              image_type: fileObj.isPanorama ? "panorama" : "normal",
               sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : newFiles.indexOf(fileObj) + 1,
               ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
             });
@@ -614,6 +616,10 @@ export async function UpdateFilesData(
     formData.append(
       `files[${fileIndex}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1),
+    );
+    formData.append(
+      `files[${fileIndex}][image_type]`,
+      fileObj.isPanorama ? "panorama" : "normal"
     );
     formData.append(
       `files[${fileIndex}][sort_order]`,

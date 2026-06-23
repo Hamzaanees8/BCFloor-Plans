@@ -696,14 +696,14 @@ const TourConfirm = ({
                         {uploadedImages.map((image, index) => (
                           <div
                             key={`uploaded-${index}`}
-                            className={`w-full aspect-video overflow-hidden cursor-pointer transition-all ${currentImageIndex === index ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
+                            className={`w-full aspect-video bg-black overflow-hidden cursor-pointer transition-all ${currentImageIndex === index ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
                             onClick={() => setCurrentImageIndex(index)}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={URL.createObjectURL(image.file)}
                               alt={`Uploaded ${index + 1}`}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                             />
                           </div>
                         ))}
@@ -712,7 +712,7 @@ const TourConfirm = ({
                           return (
                             <div
                               key={`api-${index}`}
-                              className={`w-full aspect-square overflow-hidden cursor-pointer transition-all ${currentImageIndex === globalIndex ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
+                              className={`w-full aspect-video bg-black overflow-hidden cursor-pointer transition-all ${currentImageIndex === globalIndex ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
                               onClick={() => setCurrentImageIndex(globalIndex)}
                             >
                               {image.is_processing ? (
@@ -724,7 +724,7 @@ const TourConfirm = ({
                                 <img
                                   src={image.variant_urls?.thumb || image.url || `${API_URL}/${image.file_path}`}
                                   alt={`Uploaded ${index + 1}`}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain"
                                 />
                               )}
                             </div>
@@ -791,10 +791,10 @@ const TourConfirm = ({
                               onClick={() => setMainVideo(thumbSrc)}
                               className="h-auto relative"
                             >
-                              <div className="relative w-full h-[240px] cursor-pointer">
+                              <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
                                 <video
                                   src={thumbSrc}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain"
                                 />
                               </div>
                             </div>
@@ -807,7 +807,7 @@ const TourConfirm = ({
                               key={idx}
                               className="h-auto relative"
                             >
-                              <div className="relative w-full h-[240px] cursor-pointer">
+                              <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
                                 {file.is_processing ? (
                                   <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
@@ -819,13 +819,13 @@ const TourConfirm = ({
                                       <img
                                         src={file.variant_urls.thumb}
                                         alt="Video thumbnail"
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain"
                                         onClick={() => setMainVideo(apiSrc)}
                                       />
                                     ) : (
                                       <video
                                         src={apiSrc}
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain"
                                         onClick={() => setMainVideo(apiSrc)}
                                       />
                                     )}

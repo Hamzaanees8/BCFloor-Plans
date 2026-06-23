@@ -248,7 +248,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             <>
               <div className="w-[1px] h-4 bg-gray-200"></div>
               <Link
-                href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}` : "/dashboard/orders/create"}
+                href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}?isEdit=true` : "/dashboard/orders/create"}
                 className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-indigo-600 hover:bg-white rounded transition-all font-medium text-center"
                 title={latestOrder?.uuid ? "Update Booking" : "New Booking"}
               >

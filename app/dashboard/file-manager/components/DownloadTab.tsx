@@ -543,7 +543,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                     className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
                                                     ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
                                                 >
-                                                    <div className="relative w-full h-full">
+                                                    <div className="relative w-full h-full bg-black">
                                                         {file.is_processing ? (
                                                             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
@@ -555,7 +555,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                     src={file.variant_urls.thumb}
                                                                     alt={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
                                                                     title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
-                                                                    className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                                    className={`w-full h-full object-contain transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                                 />
                                                             ) : (
                                                                 <video
@@ -564,7 +564,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                     muted
                                                                     playsInline
                                                                     title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
-                                                                    className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                                    className={`absolute inset-0 w-full h-full object-contain transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                                 />
                                                             )
                                                         ) : (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf') ? (
@@ -590,7 +590,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                 src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
                                                                 alt={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
                                                                 title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
-                                                                className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                                className={`w-full h-full object-contain transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                             />
                                                         )}
                                                     </div>

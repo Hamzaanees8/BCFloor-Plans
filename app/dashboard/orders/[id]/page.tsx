@@ -46,7 +46,8 @@ import { useEffect, useState } from "react";
 import { createPayment, GetFilesData } from "../../file-manager/file-manager";
 import { FilesData } from "../../file-manager/FileManagerContext";
 import Link from "next/link";
-import OrderDetailView from "../../calendar/components/OrderDetailView";
+import { resolveServicePrice } from "@/lib/pricingUtils";
+// import OrderDetailView from "../../calendar/components/OrderDetailView";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
@@ -161,7 +162,6 @@ function Page() {
   const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
   const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
 
-  const [openDetails, setOpenDetails] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [tooltipLocked, setTooltipLocked] = useState(false);
 
@@ -177,6 +177,7 @@ function Page() {
     };
   }, [tooltipLocked]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [agentData, setAgentData] = useState<Agent[]>([]);
   const [isChecked, setIsChecked] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -195,6 +196,7 @@ function Page() {
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "primary" | "co-agent">("all");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const refreshOrders = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -213,31 +215,15 @@ function Page() {
   };
 
   const getOriginalPrice = (sel: OrderService) => {
-    let originalPrice = Number(sel.amount) || 0;
-    const sqFootage = Number(orderData?.property?.square_footage || 0);
+    const squareFootage = Number(orderData?.property?.square_footage || 0);
+    const catalogService = services?.find((s) => s.uuid === sel.service?.uuid);
 
-    if (sel.payment_status?.toUpperCase() !== "PAID" && !sel.custom) {
-      const fullService = services?.find((s) => s.uuid === sel.service?.uuid);
-      const catalogOption = fullService?.product_options?.find(
-        (o) => o.uuid === sel.option?.uuid || o.title === sel.optionName,
-      );
-
-      if (catalogOption) {
-        if (
-          catalogOption.sq_ft_rate &&
-          parseFloat(catalogOption.sq_ft_rate) > 0 &&
-          sqFootage > 0
-        ) {
-          const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
-          originalPrice = catalogOption.min_price
-            ? Math.max(calculated, catalogOption.min_price)
-            : calculated;
-        } else if (Number(catalogOption.amount) > 0) {
-          originalPrice = Number(catalogOption.amount);
-        }
-      }
-    }
-    return originalPrice;
+    return resolveServicePrice({
+      orderService: sel,
+      catalogService,
+      squareFootage,
+      invoices,
+    });
   };
 
   useEffect(() => {
@@ -557,17 +543,6 @@ function Page() {
           onOpenChange={setOpenEditPopup}
         />
       )}
-      <OrderDetailView
-        agentData={agentData}
-        open={openDetails}
-        onClose={() => {
-          setOpenDetails(false);
-        }}
-        orderId={orderData?.uuid ?? ""}
-        serviceId={22}
-        orderData={orderData ? [orderData] : []}
-        refreshOrders={refreshOrders}
-      />
       <div
         className="w-full h-[80px] font-alexandria  z-10 sticky top-0  flex justify-between px-[20px] items-center"
         style={{
@@ -592,7 +567,7 @@ function Page() {
           <div className="flex gap-[18px]">
             <Button
               onClick={() => {
-                setOpenDetails(true);
+                router.push(`/dashboard/orders/create/${orderData?.uuid}?isEdit=true`);
               }}
               className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
               style={{
@@ -1105,7 +1080,7 @@ function Page() {
                       </div>
                     )}
                   </div>
-                  {userType === "vendor" && (
+                  {userType !== "vendor" && (
                     <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
                       <Button
                         onClick={() => setOpenEditPopup(true)}
@@ -1193,15 +1168,17 @@ function Page() {
                   </p>
                   <p className="grid grid-cols-4 gap-[15px]">
                     <span className="col-span-3">Package</span>
-                    <span className="col-span-1">
-                      $
-                      {orderData?.services
-                        ?.reduce(
-                          (total, service) => total + getOriginalPrice(service),
-                          0,
-                        )
-                        .toFixed(2)}
-                    </span>
+                    {userType !== "vendor" && (
+                      <span className="col-span-1">
+                        $
+                        {orderData?.services
+                          ?.reduce(
+                            (total, service) => total + getOriginalPrice(service),
+                            0,
+                          )
+                          .toFixed(2)}
+                      </span>
+                    )}
                   </p>
 
                   <p className="grid grid-cols-4 gap-[15px]">
@@ -1230,21 +1207,23 @@ function Page() {
                               </span>
                             )}
                           </span>
-                          <span className="col-span-1">
-                            ${originalPrice.toFixed(2)}
-                          </span>
+                          {userType !== "vendor" && (
+                            <span className="col-span-1">
+                              ${originalPrice.toFixed(2)}
+                            </span>
+                          )}
                         </p>
                       );
                     })}
                   </div>
-                  {(() => {
+                  {userType !== "vendor" && (() => {
                     const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
                     const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
 
                     // Calculate subtotal from services
                     const subtotal =
                       orderData?.services?.reduce(
-                        (sum, s) => sum + parseFloat(s.amount || "0"),
+                        (sum, s) => sum + getOriginalPrice(s),
                         0,
                       ) || 0;
 

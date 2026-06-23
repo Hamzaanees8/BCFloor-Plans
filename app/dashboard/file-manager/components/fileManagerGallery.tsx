@@ -6,8 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { DownloadIcon } from "@/components/Icons";
-import { useFileManagerContext } from "../FileManagerContext";
-import { PdfPlaceholder } from "./OptimizedPreview";
+import { useFileManagerContext } from '../FileManagerContext';
+import { PdfPlaceholder } from './OptimizedPreview';
+import { PanoramaBadge } from './PanoramaBadge';
+import { isPanoramaFile } from '../utils/panoramaUtils';
 
 interface FileManagerGalleryProps {
   onImageSelect: (imageUrl: string) => void;
@@ -120,8 +122,9 @@ export default function FileManagerGallery({
                   onClick={() => handleImageSelect(idx)}
                 >
                   <div className="relative">
-                    <div className={`relative w-[280px] h-[175px] border bg-[#EEEEEE] overflow-hidden transition-all ${selected === idx ? 'border-[#4290E9] border-2' : 'border-[#A8A8A8]'
+                    <div className={`relative w-[280px] h-[175px] border bg-black overflow-hidden transition-all ${selected === idx ? 'border-[#4290E9] border-2' : 'border-[#A8A8A8]'
                       }`}>
+                      {isPanoramaFile(file) && <PanoramaBadge />}
                       {isPDF(file) ? (
                         (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
                           <PdfPlaceholder
@@ -144,7 +147,7 @@ export default function FileManagerGallery({
                         <img
                           src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                           alt={file.name}
-                          className="object-cover w-full h-full"
+                          className="object-contain w-full h-full"
                         />
                       )}
                       {selected === idx && (

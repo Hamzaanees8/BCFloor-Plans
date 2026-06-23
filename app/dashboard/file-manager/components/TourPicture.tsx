@@ -9,6 +9,8 @@ import {
 import React, { useState, useCallback, useEffect } from "react";
 import { useFileManagerContext } from "../FileManagerContext";
 import { Check, X, GripVertical, ArrowLeftRight } from "lucide-react";
+import { PanoramaBadge } from "./PanoramaBadge";
+import { isPanoramaFile } from "../utils/panoramaUtils";
 import {
   Tooltip,
   TooltipContent,
@@ -293,8 +295,9 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         (file.file_path ? `${API_URL}/${file.file_path}` : "");
 
       return (
-        <div className="relative bg-[#BBBBBB] rounded-sm overflow-hidden group select-none">
+        <div className="relative bg-black rounded-sm overflow-hidden group select-none">
           <div className="relative w-full h-[180px] overflow-hidden">
+            {isPanoramaFile(file) && <PanoramaBadge />}
             {file.is_processing ? (
               <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                 <p className="text-gray-500 font-medium text-sm">Processing…</p>
@@ -306,7 +309,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               <img
                 src={imgSrc}
                 alt="preview"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain"
                 draggable={false}
               />
             )}
@@ -394,7 +397,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
             <AccordionTrigger className="px-[14px] py-[19px] flex-1 hover:no-underline text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full">
               Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
             </AccordionTrigger>
-            {userType !== 'agent' && globalSortedPhotos.length > 0 && (
+            {globalSortedPhotos.length > 0 && (
               <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {isReorderMode ? (
                   <div className="flex items-center gap-2">
@@ -408,7 +411,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                     </Button>
                     <Button
                       size="sm"
-                      className="h-8 text-[12px] bg-[#4290E9] hover:bg-[#4999f5] text-white"
+                      className={`h-8 text-[12px] ${userType}-bg hover:${userType}-bg hover:opacity-90 text-white transition-all`}
                       onClick={handleSaveReorder}
                     >
                       Done
@@ -416,9 +419,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   </div>
                 ) : (
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
+                    className={`h-8 text-[12px] gap-1.5 font-medium ${userType}-bg hover:opacity-90 text-white transition-all`}
                     onClick={() => setIsReorderMode(true)}
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
@@ -451,7 +453,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                             <OptimizedImagePreview
                               file={file.file}
                               alt="preview"
-                              className="absolute inset-0 w-full h-full object-cover"
+                              className="absolute inset-0 w-full h-full object-contain"
                             />
                             <Tooltip>
                               <TooltipTrigger asChild>

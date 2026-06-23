@@ -2,13 +2,15 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@radix-ui/react-dropdown-menu";
+import { Label } from "@/components/ui/label";
 import { X, Check, ArrowUp, FileText, Image as ImageIcon, Video, File as FileIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
 import { OptimizedImagePreview } from "./OptimizedPreview";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { detectIsPanoramaFromFile } from "../utils/panoramaUtils";
+import { Switch } from "@/components/ui/switch";
 
 /* ------------------------------------------------------------------ */
 /* CONSTANTS */
@@ -74,6 +76,8 @@ interface FileRowProps {
   onTabNext: (idx: number, value: string) => void;
   thumbnailFile?: File;
   onThumbnailChange?: (idx: number, file: File | undefined) => void;
+  isPanorama: boolean;
+  onIsPanoramaChange: (idx: number, isPanorama: boolean) => void;
 }
 
 const FileRow = React.memo(({
@@ -95,6 +99,8 @@ const FileRow = React.memo(({
   onTabNext,
   thumbnailFile,
   onThumbnailChange,
+  isPanorama,
+  onIsPanoramaChange,
 }: FileRowProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [focusedOptionIndex, setFocusedOptionIndex] = useState(-1);
@@ -113,8 +119,8 @@ const FileRow = React.memo(({
   return (
     <div className="flex gap-[10px] pr-[10px]">
       <div className="w-auto">
-        <div className="w-[200px] h-[130px] bg-gray-300 rounded-[6px] overflow-hidden relative">
-          <OptimizedImagePreview file={file} className="w-full h-full object-cover" />
+        <div className="w-[200px] h-[130px] bg-black rounded-[6px] overflow-hidden relative">
+          <OptimizedImagePreview file={file} className="w-full h-full object-contain" />
 
           <span
             className="flex items-center justify-center w-[28px] h-[28px] bg-white/90 hover:bg-white rounded-full absolute top-2 left-2 z-10 cursor-pointer shadow-md transition-all"
@@ -171,15 +177,30 @@ const FileRow = React.memo(({
       <div className="w-full flex flex-col gap-[10px]">
         <div className="flex justify-between items-center">
           <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
-          <div
-            onClick={() => onToggleComplimentary(idx)}
-            className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
-            title="Mark as Complimentary"
-          >
-            <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
-              {isComplimentary && <Check color="white" size={14} />}
+          <div className="flex items-center gap-4">
+            {file.type.startsWith('image/') && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor={`panorama-toggle-${idx}`} className="text-[13px] text-gray-500 cursor-pointer">
+                  Panorama
+                </Label>
+                <Switch
+                  id={`panorama-toggle-${idx}`}
+                  checked={isPanorama}
+                  onCheckedChange={(checked) => onIsPanoramaChange(idx, checked)}
+                  className="data-[state=unchecked]:bg-gray-300 data-[state=checked]:bg-[#4290E9] scale-75"
+                />
+              </div>
+            )}
+            <div
+              onClick={() => onToggleComplimentary(idx)}
+              className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+              title="Mark as Complimentary"
+            >
+              <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
+                {isComplimentary && <Check color="white" size={14} />}
+              </div>
+              <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
             </div>
-            <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
           </div>
         </div>
 
@@ -311,6 +332,7 @@ export default function FilePreviewModal({
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
   const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
   const [thumbnailFiles, setThumbnailFiles] = useState<{ [key: number]: File }>({});
+  const [isPanoramas, setIsPanoramas] = useState<{ [key: number]: boolean }>({});
   const [groupLabel, setGroupLabel] = useState("");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
@@ -361,6 +383,15 @@ export default function FilePreviewModal({
     setComplimentaryIndexes([]);
     setThumbnailFiles({});
     setGroupLabel("");
+
+    // Auto-detect panoramas on upload
+    files.forEach((file, idx) => {
+      detectIsPanoramaFromFile(file).then(isPanorama => {
+        if (isPanorama) {
+          setIsPanoramas(prev => ({ ...prev, [idx]: true }));
+        }
+      });
+    });
   }, [files, type]);
 
   const removeFile = useCallback((index: number) => {
@@ -402,6 +433,7 @@ export default function FilePreviewModal({
         sort_order: totalExistingForService + index,
         is_complimentary: complimentaryIndexes.includes(index),
         thumbnailFile: thumbnailFiles[index],
+        isPanorama: isPanoramas[index] || false,
       }));
 
       return [...prev, ...filesToAdd];
@@ -526,6 +558,8 @@ export default function FilePreviewModal({
                     setThumbnailFiles(newFiles);
                   }
                 }}
+                isPanorama={isPanoramas[idx] || false}
+                onIsPanoramaChange={(idx, val) => setIsPanoramas(prev => ({ ...prev, [idx]: val }))}
               />
             ))}
           </div>

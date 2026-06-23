@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Check, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Services } from '../../services/page';
@@ -37,7 +37,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setSelectionChangedUuids, setFilesData, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setSelectionChangedUuids, setFilesData, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -382,7 +382,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 className="h-auto relative group flex flex-col overflow-hidden"
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
-                <div className="relative w-full aspect-video overflow-hidden">
+                <div className="relative w-full aspect-video bg-black overflow-hidden">
                     {file.is_complimentary && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#DC9600] text-white text-[8px] sm:text-[10px] px-3 sm:px-4 py-0.5 rounded-b-xl font-medium z-[100] flex items-center justify-center shadow-md">
                             Complimentary
@@ -394,7 +394,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 file={file.file}
                                 alt="Video thumbnail"
                                 isRestricted={userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 onClick={() => {
                                     if (isHidingMode && file.uuid) {
                                         setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
@@ -517,7 +517,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         <img
                                             src={file.variant_urls?.thumb || file.thumbnail_url || ''}
                                             alt="Video thumbnail"
-                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                            className={`absolute inset-0 w-full h-full object-contain ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
                                     ) : (
                                         <video
@@ -525,7 +525,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                             preload="metadata"
                                             muted
                                             playsInline
-                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                            className={`absolute inset-0 w-full h-full object-contain ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
                                     )}
                                     <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
@@ -622,37 +622,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
                                 </div>
                             )}
-                            {userType !== 'agent' && (
-                                <span
-                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                    style={{
-                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_show: f.is_show === false ? true : false };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
-                                    }}
-                                >
-                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                </span>
-                            )}
+
                         </>
                     )}
                 </div>
@@ -803,14 +773,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const selectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (filesToHide.size > 0) {
-                        handleHideSubmit();
-                    } else {
-                        if (onShowHiddenMedia) onShowHiddenMedia();
-                    }
-                }}
+                asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
                 className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${
@@ -819,8 +782,46 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
                 }`}
             >
-                {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
+                <div onClick={(e) => {
+                    e.stopPropagation();
+                    if (isHiding) return;
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}>
+                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
+                </div>
+            </Button>
+        </div>
+    ) : null;
+
+    const adminSavedFilesAction = userType === 'admin' ? (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+                asChild
+                disabled={isHiding}
+                variant={filesToHide.size > 0 ? 'default' : 'outline'}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${
+                    filesToHide.size > 0 
+                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none' 
+                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                }`}
+            >
+                <div onClick={(e) => {
+                    e.stopPropagation();
+                    if (isHiding) return;
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}>
+                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}
+                </div>
             </Button>
         </div>
     ) : null;
@@ -910,7 +911,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
 
-                    {(userType === 'admin' || userType === 'agent') && (
+                    {(userType === 'agent') && (
                         <Button
                             onClick={() => {
                                 if (isHidingMode) {
@@ -928,48 +929,21 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             {isHidingMode ? 'Save' : 'Hide Media'}
                         </Button>
                     )}
-                    {!isHidingMode && userType === 'vendor' && (
-                        reviewFilesEnabled ? (
-                            <Button
-                                onClick={handleSubmitAdminApproval}
-                                disabled={isSubmitting}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
-                                }`}
-                            >
-                                {isSubmitting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : mediaUploaded ? (
-                                    <Check color="#fff" size={14} className="mr-2" />
-                                ) : null}
-                                {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={() => {
-                                    setFileManagerMode('upload');
-                                    setMediaUploaded(true);
-                                    setShowConfirmation(true);
-                                    if (onSave) onSave();
-                                }}
-                                disabled={isSaving}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'} flex justify-center items-center transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                }`}
-                                style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Submitting...
-                                    </>
-                                ) : mediaUploaded ? (
-                                    <Check color="#fff" size={14} />
-                                ) : (
-                                    'Submit to Client'
-                                )}
-                            </Button>
-                        )
+                    {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
+                        <Button
+                            onClick={handleSubmitAdminApproval}
+                            disabled={isSubmitting}
+                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                            }`}
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : mediaUploaded ? (
+                                <Check color="#fff" size={14} className="mr-2" />
+                            ) : null}
+                            {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                        </Button>
                     )}
                     <AgentNotificationModal
                         open={showConfirmation}
@@ -980,7 +954,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     {userType === 'agent' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
                             <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                     ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                 </p>
                                 <p className='text-[#7D7D7D] text-[10px] leading-none'>
@@ -1001,16 +975,14 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         </div>
                     ) : userType === 'admin' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
-                            {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                            <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                     ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                 </p>
-                                {gstRate ? (
-                                    <p className='text-[#7D7D7D] text-[9px] leading-none'>
-                                        incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
-                                    </p>
-                                ) : null}
-                            </div> */}
+                                <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Files`}
+                                </p>
+                            </div>
                             <Button
                                 onClick={() => {
                                     onOpenInvoice?.(currentService?.name);
@@ -1113,12 +1085,14 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         );
                     })()
                 ) : (
-                    <Button
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
-                    >
-                        Upgrade Plan
-                    </Button>
+                    userType !== 'vendor' && (
+                        <Button
+                            onClick={() => setOpenUpgrade(true)}
+                            className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                        >
+                            Upgrade Plan
+                        </Button>
+                    )
                 )}
             </div>
 
@@ -1143,8 +1117,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         renderItem={renderFileItem}
                         disabled={userType === 'agent'}
                         onSave={onSave}
-                        modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
+                        savedFilesAction={adminSavedFilesAction}
                         selectedAction={selectedAction}
+                        modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}
                     />
                 </div>
                 <PhotoPreviewModal

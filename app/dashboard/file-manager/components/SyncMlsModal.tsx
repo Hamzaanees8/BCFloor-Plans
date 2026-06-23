@@ -352,14 +352,14 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
           className={`relative bg-white rounded-lg overflow-hidden group select-none border-2 transition-all ${isReorderMode ? 'cursor-grab active:cursor-grabbing hover:border-[#BBBBBB]' : `cursor-pointer ${isSelected ? `${userType}-border shadow-md` : 'border-[#E4E4E4] hover:border-[#BBBBBB]'}`}`}
           onClick={() => { if (!isReorderMode) handleToggleFile(item.clientId); }}
         >
-          <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
+          <div className="relative w-full aspect-[4/3] overflow-hidden bg-black">
             {file.is_processing ? (
               <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                 <p className="text-gray-500 font-medium text-sm">Processing…</p>
               </div>
             ) : file.type === 'video' ? (
               <div className="relative w-full h-full">
-                <video src={file.url} className="w-full h-full object-cover" />
+                <video src={file.url} className="w-full h-full object-contain" />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                   <div className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
                     <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-white border-b-[5px] border-b-transparent ml-1" />
@@ -371,7 +371,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
               <img
                 src={imgSrc}
                 alt={file.name}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain"
                 draggable={false}
               />
             )}

@@ -42,6 +42,7 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { Loader2, X } from "lucide-react";
+import { resolveServicePrice } from "@/lib/pricingUtils";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -471,9 +472,14 @@ const FileManager = () => {
   const activeSlot = orderData?.slots?.find(
     (slot) => slot.service_id === activeService?.id
   );
-  const reviewFilesEnabled = Boolean(
-    activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files
-  );
+  
+  let rawReviewFiles;
+  if (userType === 'vendor') {
+    rawReviewFiles = currentUser?.review_files;
+  } else {
+    rawReviewFiles = activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files;
+  }
+  const reviewFilesEnabled = rawReviewFiles === true || rawReviewFiles === 1 || rawReviewFiles === "1" || rawReviewFiles === "true";
 
 
 
@@ -617,6 +623,24 @@ const FileManager = () => {
     const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
     const gstRate = parseFloat(primaryInvoice?.tax_rate || "0") / 100;
 
+    let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
+    if (currentBookedService) {
+        const squareFootage = orderData?.property?.square_footage ? parseFloat(orderData.property.square_footage.toString()) : 0;
+        const displayPrice = resolveServicePrice({
+            orderService: currentBookedService,
+            catalogService: activeService,
+            squareFootage,
+            invoices
+        });
+        currentBookedService = {
+            ...currentBookedService,
+            option: {
+                ...currentBookedService.option,
+                amount: displayPrice.toString()
+            }
+        };
+    }
+
     switch (category) {
       case "Video":
         return (
@@ -624,7 +648,7 @@ const FileManager = () => {
             <Video
               currentService={activeService}
               orderData={orderData}
-              currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+              currentBookedService={currentBookedService}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
               onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -643,7 +667,7 @@ const FileManager = () => {
             orderData={orderData}
             setOrderData={setOrderData}
             currentService={activeService}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -660,7 +684,7 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -677,7 +701,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -693,7 +717,7 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -710,7 +734,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -726,7 +750,7 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -743,7 +767,7 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
@@ -760,7 +784,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
-            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+            currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}

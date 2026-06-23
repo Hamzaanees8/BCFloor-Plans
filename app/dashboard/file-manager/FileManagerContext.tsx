@@ -15,9 +15,12 @@ export type SelectedFiles = {
     sort_order?: number;
     is_complimentary?: boolean;
     thumbnailFile?: File;
+    isPanorama?: boolean;
 };
 import { FeatureSheetResponse } from './types/featureSheetTypes';
 import { Area } from './file-manager';
+import { usePanoramaDetection } from './utils/panoramaUtils';
+
 type PreviewFile = {
     file: File;
     upload: boolean;
@@ -74,7 +77,7 @@ export type Files = {
         landing: string;
         popup: string;
     };
-
+    isPanorama?: boolean;
 }
 export type SnapShots = {
     id: number;
@@ -413,6 +416,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
 
     const [formData, setFormData] = useState<FormData>(initialFormData);
 
+    // Auto-detect panoramas for existing files
+    usePanoramaDetection(filesData?.files, setFilesData, process.env.NEXT_PUBLIC_API_URL);
 
     // Helper function for partial updates
     const updateFormData = useCallback((updates: Partial<FormData>) => {

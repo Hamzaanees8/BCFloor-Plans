@@ -145,7 +145,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                 </DialogHeader>
 
-                <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-gray-50 rounded-lg overflow-hidden">
+                <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-black rounded-lg overflow-hidden">
                     {type === 'video' ? (
                         <video
                             src={mediaUrl}

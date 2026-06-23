@@ -332,7 +332,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
         <img
           key={item.id}
           src={item.src}
-          className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-[2500ms] ${idx === currentIndex
+          className={`absolute top-0 left-0 w-full h-full object-contain bg-black transition-opacity duration-[2500ms] ${idx === currentIndex
             ? `opacity-100 z-20 animate-${getTransitionClass()}`
             : idx === lastIndex
               ? `opacity-100 z-10 animate-${getTransitionClass()}`

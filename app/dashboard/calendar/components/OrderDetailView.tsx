@@ -34,6 +34,7 @@ import WarningIcon from "@/components/Icons";
 import NotificationModal from "./NotificationModal";
 import { useAppContext } from "@/app/context/AppContext";
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
+import { useRouter } from "next/navigation";
 
 interface OrderDetailViewProps {
   open: boolean;
@@ -116,6 +117,7 @@ export default function OrderDetailView({
   agentData,
   refreshOrders,
 }: OrderDetailViewProps) {
+  const router = useRouter();
   const { userType } = useAppContext();
   const [activeTab, setActiveTab] = useState<
     "appointment" | "square_footage" | "history"
@@ -909,7 +911,10 @@ export default function OrderDetailView({
                 {!(userType === "agent" && activeTab === "square_footage") && (
                   <Button
                     onClick={() => {
-                      setIsEdit(true);
+                      onClose();
+                      if (currentOrder?.uuid) {
+                        router.push(`/dashboard/orders/create/${currentOrder.uuid}?isEdit=true`);
+                      }
                     }}
                     className={`${userType}-bg ${userType}-border border-[1px] text-[14px] flex justify-center items-center hover-${userType}-bg hover:opacity-95 text-[#fff]  w-[132px] h-[42px] hover:text-white`}
                   >

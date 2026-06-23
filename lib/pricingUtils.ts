@@ -202,3 +202,67 @@ export const computePerSqftPrice = (
   const calculated = squareFootage * rate;
   return minPrice && minPrice > 0 ? Math.max(calculated, minPrice) : calculated;
 };
+
+// ---------------------------------------------------------------------------
+// Unified Service Price Resolver
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves the display price for a booked service using the priority:
+ * 1. Invoice line item (most accurate — confirmed by server)
+ * 2. sq_ft_rate × squareFootage (catalog fallback)
+ * 3. option.amount (flat price fallback)
+ * 4. orderService.amount (raw backend value)
+ */
+export const resolveServicePrice = (params: {
+  orderService: any;
+  catalogService?: any;
+  squareFootage: number;
+  invoices?: any[];
+}): number => {
+  const { orderService, catalogService, squareFootage, invoices } = params;
+  if (!orderService) return 0;
+
+  // 1. Check invoices
+  if (invoices && invoices.length > 0) {
+    for (const invoice of invoices) {
+      if (invoice.items && invoice.items.length > 0) {
+        const item = invoice.items.find(
+          (i: any) =>
+            i.order_service_id === orderService.id ||
+            i.orderService?.id === orderService.id
+        );
+        if (item && item.unit_price) {
+          const qty = parseFloat(item.quantity) || 1;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          return qty * unitPrice;
+        }
+      }
+    }
+  }
+
+  // 2. Check sq ft calculation
+  const options = catalogService?.product_options || [];
+  if (squareFootage > 0 && options.length > 0) {
+    // Only apply sqft pricing if the booked option actually has a sq_ft_rate or matches one.
+    // Usually, the booked option itself has the sq_ft_rate.
+    const bookedOption = orderService.option;
+    if (bookedOption && bookedOption.sq_ft_rate && parseFloat(bookedOption.sq_ft_rate) > 0) {
+      const rate = parseFloat(bookedOption.sq_ft_rate);
+      const minPrice = parseFloat(bookedOption.min_price || '0');
+      return Math.max(rate * squareFootage, minPrice);
+    }
+  }
+
+  // 3. Flat price fallback from booked option
+  if (orderService.option && orderService.option.amount) {
+    return parseFloat(orderService.option.amount);
+  }
+
+  // 4. Raw amount fallback
+  if (orderService.amount) {
+    return parseFloat(orderService.amount);
+  }
+
+  return 0;
+};

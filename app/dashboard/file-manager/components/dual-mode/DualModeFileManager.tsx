@@ -24,6 +24,7 @@ interface DualModeFileManagerProps {
     unselectedSubHeader?: React.ReactNode;
     selectedAction?: React.ReactNode;
     selectedSubHeader?: React.ReactNode;
+    savedFilesAction?: React.ReactNode;
 }
 
 export function DualModeFileManager({
@@ -41,7 +42,8 @@ export function DualModeFileManager({
     unselectedAction,
     unselectedSubHeader,
     selectedAction,
-    selectedSubHeader
+    selectedSubHeader,
+    savedFilesAction
 }: DualModeFileManagerProps) {
     const { userType } = useAppContext();
     const { selectionChangedUuids, isSaving, imagesPerRow } = useFileManagerContext();
@@ -119,6 +121,7 @@ export function DualModeFileManager({
                                         {saveButton}
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {savedFilesAction && <div onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
                                         {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                     </div>
                                 </div>
@@ -303,6 +306,7 @@ export function DualModeFileManager({
                                     <div className="flex items-center flex-1 justify-between pr-4">
                                         <span>Saved Files ({savedItems.length})</span>
                                         <div className="flex items-center gap-2">
+                                            {savedFilesAction && <div onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
                                             {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                         </div>
                                     </div>

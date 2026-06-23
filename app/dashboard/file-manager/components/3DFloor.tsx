@@ -142,6 +142,16 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
 
     const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
+    const isPaid = bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID';
+    const canAgentView = userType !== 'agent' || isPaid;
+
+    const maskLink = (link: string) => {
+        if (!link) return '';
+        if (canAgentView) return link;
+        if (link.length <= 32) return link.substring(0, Math.floor(link.length / 2)) + '*'.repeat(Math.ceil(link.length / 2));
+        return link.substring(0, 32) + '*'.repeat(link.length - 32);
+    };
+
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);
@@ -358,38 +368,32 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {!isHidingMode && userType === 'vendor' && (
-                            reviewFilesEnabled ? (
-                                <Button
-                                    onClick={handleSubmitAdminApproval}
-                                    disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
-                                    }`}
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} className="mr-2" />
-                                    ) : null}
-                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
-                                </Button>
-                            ) : (
-                                <Button
-                                    onClick={() => {
-                                        setMediaUploaded(true);
-                                        setShowConfirmation(true);
-                                    }}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    }`}
-                                >
-                                    {mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'}
-                                </Button>
-                            )
+                        {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
+                            <Button
+                                onClick={handleSubmitAdminApproval}
+                                disabled={isSubmitting}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                }`}
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} className="mr-2" />
+                                ) : null}
+                                {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                            </Button>
                         )}
                         {userType === 'admin' && (
                             <div className='flex items-center gap-[10px] mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                    </p>
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Link`}
+                                    </p>
+                                </div>
                                 <Button
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name);
@@ -413,7 +417,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[10px] mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
                                     <p className='text-[#7D7D7D] text-[10px] leading-none'>
@@ -440,7 +444,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                             </div>
                         )}
-                        {userType !== 'agent' && (
+                        {userType !== 'agent' && userType !== 'vendor' && (
                             <Button
                                 onClick={() => setOpenUpgrade(true)}
                                 className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
@@ -520,7 +524,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => brandedApiUuid && toggleHideSelection(brandedApiUuid)} />
                                 <Input
                                     className={`w-full h-[42px] text-[#666666] pr-9 cursor-default select-text ${isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
-                                    value={brandedLink}
+                                    value={maskLink(brandedLink)}
                                     readOnly
                                     placeholder="No link available"
                                 />
@@ -529,7 +533,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                         <Check className="text-red-500" size={16} />
                                     </div>
                                 )}
-                                {brandedLink && (
+                                {brandedLink && canAgentView && (
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
                                         <button
                                             type="button"
@@ -603,7 +607,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => unbrandedApiUuid && toggleHideSelection(unbrandedApiUuid)} />
                                 <Input
                                     className={`w-full h-[42px] text-[#666] pr-9 cursor-default select-text ${isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
-                                    value={unbrandedLink}
+                                    value={maskLink(unbrandedLink)}
                                     readOnly
                                     placeholder="No link available"
                                 />
@@ -612,7 +616,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                         <Check className="text-red-500" size={16} />
                                     </div>
                                 )}
-                                {unbrandedLink && (
+                                {unbrandedLink && canAgentView && (
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
                                         <button
                                             type="button"
@@ -685,40 +689,32 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         </AccordionTrigger>
                         <AccordionContent>
                             <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
-                                {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
+                                {userType === 'agent' && !isPaid && (
                                     <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
                                         You have not paid for this service yet. Pay the service to visit/view Matterport.
                                     </div>
                                 )}
-                                {isValidUrl(brandedLink) && (
+                                {isValidUrl(brandedLink) && canAgentView && (
                                     <div className="relative w-[80%] h-[500px]">
                                         <iframe
                                             src={brandedLink}
                                             className="w-full h-full border"
                                             allowFullScreen
                                         ></iframe>
-                                        {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
-                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
-                                {isValidUrl(unbrandedLink) && (
+                                {isValidUrl(unbrandedLink) && canAgentView && (
                                     <div className="relative w-[80%] h-[500px]">
                                         <iframe
                                             src={unbrandedLink}
                                             className="w-full h-full border"
                                             allowFullScreen
                                         ></iframe>
-                                        {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
-                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
-                                {!isValidUrl(brandedLink) && !isValidUrl(unbrandedLink) && (
+                                {canAgentView && !isValidUrl(brandedLink) && !isValidUrl(unbrandedLink) && (
                                     <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
                                 )}
                             </div>

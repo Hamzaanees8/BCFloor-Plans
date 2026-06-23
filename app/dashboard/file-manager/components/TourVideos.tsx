@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { useFileManagerContext } from "../FileManagerContext";
-import { Check, X, PlayCircle } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview } from './OptimizedPreview';
 
 function TourVideos() {
     const { userType } = useAppContext();
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData } = useFileManagerContext();
+    const { selectedVideoFiles, filesData } = useFileManagerContext();
     const [mainVideo, setMainVideo] = useState<{src: string, poster?: string} | null>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -67,34 +67,16 @@ function TourVideos() {
                 <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                     {selectedVideoFiles.map((file, idx) => (
                         <div key={idx} onClick={() => setMainVideo({src: URL.createObjectURL(file.file)})} className=" h-auto relative">
-                            <div className="relative w-full h-[240px] cursor-pointer overflow-hidden">
+                            <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
                                 <OptimizedImagePreview
                                     file={file.file}
                                     alt="Video thumbnail"
-                                    className="absolute inset-0 w-full h-full object-cover"
+                                    className="absolute inset-0 w-full h-full object-contain"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
                                 </div>
-                                <span
-                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                                    style={{
-                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                        backgroundColor: `${file.upload ? "#6BAE41" : "#E06D5E"}`,
-                                    }}
-                                    onClick={() => {
-                                        setSelectedVideoFiles(prev =>
-                                            prev.flatMap(f => {
-                                                if (f.file === file.file && f.service_id === file.service_id) {
-                                                    return f.upload ? [{ ...f, upload: false }] : [];
-                                                }
-                                                return [f];
-                                            })
-                                        );
-                                    }}
-                                >
-                                    {file.upload ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                </span>
+
                             </div>
 
                         </div>
@@ -102,7 +84,7 @@ function TourVideos() {
 
                     {currentServiceFiles?.map((file, idx) => (
                         <div key={idx} className=" h-auto relative">
-                            <div className="relative w-full h-[240px] cursor-pointer">
+                            <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
                                 {file.is_processing ? (
                                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                         <p className="text-gray-500 font-medium text-sm">Processing...</p>
@@ -115,7 +97,7 @@ function TourVideos() {
                                                 <img
                                                     src={file.variant_urls.thumb}
                                                     alt="Video thumbnail"
-                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                    className="absolute inset-0 w-full h-full object-contain"
                                                 />
                                             ) : (
                                                 <video
@@ -123,32 +105,14 @@ function TourVideos() {
                                                     preload="metadata"
                                                     muted
                                                     playsInline
-                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                    className="absolute inset-0 w-full h-full object-contain"
                                                 />
                                             )}
                                         </div>
                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                             <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
                                         </div>
-                                        <span
-                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                                            style={{
-                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                backgroundColor: "#6BAE41"
-                                            }}
-                                        // onClick={() => {
-                                        //     setSelectedVideoFiles(prev =>
-                                        //         prev.flatMap(f => {
-                                        //             if (f.file === file.file && f.service_id === file.service_id) {
-                                        //                 return f.upload ? [{ ...f, upload: false }] : [];
-                                        //             }
-                                        //             return [f];
-                                        //         })
-                                        //     );
-                                        // }}
-                                        >
-                                            <Check color="#fff" size={14} />
-                                        </span>
+
                                     </>
                                 )}
                             </div>

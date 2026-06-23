@@ -284,7 +284,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                   )}
                 </div>
 
-                <div className="relative w-[140px] h-[85px] shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                <div className="relative w-[140px] h-[85px] shrink-0 bg-black rounded-md overflow-hidden">
                   {file.is_processing ? (
                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                       <p className="text-gray-500 font-medium text-xs">Processing...</p>
@@ -294,12 +294,12 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                     <img
                       src={file.isLocal ? file.url : (file.thumbnail_url || file.variant_urls?.thumb || file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
                       alt={file.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   ) : file.type === 'video' ? (
                     <video
                       src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">

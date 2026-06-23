@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered } from 'lucide-react';
+import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,9 @@ import { useS3Upload } from '@/hooks/useS3Upload';
 import { UploadProgressOverlay } from './UploadProgressOverlay';
 import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
+import { PanoramaBadge } from './PanoramaBadge';
+import { PanoramaViewer } from './PanoramaViewer';
+import { isPanoramaFile } from '../utils/panoramaUtils';
 import { api } from '@/lib/api';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
@@ -48,7 +51,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -57,6 +60,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
+    const [isHiding, setIsHiding] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -74,6 +78,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
     const [isBulkDeselecting, setIsBulkDeselecting] = useState<boolean>(false);
     const [bulkDeselectedIds, setBulkDeselectedIds] = useState<Set<string>>(new Set());
+    const [panoramaViewerOpen, setPanoramaViewerOpen] = useState(false);
+    const [panoramaInitialIndex, setPanoramaInitialIndex] = useState(0);
 
     const handleSubmitAdminApproval = async () => {
         setIsSubmitting(true);
@@ -81,7 +87,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             const token = localStorage.getItem("token") || "";
             const vendor = orderData?.vendor;
             const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
-            
+
             await api.post(`/notifications`, {
                 source: 'order',
                 source_id: orderData?.uuid || "",
@@ -410,12 +416,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 className={`h-[auto] relative group flex flex-col overflow-hidden ${isShrinking ? 'animate-card-select-shrink' : ''}`}
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
-                <div className="relative w-full aspect-[4/3] overflow-hidden">
+                <div className="relative w-full aspect-video bg-black overflow-hidden">
                     {file.is_complimentary && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#DC9600] text-white text-[8px] sm:text-[10px] px-3 sm:px-4 py-0.5 rounded-b-xl font-medium z-[100] flex items-center justify-center shadow-md">
                             Complimentary
                         </div>
                     )}
+                    {isPanoramaFile(file) && <PanoramaBadge />}
                     {isLocal ? (
                         <>
                             <OptimizedImagePreview
@@ -431,7 +438,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 }}
                                 alt="preview"
                                 isRestricted={userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
                             <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-[20] pointer-events-none">
@@ -477,20 +484,27 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </Button>
                                 </div>
                             )}
-                            <span
-                                className="cursor-pointer absolute top-2 left-2 z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const fileKey = `${file.file.name}-${file.file.size}`;
-                                    handleToggleFeatured(fileKey, file.is_featured || false);
-                                }}
-                            >
-                                {file.is_featured ? (
-                                    <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                                ) : (
-                                    <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
-                                )}
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className="cursor-pointer absolute top-2 left-2 z-10"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const fileKey = `${file.file.name}-${file.file.size}`;
+                                            handleToggleFeatured(fileKey, file.is_featured || false);
+                                        }}
+                                    >
+                                        {file.is_featured ? (
+                                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                        ) : (
+                                            <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                        )}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
+                                </TooltipContent>
+                            </Tooltip>
                             {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
@@ -590,7 +604,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         }
                                     }}
                                     alt="preview"
-                                    className={`absolute inset-0 w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                     draggable={false}
                                 />
                             )}
@@ -598,6 +612,29 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
+                            )}
+                            {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesToHide(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(file.uuid)) next.delete(file.uuid);
+                                                    else next.add(file.uuid);
+                                                    return next;
+                                                });
+                                            }}
+                                        >
+                                            {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{filesToHide.has(file.uuid) ? "Show Media" : "Hide Media"}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                             {isBulkSelecting && file.uuid && !file.is_agent_approved && bulkSelectedIds.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
                                 <div className="absolute inset-0 bg-black/30 z-[25] flex flex-col items-center justify-center pointer-events-none">
@@ -613,45 +650,52 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </div>
                                 </div>
                             )}
-                            <span
-                                className="cursor-pointer absolute top-2 left-2 z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFilesData(prev => {
-                                        if (!prev) return prev;
-                                        return {
-                                            ...prev,
-                                            files: prev.files.map(f => {
-                                                if (f.uuid === file.uuid) {
-                                                    setChangedFileUuids(prevSet => {
-                                                        const newSet = new Set(prevSet);
-                                                        newSet.add(f.uuid);
-                                                        return newSet;
-                                                    });
-                                                    return { ...f, is_featured: !f.is_featured };
-                                                }
-                                                if (f.service?.uuid === currentService?.uuid) {
-                                                    if (f.is_featured) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                    }
-                                                    return { ...f, is_featured: false };
-                                                }
-                                                return f;
-                                            })
-                                        };
-                                    });
-                                }}
-                            >
-                                {file.is_featured ? (
-                                    <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                                ) : (
-                                    <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
-                                )}
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className="cursor-pointer absolute top-2 left-2 z-10"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFilesData(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                    ...prev,
+                                                    files: prev.files.map(f => {
+                                                        if (f.uuid === file.uuid) {
+                                                            setChangedFileUuids(prevSet => {
+                                                                const newSet = new Set(prevSet);
+                                                                newSet.add(f.uuid);
+                                                                return newSet;
+                                                            });
+                                                            return { ...f, is_featured: !f.is_featured };
+                                                        }
+                                                        if (f.service?.uuid === currentService?.uuid) {
+                                                            if (f.is_featured) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                            }
+                                                            return { ...f, is_featured: false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                };
+                                            });
+                                        }}
+                                    >
+                                        {file.is_featured ? (
+                                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                        ) : (
+                                            <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                        )}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
+                                </TooltipContent>
+                            </Tooltip>
                             {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
@@ -784,44 +828,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
                                 </div>
                             )}
-                            {userType !== 'agent' && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span
-                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                            style={{
-                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setFilesData(prev => {
-                                                    if (!prev) return prev;
-                                                    return {
-                                                        ...prev,
-                                                        files: prev.files.map(f => {
-                                                            if (f.uuid === file.uuid) {
-                                                                setChangedFileUuids(prevSet => {
-                                                                    const newSet = new Set(prevSet);
-                                                                    newSet.add(f.uuid);
-                                                                    return newSet;
-                                                                });
-                                                                return { ...f, is_show: f.is_show === false ? true : false };
-                                                            }
-                                                            return f;
-                                                        })
-                                                    };
-                                                });
-                                            }}
-                                        >
-                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" align="start" className="mt-2 mr-2">
-                                        {file.is_show !== false ? "Hide from agent" : "Make visible to agent"}
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
+
                         </>
                     )}
                 </div>
@@ -879,6 +886,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds]);
 
 
@@ -888,13 +896,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         setSuccess(true);
     };
 
-    const handleSubmitToClient = async () => {
-        setFileManagerMode('upload');
-        setMediaUploaded(true);
-        if (onSave) {
-            onSave();
-        }
-    };
 
 
     const handledownloadFile = async (fileUuid: string, fileName: string) => {
@@ -952,9 +953,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
 
     const handleImageClick = (url: string | File, file: SelectedFiles | Files) => {
-        setSelectedImageUrl(url);
-        setEditingFile(file);
-        setImagePopupOpen(true);
+        if (isPanoramaFile(file)) {
+            const panoramas = (currentServiceFiles || []).filter(isPanoramaFile);
+            const index = panoramas.findIndex(f => {
+                if ('uuid' in f && 'uuid' in file && f.uuid) return f.uuid === file.uuid;
+                if ('file' in f && 'file' in file && f.file) return f.file === file.file;
+                return false;
+            });
+            setPanoramaInitialIndex(index >= 0 ? index : 0);
+            setPanoramaViewerOpen(true);
+        } else {
+            setSelectedImageUrl(url);
+            setEditingFile(file);
+            setImagePopupOpen(true);
+        }
     };
 
     const handleHideSubmit = async () => {
@@ -969,6 +981,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             return;
         }
 
+        setIsHiding(true);
         try {
             await HideMediaFiles(token, Array.from(filesToHide), true);
             toast.success("Media hidden successfully");
@@ -983,6 +996,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             });
         } catch (error: any) {
             toast.error(error.message || "Failed to hide media");
+        } finally {
+            setIsHiding(false);
         }
     };
 
@@ -1073,27 +1088,27 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const unselectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {!isBulkSelecting ? (
-                <Button 
-                    onClick={() => setIsBulkSelecting(true)} 
-                    variant="outline" 
+                <Button
+                    onClick={() => setIsBulkSelecting(true)}
+                    variant="outline"
                     className="h-8 px-4 text-sm font-medium border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white"
                 >
                     Bulk Select
                 </Button>
             ) : (
                 <div className="flex items-center gap-2">
-                    <Button 
+                    <Button
                         onClick={() => {
                             setIsBulkSelecting(false);
                             setBulkSelectedIds(new Set());
                         }}
-                        variant="ghost" 
+                        variant="ghost"
                         className="h-8 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleBulkDone} 
+                    <Button
+                        onClick={handleBulkDone}
                         className="h-8 px-4 text-sm font-medium bg-[#6BAE41] hover:bg-[#5fa43a] text-white"
                     >
                         Done ({bulkSelectedIds.size})
@@ -1107,15 +1122,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         <div className="w-full flex justify-between items-center mb-4 bg-gray-50 p-2 rounded border border-gray-200">
             <span className="text-sm text-gray-600 font-medium px-2">Select multiple media files to add them at once.</span>
             <div className="flex gap-2">
-                <Button 
-                    variant="ghost" 
+                <Button
+                    variant="ghost"
                     onClick={() => setBulkSelectedIds(new Set())}
                     className="h-8 text-sm text-gray-600 hover:text-gray-900"
                 >
                     Clear Selection
                 </Button>
-                <Button 
-                    onClick={handleSelectAll} 
+                <Button
+                    onClick={handleSelectAll}
                     className="h-8 px-4 text-sm font-medium bg-[#4290E9] hover:bg-[#327ac9] text-white"
                 >
                     Select All
@@ -1126,28 +1141,50 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
     const selectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+                asChild
+                disabled={isHiding}
+                variant={filesToHide.size > 0 ? 'default' : 'outline'}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
+                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                    }`}
+            >
+                <div onClick={(e) => {
+                    e.stopPropagation();
+                    if (isHiding) return;
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}>
+                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
+                </div>
+            </Button>
             {!isBulkDeselecting ? (
-                <Button 
-                    onClick={() => setIsBulkDeselecting(true)} 
-                    variant="outline" 
+                <Button
+                    onClick={() => setIsBulkDeselecting(true)}
+                    variant="outline"
                     className="h-8 px-4 text-sm font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#E06D5E] hover:text-white"
                 >
                     Bulk Remove
                 </Button>
             ) : (
                 <div className="flex items-center gap-2">
-                    <Button 
+                    <Button
                         onClick={() => {
                             setIsBulkDeselecting(false);
                             setBulkDeselectedIds(new Set());
                         }}
-                        variant="ghost" 
+                        variant="ghost"
                         className="h-8 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleBulkDeselectDone} 
+                    <Button
+                        onClick={handleBulkDeselectDone}
                         className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#c45a4d] text-white"
                     >
                         Done ({bulkDeselectedIds.size})
@@ -1157,19 +1194,46 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         </div>
     ) : null;
 
+    const adminSavedFilesAction = userType === 'admin' ? (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+                asChild
+                disabled={isHiding}
+                variant={filesToHide.size > 0 ? 'default' : 'outline'}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
+                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                    }`}
+            >
+                <div onClick={(e) => {
+                    e.stopPropagation();
+                    if (isHiding) return;
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}>
+                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}
+                </div>
+            </Button>
+        </div>
+    ) : null;
+
     const selectedSubHeader = isBulkDeselecting && userType === 'agent' ? (
         <div className="w-full flex justify-between items-center mb-4 bg-gray-50 p-2 rounded border border-gray-200">
             <span className="text-sm text-gray-600 font-medium px-2">Select multiple media files to remove them at once.</span>
             <div className="flex gap-2">
-                <Button 
-                    variant="ghost" 
+                <Button
+                    variant="ghost"
                     onClick={() => setBulkDeselectedIds(new Set())}
                     className="h-8 text-sm text-gray-600 hover:text-gray-900"
                 >
                     Clear Selection
                 </Button>
-                <Button 
-                    onClick={handleDeselectAll} 
+                <Button
+                    onClick={handleDeselectAll}
                     className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#c45a4d] text-white"
                 >
                     Select All
@@ -1198,7 +1262,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             <img
                                 src={clone.src}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 draggable={false}
                             />
                         </div>
@@ -1207,12 +1271,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 document.body
             )}            {!isListing && (
                 <div
-                    className={`w-full flex justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 ${
-                      isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
-                    }`}
+                    className={`w-full flex justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 ${isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                        }`}
                     style={{
-                      backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
-                      top: isScrolled ? `${stickyOffset}px` : "auto"
+                        backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                        top: isScrolled ? `${stickyOffset}px` : "auto"
                     }}
                 >
                     <div>
@@ -1220,18 +1283,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
-                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    }`}
+                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        }`}
                                 >
                                     Add File
                                 </Button>
                                 {userType === 'admin' && (
                                     <Button
                                         onClick={() => setShowDownloadModal(true)}
-                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
-                                            isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                        }`}
+                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                            }`}
                                     >
                                         Download Files
                                     </Button>
@@ -1253,9 +1314,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }}
                                     title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download Files
                                 </Button>
                             </div>
@@ -1272,7 +1332,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'admin' || userType === 'agent') && (
+                        {(userType === 'agent') && (
                             <Button
                                 onClick={() => {
                                     if (isHidingMode) {
@@ -1283,61 +1343,37 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }
                                 }}
                                 variant={isHidingMode ? 'default' : 'outline'}
-                                className={`flex justify-center items-center transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
-                                } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
+                                className={`flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
+                                    } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
                             >
                                 {isHidingMode ? 'Save' : 'Hide Media'}
                             </Button>
                         )}
-                        {!isHidingMode && userType === 'vendor' && (
-                            reviewFilesEnabled ? (
-                                <Button
-                                    onClick={handleSubmitAdminApproval}
-                                    disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                        {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
+                            <Button
+                                onClick={handleSubmitAdminApproval}
+                                disabled={isSubmitting}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
                                     }`}
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} className="mr-2" />
-                                    ) : null}
-                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
-                                </Button>
-                            ) : (
-                                <Button
-                                    onClick={() => {
-                                        setShowConfirmation(true);
-                                        handleSubmitToClient();
-                                    }}
-                                    disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    }`}
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} className="mr-2" />
-                                    ) : null}
-                                    {mediaUploaded ? 'Submitted' : 'Send for Approval'}
-                                </Button>
-                            )
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} className="mr-2" />
+                                ) : null}
+                                {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                            </Button>
                         )}
-                    {userType === 'admin' && (
-                            <div className='flex items-center gap-[10px]'>
-                                {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                        {userType === 'admin' && (
+                            <div className='flex items-center gap-[10px] mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
-                                    {gstRate ? (
-                                        <p className='text-[#7D7D7D] text-[9px] leading-none'>
-                                            incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
-                                        </p>
-                                    ) : null}
-                                </div> */}
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Photos`}
+                                    </p>
+                                </div>
                                 <Button
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name);
@@ -1360,7 +1396,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[10px] mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
                                     <p className='text-[#7D7D7D] text-[10px] leading-none'>
@@ -1544,12 +1580,14 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </span>
                             <span className="text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
                         </div>
-                        <Button
-                            onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
-                        >
-                            Upgrade photo package
-                        </Button>
+                        {userType !== 'vendor' && (
+                            <Button
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                            >
+                                Upgrade photo package
+                            </Button>
+                        )}
                     </div>
                 </div>
             )}
@@ -1565,6 +1603,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     reviewFilesEnabled={reviewFilesEnabled}
                     onSave={onSave}
                 />
+            {panoramaViewerOpen && (
+                <PanoramaViewer
+                    files={(currentServiceFiles || []).filter(isPanoramaFile)}
+                    initialIndex={panoramaInitialIndex}
+                    onClose={() => setPanoramaViewerOpen(false)}
+                />
+            )}
 
                 <div className="flex flex-col items-center justify-center">
                     {userType === 'vendor' && reviewFilesEnabled && (
@@ -1584,6 +1629,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         renderItem={renderFileItem}
                         disabled={userType === 'agent'}
                         onSave={onSave}
+                        savedFilesAction={adminSavedFilesAction}
                         modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
                         unselectedAction={unselectedAction}
                         unselectedSubHeader={unselectedSubHeader}

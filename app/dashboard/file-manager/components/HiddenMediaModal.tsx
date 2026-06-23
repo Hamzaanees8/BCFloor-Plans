@@ -176,7 +176,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                                             isSelected ? `ring-2 ring-offset-1 ${userType === 'agent' ? 'ring-[#DC9600]' : 'ring-[#6BAE41]'}` : ''
                                         }`}
                                         onClick={() => toggleSelection(file.uuid)}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        style={{ backgroundColor: 'black' }}
                                     >
                                         <div className="absolute inset-0">
                                             {file.type === 'video' ? (
@@ -186,7 +186,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                                                             src={file.variant_urls.thumb} 
                                                             alt={file.name} 
                                                             fill 
-                                                            className={`object-cover transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
+                                                            className={`object-contain transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -219,7 +219,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                                                     src={file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')} 
                                                     alt={file.name} 
                                                     fill 
-                                                    className={`object-cover transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
+                                                    className={`object-contain transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
                                                 />
                                             )}
                                         </div>
