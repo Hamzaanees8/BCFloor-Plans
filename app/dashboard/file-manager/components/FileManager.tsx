@@ -1483,8 +1483,8 @@ const FileManager = () => {
             </div>
           )}
         </div>
-        <div className="flex items-center justify-center w-full">
-          <div className="flex items-center gap-x-6">
+        <div className="flex items-center justify-start md:justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none py-2 px-4">
+          <div className="flex items-center gap-x-3 md:gap-x-6 shrink-0">
             <div
               key="download"
               onClick={() => {
@@ -1493,7 +1493,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "download"
                   ? `bg-[#DC9600] text-white border-[#DC9600]`
                   : `text-[#DC9600] border-[#DC9600]`
@@ -1520,7 +1520,7 @@ const FileManager = () => {
                     params.set("serviceId", serviceUuid);
                     router.replace(`?${params.toString()}`);
                   }}
-                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
                     } ${isActive
                       ? `${userType}-bg text-white ${userType}-border`
                       : `${userType}-text ${userType}-border`
@@ -1544,7 +1544,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "tour"
                   ? `${userType}-bg text-white ${userType}-border`
                   : `${userType}-text  ${userType}-border`
@@ -1566,7 +1566,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "CreateFeatureSheet"
                   ? `${userType}-bg text-white ${userType}-border`
                   : `${userType}-text  ${userType}-border`

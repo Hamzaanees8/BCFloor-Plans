@@ -62,7 +62,17 @@ export function SortableItem({ id, item, disabled, renderItem }: { id: string; i
 
 export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }: SortableGridProps) {
     const { imagesPerRow: contextImagesPerRow } = useFileManagerContext();
-    const imagesPerRow = columns ?? contextImagesPerRow;
+    const [isMobile, setIsMobile] = React.useState(false);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    const imagesPerRow = isMobile ? 2 : (columns ?? contextImagesPerRow);
     const [activeId, setActiveId] = React.useState<string | null>(null);
 
     const sensors = useSensors(

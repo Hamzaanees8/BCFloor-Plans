@@ -169,9 +169,9 @@ export function DualModeFileManager({
                     </Accordion>
                 ) : userType === 'agent' ? (
                     // Agent: Left-right (selected | unselected) side-by-side layout
-                    <div className="flex flex-row gap-5 w-full">
+                    <div className="flex flex-col md:flex-row gap-5 w-full">
                         {/* Left Column - Unselected */}
-                        <div className="flex-1 flex flex-col gap-4">
+                        <div className="flex-1 flex flex-col gap-4 w-full">
                             <Accordion type="multiple" defaultValue={["unsaved", "saved"]} className="w-full">
                                 {unsavedItems.length > 0 && (
                                     <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
@@ -226,15 +226,21 @@ export function DualModeFileManager({
                         </div>
 
                         {/* Divider with Arrows */}
-                        <div className="flex flex-col items-center justify-center relative min-w-[40px]">
+                        <div className="flex md:hidden flex-col items-center justify-center relative min-w-full py-4">
+                            <div className="absolute inset-x-0 h-0 border-b-2 border-dashed border-gray-300" />
+                            <div className="relative z-10 flex items-center justify-center py-2 px-2" style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}>
+                                <ArrowLeftRight className={`${userType}-text rotate-90`} size={24} strokeWidth={2.5} />
+                            </div>
+                        </div>
+                        <div className="hidden md:flex flex-col items-center justify-center relative min-w-[40px]">
                             <div className="absolute inset-y-0 w-0 border-r-2 border-dashed border-gray-300" />
-                            <div className="relative z-10 flex items-center justify-center px-2">
+                            <div className="relative z-10 flex items-center justify-center px-2 py-2" style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}>
                                 <ArrowLeftRight className={`${userType}-text`} size={24} strokeWidth={2.5} />
                             </div>
                         </div>
 
                         {/* Right Column - Selected */}
-                        <div className="flex-1 flex flex-col gap-4">
+                        <div className="flex-1 flex flex-col gap-4 w-full">
                             <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
                                 <AccordionItem value="selected" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger

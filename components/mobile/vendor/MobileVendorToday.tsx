@@ -81,6 +81,59 @@ export default function MobileVendorToday() {
   const [refreshing, setRefreshing] = useState(false);
 
   const today = getTodayString();
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+  });
+
+  const getWeekDays = (start: Date) => {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      days.push({
+        dateStr: `${yyyy}-${mm}-${dd}`,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNum: d.getDate(),
+      });
+    }
+    return days;
+  };
+
+  const handlePrevWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(prev.getDate() - 7);
+      return d;
+    });
+  };
+
+  const handleNextWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(prev.getDate() + 7);
+      return d;
+    });
+  };
+
+  const handleGoToToday = () => {
+    const todayStr = getTodayString();
+    setSelectedDate(todayStr);
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    setWeekStart(new Date(d.setDate(diff)));
+  };
+
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -125,7 +178,7 @@ export default function MobileVendorToday() {
     return items;
   };
 
-  const todaySlots = buildSlotList((date) => date === today);
+  const todaySlots = buildSlotList((date) => date === selectedDate);
 
   // Next 7 days (excluding today)
   const upcomingSlots = buildSlotList((date) => {
@@ -325,8 +378,8 @@ export default function MobileVendorToday() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[20px] font-semibold text-gray-900">Today&apos;s Schedule</h1>
-          <p className="text-[13px] text-gray-500 mt-0.5">{formatDateHeader(today)}</p>
+          <h1 className="text-[20px] font-semibold text-gray-900">Schedule</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">{formatDateHeader(selectedDate)}</p>
         </div>
         <Button
           variant="ghost"
@@ -339,30 +392,92 @@ export default function MobileVendorToday() {
         </Button>
       </div>
 
-      {/* Today's appointments */}
-      {todaySlots.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-            <Calendar className="w-8 h-8 text-gray-400" />
+      {/* Week strip picker */}
+      <div className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={handlePrevWeek}
+              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
+            >
+              ◀
+            </button>
+            <span className="text-xs font-bold text-gray-700 min-w-[100px] text-center">
+              {formatMonthYear(weekStart)}
+            </span>
+            <button 
+              onClick={handleNextWeek}
+              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
+            >
+              ▶
+            </button>
           </div>
-          <p className="text-[15px] font-medium text-gray-600">No appointments today</p>
-          <p className="text-[12px] text-gray-400 mt-1">Enjoy your day off!</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleGoToToday}
+            className="h-7 text-[11px] px-2"
+          >
+            Today
+          </Button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {todaySlots.map((item) => renderAppointmentCard(item))}
+
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {getWeekDays(weekStart).map((day) => {
+            const isSelected = day.dateStr === selectedDate;
+            const isTodayDate = day.dateStr === today;
+            const activeColor = appliedSettings?.vendor?.pageTabColor || '#DC9600';
+            
+            return (
+              <div 
+                key={day.dateStr}
+                onClick={() => setSelectedDate(day.dateStr)}
+                className={`py-1.5 rounded-lg cursor-pointer transition-all border ${
+                  isSelected 
+                    ? 'text-white font-bold shadow-sm' 
+                    : isTodayDate
+                      ? 'bg-amber-50 text-[#DC9600] border-amber-250 font-semibold'
+                      : 'border-transparent hover:bg-gray-50 text-gray-600'
+                }`}
+                style={{
+                  backgroundColor: isSelected ? activeColor : '',
+                  borderColor: isSelected ? activeColor : isTodayDate ? '#F59E0B' : 'transparent',
+                }}
+              >
+                <div className="text-[9px] uppercase opacity-75">{day.dayName.slice(0, 1)}</div>
+                <div className="text-xs font-semibold mt-0.5">{day.dayNum}</div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
+
+      {/* Appointments on selected date */}
+      <div>
+        <h2 className="text-[14px] font-bold text-gray-700 mb-3 flex items-center gap-1.5">
+          <Calendar className="w-4 h-4 text-gray-400" />
+          Appointments ({todaySlots.length})
+        </h2>
+        {todaySlots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center bg-gray-50/50 rounded-xl border border-dashed">
+            <p className="text-[13px] font-medium text-gray-500">No appointments scheduled for this day</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {todaySlots.map((item) => renderAppointmentCard(item))}
+          </div>
+        )}
+      </div>
 
       {/* Upcoming 7 days */}
       {Object.keys(upcomingByDate).length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-[16px] font-semibold text-gray-800 border-b border-gray-200 pb-2">
-            Upcoming 7 Days
+        <div className="space-y-4 pt-2">
+          <h2 className="text-[14px] font-bold text-gray-700 border-b border-gray-200 pb-2">
+            Upcoming Bookings (Next 7 Days)
           </h2>
           {Object.entries(upcomingByDate).map(([date, items]) => (
-            <div key={date} className="space-y-3">
-              <h3 className="text-[13px] font-medium text-[#DC9600]">{formatDateHeader(date)}</h3>
+            <div key={date} className="space-y-2">
+              <h3 className="text-[12px] font-bold text-[#DC9600]">{formatDateHeader(date)}</h3>
               {items.map((item) => renderAppointmentCard(item))}
             </div>
           ))}

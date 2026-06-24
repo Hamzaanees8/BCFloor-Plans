@@ -22,6 +22,9 @@ import {
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function VendorInvoicesListPage() {
     const router = useRouter();
@@ -42,6 +45,8 @@ export default function VendorInvoicesListPage() {
     // View state
     const [viewingInvoice, setViewingInvoice] = useState<VendorInvoice | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -152,7 +157,7 @@ export default function VendorInvoicesListPage() {
                 </Button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
 
                 <div className="flex items-center gap-1 border-b pb-px">
                     <button
@@ -196,6 +201,7 @@ export default function VendorInvoicesListPage() {
                     roleSettings={roleSettings}
                     headerBg={headerBg}
                     userType={userType}
+                    isMobile={isMobile}
                 />
 
                 {editingInvoice && (
@@ -221,7 +227,101 @@ export default function VendorInvoicesListPage() {
     );
 }
 
-function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, roleSettings, headerBg, userType }: any) {
+function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, roleSettings, headerBg, userType, isMobile }: any) {
+    if (loading) {
+        return (
+            <div className="space-y-3">
+                <Skeleton className="h-[120px] w-full" />
+                <Skeleton className="h-[120px] w-full" />
+                <Skeleton className="h-[120px] w-full" />
+            </div>
+        );
+    }
+
+    if (isMobile) {
+        return (
+            <div className="space-y-4">
+                {invoices.length === 0 ? (
+                    <div className="text-center py-10 text-muted-foreground text-sm font-medium">
+                        No Invoices found.
+                    </div>
+                ) : (
+                    invoices.map((invoice: VendorInvoice) => {
+                        const status = invoice.status || "draft";
+                        let bgColor = "#E06D5E"; // cancelled
+                        if (status === "paid") bgColor = "#6BAE41";
+                        else if (status === "draft") bgColor = "#F5A623";
+
+                        const company = invoice.vendor?.company_name;
+                        const name = `${invoice.vendor?.first_name || ""} ${invoice.vendor?.last_name || ""}`.trim();
+                        const displayVendor = company || name || "—";
+
+                        return (
+                            <Card key={invoice.uuid} className="overflow-hidden border border-gray-100 shadow-sm">
+                                <CardContent className="p-4 space-y-4">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
+                                                #{invoice.invoice_number}
+                                            </h3>
+                                            <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                                {displayVendor}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400 mt-1">
+                                                {new Date(invoice.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[14px] font-bold text-gray-800">${Number(invoice.total_amount).toFixed(2)}</p>
+                                            <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
+                                                {status.toUpperCase()}
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-3 border-t border-gray-100">
+                                        {invoice.status === 'draft' && onPay && (
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                className="flex-1 h-9 text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-none"
+                                                onClick={() => onPay(invoice.uuid)}
+                                                disabled={paying === invoice.uuid}
+                                            >
+                                                {paying === invoice.uuid ? "Paying..." : "Pay"}
+                                                <CreditCard className="h-3.5 w-3.5" />
+                                            </Button>
+                                        )}
+                                        {invoice.status === 'draft' && onEdit && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 h-9 text-xs gap-1.5"
+                                                onClick={() => onEdit(invoice)}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                                Edit
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 h-9 text-xs gap-1.5"
+                                            onClick={() => onView(invoice)}
+                                        >
+                                            <Eye className="h-3.5 w-3.5" />
+                                            Details
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })
+                )}
+            </div>
+        );
+    }
+
     const columns: ColumnDef<VendorInvoice>[] = [
         {
             accessorKey: "invoice_number",
@@ -368,15 +468,15 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-4">
-                    <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[850px] p-4 sm:p-6">
+                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3 pr-8">
+                    <DialogTitle className="text-base sm:text-xl font-bold text-left" style={{ color: roleSettings.pageTabColor }}>
                         Invoice Details: {invoice.invoice_number}
                     </DialogTitle>
                     <Button
                         variant="outline"
                         size="sm"
-                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none"
+                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none w-full sm:w-auto justify-center shrink-0"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                         onClick={handleDownload}
                     >
@@ -536,16 +636,16 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
 
     return (
         <Dialog open={isOpen} onOpenChange={saving ? undefined : onClose}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-4">
-                    <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[90vw] p-4 sm:p-6">
+                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3 pr-8">
+                    <DialogTitle className="text-base sm:text-xl font-bold text-left" style={{ color: roleSettings.pageTabColor }}>
                         Edit Vendor Invoice: {invoice.invoice_number}
                     </DialogTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 px-4 gap-2"
+                            className="h-9 px-4 gap-2 flex-1 sm:flex-none justify-center"
                             onClick={onClose}
                             disabled={saving}
                         >
@@ -553,7 +653,7 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
                         </Button>
                         <Button
                             size="sm"
-                            className="h-9 px-5 gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all"
+                            className="h-9 px-5 gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all flex-1 sm:flex-none justify-center"
                             style={{ backgroundColor: roleSettings.pageTabColor }}
                             onClick={handleSave}
                             disabled={saving}
@@ -562,7 +662,7 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
                                 ? <Loader2 className="h-4 w-4 animate-spin" />
                                 : <Save className="h-4 w-4" />
                             }
-                            Save Changes
+                            Save
                         </Button>
                     </div>
                 </DialogHeader>

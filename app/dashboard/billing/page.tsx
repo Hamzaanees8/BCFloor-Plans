@@ -1458,8 +1458,8 @@ const Page = () => {
       {/* Multiple Invoices Modal for Split Invoices */}
       <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
         <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[6px] p-0 font-alexandria overflow-hidden border border-[#BBBBBB] bg-white [&>button]:hidden">
-          <DialogHeader className="p-6 border-b border-[#BBBBBB] bg-white">
-            <DialogTitle className="flex items-center justify-between text-lg font-bold tracking-tight uppercase" style={{ color: roleSettings.pageTabColor }}>
+          <DialogHeader className="p-4 sm:p-6 border-b border-[#BBBBBB] bg-white">
+            <DialogTitle className="flex items-center justify-between text-base sm:text-lg font-bold tracking-tight uppercase" style={{ color: roleSettings.pageTabColor }}>
               <span>Order Split Invoices</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full animate-none" onClick={() => setShowInvoicesModal(false)}>
                 <X className="h-5 w-5 text-gray-500" />
@@ -1467,7 +1467,7 @@ const Page = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[65vh] overflow-y-auto p-6 space-y-4 bg-[#F9F9F9]">
+          <div className="max-h-[65vh] overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#F9F9F9]">
             {invoicesLoading ? (
               <div className="flex flex-col justify-center items-center py-20 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -1527,7 +1527,7 @@ const Page = () => {
                     return (
                       <div
                         key={invoice.uuid}
-                        className="group flex flex-col md:flex-row justify-between items-start md:items-center p-5 rounded-[6px] border border-[#BBBBBB] bg-white transition-all duration-300 gap-4"
+                        className="group flex flex-col md:flex-row justify-between items-start md:items-center p-4 sm:p-5 rounded-[6px] border border-[#BBBBBB] bg-white transition-all duration-300 gap-4"
                       >
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-3 flex-wrap">
@@ -1661,19 +1661,27 @@ const Page = () => {
             className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-2xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-4 border-b border-[#BBBBBB]">
-              <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
-                Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
-              </h2>
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-[#BBBBBB]">
+              <div className="flex justify-between items-center w-full sm:w-auto">
+                <h2 className="text-base sm:text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                  Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
+                </h2>
+                <button
+                  onClick={() => setViewingInvoice(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                 {viewingInvoice.status?.toUpperCase() !== 'PAID' && selectedBilling && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto justify-end">
                     <Button
                       onClick={() => {
                         setViewingInvoice(null);
                         handlePayInvoice(viewingInvoice, selectedBilling);
                       }}
-                      className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
+                      className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
                       style={{ backgroundColor: roleSettings.pageTabColor }}
                     >
                       Pay Now
@@ -1685,7 +1693,7 @@ const Page = () => {
                           setViewingInvoice(null);
                           handleOpenManualPayment(viewingInvoice);
                         }}
-                        className="px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98]"
+                        className="px-4 sm:px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98] w-full sm:w-auto shrink-0"
                       >
                         Mark Paid
                       </Button>
@@ -1694,7 +1702,7 @@ const Page = () => {
                 )}
                 <button
                   onClick={() => setViewingInvoice(null)}
-                  className="text-gray-500 hover:text-gray-700 p-2"
+                  className="text-gray-500 hover:text-gray-700 p-2 hidden sm:block"
                 >
                   ✕
                 </button>
@@ -1763,19 +1771,27 @@ const Page = () => {
             className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-4 border-b border-[#BBBBBB]">
-              <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
-                Invoice #{serviceInvoicePopup.invoice.invoice_number || serviceInvoicePopup.invoice.id}
-              </h2>
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-[#BBBBBB]">
+              <div className="flex justify-between items-center w-full sm:w-auto">
+                <h2 className="text-base sm:text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                  Invoice #{serviceInvoicePopup.invoice.invoice_number || serviceInvoicePopup.invoice.id}
+                </h2>
+                <button
+                  onClick={() => setServiceInvoicePopup(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                 {serviceInvoicePopup.invoice.status?.toUpperCase() !== 'PAID' && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto justify-end">
                     <Button
                       onClick={() => {
                         handleInvoiceAction(serviceInvoicePopup.billing, "pay", serviceInvoicePopup.serviceId);
                       }}
                       disabled={actionLoading !== null}
-                      className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
+                      className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
                       style={{ backgroundColor: roleSettings.pageTabColor }}
                     >
                       {actionLoading?.id === (serviceInvoicePopup.serviceId || serviceInvoicePopup.billing.order_id) && actionLoading?.action === "pay" ? (
@@ -1790,7 +1806,7 @@ const Page = () => {
                           handleOpenManualPayment(serviceInvoicePopup.invoice);
                         }}
                         disabled={actionLoading !== null}
-                        className="px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98]"
+                        className="px-4 sm:px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98] w-full sm:w-auto shrink-0"
                       >
                         Mark Paid
                       </Button>
@@ -1799,7 +1815,7 @@ const Page = () => {
                 )}
                 <button
                   onClick={() => setServiceInvoicePopup(null)}
-                  className="text-gray-500 hover:text-gray-700 p-2"
+                  className="text-gray-500 hover:text-gray-700 p-2 hidden sm:block"
                 >
                   ✕
                 </button>

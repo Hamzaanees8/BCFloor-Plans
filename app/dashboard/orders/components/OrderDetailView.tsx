@@ -554,11 +554,13 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 [&>button]:hidden font-alexandria font-[400] overflow-hidden">
-                <div className="px-6 pt-6">
+            <DialogContent className="w-[95vw] max-w-3xl h-[95vh] flex flex-col p-0 [&>button]:hidden font-alexandria font-[400] overflow-hidden">
+                <div className="px-4 pt-4 sm:px-6 sm:pt-6">
                     <DialogHeader>
-                        <div className="flex justify-between items-center">
-                            <DialogTitle className={`${userType}-text text-[24px] font-alexandria font-[400]`}>{currentOrder?.property_address}, {currentOrder?.property_location}&nbsp;&nbsp;&nbsp;›&nbsp;&nbsp;&nbsp;Order #{currentOrder?.id}</DialogTitle>
+                        <div className="flex justify-between items-center gap-3">
+                            <DialogTitle className={`${userType}-text text-[16px] sm:text-[24px] font-alexandria font-[400] leading-tight break-all`}>
+                                {currentOrder?.property_address}, {currentOrder?.property_location}&nbsp;&nbsp;&nbsp;›&nbsp;&nbsp;&nbsp;Order #{currentOrder?.id}
+                            </DialogTitle>
 
                             <Button
                                 variant="ghost"
@@ -569,32 +571,31 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                                     setSelectedSlots([])
                                     setCalendarServices([])
                                 }}
-                                className="hover:bg-transparent text-gray-500 hover:text-black"
+                                className="hover:bg-transparent text-gray-500 hover:text-black shrink-0"
                             >
                                 <X className="h-5 w-5" />
                             </Button>
                         </div>
                         <div>
-                            <div className="flex gap-4 pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666]">
+                            <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none pb-[10px] sm:pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666]">
                                 <Button
                                     variant={activeTab === 'appointment' ? 'default' : 'outline'}
                                     onClick={() => setActiveTab('appointment')}
-                                    className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                    className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                                 >
                                     Appointment
                                 </Button>
                                 <Button
                                     variant={activeTab === 'square_footage' ? 'default' : 'outline'}
                                     onClick={() => setActiveTab('square_footage')}
-                                    className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                    className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                                 >
                                     Square Footage
                                 </Button>
                                 <Button
                                     variant={activeTab === 'history' ? 'default' : 'outline'}
                                     onClick={() => setActiveTab('history')}
-                                    className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
-
+                                    className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                                 >
                                     History
                                 </Button>
@@ -603,7 +604,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         </div>
                     </DialogHeader>
                 </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
                     {activeTab === 'appointment' && userType !== 'vendor' && (
                         <EditAppointmentTab
                             currentOrder={currentOrder}
@@ -635,15 +636,13 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         <HistoryTab currentOrder={currentOrder} servicesData={contextServicesData} />
                     )}
                 </div>
-                <div className="p-6 pt-4 border-t flex justify-end gap-[10px]">
+                <div className="p-4 sm:p-6 pt-3 sm:pt-4 border-t flex justify-end gap-2">
                     <Button
                         onClick={() => {
                             onClose()
                         }}
                         className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
-
                     >
-
                         Close
                     </Button>
                     <Button
@@ -654,7 +653,6 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                             }
                         }}
                         className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
-
                     >
                         {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save Changes"}
                     </Button>

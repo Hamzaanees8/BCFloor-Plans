@@ -1697,9 +1697,9 @@ const Page = () => {
 
             {/* View Invoice Modal */}
             <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[850px] p-4 sm:p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold flex items-center justify-between">
+                        <DialogTitle className="text-base sm:text-xl font-bold flex flex-col sm:flex-row gap-2 sm:items-center justify-between w-full">
                             <span>Invoice #{viewingInvoice?.invoice_number}</span>
                             {viewingInvoice && (
                                 <Button
@@ -1709,7 +1709,7 @@ const Page = () => {
                                     }}
                                     size="sm"
                                     variant="outline"
-                                    className="flex items-center gap-1.5"
+                                    className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
                                 >
                                     <Download className="w-4 h-4" /> Download PDF
                                 </Button>
@@ -1717,7 +1717,7 @@ const Page = () => {
                         </DialogTitle>
                     </DialogHeader>
                     {viewingInvoice ? (
-                        <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-inner space-y-6">
+                        <div className="bg-white p-3 sm:p-6 rounded-lg border border-gray-100 shadow-inner space-y-6">
                             <InvoiceDocument
                                 invoice={{
                                     ...viewingInvoice,

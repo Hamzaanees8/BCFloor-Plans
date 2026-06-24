@@ -110,7 +110,7 @@ export default function MobileVendorsList({
                     <AvatarFallback className="text-sm font-semibold">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 cursor-pointer">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate hover:underline">
+                    <h3 className="text-base font-semibold text-gray-900 truncate hover:underline">
                       {fullName}
                     </h3>
                     <p className="text-xs text-gray-500 truncate mt-0.5">

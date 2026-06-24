@@ -7,7 +7,6 @@ import {
   Calendar,
   ClipboardList,
   CreditCard,
-  DollarSign,
   Home,
   Menu,
   Ruler,
@@ -26,14 +25,14 @@ interface TabConfig {
 
 const adminTabs: TabConfig[] = [
   { key: 'schedule', label: 'Schedule', icon: Calendar, route: '/dashboard/calendar' },
-  { key: 'orders', label: 'Orders', icon: ClipboardList, route: '/dashboard/orders' },
+  { key: 'listings', label: 'Listings', icon: ClipboardList, route: '/dashboard/listings' },
   { key: 'billing', label: 'Billing', icon: CreditCard, route: '/dashboard/billing' },
   { key: 'alerts', label: 'Alerts', icon: Bell, route: '/dashboard/notifications' },
   { key: 'more', label: 'More', icon: Menu, route: null },
 ];
 
 const agentTabs: TabConfig[] = [
-  { key: 'orders', label: 'My Orders', icon: ClipboardList, route: '/dashboard/orders' },
+  { key: 'listings', label: 'Listings', icon: ClipboardList, route: '/dashboard/listings' },
   { key: 'pay', label: 'Pay', icon: CreditCard, route: '/dashboard/billing' },
   { key: 'tours', label: 'Tours', icon: Home, route: '/agent/tours' },
   { key: 'alerts', label: 'Alerts', icon: Bell, route: '/dashboard/notifications' },
@@ -43,7 +42,7 @@ const agentTabs: TabConfig[] = [
 const vendorTabs: TabConfig[] = [
   { key: 'today', label: 'Today', icon: Calendar, route: '/dashboard/calendar' },
   { key: 'sqft', label: 'Sq Ft', icon: Ruler, route: '/dashboard/calendar?sqft=1' },
-  { key: 'earnings', label: 'Earnings', icon: DollarSign, route: '/dashboard/vendor-billing' },
+  { key: 'billing', label: 'Billing', icon: CreditCard, route: '/dashboard/vendor-billing' },
   { key: 'alerts', label: 'Alerts', icon: Bell, route: '/dashboard/notifications' },
   { key: 'more', label: 'More', icon: Menu, route: null },
 ];

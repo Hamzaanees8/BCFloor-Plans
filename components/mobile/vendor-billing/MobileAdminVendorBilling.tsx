@@ -110,7 +110,7 @@ export default function MobileAdminVendorBilling({
                 onClick={() => setExpandedVendor(isExpanded ? null : vg.vendorId)}
               >
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 shrink-0" />
                     {vg.vendor?.first_name} {vg.vendor?.last_name}
                   </h3>

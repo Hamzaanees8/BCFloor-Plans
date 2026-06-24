@@ -86,6 +86,14 @@ export interface CreateFeatureSheetRef {
 const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetProps>(
   function CreateFeatureSheet({ orderData, isReadonly = false, previewSheetUuid }, ref) {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const checkMobile = () => setIsMobile(window.innerWidth < 768);
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }, []);
     const logoInputRef = useRef<HTMLInputElement | null>(null);
     const [email, setEmail] = useState<string>("");
     const [linkedin, setLinkedin] = useState<string>("");
@@ -699,11 +707,11 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
 
     const isTabloid = templateImages.find((t) => t.id === selectedTemplate)?.type === "tabloid";
     const targetWidth = isTabloid ? 1632 : 816; // width in pixels of tabloid or portrait letter at 96dpi
-    const scale = previewMode === "fit"
-      ? Math.min((workspaceWidth - 64) / targetWidth, 1)
+    const scale = (isMobile || previewMode === "fit")
+      ? Math.max(0.1, Math.min((workspaceWidth - (isMobile ? 16 : 64)) / targetWidth, 1))
       : 1;
 
-    const pdfSectionStyle = previewMode === "fit" ? {
+    const pdfSectionStyle = (isMobile || previewMode === "fit") ? {
       transform: `scale(${scale})`,
       transformOrigin: "top center",
       width: `${targetWidth}px`,
@@ -840,7 +848,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
           )}
 
           {!selectedTemplate && !isReadonly && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-20 mt-8 mb-20 h-auto px-20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-20 mt-8 mb-20 h-auto px-4 md:px-20">
               {/* Saved Feature Sheets Section */}
               {featureSheets.length > 0 && (
                 <>
@@ -1074,7 +1082,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                           Upgrade Plan
                         </button>
                       </div>
-                      <div className=" grid-cols-3 gap-6 !hidden">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 !hidden">
                         <div className="">
                           <div ref={wrapperRef} className="relative w-full">
                             <label
@@ -1146,7 +1154,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                           <div>
                             <div className="mt-4 w-full">
                               <label className="text-[#666666]">Logo</label>
-                              <div className="flex gap-3">
+                              <div className="flex flex-col sm:flex-row gap-3">
                                 {/* Preview */}
                                 <div className="flex h-[128px] items-end gap-x-[6px]">
                                   <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
@@ -1229,7 +1237,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                           </div>
                           <div className="mt-4 w-full">
                             <label className="text-[#666666]">Realtor Image</label>
-                            <div className="flex gap-3 mt-2">
+                            <div className="flex flex-col sm:flex-row gap-3 mt-2">
                               {/* Circle Preview */}
                               <div className="flex items-center gap-x-[6px]">
                                 <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
@@ -1317,7 +1325,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                         </div>
                       </div>
                       <div className="flex w-full">
-                        <div className="w-[20%]">
+                        <div className="w-full sm:w-[20%]">
                           <label htmlFor="">Template</label>
                           <Select
                             value={selectedTemplate}

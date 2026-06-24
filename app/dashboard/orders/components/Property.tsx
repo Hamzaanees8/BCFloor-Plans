@@ -864,38 +864,38 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [listingSearchValue, listingData, selectedAgentId]);
 
     return (
-        <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
-            <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
+        <div className='pt-7 px-4 md:px-[200px] pb-[80px] font-alexandria'>
+            <div className='py-[10px] pl-[10px] flex flex-col gap-[30px] w-full'>
                 {!(isBookNowMode) && (
-                    <div className='flex flex-col gap-[14px]'>
+                    <div className='flex flex-col gap-[14px] w-full'>
                         <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
-                        <div className='flex items-start justify-between'>
-                            <div className='flex items-center gap-4'>
+                        <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 w-full'>
+                            <div className='flex items-center gap-4 w-full md:w-auto justify-between md:justify-start'>
                                 <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
                                     <PopoverTrigger asChild>
                                         <button
                                             className={cn(
-                                                "w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                                "w-full md:w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
                                                 userType === 'agent' ? "cursor-default" : "cursor-pointer",
                                                 !selectedAgent && "text-muted-foreground"
                                             )}
                                             style={{ backgroundColor: fieldBg }}
                                         >
                                             {userType === 'agent' && userInfo ? (
-                                                <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                <span className='font-normal text-base truncate' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                     {userInfo.first_name} {userInfo.last_name} – {userInfo.company_name}
                                                 </span>
                                             ) : selectedAgent ? (
-                                                <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                <span className='font-normal text-base truncate' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                     {selectedAgent.first_name} {selectedAgent.last_name} – {selectedAgent.company_name}
                                                 </span>
                                             ) : (
                                                 "Select Agent"
                                             )}
-                                            {userType === 'admin' && <DropDownArrow stroke={roleSettings.pageText} />}
+                                            {userType === 'admin' && <DropDownArrow stroke={roleSettings.pageText} className="shrink-0" />}
                                         </button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[432px] p-0">
+                                    <PopoverContent className="w-[90vw] sm:w-[432px] p-0">
                                         <Command shouldFilter={false}>
                                             <CommandInput
                                                 placeholder="Search agent..."
@@ -938,7 +938,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 </Popover>
                                 {userType === 'admin' && (
                                     <div
-                                        className={`cursor-pointer ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
+                                        className={`cursor-pointer shrink-0 ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
                                         onClick={() => {
                                             if (!selectedAgentId) return;
                                             setIsEditingAgent(true);
@@ -1067,9 +1067,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                             <AccordionContent className='px-4 pb-4'>
                                                 <div className='w-full flex flex-col items-center'>
                                                     <div className='w-full pt-4 flex justify-center flex-col gap-[16px] text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>
-
-                                                        <div className='grid grid-cols-4 gap-[16px] mt-[20px]'>
-                                                            <div className="col-span-1">
+                                                        <div className='grid grid-cols-1 sm:grid-cols-4 gap-[16px] mt-[20px]'>
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={squareFootage}
@@ -1085,7 +1084,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                     </p>
                                                                 )}
                                                             </div>
-                                                            <div className="col-span-3">
+                                                            <div className="col-span-1 sm:col-span-3">
                                                                 <label htmlFor="">Address <span className="text-red-500">*</span></label>
                                                                 <GooglePlacesAutocomplete
                                                                     mode="single"
@@ -1117,7 +1116,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                     autoFocus={true}
                                                                 />
                                                             </div>
-                                                            <div className="col-span-1">
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">Suite</label>
                                                                 <Input
                                                                     value={suite}
@@ -1129,7 +1128,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 />
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">City <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={city}
@@ -1142,7 +1141,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
                                                                 <div className="mt-[12px]">
                                                                     <SearchableSelect
@@ -1157,7 +1156,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={postalCode}
@@ -1170,7 +1169,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                            <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">Country <span className="text-red-500">*</span></label>
                                                                 <div className="mt-[12px]">
                                                                     <SearchableSelect
@@ -1193,8 +1192,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                             <AccordionItem value="extra-details" className='border-0'>
                                                                 <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
                                                                 <AccordionContent>
-                                                                    <div className='grid grid-cols-4 px-1 gap-[16px]'>
-                                                                        <div className="col-span-1">
+                                                                    <div className='grid grid-cols-1 sm:grid-cols-4 px-1 gap-[16px]'>
+                                                                        <div className="col-span-1 sm:col-span-1">
                                                                             <label htmlFor="">MLS#</label>
                                                                             <Input
                                                                                 value={mls}
@@ -1210,7 +1209,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div className="col-span-1 flex items-end h-full">
+                                                                        <div className="col-span-1 sm:col-span-1 flex items-end h-full mt-2 sm:mt-0">
                                                                             <button
                                                                                 onClick={handleMlsFetch}
                                                                                 className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
@@ -1219,7 +1218,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Download MLS Data"}
                                                                             </button>
                                                                         </div>
-                                                                        <div>
+                                                                        <div className="col-span-1 sm:col-span-1">
                                                                             <label htmlFor="">Listing Price (CAD)</label>
                                                                             <div className="relative mt-[12px]">
                                                                                 <Input
@@ -1237,7 +1236,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             </div>
                                                                         </div>
 
-                                                                        <div className="relative w-full">
+                                                                        <div className="relative w-full col-span-1 sm:col-span-1">
                                                                             <label htmlFor="bedroom" className="block text-sm font-normal">
                                                                                 Bedrooms
                                                                             </label>
@@ -1269,7 +1268,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="relative w-full">
+                                                                        <div className="relative w-full col-span-1 sm:col-span-1">
                                                                             <label htmlFor="bathroom" className="block text-sm font-normal">
                                                                                 Bathrooms
                                                                             </label>
@@ -1302,7 +1301,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             </div>
                                                                         </div>
 
-                                                                        <div>
+                                                                        <div className="col-span-1 sm:col-span-1">
                                                                             <label htmlFor="">Lot Size (Acres)</label>
                                                                             <Input
                                                                                 value={lotSize}
@@ -1318,7 +1317,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div>
+                                                                        <div className="col-span-1 sm:col-span-1">
                                                                             <label htmlFor="">Year Contstructed</label>
                                                                             <Input
                                                                                 value={yearConstructed}
@@ -1334,7 +1333,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div>
+                                                                        <div className="col-span-1 sm:col-span-1">
                                                                             <label htmlFor="">Parking Spots</label>
                                                                             <Input
                                                                                 value={parkingSpots}
@@ -1345,7 +1344,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 type="text"
                                                                             />
                                                                         </div>
-                                                                        <div className="col-span-2">
+                                                                        <div className="col-span-1 sm:col-span-2">
                                                                             <label htmlFor="">Property Type</label>
                                                                             <div className="mt-[12px]">
                                                                                 <SearchableSelect
@@ -1363,7 +1362,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div className="col-span-2">
+                                                                        <div className="col-span-1 sm:col-span-2">
                                                                             <label htmlFor="">Property Status</label>
                                                                             <div className="mt-[12px]">
                                                                                 <SearchableSelect
@@ -1381,7 +1380,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div className="col-span-4">
+                                                                        <div className="col-span-1 sm:col-span-4">
                                                                             <label htmlFor="">Heading</label>
                                                                             <Input
                                                                                 value={heading}
@@ -1397,7 +1396,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <div className="col-span-4">
+                                                                        <div className="col-span-1 sm:col-span-4">
                                                                             <label htmlFor="">Description</label>
                                                                             <Textarea
                                                                                 value={description}
@@ -1456,34 +1455,34 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     </Accordion>
 
                                     {!(isBookNowMode) && (
-                                        <div className='flex flex-col gap-[14px] mt-[30px]'>
+                                        <div className='flex flex-col gap-[14px] mt-[30px] w-full'>
                                             <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing</p>
-                                            <div className='flex items-start justify-between'>
-                                                <div className='flex items-center gap-4'>
+                                            <div className='flex flex-col md:flex-row md:items-center gap-4 justify-between w-full'>
+                                                <div className='flex items-center gap-4 w-full md:w-auto justify-between md:justify-start'>
                                                     <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>
                                                         <PopoverTrigger asChild>
                                                             <button
                                                                 className={cn(
-                                                                    "w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                                                    "w-full md:w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
                                                                     !selectedListing && "text-muted-foreground",
                                                                     isAgentEdit && "pointer-events-none opacity-50"
                                                                 )}
                                                             >
                                                                 {selectedListing ? (
-                                                                    <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                                    <span className='font-normal text-base truncate' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                                         {selectedListing.suite ? `${selectedListing.suite} - ${selectedListing.address}` : selectedListing.address}, {selectedListing.city}
                                                                     </span>
                                                                 ) : (
-                                                                    "Search and Select previous listings"
+                                                                    "Search listings..."
                                                                 )}
-                                                                <DropDownArrow stroke={roleSettings.pageText} />
+                                                                <DropDownArrow stroke={roleSettings.pageText} className="shrink-0" />
                                                             </button>
                                                         </PopoverTrigger>
 
-                                                        <PopoverContent className="w-[432px] p-0">
+                                                        <PopoverContent className="w-[90vw] sm:w-[432px] p-0">
                                                             <Command shouldFilter={false}>
                                                                 <CommandInput
-                                                                    placeholder="Search and Select previous listings..."
+                                                                    placeholder="Search previous listings..."
                                                                     value={listingSearchValue}
                                                                     onValueChange={(val) => {
                                                                         setListingSearchValue(val);
@@ -1524,7 +1523,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
 
                                                     <div
-                                                        className={`cursor-pointer ${(isAgentEdit || !selectedListingId) ? 'pointer-events-none opacity-50' : ''}`}
+                                                        className={`cursor-pointer shrink-0 ${(isAgentEdit || !selectedListingId) ? 'pointer-events-none opacity-50' : ''}`}
                                                         onClick={() => {
                                                             if (!selectedListingId) return;
                                                             setOpenAddListingDialog(true);
@@ -1535,21 +1534,21 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
                                                 </div>
                                                 {!openAddListingDialog && (
-                                                    <>
-                                                        <div className="flex items-center gap-2 self-center">
+                                                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                                                        <div className="flex items-center gap-2 self-center py-1 md:py-0">
                                                             <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
                                                             <span className="text-[#BBBBBB] text-sm">or</span>
                                                             <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
                                                         </div>
                                                         <button
-                                                            className={cn('flex items-center gap-2 px-3 py-2 rounded-md border transition-colors', isAgentEdit && 'pointer-events-none opacity-50')}
+                                                            className={cn('flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-colors w-full md:w-auto h-[42px]', isAgentEdit && 'pointer-events-none opacity-50')}
                                                             style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                                                             onClick={() => handleListingSelect('NEW')}
                                                         >
                                                             <Plus className='w-4 h-4' />
                                                             <span className='text-sm font-medium'>Create New Listing</span>
                                                         </button>
-                                                    </>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

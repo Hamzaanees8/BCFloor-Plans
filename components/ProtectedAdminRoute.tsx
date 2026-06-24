@@ -20,7 +20,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       userType === "agent" &&
       (pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services") || pathname.startsWith("/dashboard/vendor-billing"))
     ) {
-      router.replace("/dashboard/orders");
+      router.replace("/dashboard/listings");
       setIsAllowed(false);
       return;
     }
@@ -43,7 +43,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         (pathname.startsWith("/dashboard/vendor-billing") && pathname.replace(/\/$/, "") !== "/dashboard/vendor-billing")
       )
     ) {
-      router.replace("/dashboard/orders");
+      router.replace("/dashboard/calendar");
       setIsAllowed(false);
       return;
     }
@@ -97,7 +97,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       if (pathname.startsWith("/dashboard/orders/create")) {
         if (!hasPermission(PERMISSIONS.BOOK_APPOINTMENTS)) {
           toast.error("You do not have permission to create orders");
-          router.replace("/dashboard/orders");
+          router.replace("/dashboard/listings");
           setIsAllowed(false);
           return;
         }
@@ -106,7 +106,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       if (pathname.includes("/dashboard/orders/") && pathname.includes("/edit")) {
         if (!hasPermission(PERMISSIONS.EDIT_APPOINTMENTS)) {
           toast.error("You do not have permission to edit orders");
-          router.replace("/dashboard/orders");
+          router.replace("/dashboard/listings");
           setIsAllowed(false);
           return;
         }

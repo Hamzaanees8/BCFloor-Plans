@@ -48,13 +48,13 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
 
   return (
     <div className="w-full">
-      <div className='flex justify-center h-[60px] items-center bg-[#E4E4E4]'>
-        <div className=" w-fit flex border-gray-300 gap-[10px]">
+      <div className='flex justify-start md:justify-center overflow-x-auto whitespace-nowrap scrollbar-none h-[60px] items-center bg-[#E4E4E4] px-4'>
+        <div className="flex border-gray-300 gap-[10px] shrink-0">
           {visibleTabs.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
+              className={`text-center px-4 py-2 text-[13px] w-auto min-w-[100px] md:w-[180px] h-[32px] shrink-0 transition-colors ${activeTab === tab
                 ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
                 : 'text-[#666666] hover:text-[#666666] font-[700] '
                 }`}

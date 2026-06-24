@@ -18,11 +18,13 @@ import { Users, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function UninvoicedVendorsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [vendors, setVendors] = useState<UninvoicedVendor[]>([]);
+    const isMobile = useIsMobile();
 
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
@@ -60,7 +62,7 @@ export default function UninvoicedVendorsPage() {
                 <p className="text-xs md:text-sm" style={{ color: roleSettings.pageTabColor, opacity: 0.8 }}>Manage vendor services and generate invoices for completed work.</p>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -75,18 +77,56 @@ export default function UninvoicedVendorsPage() {
             </div>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Vendors with Completed Work</CardTitle>
-                    <CardDescription>
+                <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Vendors with Completed Work</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                         List of vendors who have completed services that haven&apos;t been added to an invoice yet.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 sm:p-6 pt-0">
                     {loading ? (
                         <div className="space-y-2">
                             <Skeleton className="h-10 w-full" />
                             <Skeleton className="h-10 w-full" />
                             <Skeleton className="h-10 w-full" />
+                        </div>
+                    ) : isMobile ? (
+                        <div className="space-y-3">
+                            {vendors.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm font-medium">
+                                    No vendors with uninvoiced work found.
+                                </div>
+                            ) : (
+                                vendors.map((vendor) => (
+                                    <div key={vendor.uuid} className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex flex-col gap-3">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="min-w-0">
+                                                <h4 className="text-sm font-semibold text-gray-900 truncate">
+                                                    {vendor.first_name} {vendor.last_name}
+                                                </h4>
+                                                <p className="text-xs text-gray-500 truncate mt-0.5">
+                                                    {vendor.company_name || "—"}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 flex flex-col items-end">
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none">Uninvoiced</span>
+                                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold text-white mt-1.5 leading-none" style={{ backgroundColor: roleSettings.pageTabColor }}>
+                                                    {vendor.uninvoiced_services_count}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            size="sm" 
+                                            className="w-full gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all h-9 text-xs"
+                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                            onClick={() => handleReview(vendor.uuid)}
+                                        >
+                                            Review & Invoice
+                                            <ArrowRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     ) : (
                         <Table>
