@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ export default function MobileListingsList({
   handleDelete,
   handleUpdateStatus,
 }: MobileListingsListProps) {
+  const router = useRouter();
   // No settings needed
 
   const [togglingMap, setTogglingMap] = useState<Record<string, boolean>>({});
@@ -172,7 +174,16 @@ export default function MobileListingsList({
           <Card key={listing.uuid} className="overflow-hidden border border-gray-100 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex gap-3 flex-1 min-w-0" onClick={() => onQuickView(listing)}>
+                <div
+                  className="flex gap-3 flex-1 min-w-0 cursor-pointer"
+                  onClick={() => {
+                    if (latestOrder?.uuid) {
+                      router.push(`/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}`);
+                    } else {
+                      onQuickView(listing);
+                    }
+                  }}
+                >
                   {/* Thumbnail */}
                   <div
                     className="w-16 h-16 rounded-md shrink-0 border border-gray-100 flex items-center justify-center bg-gray-50 overflow-hidden"

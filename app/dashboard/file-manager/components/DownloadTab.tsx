@@ -331,7 +331,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
     }
 
     return (
-        <div className="p-6 font-alexandria">
+        <div className="p-4 sm:p-6 font-alexandria">
             {/* Buttons Row 1: Global Actions */}
             <div className="flex flex-wrap gap-3 mb-4">
                 <Button
@@ -532,7 +532,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
                                         {section.files.map((file) => {
                                             const isSelected = selectedImageUuids.has(file.uuid);
                                             const isVideo = file.type.toLowerCase() === 'video';

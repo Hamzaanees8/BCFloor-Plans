@@ -16,6 +16,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { Get } from '@/app/dashboard/orders/orders'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import type { ListingOrder } from '@/lib/types'
@@ -99,6 +100,63 @@ export default function MobileAdminDashboard() {
   }, [])
 
   const todayStr = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr)
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day
+    return new Date(d.setDate(diff))
+  })
+
+  const getWeekDays = (start: Date) => {
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      days.push({
+        dateStr: `${yyyy}-${mm}-${dd}`,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNum: d.getDate(),
+      })
+    }
+    return days
+  }
+
+  const handlePrevWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev)
+      d.setDate(prev.getDate() - 7)
+      return d
+    })
+  }
+
+  const handleNextWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev)
+      d.setDate(prev.getDate() + 7)
+      return d
+    })
+  }
+
+  const handleGoToToday = () => {
+    setSelectedDate(todayStr)
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day
+    setWeekStart(new Date(d.setDate(diff)))
+  }
+
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
+
+  const formatDateHeader = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  }
 
   const summaryStats = useMemo(() => {
     const todaysBookings = orders.filter((o) => {
@@ -124,7 +182,7 @@ export default function MobileAdminDashboard() {
       const slots = (order as any).slots
       if (!slots || !Array.isArray(slots)) return
       slots.forEach((slot: any) => {
-        if (slot.date === todayStr) {
+        if (slot.date === selectedDate) {
           todayOrders.push({ order, slot })
         }
       })
@@ -137,7 +195,7 @@ export default function MobileAdminDashboard() {
     })
 
     return todayOrders
-  }, [orders, todayStr])
+  }, [orders, selectedDate])
 
   const recentActivity = useMemo(() => {
     return [...orders]
@@ -202,25 +260,81 @@ export default function MobileAdminDashboard() {
         </div>
 
         {/* Today's Schedule */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Today&apos;s Schedule</h2>
-            <span className="text-xs text-gray-400">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })}
+        <div className="px-4 pt-4 pb-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Schedule</h2>
+            <span className="text-xs text-gray-400 font-medium">
+              {formatDateHeader(selectedDate)}
             </span>
+          </div>
+
+          {/* Week strip picker */}
+          <div className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={handlePrevWeek}
+                  className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
+                >
+                  ◀
+                </button>
+                <span className="text-xs font-bold text-gray-700 min-w-[100px] text-center">
+                  {formatMonthYear(weekStart)}
+                </span>
+                <button 
+                  onClick={handleNextWeek}
+                  className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
+                >
+                  ▶
+                </button>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGoToToday}
+                className="h-7 text-[11px] px-2"
+              >
+                Today
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {getWeekDays(weekStart).map((day) => {
+                const isSelected = day.dateStr === selectedDate;
+                const isTodayDate = day.dateStr === todayStr;
+                const activeColor = appliedSettings?.admin?.pageTabColor || '#4290E9';
+                
+                return (
+                  <div 
+                    key={day.dateStr}
+                    onClick={() => setSelectedDate(day.dateStr)}
+                    className={`py-1.5 rounded-lg cursor-pointer transition-all border ${
+                      isSelected 
+                        ? 'text-white font-bold shadow-sm' 
+                        : isTodayDate
+                          ? 'bg-blue-50 text-[#4290E9] border-blue-200 font-semibold'
+                          : 'border-transparent hover:bg-gray-50 text-gray-600'
+                    }`}
+                    style={{
+                      backgroundColor: isSelected ? activeColor : '',
+                      borderColor: isSelected ? activeColor : isTodayDate ? '#4290E9' : 'transparent',
+                    }}
+                  >
+                    <div className="text-[9px] uppercase opacity-75">{day.dayName.slice(0, 1)}</div>
+                    <div className="text-xs font-semibold mt-0.5">{day.dayNum}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => <ScheduleCardSkeleton key={i} />)
             ) : todaysSchedule.length === 0 ? (
-              <div className="text-center py-8">
+              <div className="text-center py-8 bg-gray-50/50 rounded-xl border border-dashed">
                 <Calendar className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">No appointments today</p>
+                <p className="text-sm text-gray-400">No appointments scheduled for this day</p>
               </div>
             ) : (
               todaysSchedule.map(({ order, slot }, idx) => {

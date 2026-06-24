@@ -71,6 +71,14 @@ function PublicTourFloorPlans({
     snapshots = [],
     watermarkLogo
 }: PublicTourFloorPlansProps) {
+    const [isMobile, setIsMobile] = useState(false);
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
     // Filter out PDF files and sort by sort_order
     const filteredFloorPlanFiles = floorPlanFiles
         .filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'))
@@ -156,12 +164,12 @@ function PublicTourFloorPlans({
 
     return (
         <div className="w-full h-auto font-alexandria bg-gray-100 py-6 pl-0 mt-[75px] pt-0">
-            <div className="w-full h-[550px] flex gap-[30px] bg-white">
+            <div className="w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] bg-white">
                 <div
                     ref={imageContainerRef}
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
-                    className="relative w-[70%] h-full bg-white overflow-visible m-auto"
+                    className="relative w-full md:w-[70%] h-[300px] sm:h-full bg-white overflow-visible m-auto border border-gray-200"
                 >
                     {selectedFile && (
                         <>
@@ -237,8 +245,12 @@ function PublicTourFloorPlans({
 
                                     {previewMarker && (
                                         <div
-                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-fit max-w-[500px] min-w-[320px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
-                                            style={{
+                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+                                            style={isMobile ? {
+                                                bottom: '10px',
+                                                left: '50%',
+                                                transform: 'translateX(-50%)',
+                                            } : {
                                                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
                                                 bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
                                                 left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
@@ -282,8 +294,8 @@ function PublicTourFloorPlans({
 
             </div>
 
-            <div className="w-full h-[200px] mt-6 px-10">
-                <div className="w-full h-full flex items-center gap-4 overflow-x-auto overflow-y-hidden pb-2">
+            <div className="w-full h-auto mt-6 px-4 md:px-10">
+                <div className="w-full h-full flex items-center gap-4 overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none">
                     {filteredFloorPlanFiles?.map((file, idx) => {
                         const isFilePDF = isPDF(file.file_path);
                         return (

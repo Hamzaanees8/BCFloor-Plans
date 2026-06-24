@@ -72,17 +72,17 @@ const InvoiceDocument = ({
     }
 
     return (
-        <div id="invoice-download-content" className="relative bg-white p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[950px]  flex flex-col">
+        <div id="invoice-download-content" className="relative bg-white p-4 md:p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[950px] flex flex-col overflow-x-hidden">
             {/* Header Section */}
-            <div className="flex justify-between items-start mb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start mb-6 md:mb-12 gap-6 md:gap-0">
                 <div>
-                    <div className="flex border-box items-center gap-3 mb-6">
+                    <div className="flex border-box items-center gap-3 mb-4 md:mb-6">
                         {logoUrl && <Image src={logoUrl} alt="Organization Logo" width={60} height={60} className="object-contain" />}
-                        <span className="text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">{orgName}</span>
+                        <span className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">{orgName}</span>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">{invoice.invoice_number}</span></p>
-                        <p className="text-sm font-medium text-gray-600">Date: <span className="text-gray-900">{new Date(invoice.issued_at || invoice.created_at).toLocaleDateString()}</span></p>
+                        <p className="text-xs md:text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">#{invoice.invoice_number}</span></p>
+                        <p className="text-xs md:text-sm font-medium text-gray-600">Date: <span className="text-gray-900">{new Date(invoice.issued_at || invoice.created_at).toLocaleDateString()}</span></p>
                         <div className="mt-2">
                             {(() => {
                                 const status = (invoice.status || 'unpaid').toLowerCase();
@@ -95,7 +95,7 @@ const InvoiceDocument = ({
                                     refunded: 'bg-red-100 text-red-600'
                                 };
                                 return (
-                                    <span className={`inline-block rounded-full px-3 py-1 text-[11px] leading-normal font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
+                                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] leading-normal font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
                                         {status}
                                     </span>
                                 );
@@ -103,33 +103,33 @@ const InvoiceDocument = ({
                         </div>
                     </div>
                 </div>
-                <div className="absolute top-12 right-0 flex items-stretch gap-1.5">
+                <div className="relative md:absolute md:top-12 right-0 flex items-stretch gap-1 md:gap-1.5 self-stretch md:self-auto">
                     <div style={{ backgroundColor: settings.pageTabColor }} className="w-1"></div>
-                    <div style={{ backgroundColor: settings.pageTabColor }} className="w-3"></div>
-                    <div style={{ backgroundColor: settings.pageTabColor }} className="text-white px-6 py-3 flex items-center justify-center min-w-[300px] md:min-w-[300px]">
-                        <h1 className="text-[32px] font-bold uppercase tracking-wider" style={{ lineHeight: '1.2' }}>Invoice</h1>
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="w-2 md:w-3"></div>
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="text-white px-4 md:px-6 py-2 md:py-3 flex items-center justify-center min-w-[150px] md:min-w-[300px] flex-grow md:flex-grow-0">
+                        <h1 className="text-xl md:text-[32px] font-bold uppercase tracking-wider" style={{ lineHeight: '1.2' }}>Invoice</h1>
                     </div>
                 </div>
             </div>
 
-            <div className="h-px w-full mb-10 opacity-30" style={{ backgroundColor: settings.pageTabColor }}></div>
+            <div className="h-px w-full mb-6 md:mb-10 opacity-30" style={{ backgroundColor: settings.pageTabColor }}></div>
 
             {/* Bill From/To Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16 px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-16 px-2 md:px-4">
                 <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-4" style={{ color: settings.pageTabColor }}>
                         Bill From:
                     </h3>
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
                         <p className="font-bold text-gray-900">{orgName}</p>
                         <p>{orgEmail}</p>
                     </div>
                 </div>
                 <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-4" style={{ color: settings.pageTabColor }}>
                         Bill To:
                     </h3>
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
                         {invoice.vendor ? (
                             <>
                                 <p className="font-bold text-gray-900">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
@@ -148,13 +148,13 @@ const InvoiceDocument = ({
             </div>
 
             {/* Items Table */}
-            <div className="flex-grow">
-                <table className="w-full">
+            <div className="flex-grow overflow-x-auto w-full">
+                <table className="w-full min-w-[500px] md:min-w-0">
                     <thead>
                         <tr className="border-t-2 border-opacity-30 text-[10px] font-bold uppercase text-gray-500" style={{ borderColor: settings.pageTabColor }}>
-                            <th className="py-4 text-left px-4">Item</th>
-                            <th className="py-4 text-center">Quantity</th>
-                            <th className="py-4 text-right px-4">Amount</th>
+                            <th className="py-3 md:py-4 text-left px-2 md:px-4">Item</th>
+                            <th className="py-3 md:py-4 text-center">Quantity</th>
+                            <th className="py-3 md:py-4 text-right px-2 md:px-4">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 italic-text-container">
@@ -162,9 +162,9 @@ const InvoiceDocument = ({
                             const serviceOption = item.order_service?.option?.title || item.orderService?.option?.title;
                             return (
                                 <tr key={idx} className="group hover:bg-gray-50 transition-colors">
-                                    <td className="py-4 px-4">
+                                    <td className="py-3 md:py-4 px-2 md:px-4">
                                         <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                                 {isEditing ? (
                                                     <Input
                                                         value={item.description}
@@ -172,10 +172,10 @@ const InvoiceDocument = ({
                                                         className="font-medium text-gray-900 h-8 flex-grow"
                                                     />
                                                 ) : (
-                                                    <span className="font-medium text-gray-900">{item.description}</span>
+                                                    <span className="font-medium text-gray-900 text-xs md:text-sm">{item.description}</span>
                                                 )}
                                                 {serviceOption && (
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border min-w-fit"
+                                                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border min-w-fit"
                                                         style={{
                                                             color: settings.pageTabColor,
                                                             backgroundColor: `${settings.pageTabColor}1A`,
@@ -187,19 +187,19 @@ const InvoiceDocument = ({
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-4 text-center text-gray-700 font-medium">
+                                    <td className="py-3 md:py-4 text-center text-gray-700 font-medium text-xs md:text-sm">
                                         {isEditing ? (
                                             <Input
                                                 type="number"
                                                 value={item.quantity}
                                                 onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                                                className="w-20 mx-auto text-center h-8"
+                                                className="w-16 md:w-20 mx-auto text-center h-8"
                                             />
                                         ) : (
                                             item.quantity
                                         )}
                                     </td>
-                                    <td className="py-4 text-right font-medium text-gray-900 px-4">
+                                    <td className="py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
                                         {isEditing ? (
                                             <div className="flex items-center justify-end gap-2">
                                                 <span className="text-xs text-gray-400">Rate:</span>
@@ -207,7 +207,7 @@ const InvoiceDocument = ({
                                                     type="number"
                                                     value={item.unit_price}
                                                     onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
-                                                    className="w-24 text-right h-8 font-black"
+                                                    className="w-20 md:w-24 text-right h-8 font-black"
                                                 />
                                                 <Button
                                                     variant="ghost"
@@ -244,9 +244,9 @@ const InvoiceDocument = ({
             </div>
 
             {/* Footer Totals */}
-            <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-end">
-                <div className="max-w-xs flex-grow mr-10">
-                    <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>Notes:</h4>
+            <div className="mt-6 md:mt-12 pt-4 md:pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-stretch md:items-end gap-6 md:gap-0">
+                <div className="max-w-xs flex-grow mr-0 md:mr-10">
+                    <h4 className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-4" style={{ color: settings.pageTabColor }}>Notes:</h4>
                     {isEditing ? (
                         <Textarea
                             value={editData.notes || ''}
@@ -260,13 +260,13 @@ const InvoiceDocument = ({
                         </p>
                     )}
                 </div>
-                <div className="w-80 space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500 font-medium uppercase tracking-wider text-xs">Subtotal:</span>
+                <div className="w-full md:w-80 space-y-2 md:space-y-3">
+                    <div className="flex justify-between text-xs md:text-sm">
+                        <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">Subtotal:</span>
                         <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.subtotal : (invoice.subtotal || '0')).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm items-center">
-                        <span className="text-gray-500 font-medium uppercase tracking-wider text-xs">
+                    <div className="flex justify-between text-xs md:text-sm items-center">
+                        <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
                             Tax {isEditing ? (
                                 <Input
                                     type="number"
@@ -278,9 +278,9 @@ const InvoiceDocument = ({
                         </span>
                         <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : (invoice.tax_amount || '0')).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center px-5 py-4 text-white rounded-sm mt-6" style={{ backgroundColor: settings.pageTabColor }}>
-                        <span className="font-bold uppercase tracking-wider text-sm leading-normal">Total</span>
-                        <span className="text-xl font-bold leading-normal">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>
+                    <div className="flex justify-between items-center px-4 md:px-5 py-3 md:py-4 text-white rounded-sm mt-4 md:mt-6" style={{ backgroundColor: settings.pageTabColor }}>
+                        <span className="font-bold uppercase tracking-wider text-xs md:text-sm leading-normal">Total</span>
+                        <span className="text-base md:text-xl font-bold leading-normal">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>
                     </div>
                 </div>
             </div>

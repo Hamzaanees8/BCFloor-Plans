@@ -16,6 +16,8 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
+  Eye,
+  X,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +34,7 @@ import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from '@/app/dashbo
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
 import InvoicePdfDocument from '@/app/dashboard/invoice/components/InvoicePdfDocument'
 import DownloadInvoicePdf from '@/app/dashboard/invoice/components/DownloadInvoicePdf'
+import InvoiceDocument from '@/app/dashboard/invoice/components/InvoiceDocument'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 
@@ -58,6 +61,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [refundOpen, setRefundOpen] = useState(false)
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false)
+  const [viewingInvoiceDoc, setViewingInvoiceDoc] = useState<any>(null)
 
   // Manual payment form fields
   const [manualAmount, setManualAmount] = useState('')
@@ -351,15 +355,36 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
             </div>
           ) : (
             invoices.map((invoice) => {
+              const isSplit = !!invoice.split_details || !!invoice.agent_type;
               return (
                 <Card key={invoice.uuid} className="overflow-hidden border border-gray-200 shadow-sm">
                   {/* Card Header */}
                   <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b">
-                    <div className="flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-semibold text-gray-700">
-                        Invoice #{invoice.invoice_number || invoice.id}
-                      </span>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs font-semibold text-gray-700">
+                          Invoice #{invoice.invoice_number || invoice.id}
+                        </span>
+                      </div>
+                      <div>
+                        {isSplit ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-200 uppercase">
+                              Partial / Split
+                            </span>
+                            {invoice.agent_type && (
+                              <span className="bg-gray-100 text-gray-600 text-[8px] font-mono px-1 py-0.5 rounded uppercase border border-gray-200">
+                                {invoice.agent_type}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-blue-200 uppercase">
+                            Full Invoice
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <Badge variant="outline" className={`text-[10px] px-2 py-0.5 capitalize ${getInvoiceStatusColor(invoice.status)}`}>
                       {invoice.status}
@@ -460,17 +485,26 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                       {invoice.status === 'paid' && role === 'admin' && (
                         <Button
                           variant="outline"
-                          className="h-10 text-xs font-semibold rounded-lg text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                          className="col-span-2 h-10 text-xs font-semibold rounded-lg text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
                           onClick={() => handleOpenRefund(invoice)}
                         >
                           <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                          Refund
+                          Refund Invoice
                         </Button>
                       )}
 
                       <Button
                         variant="outline"
-                        className={`h-10 text-xs font-semibold rounded-lg ${invoice.status === 'paid' && role === 'admin' ? '' : 'col-span-2'}`}
+                        className="h-10 text-xs font-semibold rounded-lg col-span-2"
+                        onClick={() => setViewingInvoiceDoc(invoice)}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        View Invoice
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-10 text-xs font-semibold rounded-lg col-span-1"
                         onClick={() => handleDownload(invoice)}
                         disabled={actionLoading === `download-${invoice.uuid}`}
                       >
@@ -606,6 +640,34 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
           invoice={selectedInvoice}
           onSuccess={loadData}
         />
+      )}
+
+      {viewingInvoiceDoc && (
+        <Dialog open={!!viewingInvoiceDoc} onOpenChange={(open) => !open && setViewingInvoiceDoc(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] rounded-lg p-0 overflow-hidden flex flex-col font-alexandria border border-[#BBBBBB] bg-white [&>button]:hidden">
+            <DialogHeader className="p-4 border-b border-[#BBBBBB] bg-white">
+              <DialogTitle className="flex items-center justify-between text-base font-bold uppercase" style={{ color: roleSettings.pageTabColor }}>
+                <span>Invoice #{viewingInvoiceDoc.invoice_number || viewingInvoiceDoc.id}</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full" onClick={() => setViewingInvoiceDoc(null)}>
+                  <X className="h-5 w-5 text-gray-500" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="overflow-y-auto p-4 flex-1">
+              <InvoiceDocument
+                invoice={viewingInvoiceDoc}
+                editData={viewingInvoiceDoc}
+                isEditing={false}
+                updateItem={() => { }}
+                addItem={() => { }}
+                removeItem={() => { }}
+                updateTaxRate={() => { }}
+                setEditData={() => { }}
+                roleSettings={roleSettings}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

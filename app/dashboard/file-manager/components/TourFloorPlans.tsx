@@ -19,6 +19,14 @@ import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
   const { droppedMarkers, setDroppedMarkers, filesData, setFilesData, selectedFiles, floorFiles, deletedSnapshotUuids, setDeletedSnapshotUuids } = useFileManagerContext();
 
   const currentTourFloorFiles = [
@@ -435,12 +443,12 @@ function TourFloorPlans({ type = "" }) {
           </div>
         </div>
       )}
-      <div className={`w-full h-[550px] flex gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}>
+      <div className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}>
         <div
           ref={imageContainerRef}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
-          className={`relative w-[70%] border border-gray-200  h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
+          className={`relative w-full md:w-[70%] border border-gray-200 h-[300px] sm:h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
         >
           {selectedFile && 'uuid' in selectedFile && selectedFile.is_processing ? (
             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
@@ -585,8 +593,12 @@ function TourFloorPlans({ type = "" }) {
 
           {previewMarker && type === "confirm" && (
             <div
-              className="bg-[#565656] text-white font-alexandria shadow-lg w-fit max-w-[500px] min-w-[320px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
-              style={{
+              className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+              style={isMobile ? {
+                bottom: '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+              } : {
                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
                 bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
                 left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
@@ -701,8 +713,8 @@ function TourFloorPlans({ type = "" }) {
           </div>
         )}
       </div>
-      <div className="w-full h-auto my-[20px]">
-        <div className="w-[70%] h-full flex-wrap flex items-center gap-[20px] !overflow-x-auto overflow-y-hidden">
+      <div className="w-full h-auto my-[20px] px-4 md:px-0">
+        <div className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" ? "w-full" : "w-full md:w-[70%]"}`}>
 
           {filteredFloorFiles?.map((file, idx) => {
             const isFilePDF = isPDF(file);
@@ -772,7 +784,7 @@ function TourFloorPlans({ type = "" }) {
           <p className="text-[#666666] text-[24px] px-3">Photos</p>
 
           {(currentTourPhotos || [])?.length > 0 ? (
-            <div className="mt-4 w-full grid grid-cols-6 gap-2 p-3">
+            <div className="mt-4 w-full grid grid-cols-3 sm:grid-cols-6 gap-2 p-3">
               {currentTourPhotos?.map((file, idx) => {
                 const isEditing = activeMarkerIndex !== null || !!activeApiSnapshotUuid;
                 return (

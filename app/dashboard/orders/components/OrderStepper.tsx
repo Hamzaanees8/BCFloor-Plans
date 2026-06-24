@@ -23,7 +23,7 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
     const activeIndex = steps.findIndex(step => step.id === currentTab);
 
     return (
-        <div className="w-full flex items-center justify-between px-4 md:px-0">
+        <div className="w-full flex items-center justify-between px-4 md:px-0 overflow-x-auto whitespace-nowrap scrollbar-none py-2 gap-2">
             {steps.map((step, index) => {
                 const isActive = step.id === currentTab;
                 const isCompleted = index < activeIndex;
@@ -59,11 +59,11 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                 return (
                     <React.Fragment key={step.id}>
                         <div
-                            className={`flex flex-col md:flex-row items-center gap-2 cursor-pointer flex-1 justify-center ${!isNavigable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex flex-col md:flex-row items-center gap-2 cursor-pointer shrink-0 justify-center ${!isNavigable ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={() => isNavigable && onTabChange(step.id)}
                         >
                             <div
-                                className={`w-[24px] h-[24px] md:w-[32px] md:h-[32px] rounded-full flex items-center justify-center text-xs md:text-sm font-medium transition-colors ${circleBg} ${circleText}`}
+                                className={`w-[24px] h-[24px] md:w-[32px] md:h-[32px] rounded-full flex items-center justify-center text-xs md:text-sm font-medium transition-colors shrink-0 ${circleBg} ${circleText}`}
                                 style={circleStyle}
                             >
                                 {index + 1}
@@ -80,8 +80,8 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                         </div>
 
                         {!isLast && (
-                            <div className="flex items-center justify-center px-2">
-                                <ChevronRight className="w-4 h-4 text-[#BBBBBB]" />
+                            <div className="flex items-center justify-center px-1 shrink-0">
+                                <ChevronRight className="w-3 h-3 md:w-4 md:h-4 text-[#BBBBBB]" />
                             </div>
                         )}
                     </React.Fragment>

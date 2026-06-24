@@ -20,12 +20,20 @@ export default function UserbackWidget() {
     if (typeof window === "undefined") return;
 
     const token = process.env.NEXT_PUBLIC_USERBACK_TOKEN || "P-IChGiDQFSrPPqe0zSf1RV9ve5";
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    let active = !mediaQuery.matches;
 
     const initUserback = async () => {
       try {
+        // Check active flag and check mediaQuery again to avoid race conditions
+        if (!active || mediaQuery.matches) return;
+
         // Dynamically import to ensure client-only execution and avoid SSR build-time errors
         const Userback = (await import("@userback/widget")).default;
         
+        // Re-check after import resolved
+        if (!active || mediaQuery.matches) return;
+
         const instance = await Userback(token, {
           user_data: user ? {
             info: {
@@ -41,9 +49,31 @@ export default function UserbackWidget() {
       }
     };
 
-    initUserback();
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        active = false;
+        if (userbackInstance.current) {
+          try {
+            userbackInstance.current.destroy();
+          } catch (err) {
+            console.error("Error destroying Userback instance:", err);
+          }
+          userbackInstance.current = null;
+        }
+      } else {
+        active = true;
+        if (!userbackInstance.current) {
+          initUserback();
+        }
+      }
+    };
+
+    // Initialize/register listener
+    handleMediaChange(mediaQuery);
+    mediaQuery.addEventListener("change", handleMediaChange);
 
     return () => {
+      mediaQuery.removeEventListener("change", handleMediaChange);
       if (userbackInstance.current) {
         try {
           userbackInstance.current.destroy();

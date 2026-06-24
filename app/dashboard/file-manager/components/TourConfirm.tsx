@@ -335,22 +335,22 @@ const TourConfirm = ({
     <div className="w-full font-alexandria">
       {/* Tour Link Input */}
       {tourUuid && !isPublicView && (
-        <div className="flex items-center justify-center py-4">
-          <div className="flex flex-col gap-4 w-[550px]">
+        <div className="flex items-center justify-center py-4 px-4 w-full">
+          <div className="flex flex-col gap-4 w-full max-w-[550px]">
             {/* Branded Link */}
             <div className="flex flex-col gap-2">
               <div className="text-[14px] font-medium text-[#424242]">Branded Tour Link</div>
-              <div className="flex justify-between items-center w-full">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center w-full">
                 <Input
                   type="text"
                   value={`${tourUrl}?type=branded`}
-                  className="w-[410px] border border-[#8E8E8E] text-[#666666]"
+                  className="flex-1 w-full border border-[#8E8E8E] text-[#666666]"
                   readOnly
                 />
                 <a
                   target="_blank"
                   href={`${tourUrl}?type=branded`}
-                  className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4 whitespace-nowrap">
+                  className="w-full sm:w-auto px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white whitespace-nowrap">
                   <span>View Tour</span> <UploadRightIcon size={18} />
                 </a>
               </div>
@@ -359,23 +359,23 @@ const TourConfirm = ({
             {/* Unbranded Link */}
             <div className="flex flex-col gap-2">
               <div className="text-[14px] font-medium text-[#424242]">Unbranded Tour Link</div>
-              <div className="flex justify-between items-center w-full">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center w-full">
                 <Input
                   type="text"
                   value={`${tourUrl}?type=unbranded`}
-                  className="w-[410px] border border-[#8E8E8E] text-[#666666]"
+                  className="flex-1 w-full border border-[#8E8E8E] text-[#666666]"
                   readOnly
                 />
                 <a
                   target="_blank"
                   href={`${tourUrl}?type=unbranded`}
-                  className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4 whitespace-nowrap">
+                  className="w-full sm:w-auto px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white whitespace-nowrap">
                   <span>View Tour</span> <UploadRightIcon size={18} />
                 </a>
               </div>
             </div>
 
-            <div className="flex items-center gap-x-3 mt-2">
+            <div className="flex flex-wrap items-center gap-3 mt-2">
               <Button
                 onClick={handlePostTour}
                 disabled={isPublishing}
@@ -409,12 +409,12 @@ const TourConfirm = ({
           <AccordionContent className={hideAccordion ? "border-none" : ""}>
             <div className={`w-full flex flex-col gap-6 px-0 pb-6 relative ${hideAccordion ? "pt-0" : ""}`}>
               {/* Tabs */}
-              <div className="flex justify-center space-x-4 py-2 absolute top-3 z-30 place-self-center">
+              <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-[95%] md:max-w-none px-4 gap-2 py-2 absolute top-3 z-30 left-1/2 -translate-x-1/2 w-full md:w-auto justify-start md:justify-center">
                 {previewTabs.map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`text-[13px] w-[179px] font-bold  px-4 py-2 rounded-md uppercase ${activeTab === tab
+                    className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[179px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all ${activeTab === tab
                       ? `${userType}-bg text-white`
                       : "bg-gray-200 text-[#666666]"
                       }`}
@@ -427,7 +427,7 @@ const TourConfirm = ({
               {activeTab === "Home" && (
                 <div className="pt-[0px]">
                   {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) && (
-                    <div className={`relative w-full overflow-hidden ${isPublicView ? "h-[100vh]" : "h-[636px]"}`}>
+                    <div className={`relative w-full overflow-hidden ${isPublicView ? "h-[70vh] md:h-[100vh]" : "h-[45vh] sm:h-[636px]"}`}>
                       <CustomSlideshow
                         images={uploadedImages}
                         delay={delay}
@@ -451,12 +451,12 @@ const TourConfirm = ({
                       />
 
                       {isPublicView && (
-                        <div className="absolute bottom-6 left-6 z-50 pointer-events-auto">
-                          <div className="bg-black/70 backdrop-blur-md rounded-[12px] px-4 py-3 flex items-center gap-3 shadow-lg">
-                            <MapPin className="text-white w-6 h-6 shrink-0" />
+                        <div className="absolute bottom-4 left-4 right-4 md:right-auto md:bottom-6 md:left-6 z-50 pointer-events-auto">
+                          <div className="bg-black/70 backdrop-blur-md rounded-lg md:rounded-[12px] px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 shadow-lg">
+                            <MapPin className="text-white w-5 h-5 md:w-6 md:h-6 shrink-0" />
                             <div className="flex flex-col text-left">
-                              <span className="text-white font-medium text-[22px] leading-tight">{orderData?.property_address || orderData?.property?.address}</span>
-                              <span className="text-white/80 text-[15px] leading-tight mt-1">{orderData?.property_location || `${orderData?.property?.city}, ${orderData?.property?.province}`}</span>
+                              <span className="text-white font-medium text-[16px] md:text-[22px] leading-tight">{orderData?.property_address || orderData?.property?.address}</span>
+                              <span className="text-white/80 text-xs md:text-[15px] leading-tight mt-1">{orderData?.property_location || `${orderData?.property?.city}, ${orderData?.property?.province}`}</span>
                             </div>
                           </div>
                         </div>
@@ -519,11 +519,11 @@ const TourConfirm = ({
                       ))}
                   </div>
 
-                  <div className="flex gap-10 px-6">
+                  <div className="flex flex-col md:flex-row gap-6 md:gap-10 px-4 md:px-6">
                     {activeTourType !== "unbranded" && (
-                      <div className="flex flex-col gap-5 items-start w-[350px]">
+                      <div className="flex flex-col gap-5 items-start w-full md:w-[350px]">
                         {orderData?.agent.logo_url ? (
-                          <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden">
+                          <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden mx-auto md:mx-0">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={orderData.agent.logo_url}
@@ -537,21 +537,21 @@ const TourConfirm = ({
                             />
                           </div>
                         ) : null}
-                        <div className="text-left w-full flex flex-col gap-[12px]">
+                        <div className="text-left w-full flex flex-col gap-[12px] items-center md:items-start">
                           <div className="text-[#424242] text-[16px] font-alexandria font-semibold">
                             Contact
                           </div>
-                          <div className="text-[#424242] text-[20px] font-alexandria font-light">
+                          <div className="text-[#424242] text-[20px] font-alexandria font-light text-center md:text-left">
                             {orderData?.agent.first_name}{" "}
                             {orderData?.agent.last_name}
                           </div>
-                          <div className="text-[#424242] text-[20px] font-alexandria font-light">
+                          <div className="text-[#424242] text-[20px] font-alexandria font-light text-center md:text-left">
                             {orderData?.agent.company_name || "Company Name"}
                           </div>
                           {orderData?.agent.primary_phone && (
                             <a
                               href={`tel:${orderData.agent.primary_phone}`}
-                              className="text-[20px] font-alexandria font-light"
+                              className="text-[20px] font-alexandria font-light text-center md:text-left"
                               style={{ color: roleSettings.pageTabColor }}
                             >
                               {orderData.agent.primary_phone}
@@ -560,7 +560,7 @@ const TourConfirm = ({
                           {orderData?.agent.website && (
                             <a
                               href={orderData.agent.website}
-                              className="text-[20px] font-alexandria font-light"
+                              className="text-[20px] font-alexandria font-light text-center md:text-left break-all"
                               style={{ color: roleSettings.pageTabColor }}
                               target="_blank"
                               rel="noreferrer"
@@ -568,7 +568,7 @@ const TourConfirm = ({
                               {orderData.agent.website}
                             </a>
                           )}
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 justify-center md:justify-start">
                             {orderData?.agent.primary_phone && (
                               <a
                                 href={`tel:${orderData.agent.primary_phone}`}
@@ -589,16 +589,16 @@ const TourConfirm = ({
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-1 flex-col justify-between gap-7 h-fit">
+                    <div className="flex flex-col md:flex-1 justify-between gap-7 h-fit w-full">
                       <div className="flex flex-col gap-4">
-                        <h2 className="text-md font-semibold text-[#424242] font-alexandria">
+                        <h2 className="text-md font-semibold text-[#424242] font-alexandria text-center md:text-left">
                           ABOUT THE PROPERTY
                         </h2>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 text-center md:text-left">
                           {orderData?.property.description || "No description available."}
                         </p>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3 justify-center md:justify-start">
                           {(() => {
                             const listingSheets = featureSheets.filter(sheet => {
                               const template = templateImages.find(t => t.id === sheet.template_key);
@@ -671,7 +671,7 @@ const TourConfirm = ({
                   {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) ? (
                     <>
                       <CustomSlideshow
-                        className={isPublicView ? "h-[100vh]" : "h-[100vh]"}
+                        className={isPublicView ? "h-[70vh] md:h-[100vh]" : "h-[45vh] sm:h-[636px]"}
                         images={uploadedImages}
                         delay={delay}
                         transition={transition}
@@ -692,7 +692,7 @@ const TourConfirm = ({
                         watermarkUrl={actualWatermarkLogo}
                       />
 
-                      <div className="grid grid-cols-6 gap-2 mt-12 px-6">
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-6 md:mt-12 px-4 md:px-6">
                         {uploadedImages.map((image, index) => (
                           <div
                             key={`uploaded-${index}`}
@@ -763,7 +763,7 @@ const TourConfirm = ({
                   <div className="p-4 pt-0">
                     {/* Main video preview */}
                     {mainVideo &&
-                      <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden relative">
+                      <div className="mb-6 h-[50vh] sm:h-[95vh] w-full bg-black overflow-hidden relative">
                         <video
                           src={mainVideo || undefined}
                           className="w-full h-full object-contain"
@@ -782,7 +782,7 @@ const TourConfirm = ({
 
                     {/* Local uploaded videos */}
                     {(selectedVideoFiles.length > 0 || (currentVideoFiles?.length ?? 0) > 0) ? (
-                      <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
+                      <div className="mt-4 w-full grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5 p-2 md:p-3">
                         {selectedVideoFiles.map((file, idx) => {
                           const thumbSrc = URL.createObjectURL(file.file);
                           return (
@@ -791,7 +791,7 @@ const TourConfirm = ({
                               onClick={() => setMainVideo(thumbSrc)}
                               className="h-auto relative"
                             >
-                              <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
+                              <div className="relative w-full h-[180px] sm:h-[240px] cursor-pointer bg-black overflow-hidden">
                                 <video
                                   src={thumbSrc}
                                   className="w-full h-full object-contain"
@@ -807,7 +807,7 @@ const TourConfirm = ({
                               key={idx}
                               className="h-auto relative"
                             >
-                              <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">
+                              <div className="relative w-full h-[180px] sm:h-[240px] cursor-pointer bg-black overflow-hidden">
                                 {file.is_processing ? (
                                   <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
@@ -902,7 +902,7 @@ const TourConfirm = ({
                       displayMatterportLinks?.map(
                         (link, idx) =>
                           isValidUrl(link.link) && (
-                            <div key={`preview-matterport-${idx}`} className="relative w-[80%] h-[500px] mt-4">
+                            <div key={`preview-matterport-${idx}`} className="relative w-full md:w-[80%] h-[300px] sm:h-[500px] mt-4 px-4 md:px-0">
                               <iframe
                                 src={link.link}
                                 className="w-full h-full border"
