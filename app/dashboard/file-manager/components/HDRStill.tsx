@@ -886,7 +886,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds]);
 
 
@@ -1332,7 +1332,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'agent') && (
+                        {/* {(userType === 'agent') && (
                             <Button
                                 onClick={() => {
                                     if (isHidingMode) {
@@ -1348,7 +1348,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             >
                                 {isHidingMode ? 'Save' : 'Hide Media'}
                             </Button>
-                        )}
+                        )} */}
                         {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
                             <Button
                                 onClick={handleSubmitAdminApproval}
@@ -1603,13 +1603,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     reviewFilesEnabled={reviewFilesEnabled}
                     onSave={onSave}
                 />
-            {panoramaViewerOpen && (
-                <PanoramaViewer
-                    files={(currentServiceFiles || []).filter(isPanoramaFile)}
-                    initialIndex={panoramaInitialIndex}
-                    onClose={() => setPanoramaViewerOpen(false)}
-                />
-            )}
+                {panoramaViewerOpen && (
+                    <PanoramaViewer
+                        files={(currentServiceFiles || []).filter(isPanoramaFile)}
+                        initialIndex={panoramaInitialIndex}
+                        onClose={() => setPanoramaViewerOpen(false)}
+                    />
+                )}
 
                 <div className="flex flex-col items-center justify-center">
                     {userType === 'vendor' && reviewFilesEnabled && (

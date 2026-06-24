@@ -41,7 +41,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
     // Helper to check if a service or the entire order is paid
     const isServicePaid = useCallback((serviceUuid: string, fileIsPaid?: boolean) => {
         if (fileIsPaid !== undefined) return fileIsPaid;
-        
+
         if (userType !== 'agent') return true;
         if (orderData?.payment_status === 'PAID') return true;
         const service = orderData?.services.find(s => s.service.uuid === serviceUuid);
@@ -81,13 +81,13 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             const isForbiddenService = serviceName.toLowerCase().includes('floor plan') ||
                 serviceName.toLowerCase().includes('3d tour');
             if (isForbiddenService || !file.service) return false;
-            
+
             const isApproved = userType === 'agent' ? (file.is_agent_approved || file.is_complimentary) : true;
             const isValidType = file.type === 'photo' || file.type === 'video';
-            
+
             return !isApproved && isValidType;
         });
-        
+
         const names = new Set(unapprovedFiles.map(f => f.service?.name).filter(Boolean));
         return Array.from(names);
     }, [filesData?.files, userType]);
@@ -277,7 +277,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
     };
 
     const handleDownload = async (files: Files[], label: string, size: DownloadSize = 'original') => {
-        setSizeModal(prev => ({ ...prev, isOpen: false })); 
+        setSizeModal(prev => ({ ...prev, isOpen: false }));
 
         try {
             const payload: { uuid: string; size?: DownloadSize }[] = files.map(f => ({
@@ -393,16 +393,16 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                     <span className="text-gray-500 text-sm hidden md:inline">Click a file to select it for downloading manually.</span>
                 </div>
 
-                                {/* Sync MLS — only visible to agents and admins */}
+                {/* Sync MLS — only visible to agents and admins */}
                 {(userType === 'agent' || userType === 'admin') && (
-                  <Button
-                      onClick={() => setIsSyncModalOpen(true)}
-                      disabled={(allApprovedPhotos.length === 0)}
-                      className={`px-4 h-[32px] md:h-[38px] border-[1px] ${(allApprovedPhotos.length === 0) ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
-                      style={(allApprovedPhotos.length === 0) ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                  >
-                      Sync MLS
-                  </Button>
+                    <Button
+                        onClick={() => setIsSyncModalOpen(true)}
+                        disabled={(allApprovedPhotos.length === 0)}
+                        className={`px-4 h-[32px] md:h-[38px] border-[1px] ${(allApprovedPhotos.length === 0) ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
+                        style={(allApprovedPhotos.length === 0) ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    >
+                        Sync MLS
+                    </Button>
                 )}
 
                 {selectedImageUuids.size > 0 && (
@@ -482,15 +482,14 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                         <div className="flex items-center gap-2">
                                             {/* Paid/Unpaid badge */}
                                             {userType !== 'vendor' && (
-                                                <span 
+                                                <span
                                                     onClick={() => {
                                                         if (!section.isPaid) {
                                                             onOpenInvoice?.(section.bookingEntry?.service.name);
                                                         }
                                                     }}
-                                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                                    section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
-                                                }`}>
+                                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
+                                                        }`}>
                                                     {section.isPaid ? 'PAID' : 'UNPAID'}
                                                 </span>
                                             )}
@@ -600,7 +599,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                         </div>
                                                     )}
                                                     {!section.isPaid && userType === 'agent' && (
-                                                        <div 
+                                                        <div
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 onOpenInvoice?.(section.bookingEntry?.service.name);
@@ -680,15 +679,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             />
 
             {/* Sync Modal only shows paid/approved files regardless of user role */}
-            <SyncMlsModal 
+            <SyncMlsModal
                 open={isSyncModalOpen}
                 onClose={() => setIsSyncModalOpen(false)}
-                apiFiles={[...allApprovedPhotos].filter(f => 
-                  canDownloadFile({
-                    file: f,
-                    orderData,
-                    userType: 'agent', // Force strict payment check even for Admins
-                  })
+                apiFiles={[...allApprovedPhotos].filter(f =>
+                    canDownloadFile({
+                        file: f,
+                        orderData,
+                        userType: 'agent', // Force strict payment check even for Admins
+                    })
                 ) as unknown as ApiFile[]}
                 orderData={orderData}
                 tourUuid={filesData?.uuid}

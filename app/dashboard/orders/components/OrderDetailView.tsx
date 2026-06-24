@@ -33,6 +33,7 @@ interface OrderDetailViewProps {
     orderData: Order[]
     serviceId: number;
     agentData: Agent[]
+    refreshOrders?: () => void;
 }
 type AgentNote = {
     note: string;
@@ -159,6 +160,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
     useEffect(() => {
         if (open && currentOrder) {
+            // Only initialize local state when opening the dialog for a specific order.
+            // Do not run refreshOrders here to prevent infinite loop.
             setOrderServices(currentOrder.services || []);
             setArea(currentOrder.areas || []);
 
@@ -172,7 +175,9 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             });
             setSelectedSlots(allSlots);
         }
-    }, [open, currentOrder, setOrderServices, setSelectedSlots]);
+        // Use currentOrder?.uuid to only re-run when a different order is selected,
+        // avoiding overwrites when orderData array reference changes.
+    }, [open, currentOrder?.uuid, setOrderServices, setSelectedSlots]);
 
     // Sync service options with square footage when area changes
     useEffect(() => {

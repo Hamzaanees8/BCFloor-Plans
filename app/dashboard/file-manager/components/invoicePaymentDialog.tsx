@@ -28,7 +28,8 @@ interface InvoicePaymentDialogProps {
   currentService?: CurrentServiceType | null;
   activeTab: string;
   userType: string;
-  url: string
+  url: string;
+  onPaymentSuccess?: () => void;
 }
 
 const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
@@ -38,7 +39,8 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
   currentService,
   activeTab,
   userType,
-  url
+  url,
+  onPaymentSuccess
 }) => {
   const [paymentType, setPaymentType] = useState<"full" | "service" | "manual">("full");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -158,6 +160,9 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
     toast.success("Manual payment processed successfully.");
     setShowManualPaymentDialog(false);
     onClose();
+    if (onPaymentSuccess) {
+      onPaymentSuccess();
+    }
   };
 
   return (

@@ -290,10 +290,12 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
       {!hideHeader && (
         <div className="flex justify-between items-center">
           <div className="text-[24px] font-[400]">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
-          <div className="flex items-center space-x-2">
-            <Switch id="update-invoice-sqft" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
-            <Label htmlFor="update-invoice-sqft" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
-          </div>
+          {userType !== 'vendor' && (
+            <div className="flex items-center space-x-2">
+              <Switch id="update-invoice-sqft" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+              <Label htmlFor="update-invoice-sqft" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+            </div>
+          )}
         </div>
       )}
 

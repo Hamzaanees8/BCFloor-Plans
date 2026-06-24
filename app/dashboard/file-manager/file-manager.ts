@@ -238,13 +238,6 @@ export async function UploadFilesData(
             content_type: f.file.type,
             size: f.file.size,
           });
-          if (f.thumbnailFile) {
-            filesPayload.push({
-              filename: f.thumbnailFile.name,
-              content_type: f.thumbnailFile.type,
-              size: f.thumbnailFile.size,
-            });
-          }
         });
 
         const presignedRequest = {
@@ -263,9 +256,6 @@ export async function UploadFilesData(
         let uploadIdx = 0;
         fileBatch.forEach((fileObj) => {
            uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: false });
-           if (fileObj.thumbnailFile) {
-             uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: true });
-           }
         });
 
         // Upload files in this batch to S3 (concurrency limit)
@@ -378,7 +368,6 @@ export async function UploadFilesData(
         let cIdx = 0;
         filesBatch.forEach((fileObj) => {
             const mainUpload = uploadsBatch[cIdx++];
-            const thumbUpload = fileObj.thumbnailFile ? uploadsBatch[cIdx++] : null;
             
             confirmUploadsPayload.push({
               upload_id: mainUpload.upload_id,
@@ -395,16 +384,55 @@ export async function UploadFilesData(
               is_complimentary: fileObj.is_complimentary || false,
               image_type: fileObj.isPanorama ? "panorama" : "normal",
               sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : files.indexOf(fileObj) + 1,
-              ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
             });
         });
 
-        await S3UploadService.confirmUpload({
+        const confirmResponse = await S3UploadService.confirmUpload({
           entity_type: "tour",
           entity_id: tourUuid,
           tour_id: tourUuid,
           uploads: confirmUploadsPayload,
         });
+
+        // Loop over filesBatch to upload thumbnails for any video files that have one
+        const createdFiles = confirmResponse.data?.files || [];
+        for (const fileObj of filesBatch) {
+            if (fileObj.thumbnailFile && fileObj.file.type.startsWith('video/')) {
+                const createdFile = createdFiles.find(f => f.filename === fileObj.file.name);
+                if (createdFile) {
+                    const videoUuid = createdFile.uuid;
+                    try {
+                        const presignedResponse = await S3UploadService.getPresignedUrls({
+                            entity_type: "video-thumbnail",
+                            entity_id: videoUuid,
+                            files: [{
+                                filename: fileObj.thumbnailFile.name,
+                                content_type: fileObj.thumbnailFile.type,
+                                size: fileObj.thumbnailFile.size,
+                            }],
+                        });
+
+                        if (presignedResponse.success && presignedResponse.data.uploads.length) {
+                            const uploadData = presignedResponse.data.uploads[0];
+                            await S3UploadService.uploadToS3(uploadData.presigned_url, fileObj.thumbnailFile, uploadData.content_type);
+                            await S3UploadService.confirmUpload({
+                                entity_type: "video-thumbnail",
+                                entity_id: videoUuid,
+                                uploads: [{
+                                    upload_id: uploadData.upload_id,
+                                    s3_key: uploadData.s3_key,
+                                    original_filename: uploadData.original_filename,
+                                    content_type: uploadData.content_type,
+                                }],
+                            });
+                            console.log(`Successfully uploaded custom thumbnail for video ${videoUuid}`);
+                        }
+                    } catch (thumbErr) {
+                        console.error(`Failed to upload thumbnail for video ${videoUuid}:`, thumbErr);
+                    }
+                }
+            }
+        }
 
         // Mark this batch as complete in UI
         if (onProgress) {
@@ -463,13 +491,7 @@ export async function UpdateFilesData(
             content_type: f.file.type,
             size: f.file.size,
           });
-          if (f.thumbnailFile) {
-            filesPayload.push({
-              filename: f.thumbnailFile.name,
-              content_type: f.thumbnailFile.type,
-              size: f.thumbnailFile.size,
-            });
-          }
+          // thumbnail uploaded separately
         });
 
         const presignedRequest = {
@@ -487,9 +509,7 @@ export async function UpdateFilesData(
         let uploadIdx = 0;
         fileBatch.forEach((fileObj) => {
            uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: false });
-           if (fileObj.thumbnailFile) {
-             uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: true });
-           }
+           // thumbnail task handled separately
         });
 
         // Upload all new files in this batch to S3 (concurrency limit)
@@ -531,11 +551,10 @@ export async function UpdateFilesData(
           );
         }
 
-        const confirmUploadsPayload: any[] = [];
+                const confirmUploadsPayload: any[] = [];
         let cIdx = 0;
         fileBatch.forEach((fileObj) => {
             const mainUpload = batchUploads[cIdx++];
-            const thumbUpload = fileObj.thumbnailFile ? batchUploads[cIdx++] : null;
             
             confirmUploadsPayload.push({
               upload_id: mainUpload.upload_id,
@@ -552,17 +571,56 @@ export async function UpdateFilesData(
               is_complimentary: fileObj.is_complimentary || false,
               image_type: fileObj.isPanorama ? "panorama" : "normal",
               sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : newFiles.indexOf(fileObj) + 1,
-              ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
             });
         });
 
         // Confirm this batch of uploads
-        await S3UploadService.confirmUpload({
+        const confirmResponse = await S3UploadService.confirmUpload({
           entity_type: "tour",
           entity_id: tourUuid,
           tour_id: tourUuid,
           uploads: confirmUploadsPayload,
         });
+
+        // Loop over fileBatch to upload thumbnails for any video files that have one
+        const createdFiles = confirmResponse.data?.files || [];
+        for (const fileObj of fileBatch) {
+            if (fileObj.thumbnailFile && fileObj.file.type.startsWith('video/')) {
+                const createdFile = createdFiles.find(f => f.filename === fileObj.file.name);
+                if (createdFile) {
+                    const videoUuid = createdFile.uuid;
+                    try {
+                        const presignedResponse = await S3UploadService.getPresignedUrls({
+                            entity_type: "video-thumbnail",
+                            entity_id: videoUuid,
+                            files: [{
+                                filename: fileObj.thumbnailFile.name,
+                                content_type: fileObj.thumbnailFile.type,
+                                size: fileObj.thumbnailFile.size,
+                            }],
+                        });
+
+                        if (presignedResponse.success && presignedResponse.data.uploads.length) {
+                            const uploadData = presignedResponse.data.uploads[0];
+                            await S3UploadService.uploadToS3(uploadData.presigned_url, fileObj.thumbnailFile, uploadData.content_type);
+                            await S3UploadService.confirmUpload({
+                                entity_type: "video-thumbnail",
+                                entity_id: videoUuid,
+                                uploads: [{
+                                    upload_id: uploadData.upload_id,
+                                    s3_key: uploadData.s3_key,
+                                    original_filename: uploadData.original_filename,
+                                    content_type: uploadData.content_type,
+                                }],
+                            });
+                            console.log("Successfully uploaded custom thumbnail for video " + videoUuid);
+                        }
+                    } catch (thumbErr) {
+                        console.error("Failed to upload thumbnail for video " + videoUuid + ":", thumbErr);
+                    }
+                }
+            }
+        }
 
         // Mark this batch as complete in UI
         if (onProgress) {

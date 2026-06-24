@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, Lock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -29,6 +29,7 @@ interface Props {
     isPaid?: boolean;
     isAgentApproved?: boolean;
     poster?: string;
+    onOpenInvoice?: () => void;
 }
 
 const defaultMediaOptions = [
@@ -51,7 +52,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
     suggestions,
     isPaid = true,
     isAgentApproved = false,
-    poster
+    poster,
+    onOpenInvoice
 }) => {
     const { userType } = useAppContext();
     const { filesData } = useFileManagerContext();
@@ -60,6 +62,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [showAgentWarning, setShowAgentWarning] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    const [videoMessage, setVideoMessage] = useState<string>('');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const handleCopy = () => {
@@ -77,6 +80,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     useEffect(() => {
         if (open) {
             setName(initialName);
+            setVideoMessage('');
         }
     }, [initialName, open]);
 
@@ -126,6 +130,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     };
 
     const isRestrictedPdf = isPdf && userType === 'agent' && !isPaid;
+    const isRestrictedVideo = type === 'video' && userType === 'agent' && !isPaid;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -147,15 +152,65 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
                 <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-black rounded-lg overflow-hidden">
                     {type === 'video' ? (
-                        <video
-                            src={mediaUrl}
-                            poster={poster}
-                            controls
-                            controlsList="nodownload"
-                            preload="auto"
-                            playsInline
-                            className="max-w-full max-h-full rounded-md"
-                        />
+                        <div className="relative w-full h-full flex justify-center items-center">
+                            <video
+                                src={mediaUrl}
+                                poster={poster}
+                                controls={!videoMessage}
+                                controlsList="nodownload"
+                                preload="auto"
+                                playsInline
+                                className="max-w-full max-h-full rounded-md"
+                                onTimeUpdate={(e) => {
+                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 10) {
+                                        e.currentTarget.pause();
+                                        setVideoMessage("Pay service to view full video.");
+                                    }
+                                }}
+                                onSeeking={(e) => {
+                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 10) {
+                                        e.currentTarget.pause();
+                                        e.currentTarget.currentTime = 10;
+                                        setVideoMessage("Pay service to view full video.");
+                                    }
+                                }}
+                            />
+                            {videoMessage && (
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-md p-4 z-50 transition-all duration-300">
+                                    <div className="bg-white rounded-[12px] shadow-2xl p-8 max-w-[400px] w-full flex flex-col items-center transform transition-all duration-300">
+                                        <div className="bg-gray-50 border border-gray-100 rounded-full p-4 mb-4 shadow-sm">
+                                            <Lock className="w-8 h-8 text-gray-700" />
+                                        </div>
+                                        <h3 className="text-[20px] font-bold text-gray-900 mb-2 font-alexandria">
+                                            Preview Only
+                                        </h3>
+                                        <p className="text-gray-500 text-center text-[14px] mb-8 leading-relaxed font-alexandria">
+                                            This video is available as a preview only. Purchase or activate this service to watch the full video.
+                                        </p>
+                                        <div className="flex flex-col w-full gap-3 font-alexandria">
+                                            <Button 
+                                                onClick={() => {
+                                                    if (onOpenInvoice) {
+                                                        onOpenInvoice();
+                                                    }
+                                                    onClose();
+                                                }}
+                                                className={`w-full ${userType}-bg hover:brightness-110 text-white font-semibold h-[44px] rounded-[8px] transition-all`}
+                                            >
+                                                Unlock Full Video
+                                            </Button>
+                                            <Button 
+                                                onClick={() => setVideoMessage('')} 
+                                                variant="outline" 
+                                                className="w-full text-gray-600 bg-white border-gray-200 hover:bg-gray-50 hover:text-gray-900 font-semibold h-[44px] rounded-[8px] transition-all"
+                                            >
+                                                Close
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ) : isRestrictedPdf ? (
                         <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-100 w-full h-full rounded-md gap-4">
                             <div className="bg-red-50 rounded-full p-6">

@@ -18,6 +18,7 @@ interface UploadParams {
     selectedAudioTrack: string;
     changedFiles?: Files[]; // Only for update
     isUpdate: boolean;
+    successMessage?: string | null;
 }
 
 interface GlobalFileUploadContextType {
@@ -125,7 +126,9 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
             setOverallProgress(100);
             setIsUploading(false);
 
-            toast.success("All changes saved successfully!");
+            if (params.successMessage !== null) {
+                toast.success(params.successMessage || "All changes saved successfully!");
+            }
             return response;
         } catch (error) {
             setUploadStates(prev => prev.map(state => ({

@@ -49,7 +49,6 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
   // FileItems for SortableGrid
   const [photoItems, setPhotoItems] = useState<FileItem[]>([]);
-  const [videoItems, setVideoItems] = useState<FileItem[]>([]);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const { filesData, setFilesData, deletedSnapshotUuids, links, delay, transition, selectedAudioTrack } = useFileManagerContext();
   const { startUpload } = useGlobalFileUpload();
@@ -86,7 +85,6 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
       // Initialize fileItems
       const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');
-      const videoApiFiles = validApiFiles.filter(f => f.type === 'video');
 
       const sortedPhotos = [...photoApiFiles].sort((a, b) => {
         const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
@@ -94,24 +92,8 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
         return (a.service?.id ?? 0) - (b.service?.id ?? 0);
       });
 
-      const sortedVideos = [...videoApiFiles].sort((a, b) => {
-        const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        if (orderDiff !== 0) return orderDiff;
-        return (a.service?.id ?? 0) - (b.service?.id ?? 0);
-      });
-
       setPhotoItems(
         sortedPhotos.map((f, index) => ({
-          clientId: f.uuid,
-          url: f.url || '',
-          status: 'uploaded',
-          order: index,
-          originalData: f,
-        }))
-      );
-
-      setVideoItems(
-        sortedVideos.map((f, index) => ({
           clientId: f.uuid,
           url: f.url || '',
           status: 'uploaded',
@@ -153,10 +135,6 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     setPhotoItems(newItems);
   }, []);
 
-  const handleVideoOrderChange = useCallback((newItems: FileItem[]) => {
-    setVideoItems(newItems);
-  }, []);
-
   const handleSaveReorder = useCallback(async () => {
     if (!filesData) return;
 
@@ -166,13 +144,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
       .filter(Boolean);
     const photoUpdates = computeGlobalReorderUpdates(reorderedPhotos);
 
-    // Compute globally-unique sort_orders for videos
-    const reorderedVideos = videoItems
-      .map((item) => item.originalData as Files)
-      .filter(Boolean);
-    const videoUpdates = computeGlobalReorderUpdates(reorderedVideos);
-
-    const allUpdates = [...photoUpdates, ...videoUpdates];
+    const allUpdates = [...photoUpdates];
     const updatesMap = new Map(allUpdates.map((u) => [u.uuid, u.sort_order]));
 
     const newlyChangedFiles: Files[] = [];
@@ -235,21 +207,20 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
         transition: transition,
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles: newlyChangedFiles,
-        isUpdate: true
+        isUpdate: true,
+        successMessage: "Media reordered successfully."
       });
       setIsReorderMode(false);
-      toast.success("Order saved successfully.");
     } catch (error) {
       console.error("Failed to save reorder", error);
       toast.error("Failed to save reorder.");
     } finally {
       setGlobalSaving(false);
     }
-  }, [photoItems, videoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, deletedSnapshotUuids, links]);
+  }, [photoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, deletedSnapshotUuids, links]);
 
   const handleCancelReorder = useCallback(() => {
     const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');
-    const videoApiFiles = validApiFiles.filter(f => f.type === 'video');
 
     const sortedPhotos = [...photoApiFiles].sort((a, b) => {
       const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
@@ -257,24 +228,8 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
       return (a.service?.id ?? 0) - (b.service?.id ?? 0);
     });
 
-    const sortedVideos = [...videoApiFiles].sort((a, b) => {
-      const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
-      if (orderDiff !== 0) return orderDiff;
-      return (a.service?.id ?? 0) - (b.service?.id ?? 0);
-    });
-
     setPhotoItems(
       sortedPhotos.map((f, index) => ({
-        clientId: f.uuid,
-        url: f.url || '',
-        status: 'uploaded',
-        order: index,
-        originalData: f,
-      }))
-    );
-
-    setVideoItems(
-      sortedVideos.map((f, index) => ({
         clientId: f.uuid,
         url: f.url || '',
         status: 'uploaded',
@@ -298,8 +253,13 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
         const propertyUuid = orderData?.property?.uuid;
         if (propertyUuid) {
           await EditListings(propertyUuid, {
+            agent_id: orderData?.agent?.uuid,
+            address: orderData?.property?.address,
+            city: orderData?.property?.city,
+            province: orderData?.property?.province,
+            country: orderData?.property?.country,
             mls_number: mlsNumber.trim(),
-            mls_property: `MLS#: ${mlsNumber.trim()}`
+            mls_property: orderData?.property?.mls_property || null
           });
         }
         setIsUpdatingMls(false);
@@ -307,7 +267,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
       // 2. Trigger Sync
       // Preserve the order defined in the UI
-      const allFileItems = [...photoItems, ...videoItems];
+      const allFileItems = [...photoItems];
       const fileIds = allFileItems
         .filter(item => selectedFiles.includes(item.clientId))
         .map(item => (item.originalData as ApiFile).id);
@@ -356,15 +316,6 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
             {file.is_processing ? (
               <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                 <p className="text-gray-500 font-medium text-sm">Processing…</p>
-              </div>
-            ) : file.type === 'video' ? (
-              <div className="relative w-full h-full">
-                <video src={file.url} className="w-full h-full object-contain" />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                  <div className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                    <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-white border-b-[5px] border-b-transparent ml-1" />
-                  </div>
-                </div>
               </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -534,21 +485,6 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                   <SortableGrid
                     items={photoItems}
                     onOrderChange={handlePhotoOrderChange}
-                    mode={isReorderMode ? "reorder" : "upload"}
-                    renderItem={renderPhotoCard}
-                    columns={4}
-                  />
-                </div>
-              )}
-
-              {videoItems.length > 0 && (
-                <div>
-                  <p className={`text-[15px] font-semibold ${userType}-text mb-3 uppercase tracking-wider`}>
-                    Videos ({videoItems.length})
-                  </p>
-                  <SortableGrid
-                    items={videoItems}
-                    onOrderChange={handleVideoOrderChange}
                     mode={isReorderMode ? "reorder" : "upload"}
                     renderItem={renderPhotoCard}
                     columns={4}

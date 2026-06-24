@@ -15,7 +15,7 @@ import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import DownloadModal from './DownloadModal';
 import PhotoPreviewModal from './PhotoPreviewModal';
-import { DownloadFile, ServiceCompletion, HideMediaFiles } from '../file-manager';
+import { DownloadFile, ServiceCompletion, HideMediaFiles, GetFilesData } from '../file-manager';
 import { S3UploadService } from '@/lib/upload/s3-service';
 import { OptimizedImagePreview } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
@@ -48,6 +48,24 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [updatingThumbnailUuid, setUpdatingThumbnailUuid] = useState<string | null>(null);
     const [uploadingThumbnailUuid, setUploadingThumbnailUuid] = useState<string | null>(null);
     const thumbnailUpdateRef = useRef<HTMLInputElement | null>(null);
+    const [localThumbnailPreviews, setLocalThumbnailPreviews] = useState<Record<string, string>>({});
+    const previewsRef = useRef<Record<string, string>>({});
+
+    useEffect(() => {
+        previewsRef.current = localThumbnailPreviews;
+    }, [localThumbnailPreviews]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(previewsRef.current).forEach(url => {
+                try {
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    console.error(e);
+                }
+            });
+        };
+    }, []);
     const { userType } = useAppContext()
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -183,6 +201,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
         setUpdatingThumbnailUuid(null);
         e.target.value = ""; // Reset input
 
+        const localUrl = URL.createObjectURL(file);
+        setLocalThumbnailPreviews(prev => ({ ...prev, [uuid]: localUrl }));
+
         const toastId = toast.loading("Uploading thumbnail...");
         setUploadingThumbnailUuid(uuid);
         try {
@@ -249,9 +270,51 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             });
 
             toast.success("Thumbnail updated successfully!", { id: toastId });
+
+            // Step 5: Fetch fresh data from backend
+            const token = localStorage.getItem("token") || "";
+            if (token && orderData?.uuid) {
+                try {
+                    const freshFilesData = await GetFilesData(token, orderData.uuid);
+                    if (freshFilesData?.data?.[0]) {
+                        const updatedTour = freshFilesData.data[0];
+                        if (updatedTour.files) {
+                            updatedTour.files = updatedTour.files.map((f: any) => ({
+                                ...f,
+                                is_processing: f.status === 'processing' || f.is_processing || (f.type === 'photo' && (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
+                            }));
+                        }
+                        setFilesData(updatedTour);
+
+                        // If backend now has the generated variant urls, we can clean up the local preview
+                        const newlyFetchedFile = updatedTour.files?.find((f: any) => f.uuid === uuid);
+                        if (newlyFetchedFile?.variant_urls?.thumb || newlyFetchedFile?.thumbnail_url) {
+                            setLocalThumbnailPreviews(prev => {
+                                const next = { ...prev };
+                                if (next[uuid]) {
+                                    URL.revokeObjectURL(next[uuid]);
+                                    delete next[uuid];
+                                }
+                                return next;
+                            });
+                        }
+                    }
+                } catch (fetchError) {
+                    console.error("Failed to fetch latest files after thumbnail upload:", fetchError);
+                }
+            }
         } catch (error) {
             console.error("Failed to upload thumbnail:", error);
             toast.error("Failed to update thumbnail.", { id: toastId });
+            // Clean up local preview on error
+            setLocalThumbnailPreviews(prev => {
+                const next = { ...prev };
+                if (next[uuid]) {
+                    URL.revokeObjectURL(next[uuid]);
+                    delete next[uuid];
+                }
+                return next;
+            });
         } finally {
             setUploadingThumbnailUuid(null);
         }
@@ -512,10 +575,10 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                             )}
                                         </button>
                                     )}
-                                    {file.variant_urls?.thumb || file.thumbnail_url ? (
+                                    {localThumbnailPreviews[file.uuid] || file.variant_urls?.thumb || file.thumbnail_url ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
-                                            src={file.variant_urls?.thumb || file.thumbnail_url || ''}
+                                            src={localThumbnailPreviews[file.uuid] || file.variant_urls?.thumb || file.thumbnail_url || ''}
                                             alt="Video thumbnail"
                                             className={`absolute inset-0 w-full h-full object-contain ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
@@ -659,7 +722,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 </div>
             </div>
         );
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide, uploadingThumbnailUuid, setUpdatingThumbnailUuid]);
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide, uploadingThumbnailUuid, setUpdatingThumbnailUuid, localThumbnailPreviews]);
 
     const handleVideoClick = (url: string, file: SelectedFiles | Files) => {
         setSelectedVideoUrl(url);
@@ -776,11 +839,10 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${
-                    filesToHide.size > 0 
-                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none' 
-                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
-                }`}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                        ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
+                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                    }`}
             >
                 <div onClick={(e) => {
                     e.stopPropagation();
@@ -804,11 +866,10 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${
-                    filesToHide.size > 0 
-                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none' 
-                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
-                }`}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                        ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
+                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                    }`}
             >
                 <div onClick={(e) => {
                     e.stopPropagation();
@@ -829,12 +890,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     return (
         <div>
             <div
-                className={`w-full flex justify-between items-center px-4 font-alexandria transition-all duration-300 z-10 ${
-                  isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
-                }`}
+                className={`w-full flex justify-between items-center px-4 font-alexandria transition-all duration-300 z-10 ${isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                    }`}
                 style={{
-                  backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
-                  top: isScrolled ? `${stickyOffset}px` : "auto"
+                    backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                    top: isScrolled ? `${stickyOffset}px` : "auto"
                 }}
             >
                 <div>
@@ -842,9 +902,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         <div className="flex gap-2 items-center">
                             <Button
                                 onClick={handleFileInputClick}
-                                className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                }`}
+                                className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
                             >
                                 Add File
                             </Button>
@@ -853,9 +912,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    }`}
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        }`}
                                 >
                                     Download Files
                                 </Button>
@@ -883,9 +941,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     setShowDownloadModal(true);
                                 }}
                                 disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                 Download Files
                             </Button>
                         </div>
@@ -911,7 +968,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
 
-                    {(userType === 'agent') && (
+                    {/* {(userType === 'agent') && (
                         <Button
                             onClick={() => {
                                 if (isHidingMode) {
@@ -928,14 +985,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         >
                             {isHidingMode ? 'Save' : 'Hide Media'}
                         </Button>
-                    )}
+                    )} */}
                     {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
                         <Button
                             onClick={handleSubmitAdminApproval}
                             disabled={isSubmitting}
-                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
-                                isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
-                            }`}
+                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                }`}
                         >
                             {isSubmitting ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -1129,11 +1185,12 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         setEditingFile(null);
                     }}
                     file={selectedVideoUrl}
-                    poster={editingFile && !('file' in editingFile) ? ((editingFile as Files).variant_urls as any)?.player || (editingFile as Files).variant_urls?.thumb || (editingFile as Files).thumbnail_url : undefined}
+                    poster={editingFile && !('file' in editingFile) ? localThumbnailPreviews[(editingFile as Files).uuid] || ((editingFile as Files).variant_urls as any)?.player || (editingFile as Files).variant_urls?.thumb || (editingFile as Files).thumbnail_url : undefined}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : 'Video'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
                     isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
+                    onOpenInvoice={() => onOpenInvoice?.(currentService?.name)}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

@@ -60,34 +60,29 @@ export function useOptimizedPreview(file: File | null, width: number = 300, heig
                         video.onseeked = () => resolve();
                     });
 
+                    // Calculate aspect ratio and draw centered
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    const maxDim = 300;
+                    let canvasWidth = maxDim;
+                    let canvasHeight = maxDim;
+
+                    if (aspectRatio > 1) {
+                        canvasHeight = Math.round(maxDim / aspectRatio);
+                    } else {
+                        canvasWidth = Math.round(maxDim * aspectRatio);
+                    }
+
                     // Draw frame to canvas
                     const canvas = document.createElement('canvas');
-                    canvas.width = 300;
-                    canvas.height = 300;
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
                     const ctx = canvas.getContext('2d');
 
                     if (!ctx) {
                         throw new Error('Failed to get canvas context');
                     }
 
-                    // Calculate aspect ratio and draw centered
-                    const aspectRatio = video.videoWidth / video.videoHeight;
-                    let drawWidth = canvas.width;
-                    let drawHeight = canvas.height;
-                    let offsetX = 0;
-                    let offsetY = 0;
-
-                    if (aspectRatio > 1) {
-                        drawHeight = canvas.width / aspectRatio;
-                        offsetY = (canvas.height - drawHeight) / 2;
-                    } else {
-                        drawWidth = canvas.height * aspectRatio;
-                        offsetX = (canvas.width - drawWidth) / 2;
-                    }
-
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+                    ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
 
                     // Clean up video element and URL
                     URL.revokeObjectURL(fileUrl);

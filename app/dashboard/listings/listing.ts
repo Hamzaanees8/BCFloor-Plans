@@ -62,7 +62,17 @@ export async function GetListing(token: string) {
 }
 export async function CreateListings(payload: ListingsPayload) {
 
-    const response = await api.post(`/properties`, payload);
+    const updatedPayload: any = { ...payload };
+
+    if (
+        updatedPayload.year_constructed !== undefined &&
+        updatedPayload.year_constructed !== null &&
+        (isNaN(Number(updatedPayload.year_constructed)) || Number(updatedPayload.year_constructed) < 1880)
+    ) {
+        delete updatedPayload.year_constructed;
+    }
+
+    const response = await api.post(`/properties`, updatedPayload);
 
     const data = await response.data;
 
@@ -76,10 +86,18 @@ export async function CreateListings(payload: ListingsPayload) {
 }
 export async function EditListings(userId: string, payload: ListingsPayload) {
 
-    const updatedPayload = {
+    const updatedPayload: any = {
         ...payload,
         _method: 'PUT',
     };
+
+    if (
+        updatedPayload.year_constructed !== undefined &&
+        updatedPayload.year_constructed !== null &&
+        (isNaN(Number(updatedPayload.year_constructed)) || Number(updatedPayload.year_constructed) < 1880)
+    ) {
+        delete updatedPayload.year_constructed;
+    }
 
     const response = await api.post(`/properties/${userId}`, updatedPayload);
 
@@ -98,9 +116,10 @@ export async function EditListings(userId: string, payload: ListingsPayload) {
 export async function UpdatePropertySquareFootage(propertyId: string, squareFootage: number, areas: Area[], propertyDetails: ListingsPayload) {
     const payload: ListingsPayload = {
         ...propertyDetails,
-        square_footage: squareFootage,
-        areas: areas
+        square_footage: squareFootage
     };
+    
+    delete payload.areas;
 
     return await EditListings(propertyId, payload);
 }

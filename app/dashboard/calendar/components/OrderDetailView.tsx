@@ -12,7 +12,6 @@ import { Order } from "../../orders/page";
 import AppointmentTab from "./AppointmentTab";
 import SquareFootage from "./SquareFootage";
 import HistoryTab from "./HistoryTab";
-import EditAppointmentTab from "./EditAppointmentTab";
 import EditSquareFootage from "./EditSquareFootage";
 import { Agent } from "@/lib/types";
 import { useOrderContext } from "../../orders/context/OrderContext";
@@ -33,7 +32,7 @@ import {
 import WarningIcon from "@/components/Icons";
 import NotificationModal from "./NotificationModal";
 import { useAppContext } from "@/app/context/AppContext";
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
+import { splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
 import { useRouter } from "next/navigation";
 
 interface OrderDetailViewProps {
@@ -90,11 +89,6 @@ export interface OrderPayload {
   is_add_service?: number;
   update_invoice?: number;
 }
-interface Notes {
-  name: string;
-  note: string;
-  date: string;
-}
 export interface CoAgent {
   name: string;
   email?: string;
@@ -114,7 +108,6 @@ export default function OrderDetailView({
   orderId,
   serviceId,
   orderData,
-  agentData,
   refreshOrders,
 }: OrderDetailViewProps) {
   const router = useRouter();
@@ -123,8 +116,6 @@ export default function OrderDetailView({
     "appointment" | "square_footage" | "history"
   >("appointment");
   const [isEdit, setIsEdit] = useState(false);
-  const [notes, setNotes] = useState<Notes[]>([]);
-  const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
   const [area, setArea] = useState<Area[]>([]);
   const [updateInvoice, setUpdateInvoice] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -174,9 +165,6 @@ export default function OrderDetailView({
   };
 
   const {
-    calendarServices,
-    selectedSlots,
-    OrderServices,
     setOrderServices,
     setSelectedSlots,
     setCalendarServices,
@@ -200,8 +188,11 @@ export default function OrderDetailView({
 
   useEffect(() => {
     if (open) {
-      setIsEdit(false);
-      setActiveTab("appointment");
+      // Only reset the tab and edit state when initially opening
+      if (!currentOrder || currentOrder.uuid !== orderId) {
+          setIsEdit(false);
+          setActiveTab("appointment");
+      }
       setAgentChecked(false);
       setVendorChecked(false);
       setVendorSelected(false);
@@ -213,39 +204,6 @@ export default function OrderDetailView({
       if (currentOrder) {
         setOrderServices(currentOrder.services || []);
 
-        let notesArray: any[] = [];
-        if (Array.isArray(currentOrder.notes)) {
-          notesArray = currentOrder.notes;
-        } else if (typeof currentOrder.notes === "string") {
-          try {
-            notesArray = JSON.parse(currentOrder.notes);
-          } catch (e) {
-            console.error("Failed to parse notes:", e);
-            notesArray = [];
-          }
-        }
-
-        setNotes(
-          (notesArray || []).map((n: any) => ({
-            ...n,
-            date:
-              n.date instanceof Date
-                ? n.date.toISOString()
-                : String(n.date),
-          })),
-        );
-        let coAgentsArray: any[] = [];
-        if (Array.isArray(currentOrder.co_agents)) {
-          coAgentsArray = currentOrder.co_agents;
-        } else if (typeof currentOrder.co_agents === "string") {
-          try {
-            coAgentsArray = JSON.parse(currentOrder.co_agents);
-          } catch (e) {
-            console.error("Failed to parse co_agents:", e);
-            coAgentsArray = [];
-          }
-        }
-        setCoAgent(coAgentsArray);
         setArea(currentOrder.areas || []);
 
         const allSlots = (currentOrder.slots || []).flatMap((slot: any) => {
@@ -259,7 +217,8 @@ export default function OrderDetailView({
         setSelectedSlots(allSlots);
       }
     }
-  }, [open, orderId, currentOrder, setOrderServices, setCalendarServices, setSelectedSlots]);
+  // Use currentOrder?.uuid instead of currentOrder to avoid re-running when orderData reference changes
+  }, [open, orderId, currentOrder?.uuid, setOrderServices, setCalendarServices, setSelectedSlots]);
 
   // Sync service options with square footage when area changes
   useEffect(() => {
@@ -422,248 +381,16 @@ export default function OrderDetailView({
 
     setIsLoading(true);
 
-    // Check duration requirements before processing payload
-    const allServices = [
-      ...OrderServices.map((s) => ({
-        uuid: s.service?.uuid,
-        id: s.service?.id,
-        optionId: s.option?.uuid,
-        name: s.service?.name,
-      })),
-      ...calendarServices.map((s) => {
-        const matched = servicesData.find((sd) => sd.id === s.serviceId);
-        return {
-          uuid: matched?.uuid,
-          id: s.serviceId,
-          optionId: s.optionId,
-          name: matched?.name,
-        };
-      }),
-    ];
-
-    const finishedTotal = area
-      .filter((a) => a.category === "Finished" || a.type === "Finished")
-      .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
-    const subtotalTotal = area
-      .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
-      .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
-    const sqFt = finishedTotal + subtotalTotal || currentOrder?.property?.square_footage;
-    const hasInvalidDuration = false;
-
-    for (const srv of allServices) {
-      if (!srv.uuid) continue;
-
-      const currentServiceData = servicesData.find(
-        (sd) => sd.uuid === srv.uuid || sd.id === srv.id
-      );
-      const productOption = currentServiceData?.product_options?.find(
-        (opt) => opt.uuid === srv.optionId
-      );
-
-      const requiredDuration = getEffectiveServiceDuration(
-        productOption?.service_duration,
-        sqFt
-      );
-      const currentServiceSlots = selectedSlots.filter(
-        (slot) => slot.service_id === srv.uuid
-      );
-
-      // Check if service has any slots in the past
-      const hasPastSlots = currentServiceSlots.some((slot) => {
-        try {
-          const slotDate = new Date(`${slot.date} ${slot.start_time}`);
-          return slotDate < new Date();
-        } catch {
-          return false;
-        }
-      });
-
-      if (currentServiceSlots.length * 15 < requiredDuration) {
-        if (hasPastSlots) {
-          // If slots are in the past, allow saving even if duration is technically insufficient
-          // as per user requirement (historical data sync)
-          continue;
-        }
-        const slotsNeeded = Math.ceil((requiredDuration - currentServiceSlots.length * 15) / 15);
-        toast.error(
-          `Please add ${slotsNeeded} more slot(s) for "${srv.name}". Required: ${requiredDuration} min, Selected: ${currentServiceSlots.length * 15} min`
-        );
-        setIsLoading(false);
-        return false;
-      }
-    }
-
-    if (hasInvalidDuration) {
-      setIsLoading(false);
-      return false;
-    }
-
-    const calendarServicesPayload = calendarServices
-      .map((service) => {
-        const matchedService = servicesData.find(
-          (s) => s.id === service.serviceId,
-        );
-
-        if (!matchedService) return null;
-
-        return {
-          ...(service.uuid && { uuid: service.uuid }),
-          service_id: matchedService.uuid,
-          option_id: service.optionId,
-          amount: Number(service.price),
-        };
-      })
-      .filter(
-        (
-          s,
-        ): s is {
-          uuid?: string;
-          service_id: string;
-          option_id: string;
-          amount: number;
-        } => !!s,
-      );
-
-    const orderServicesPayload = [...(OrderServices || [])].map((service) => ({
-      ...(service.uuid && { uuid: service.uuid }),
-      service_id: service.service?.uuid as string,
-      option_id: service?.option?.uuid ?? undefined,
-      amount: Number(service?.amount) as number,
-    }));
-
-    const calendarServiceUuids = calendarServices
-      .map((s) => {
-        const matchedService = servicesData.find((sd) => sd.id === s.serviceId);
-        return matchedService?.uuid;
-      })
-      .filter(Boolean);
-
-    const orderServiceUuids = OrderServices.map((s) => s.service?.uuid).filter(
-      Boolean,
-    );
-    const validServiceUuids = [...calendarServiceUuids, ...orderServiceUuids];
-    const servicesPayload = [
-      ...orderServicesPayload,
-      ...calendarServicesPayload,
-    ];
-
-    const validSlots = selectedSlots?.filter((slot) =>
-      validServiceUuids.includes(slot.service_id),
-    );
-
-    const slotsPayload = (() => {
-      // Group slots by service_id, vendor_id, and date
-      const groupedSlots: Record<string, any[]> = {};
-
-      validSlots.forEach((slot) => {
-        const vendorId =
-          slot.vendor && slot.vendor.uuid
-            ? slot.vendor.uuid
-            : slot.vendor_id || "";
-        const key = `${slot.service_id}_${vendorId}_${slot.date}`;
-        if (!groupedSlots[key]) {
-          groupedSlots[key] = [];
-        }
-        groupedSlots[key].push({ ...slot, vendorId });
-      });
-
-      // Merge consecutive slots for each group
-      const mergedSlots: any[] = [];
-
-      Object.values(groupedSlots).forEach((slots) => {
-        // Sort slots by start time
-        const sortedSlots = slots.sort((a, b) =>
-          a.start_time.localeCompare(b.start_time),
-        );
-
-        // Verify they are contiguous (sanity check)
-        let isContiguous = true;
-        for (let i = 0; i < sortedSlots.length - 1; i++) {
-          if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
-            isContiguous = false;
-            console.warn(
-              "Non-contiguous slots detected for service:",
-              sortedSlots[i].service_id,
-            );
-            break;
-          }
-        }
-
-        if (!isContiguous) {
-          // If not contiguous, send slots individually (fallback)
-          sortedSlots.forEach((slot) => {
-            mergedSlots.push({
-              ...(slot.uuid && { uuid: slot.uuid }),
-              service_id: slot.service_id,
-              vendor_id: slot.vendorId,
-              show_all_vendors: slot.show_all_vendors ? 1 : 0,
-              schedule_override: slot.schedule_override ? 1 : 0,
-              recommend_time: slot.recommend_time ? 1 : 0,
-              travel: slot.travel ?? undefined,
-              start_time: slot.start_time,
-              end_time: slot.end_time,
-              est_time: slot.est_time ?? null,
-              distance: slot.distance ?? null,
-              km_price: slot.km_price ?? null,
-              date: slot.date,
-            });
-          });
-        } else {
-          // Merge into a single slot
-          const firstSlot = sortedSlots[0];
-          const lastSlot = sortedSlots[sortedSlots.length - 1];
-
-          mergedSlots.push({
-            ...(firstSlot.uuid && { uuid: firstSlot.uuid }),
-            service_id: firstSlot.service_id,
-            vendor_id: firstSlot.vendorId,
-            show_all_vendors: firstSlot.show_all_vendors ? 1 : 0,
-            schedule_override: firstSlot.schedule_override ? 1 : 0,
-            recommend_time: firstSlot.recommend_time ? 1 : 0,
-            travel: firstSlot.travel ?? undefined,
-            start_time: firstSlot.start_time,
-            end_time: lastSlot.end_time,
-            est_time: firstSlot.est_time ?? null,
-            distance: firstSlot.distance ?? null,
-            km_price: firstSlot.km_price ?? null,
-            date: firstSlot.date,
-          });
-        }
-      });
-
-      return mergedSlots;
-    })();
-
     try {
       const token = localStorage.getItem("token") || "";
-
-      const isAddServiceVal = (calendarServices.length > 0 || (OrderServices.length !== (currentOrder?.services?.length || 0))) ? 1 : 0;
-
-      const payload: OrderPayload = {
-        agent_id: String(currentOrder?.agent.uuid) || "",
-        property_id: currentOrder?.property.uuid || "",
-        amount: Number(currentOrder?.amount) || 0,
-        order_status: "Processing",
-        payment_status: "UNPAID",
-        split_invoice: currentOrder?.split_invoice ? 1 : 0,
-        co_agents: coAgent || [],
-        notes: notes || [],
-        services: servicesPayload,
-        slots: slotsPayload,
+      const payload = {
         areas: area,
-        is_add_service: isAddServiceVal,
-        update_invoice: updateInvoice ? 1 : 0,
+        update_invoice: updateInvoice ? 1 : 0
       };
-
       const updatedPayload = { ...payload, _method: "PUT" };
-      const response = await EditOrder(
-        currentOrder?.uuid ?? "",
-        updatedPayload,
-        token,
-      );
+      const response = await EditOrder(currentOrder?.uuid ?? "", updatedPayload as any, token);
 
       if (response?.success) {
-        // Calculate grand total of square footage
         const finishedTotal = area
           .filter((a) => a.category === "Finished" || a.type === "Finished")
           .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
@@ -672,7 +399,6 @@ export default function OrderDetailView({
           .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
         const grandTotal = finishedTotal + subtotalTotal;
 
-        // Update property square footage
         if (currentOrder?.property?.uuid) {
           try {
             await UpdatePropertySquareFootage(currentOrder.property.uuid, grandTotal, area, {
@@ -696,7 +422,6 @@ export default function OrderDetailView({
             toast.success("Property square footage updated");
           } catch (error) {
             console.error("Failed to update property square footage:", error);
-            // toast.error("Failed to update property square footage");
           }
         }
 
@@ -730,7 +455,6 @@ export default function OrderDetailView({
       } else {
         toast.error("Failed to submit data");
       }
-      return false;
     } finally {
       setIsLoading(false);
     }
@@ -830,30 +554,8 @@ export default function OrderDetailView({
             </DialogHeader>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {activeTab === "appointment" && !isEdit && (
+            {activeTab === "appointment" && (
               <AppointmentTab currentOrder={currentOrder} serviceId={serviceId} />
-            )}
-            {activeTab === "appointment" && isEdit && userType !== "vendor" && (
-              <EditAppointmentTab
-                currentOrder={currentOrder}
-                serviceId={serviceId}
-                agentData={agentData}
-                notes={notes}
-                setNotes={setNotes}
-                coAgent={coAgent}
-                setCoAgent={setCoAgent}
-                updateInvoice={updateInvoice}
-                setUpdateInvoice={setUpdateInvoice}
-                totalSquareFootage={(() => {
-                  const finishedTotal = area
-                    .filter((a) => a.category === "Finished" || a.type === "Finished")
-                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
-                  const subtotalTotal = area
-                    .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
-                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
-                  return finishedTotal + subtotalTotal || currentOrder?.property?.square_footage;
-                })()}
-              />
             )}
 
             {activeTab === "square_footage" && !isEdit && (
@@ -868,13 +570,13 @@ export default function OrderDetailView({
                 setUpdateInvoice={setUpdateInvoice}
               />
             )}
-          {activeTab === "history" && (
-            <HistoryTab
-              currentOrder={currentOrder}
-              servicesData={servicesData}
-            />
-          )}
-        </div>
+            {activeTab === "history" && (
+              <HistoryTab
+                currentOrder={currentOrder}
+                servicesData={servicesData}
+              />
+            )}
+          </div>
           <div className="p-6 pt-4 border-t flex justify-end gap-[10px]">
             {isEdit && (
               <>
@@ -908,19 +610,25 @@ export default function OrderDetailView({
                             >
                                 View Order
                             </Button> */}
-                {!(userType === "agent" && activeTab === "square_footage") && (
-                  <Button
-                    onClick={() => {
-                      onClose();
-                      if (currentOrder?.uuid) {
-                        router.push(`/dashboard/orders/create/${currentOrder.uuid}?isEdit=true`);
-                      }
-                    }}
-                    className={`${userType}-bg ${userType}-border border-[1px] text-[14px] flex justify-center items-center hover-${userType}-bg hover:opacity-95 text-[#fff]  w-[132px] h-[42px] hover:text-white`}
-                  >
-                    Edit
-                  </Button>
-                )}
+                {!(userType === "agent" && activeTab === "square_footage") &&
+                  !(userType === "vendor" && activeTab === "appointment") &&
+                  activeTab !== "history" && (
+                    <Button
+                      onClick={() => {
+                        if (activeTab === "appointment") {
+                          onClose();
+                          if (currentOrder?.uuid) {
+                            router.push(`/dashboard/orders/create/${currentOrder.uuid}?isEdit=true`);
+                          }
+                        } else if (activeTab === "square_footage") {
+                          setIsEdit(true);
+                        }
+                      }}
+                      className={`${userType}-bg ${userType}-border border-[1px] text-[14px] flex justify-center items-center hover-${userType}-bg hover:opacity-95 text-[#fff]  w-[132px] h-[42px] hover:text-white`}
+                    >
+                      Edit
+                    </Button>
+                  )}
               </div>
             )}
           </div>

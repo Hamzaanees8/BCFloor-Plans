@@ -116,184 +116,205 @@ const FileRow = React.memo(({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const isLast = idx === totalFiles - 1;
+
   return (
-    <div className="flex gap-[10px] pr-[10px]">
-      <div className="w-auto">
-        <div className="w-[200px] h-[130px] bg-black rounded-[6px] overflow-hidden relative">
-          <OptimizedImagePreview file={file} className="w-full h-full object-contain" />
+    <div className={`flex flex-col pb-6 ${isLast ? '' : 'border-b border-[#E4E4E4]'}`}>
+      <div className="flex gap-[10px] pr-[10px]">
+        <div className="w-auto">
+          <div className="w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative" style={{ aspectRatio: '16/9' }}>
+            <OptimizedImagePreview file={file} className="w-full h-full object-contain" />
 
-          <span
-            className="flex items-center justify-center w-[28px] h-[28px] bg-white/90 hover:bg-white rounded-full absolute top-2 left-2 z-10 cursor-pointer shadow-md transition-all"
-            onClick={() => onRemove(idx)}
-          >
-            <X color={'#E06D5E'} size={20} strokeWidth={2.5} />
-          </span>
+            <span
+              className="flex items-center justify-center w-[28px] h-[28px] bg-white/90 hover:bg-white rounded-full absolute top-2 left-2 z-10 cursor-pointer shadow-md transition-all"
+              onClick={() => onRemove(idx)}
+            >
+              <X color={'#E06D5E'} size={20} strokeWidth={2.5} />
+            </span>
 
-          <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded z-10 flex items-center justify-center pointer-events-none">
-            {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-white" /> : 
-             file.type.startsWith('video/') ? <Video size={16} className="text-white" /> :
-             file.type === 'application/pdf' ? <FileText size={16} className="text-white" /> :
-             <FileIcon size={16} className="text-white" />}
+            <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded z-10 flex items-center justify-center pointer-events-none">
+              {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-white" /> : 
+               file.type.startsWith('video/') ? <Video size={16} className="text-white" /> :
+               file.type === 'application/pdf' ? <FileText size={16} className="text-white" /> :
+               <FileIcon size={16} className="text-white" />}
+            </div>
+
+            {type === 'floor_plan' && (
+              <Input
+                className="absolute bottom-2 right-12 w-[14px] h-[14px] cursor-pointer z-10"
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggleSelect(idx)}
+              />
+            )}
           </div>
-
-          {type === 'floor_plan' && (
-            <Input
-              className="absolute bottom-2 right-12 w-[14px] h-[14px] cursor-pointer z-10"
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => onToggleSelect(idx)}
-            />
+          
+          {file.type.startsWith('video/') && onThumbnailChange && (
+            <div className="mt-2 w-[200px] flex flex-col gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full text-xs h-7"
+                onClick={() => thumbnailInputRef.current?.click()}
+              >
+                {thumbnailFile ? "Change Thumbnail" : "Add Thumbnail"}
+              </Button>
+              {thumbnailFile && (
+                <div className="flex flex-col gap-1">
+                  <Label className="text-[12px] text-[#7d7d7d] font-semibold">Thumbnail</Label>
+                  <div className="w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative border border-dashed border-[#7d7d7d]" style={{ aspectRatio: '16/9' }}>
+                    <OptimizedImagePreview file={thumbnailFile} className="w-full h-full object-contain" />
+                    <span
+                      className="flex items-center justify-center w-[20px] h-[20px] bg-white/90 hover:bg-white rounded-full absolute top-1.5 right-1.5 z-10 cursor-pointer shadow-md transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onThumbnailChange(idx, undefined);
+                      }}
+                    >
+                      <X color={'#E06D5E'} size={12} strokeWidth={2.5} />
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={thumbnailFile.name}>
+                    {thumbnailFile.name}
+                  </p>
+                </div>
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={thumbnailInputRef}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    onThumbnailChange(idx, e.target.files[0]);
+                  }
+                }}
+              />
+            </div>
           )}
         </div>
-        
-        {file.type.startsWith('video/') && onThumbnailChange && (
-          <div className="mt-2 w-[200px]">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full text-xs h-7"
-              onClick={() => thumbnailInputRef.current?.click()}
-            >
-              {thumbnailFile ? "Change Thumbnail" : "Add Thumbnail"}
-            </Button>
-            {thumbnailFile && (
-               <p className="text-[10px] text-gray-500 mt-1 truncate">{thumbnailFile.name}</p>
-            )}
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              ref={thumbnailInputRef}
+
+        <div className="w-full flex flex-col gap-[10px]">
+          <div className="flex justify-between items-center">
+            <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+            <div className="flex items-center gap-4">
+              {file.type.startsWith('image/') && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`panorama-toggle-${idx}`} className="text-[13px] text-gray-500 cursor-pointer">
+                    Panorama
+                  </Label>
+                  <Switch
+                    id={`panorama-toggle-${idx}`}
+                    checked={isPanorama}
+                    onCheckedChange={(checked) => onIsPanoramaChange(idx, checked)}
+                    className="data-[state=unchecked]:bg-gray-300 data-[state=checked]:bg-[#4290E9] scale-75"
+                  />
+                </div>
+              )}
+              <div
+                onClick={() => onToggleComplimentary(idx)}
+                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                title="Mark as Complimentary"
+              >
+                <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
+                  {isComplimentary && <Check color="white" size={14} />}
+                </div>
+                <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            <Input
+              id={`media-input-${idx}`}
+              value={mediaType}
               onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  onThumbnailChange(idx, e.target.files[0]);
+                onMediaTypeChange(idx, e.target.value);
+                setOpenDropdown(idx);
+                setFocusedOptionIndex(-1);
+              }}
+              onFocus={() => {
+                setOpenDropdown(idx);
+                setFocusedOptionIndex(-1);
+              }}
+              onKeyDown={(e) => {
+                if (openDropdown === idx) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setFocusedOptionIndex(prev =>
+                      prev < filteredSuggestions.length - 1 ? prev + 1 : prev
+                    );
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setFocusedOptionIndex(prev => prev > 0 ? prev - 1 : 0);
+                  } else if (e.key === 'Enter' && focusedOptionIndex >= 0) {
+                    e.preventDefault();
+                    onMediaTypeChange(idx, filteredSuggestions[focusedOptionIndex]);
+                    setOpenDropdown(null);
+                  }
+                }
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  onTabNext(idx, mediaType);
+                  setTimeout(() => {
+                    document.getElementById(`media-input-${idx + 1}`)?.focus();
+                  }, 0);
                 }
               }}
+              placeholder="Select or Type Media Name"
+              className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
             />
-          </div>
-        )}
-      </div>
-
-      <div className="w-full flex flex-col gap-[10px]">
-        <div className="flex justify-between items-center">
-          <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
-          <div className="flex items-center gap-4">
-            {file.type.startsWith('image/') && (
-              <div className="flex items-center gap-2">
-                <Label htmlFor={`panorama-toggle-${idx}`} className="text-[13px] text-gray-500 cursor-pointer">
-                  Panorama
-                </Label>
-                <Switch
-                  id={`panorama-toggle-${idx}`}
-                  checked={isPanorama}
-                  onCheckedChange={(checked) => onIsPanoramaChange(idx, checked)}
-                  className="data-[state=unchecked]:bg-gray-300 data-[state=checked]:bg-[#4290E9] scale-75"
-                />
+            {idx > 0 && (
+              <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleCopy();
+                  }}
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
+                  aria-label="Copy from above"
+                >
+                  {isCopied ? <Check size={18} className="text-green-500" /> : <ArrowUp size={18} />}
+                </button>
+                <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                  {isCopied ? 'Copied from above!' : 'Copy from above'}
+                </span>
               </div>
             )}
-            <div
-              onClick={() => onToggleComplimentary(idx)}
-              className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
-              title="Mark as Complimentary"
-            >
-              <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
-                {isComplimentary && <Check color="white" size={14} />}
+
+            {openDropdown === idx && (
+              <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
+                {filteredSuggestions.map((item, i) => (
+                  <div
+                    key={i}
+                    className={`px-4 py-2 cursor-pointer text-[#696868] text-[14px] ${focusedOptionIndex === i ? 'bg-gray-100' : 'hover:bg-gray-100'
+                      }`}
+                    onClick={() => {
+                      onMediaTypeChange(idx, item);
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
-              <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
-            </div>
+            )}
           </div>
-        </div>
 
-        <div className="relative">
-          <Input
-            id={`media-input-${idx}`}
-            value={mediaType}
-            onChange={(e) => {
-              onMediaTypeChange(idx, e.target.value);
-              setOpenDropdown(idx);
-              setFocusedOptionIndex(-1);
-            }}
-            onFocus={() => {
-              setOpenDropdown(idx);
-              setFocusedOptionIndex(-1);
-            }}
-            onKeyDown={(e) => {
-              if (openDropdown === idx) {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setFocusedOptionIndex(prev =>
-                    prev < filteredSuggestions.length - 1 ? prev + 1 : prev
-                  );
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setFocusedOptionIndex(prev => prev > 0 ? prev - 1 : 0);
-                } else if (e.key === 'Enter' && focusedOptionIndex >= 0) {
-                  e.preventDefault();
-                  onMediaTypeChange(idx, filteredSuggestions[focusedOptionIndex]);
-                  setOpenDropdown(null);
-                }
-              }
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                onTabNext(idx, mediaType);
-                setTimeout(() => {
-                  document.getElementById(`media-input-${idx + 1}`)?.focus();
-                }, 0);
-              }
-            }}
-            placeholder="Select or Type Media Name"
-            className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
-          />
-          {idx > 0 && (
-            <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleCopy();
-                }}
-                type="button"
-                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
-                aria-label="Copy from above"
+          <div className="flex justify-between items-start text-[13px] text-[#7d7d7d]">
+            <div className="flex-1 pr-3">
+              <p className="line-clamp-2 break-all">{file.name}</p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span>({idx + 1} of {totalFiles})</span>
+              <p
+                onClick={() => onRemove(idx)}
+                className="text-[#E06D5E] cursor-pointer inline-block"
               >
-                {isCopied ? <Check size={18} className="text-green-500" /> : <ArrowUp size={18} />}
-              </button>
-              <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
-                {isCopied ? 'Copied from above!' : 'Copy from above'}
-              </span>
+                Delete
+              </p>
             </div>
-          )}
-
-          {openDropdown === idx && (
-            <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
-              {filteredSuggestions.map((item, i) => (
-                <div
-                  key={i}
-                  className={`px-4 py-2 cursor-pointer text-[#696868] text-[14px] ${focusedOptionIndex === i ? 'bg-gray-100' : 'hover:bg-gray-100'
-                    }`}
-                  onClick={() => {
-                    onMediaTypeChange(idx, item);
-                    setOpenDropdown(null);
-                  }}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-between items-start text-[13px] text-[#7d7d7d]">
-          <div className="flex-1 pr-3">
-            <p className="line-clamp-2 break-all">{file.name}</p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <span>({idx + 1} of {totalFiles})</span>
-            <p
-              onClick={() => onRemove(idx)}
-              className="text-[#E06D5E] cursor-pointer inline-block"
-            >
-              Delete
-            </p>
           </div>
         </div>
       </div>

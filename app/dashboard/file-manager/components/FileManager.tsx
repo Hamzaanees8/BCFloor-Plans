@@ -263,6 +263,42 @@ const FileManager = () => {
     fetchListing();
   }, [listingId]);
 
+  const fetchOrder = React.useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+    const currentVendorUUID = userInfo?.uuid;
+    const userType = localStorage.getItem("userType");
+
+    if (!token) {
+      console.log("Token not found.");
+      return;
+    }
+
+    try {
+      const data = await GetOneOrder(token, orderId || "");
+      const order = data.data;
+      setOrderData(order);
+
+      let filteredServices = order.services;
+
+      if (userType === "vendor") {
+        const vendorServiceIds = order.slots
+          ?.filter((slot: Slot) => slot.vendor?.uuid === currentVendorUUID)
+          .map((slot: Slot) => slot.service_id);
+
+        const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
+        filteredServices = order.services?.filter(
+          (srv: { service_id: number }) =>
+            uniqueVendorServiceIds.includes(srv.service_id)
+        );
+      }
+
+      setServices(filteredServices);
+    } catch (err: any) {
+      console.log(err.message);
+    }
+  }, [orderId]);
+
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     if (!sessionId) return; // no payment session to process
@@ -291,6 +327,13 @@ const FileManager = () => {
 
         toast.success("Payment processed successfully! ");
 
+        // Re-fetch order and invoices to get updated payment_status
+        await fetchOrder();
+        if (orderData?.uuid && userType !== "vendor") {
+          const updatedInvoices = await GetInvoicesByOrder(orderData.uuid);
+          setInvoices(Array.isArray(updatedInvoices.data) ? updatedInvoices.data : []);
+        }
+
         // remove session_id from URL
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
@@ -306,7 +349,7 @@ const FileManager = () => {
     };
 
     processStripePayment();
-  }, [searchParams, router]);
+  }, [searchParams, router, fetchOrder, orderData?.uuid, userType]);
 
   useEffect(() => {
     if (!orderData?.uuid || userType === "vendor") return;
@@ -380,41 +423,7 @@ const FileManager = () => {
     }
   };
 
-  const fetchOrder = React.useCallback(async () => {
-    const token = localStorage.getItem("token");
-    const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-    const currentVendorUUID = userInfo?.uuid;
-    const userType = localStorage.getItem("userType");
 
-    if (!token) {
-      console.log("Token not found.");
-      return;
-    }
-
-    try {
-      const data = await GetOneOrder(token, orderId || "");
-      const order = data.data;
-      setOrderData(order);
-
-      let filteredServices = order.services;
-
-      if (userType === "vendor") {
-        const vendorServiceIds = order.slots
-          ?.filter((slot: Slot) => slot.vendor?.uuid === currentVendorUUID)
-          .map((slot: Slot) => slot.service_id);
-
-        const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
-        filteredServices = order.services?.filter(
-          (srv: { service_id: number }) =>
-            uniqueVendorServiceIds.includes(srv.service_id)
-        );
-      }
-
-      setServices(filteredServices);
-    } catch (err: any) {
-      console.log(err.message);
-    }
-  }, [orderId]);
 
   useEffect(() => {
     fetchOrder().then(() => {

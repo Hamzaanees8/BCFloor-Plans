@@ -248,7 +248,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         transition: transition,
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles: newlyChangedFiles,
-        isUpdate: true
+        isUpdate: true,
+        successMessage: "Media reordered successfully."
       });
       setIsReorderMode(false);
     } catch (error) {
