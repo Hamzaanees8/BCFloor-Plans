@@ -547,6 +547,7 @@ export interface MediaSettingsPayload {
   tour_defaults?: {
     music_enabled: boolean;
     default_song: string;
+    default_audio_uuid?: string;
     transition_effect: string[];
     layout_option: string;
     video_slideshow_enabled: boolean;

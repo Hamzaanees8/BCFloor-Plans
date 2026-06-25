@@ -26,7 +26,7 @@ import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { toast } from "sonner";
-import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoice } from "../../invoice/invoice_api";
+import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoiceExtraItems } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import {
   Dialog,
@@ -41,6 +41,7 @@ import {
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
+import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
 import { Loader2, X } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 
@@ -84,6 +85,8 @@ const FileManager = () => {
   }, [services]);
 
   const [activeTab, setActiveTab] = useState<string>("download");
+
+
   const [activeServiceIndex, setActiveServiceIndex] = useState<number>(0);
   const [orderData, setOrderData] = React.useState<Order | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -177,7 +180,10 @@ const FileManager = () => {
     deletedSnapshotUuids,
     setDeletedSnapshotUuids,
     setDroppedMarkers,
-    setTourSettings
+    setTourSettings,
+    setTourDefaultSettings,
+    approvalSelectedUuids,
+    setApprovalSelectedUuids
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
@@ -211,6 +217,21 @@ const FileManager = () => {
   const orderId = params?.id as string;
   const listingId = searchParams.get("listingId");
   const isListing = listingId ? true : false;
+
+  const hasInitializedTab = useRef(false);
+
+  useEffect(() => {
+    if (!hasInitializedTab.current && groupedServices.size > 0 && activeTab === "download") {
+      const serviceIdFromURL = searchParams?.get("serviceId");
+      if (!serviceIdFromURL) {
+        const firstServiceUuid = Array.from(groupedServices.keys())[0];
+        if (firstServiceUuid) {
+          setActiveTab(firstServiceUuid);
+        }
+      }
+      hasInitializedTab.current = true;
+    }
+  }, [groupedServices, searchParams, activeTab]);
 
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -369,30 +390,12 @@ const FileManager = () => {
     }
     try {
       // Sync dynamically calculated Extra Photos to the backend before redirecting to Stripe
-      const originalInvoice = invoices.find(i => i.uuid === invoice.uuid);
-      const hasExtraLocally = invoice.items?.some((i: any) => i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
-      const hadExtraInDb = originalInvoice?.items?.some((i: any) => i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
-
-      if (
-        (invoice.items?.length !== (originalInvoice?.items?.length || 0)) ||
-        (hasExtraLocally || hadExtraInDb)
-      ) {
-        await UpdateInvoice(invoice.uuid, {
-          notes: invoice.notes,
-          tax_rate: invoice.tax_rate,
-          items: invoice.items.map((i: any) => ({
-            description: i.description,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            order_service_id: i.order_service_id || i.order_service?.id || null
-          }))
-        });
-
-        // Refresh local invoices to reflect the synced state
-        const updatedRes = await GetInvoicesByOrder(orderData.uuid);
-        if (updatedRes?.data) {
-          setInvoices(Array.isArray(updatedRes.data) ? updatedRes.data : []);
-        }
+      let finalInvoiceForPayment = invoice;
+      try {
+        finalInvoiceForPayment = await syncExtraItemsToInvoice(invoice);
+      } catch (syncErr) {
+        console.error("Failed to sync extra items before payment:", syncErr);
+        // Continue with the locally calculated invoice if sync fails
       }
 
       const isSplit = !!invoice.split_details;
@@ -410,7 +413,7 @@ const FileManager = () => {
       }
 
       await PayInvoiceWithStripe(
-        invoice,
+        finalInvoiceForPayment,
         orderData,
         window.location.href,
         undefined,
@@ -443,6 +446,11 @@ const FileManager = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceIdFromURL]);
+
+  useEffect(() => {
+    setApprovalSelectedUuids(new Set());
+  }, [activeTab, activeServiceIndex, setApprovalSelectedUuids]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -484,7 +492,14 @@ const FileManager = () => {
 
   let rawReviewFiles;
   if (userType === 'vendor') {
-    rawReviewFiles = currentUser?.review_files;
+    // Prefer live order/slot data over potentially-stale localStorage value.
+    // The slot vendor reflects the current review_files setting from the API.
+    const liveVendorReviewFiles =
+      activeSlot?.vendor?.review_files ??
+      orderData?.slots?.find((s: any) => s.vendor)?.vendor?.review_files;
+    rawReviewFiles = liveVendorReviewFiles !== undefined
+      ? liveVendorReviewFiles
+      : currentUser?.review_files;
   } else {
     rawReviewFiles = activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files;
   }
@@ -517,22 +532,22 @@ const FileManager = () => {
     activeServiceIndex
   );
 
-  const injectExtraItems = (invoice: any) => {
+  const syncExtraItemsToInvoice = async (invoice: any): Promise<any> => {
     if (!filesData?.files || !orderData) return invoice;
 
     const baseItems = invoice.items || [];
     // Filter out previously injected extra media to recalculate accurately
     const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
 
-    const extraItems: any[] = [];
+    const extraItems: { order_service_id: number; description: string; quantity: number; unit_price: number; }[] = [];
 
     cleanedBaseItems.forEach((item: any) => {
       let os = item.order_service || item.orderService;
 
       // If the invoice item's order_service lacks the option data, fetch it from orderData.services
-      if (!os || !os.option?.quantity) {
+      if (!os || !os.option) {
         const matchedService = orderData.services?.find((s: any) => s.id === (item.order_service_id || os?.id));
-        if (matchedService && matchedService.option?.quantity) {
+        if (matchedService) {
           os = matchedService;
         } else {
           return;
@@ -540,7 +555,7 @@ const FileManager = () => {
       }
 
       const serviceId = os.service_id || os.service?.id;
-      const currentLimit = os.option.quantity;
+      const currentLimit = Number(os.option.quantity) || 1;
 
       const selectedCount = filesData.files.filter((f: any) =>
         (Number(f.service?.id) === Number(serviceId) || Number(f.service_id) === Number(serviceId) || f.service?.uuid === os.service?.uuid)
@@ -552,7 +567,6 @@ const FileManager = () => {
       if (selectedCount > currentLimit) {
         const extraCount = selectedCount - currentLimit;
         const unitPrice = parseFloat(os.option.amount) / currentLimit;
-        const extraCost = extraCount * unitPrice;
 
         let extraLabel = "Photos";
         const catName = os.service?.category?.name?.toLowerCase() || "";
@@ -565,34 +579,45 @@ const FileManager = () => {
         }
 
         extraItems.push({
+          order_service_id: os.id,
           description: `${extraCount} Extra ${extraLabel} (${item.description || os.option?.title || 'Service'})`,
           quantity: extraCount,
-          unit_price: unitPrice.toFixed(2),
-          amount: extraCost.toFixed(2),
-          order_service_id: os.id
+          unit_price: parseFloat(unitPrice.toFixed(2)),
         });
       }
     });
 
-    if (extraItems.length > 0 || cleanedBaseItems.length !== baseItems.length) {
-      const newItems = [...cleanedBaseItems, ...extraItems];
-      const subtotal = newItems.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0), 0);
-      const taxAmount = subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
-      const newTotal = subtotal + taxAmount;
+    try {
+      await UpdateInvoiceExtraItems(invoice.uuid, extraItems);
+      const refreshed = await GetInvoicesByOrder(orderData.uuid);
+      if (refreshed?.data) {
+        const updatedList = Array.isArray(refreshed.data) ? refreshed.data : [];
+        setInvoices(updatedList);
+        return updatedList.find((i: any) => i.uuid === invoice.uuid) || invoice;
+      }
+    } catch (err) {
+      console.error("Failed to sync extra items:", err);
+      // Fallback: manually calculate and update the object to return
+      if (extraItems.length > 0 || cleanedBaseItems.length !== baseItems.length) {
+        const newItems = [...cleanedBaseItems, ...extraItems.map(item => ({...item, amount: (item.quantity * item.unit_price).toFixed(2)}))];
+        const subtotal = newItems.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0), 0);
+        const taxAmount = subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
+        const newTotal = subtotal + taxAmount;
 
-      return {
-        ...invoice,
-        items: newItems,
-        subtotal: subtotal.toFixed(2),
-        tax_amount: taxAmount.toFixed(2),
-        total: newTotal.toFixed(2)
-      };
+        return {
+          ...invoice,
+          items: newItems,
+          subtotal: subtotal.toFixed(2),
+          tax_amount: taxAmount.toFixed(2),
+          total: newTotal.toFixed(2)
+        };
+      }
     }
 
     return invoice;
   };
 
-  const handleOpenInvoice = (serviceName?: string, orderServiceUuid?: string) => {
+  const handleOpenInvoice = async (serviceName?: string, orderServiceUuid?: string) => {
     let serviceInv;
 
     if (orderServiceUuid) {
@@ -628,7 +653,12 @@ const FileManager = () => {
     const finalInv = serviceInv || invoices[0];
 
     if (finalInv) {
-      setViewingInvoice(injectExtraItems(finalInv));
+      try {
+        const synced = await syncExtraItemsToInvoice(finalInv);
+        setViewingInvoice(synced);
+      } catch (err) {
+         console.error("Failed to sync extra items:", err);
+      }
     } else {
       setShowInvoicesModal(true);
     }
@@ -846,6 +876,14 @@ const FileManager = () => {
         }
       } catch (err) {
         console.error("Failed to fetch tour settings", err);
+      }
+      try {
+        const defaultSettingsRes = await GetTourDefaultSettings();
+        if (defaultSettingsRes?.value) {
+          setTourDefaultSettings(defaultSettingsRes.value);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tour default settings", err);
       }
     }
     fetchTourSettings();
@@ -1073,7 +1111,7 @@ const FileManager = () => {
                   <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
                 </div>
               ) : (() => {
-                const filteredList = invoices.map(injectExtraItems);
+                const filteredList = invoices;
 
                 if (filteredList.length === 0) {
                   return (
@@ -1150,11 +1188,7 @@ const FileManager = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => setViewingInvoice(invoice)}
-                                className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-button hover-${userType}-bg hover:!text-white transition-all`}
-                                style={{
-                                  borderColor: `var(--${userType}-page-tab-color)`,
-                                  color: `var(--${userType}-page-tab-color)`,
-                                }}
+                                className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-border ${userType}-text hover-${userType}-bg hover:!text-white transition-all bg-transparent`}
                               >
                                 View
                               </Button>
@@ -1167,10 +1201,7 @@ const FileManager = () => {
                                         setShowInvoicesModal(false);
                                         handlePayInvoice(invoice);
                                       }}
-                                      className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
-                                      style={{
-                                        backgroundColor: `var(--${userType}-page-tab-color)`,
-                                      }}
+                                      className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                     >
                                       Pay Now
                                     </Button>
@@ -1182,10 +1213,7 @@ const FileManager = () => {
                                             setShowInvoicesModal(false);
                                             handlePayInvoice(invoice, "on_behalf");
                                           }}
-                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
-                                          style={{
-                                            backgroundColor: `var(--${userType}-page-tab-color)`,
-                                          }}
+                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                         >
                                           Pay on Behalf
                                         </Button>
@@ -1196,10 +1224,7 @@ const FileManager = () => {
                                             setShowInvoicesModal(false);
                                             handlePayInvoice(invoice, "self");
                                           }}
-                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
-                                          style={{
-                                            backgroundColor: `var(--${userType}-page-tab-color)`,
-                                          }}
+                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                         >
                                           Pay Self
                                         </Button>
@@ -1242,10 +1267,7 @@ const FileManager = () => {
                                 handlePayInvoice(viewingInvoice);
                                 setViewingInvoice(null);
                               }}
-                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                              style={{
-                                backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                              }}
+                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                             >
                               Pay Now
                             </Button>
@@ -1257,10 +1279,7 @@ const FileManager = () => {
                                     handlePayInvoice(viewingInvoice, "on_behalf");
                                     setViewingInvoice(null);
                                   }}
-                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                                  style={{
-                                    backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                                  }}
+                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                 >
                                   Pay on Behalf
                                 </Button>
@@ -1271,10 +1290,7 @@ const FileManager = () => {
                                     handlePayInvoice(viewingInvoice, "self");
                                     setViewingInvoice(null);
                                   }}
-                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                                  style={{
-                                    backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                                  }}
+                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                 >
                                   Pay Self
                                 </Button>
@@ -1516,7 +1532,7 @@ const FileManager = () => {
               className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "download"
                   ? `bg-[#DC9600] text-white border-[#DC9600]`
-                  : `text-[#DC9600] border-[#DC9600]`
+                  : `text-[#DC9600] border-[#DC9600] hover:!bg-[#DC9600] hover:!text-white`
                 }`}
               style={{
                 backgroundColor:
@@ -1543,7 +1559,7 @@ const FileManager = () => {
                   className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                     } ${isActive
                       ? `${userType}-bg text-white ${userType}-border`
-                      : `${userType}-text ${userType}-border`
+                      : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
                     }`}
                   style={{
                     backgroundColor: isActive
@@ -1567,7 +1583,7 @@ const FileManager = () => {
               className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "tour"
                   ? `${userType}-bg text-white ${userType}-border`
-                  : `${userType}-text  ${userType}-border`
+                  : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
                 }`}
               style={{
                 backgroundColor:
@@ -1589,7 +1605,7 @@ const FileManager = () => {
               className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "CreateFeatureSheet"
                   ? `${userType}-bg text-white ${userType}-border`
-                  : `${userType}-text  ${userType}-border`
+                  : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
                 }`}
               style={{
                 backgroundColor:
@@ -1708,47 +1724,105 @@ const FileManager = () => {
               <span className="text-[20px]">⚠️</span>
               <div>
                 <p className="text-[14px] font-bold text-amber-800">Admin Approval Required</p>
-                <p className="text-[12px] text-amber-700">This vendor requires your approval. {unapprovedFiles.length} file(s) are currently locked and hidden from the client/agent.</p>
+                <p className="text-[12px] text-amber-700">This vendor requires your approval. {unapprovedFiles.length} file(s) are currently locked and hidden from the client/agent. Check the box on the thumbnail for specific files to approve them.</p>
               </div>
             </div>
-            <Button
-              onClick={async () => {
-                // Compute the updated files list immediately
-                const filesToApprove = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
-                if (filesToApprove.length === 0) return;
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              {approvalSelectedUuids.size > 0 && (
+                <Button
+                  onClick={async () => {
+                    if (approvalSelectedUuids.size === 0) return;
 
-                const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
+                    const filesToApprove = filesData?.files?.filter(f => approvalSelectedUuids.has(f.uuid) && !f.is_admin_approved) || [];
+                    if (filesToApprove.length === 0) return;
+                    
+                    const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
 
-                // Mark all unapproved files for this service as admin approved locally
-                setFilesData(prev => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    files: prev.files.map(f => {
-                      if (f.service?.uuid === activeService.uuid && !f.is_admin_approved) {
-                        return { ...f, is_admin_approved: true };
-                      }
-                      return f;
-                    })
-                  };
-                });
+                    setFilesData(prev => {
+                      if (!prev) return prev;
+                      return {
+                        ...prev,
+                        files: prev.files.map(f => {
+                          if (approvalSelectedUuids.has(f.uuid) && !f.is_admin_approved) {
+                            return { ...f, is_admin_approved: true };
+                          }
+                          return f;
+                        })
+                      };
+                    });
 
-                // Update changed file UUIDs to reflect that they are being saved
-                setChangedFileUuids(prevSet => {
-                  const newSet = new Set(prevSet);
-                  filesToApprove.forEach(f => newSet.add(f.uuid));
-                  return newSet;
-                });
+                    setChangedFileUuids(prevSet => {
+                      const newSet = new Set(prevSet);
+                      filesToApprove.forEach(f => newSet.add(f.uuid));
+                      return newSet;
+                    });
 
-                // Save changes directly with the updated data to bypass React state delay
-                await handleSave(approvedFiles);
+                    setApprovalSelectedUuids(new Set());
+                    await handleSave(approvedFiles);
+                    toast.success(`${filesToApprove.length} file(s) approved and released successfully!`);
+                  }}
+                  className="bg-[#6BAE41] hover:bg-[#5fa43a] text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
+                >
+                  Approve Selected Media ({approvalSelectedUuids.size})
+                </Button>
+              )}
+              <Button
+                onClick={async () => {
+                  const filesToApprove = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
+                  if (filesToApprove.length === 0) return;
 
-                toast.success("Files approved and released successfully!");
-              }}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
-            >
-              Approve & Release Files
-            </Button>
+                  const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
+
+                  setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                      ...prev,
+                      files: prev.files.map(f => {
+                        if (f.service?.uuid === activeService.uuid && !f.is_admin_approved) {
+                          return { ...f, is_admin_approved: true };
+                        }
+                        return f;
+                      })
+                    };
+                  });
+
+                  setChangedFileUuids(prevSet => {
+                    const newSet = new Set(prevSet);
+                    filesToApprove.forEach(f => newSet.add(f.uuid));
+                    return newSet;
+                  });
+
+                  setApprovalSelectedUuids(new Set());
+                  await handleSave(approvedFiles);
+                  toast.success("All files approved and released successfully!");
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
+              >
+                Approve All Media
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Vendor Pending Approval Notice */}
+      {userType === 'vendor' && reviewFilesEnabled && (() => {
+        const pendingFiles = filesData?.files?.filter(f =>
+          !f.is_admin_approved &&
+          !f.is_deleted &&
+          (activeService ? f.service?.uuid === activeService.uuid : true)
+        ) || [];
+        if (pendingFiles.length === 0) return null;
+
+        return (
+          <div className="mx-[25px] my-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm">
+            <span className="text-[20px] shrink-0 mt-0.5">🕐</span>
+            <div>
+              <p className="text-[14px] font-bold text-blue-800">Uploads Pending Admin Approval</p>
+              <p className="text-[12px] text-blue-700 mt-0.5">
+                Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
+              </p>
+            </div>
           </div>
         );
       })()}

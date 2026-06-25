@@ -6,16 +6,13 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "./ui/accordion";
-import { Plus } from "lucide-react";
+
 import { useAppContext } from "@/app/context/AppContext";
-import AddAreaPopup, { AreaData } from "./AddAreaPopup";
 import { Input } from "./ui/input";
-import { CreateMediaSettings, SaveTourSettings, UpdateTourSetting, DeleteTourSetting, GetMediaSettings, GetTourSettings, GetTourDefaultSettings, SaveTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
+import { CreateMediaSettings, GetMediaSettings, GetTourDefaultSettings, SaveTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
+import { AgentAudio, GetOrganizationAudios } from "@/app/dashboard/agents/agent-audio";
 import { toast } from "sonner";
-import { DataTable } from "@/components/DataTable";
-import { ColumnDef, Row } from "@tanstack/react-table";
 import { Switch } from "./ui/switch";
-import DropdownActions from "./DropdownActions";
 import { Label } from "./ui/label";
 import {
     Select,
@@ -55,6 +52,7 @@ type PhotoSizesType = {
 type TourDefaultsType = {
     music_enabled: boolean;
     default_song: string;
+    default_audio_uuid?: string;
     transition_effect: string[];
     layout_option: string;
     video_slideshow_enabled: boolean;
@@ -68,11 +66,8 @@ type TourDefaultsType = {
     matterport_default_expiry_days?: number;
 };
 
-export default function GlobalTourSetting() {
+const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object>((props, ref) => {
     const { userType } = useAppContext();
-    const [areas, setAreas] = useState<AreaData[]>([]);
-    const [popupOpen, setPopupOpen] = useState(false);
-    const [editingArea, setEditingArea] = useState<null | AreaData>(null);
     const [videoSizes, setVideoSizes] = useState<VideoSizesType>({
         original: { width: 0, height: 0 },
         small: { width: 0, height: 0 },
@@ -122,28 +117,8 @@ export default function GlobalTourSetting() {
         { label: 'Zoom Slow', value: 'zoom-slow' },
     ];
 
-    const [loading, setLoading] = useState(true);
-
-    const fetchAreas = async () => {
-
-        setLoading(true);
-        try {
-            const tourData = await GetTourSettings();
-            if (tourData && tourData.data && tourData.data.tour_settings) {
-                const mappedAreas = tourData.data.tour_settings.map((item: AreaData, index: number) => ({
-                    ...item,
-                    uuid: item.uuid || `temp-${index}-${Date.now()}`
-                }));
-                setAreas(mappedAreas);
-            }
 
 
-        } catch (error) {
-            console.error('Failed to fetch settings:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
     const fetchMediaSettings = async () => {
         try {
             const mediaData = await GetMediaSettings();
@@ -166,61 +141,34 @@ export default function GlobalTourSetting() {
         }
     };
 
+    const [orgAudios, setOrgAudios] = useState<AgentAudio[]>([]);
+
+    const fetchOrgAudios = async () => {
+        try {
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const orgUuid = userInfo?.organization?.uuid || userInfo?.data?.organization?.uuid || userInfo?.data?.uuid || userInfo?.organization_uuid;
+                if (orgUuid) {
+                    const res = await GetOrganizationAudios(orgUuid);
+                    if (res && res.data) {
+                        setOrgAudios(Array.isArray(res.data) ? res.data : []);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch org audios:', error);
+        }
+    };
+
     useEffect(() => {
-        fetchAreas();
         fetchMediaSettings();
+        fetchOrgAudios();
     }, []);
 
-    const handleAddArea = async (newArea: Omit<AreaData, 'id' | 'uuid'>) => {
-        try {
-            // API expects an array for creation or we can adjust if needed, 
-            // but usually creation might be bulk. Based on user request "send only one object in array for add".
-            // The previous global-settings.ts SaveTourSettings takes TourSettingPayload[] which is correct for add.
-            // We'll send just the new one.
-            const payload = {
-                ...newArea,
-                status: true // Default status if not provided, or take from newArea
-            };
-
-            await SaveTourSettings([payload]);
-            await fetchAreas();
-            toast.success('Area added successfully');
-        } catch (error) {
-            console.error('Failed to add area:', error);
-            toast.error('Failed to add area. Please try again.');
-        }
-    };
-
-    const handleEditArea = async (updatedArea: AreaData) => {
-        if (!updatedArea.uuid) {
-            toast.error('Cannot update area without ID');
-            return;
-        }
-
-        try {
-            await UpdateTourSetting(updatedArea);
-            await fetchAreas();
-            toast.success('Area updated successfully');
-        } catch (error) {
-            console.error('Failed to update area:', error);
-            toast.error('Failed to update area. Please try again.');
-        }
-    };
-
-    const handleDeleteArea = async (uuid: string) => {
-        try {
-            await DeleteTourSetting(uuid);
-            // Optimistic update or fetch
-            const updatedAreas = areas.filter(area => area.uuid !== uuid);
-            setAreas(updatedAreas);
-            toast.success('Area deleted successfully');
-        } catch (error) {
-            console.error('Failed to delete area:', error);
-            toast.error('Failed to delete area. Please try again.');
-            // Re-fetch to sync state if failed or to be sure
-            fetchAreas();
-        }
-    };
+    React.useImperativeHandle(ref, () => ({
+        save: handleSaveMediaSettings,
+    }));
 
     const handleVideoSizeChange = (type: keyof VideoSizesType, dimension: keyof SizeType, value: number) => {
         setVideoSizes(prev => ({
@@ -240,21 +188,6 @@ export default function GlobalTourSetting() {
                 [dimension]: value
             }
         }));
-    };
-
-    const handleEditClick = (area: AreaData) => {
-        setEditingArea(area);
-        setPopupOpen(true);
-    };
-
-    const handleAddClick = () => {
-        setEditingArea(null);
-        setPopupOpen(true);
-    };
-
-    const handlePopupClose = () => {
-        setPopupOpen(false);
-        setEditingArea(null);
     };
     const handleTourDefaultChange = (key: keyof TourDefaultsType, value: any) => {
         setTourDefaults(prev => ({
@@ -299,129 +232,16 @@ export default function GlobalTourSetting() {
         }
     };
 
-    const handleStatusChange = async (area: AreaData, status: boolean) => {
-        if (!area.uuid) return;
 
-        try {
-            const updatedArea = { ...area, status };
-            await UpdateTourSetting(updatedArea);
-
-            // Optimistic update
-            const updatedAreas = areas.map(a =>
-                a.uuid === area.uuid ? updatedArea : a
-            );
-            setAreas(updatedAreas);
-            toast.success('Status updated successfully');
-        } catch (error) {
-            console.error('Failed to update status:', error);
-            toast.error('Failed to update status. Please try again.');
-            fetchAreas();
-        }
-    };
-
-    const columns: ColumnDef<AreaData>[] = [
-        {
-            accessorKey: "area",
-            header: "AREAS",
-            cell: ({ row }: { row: Row<AreaData> }) => (
-                <div className="text-[#666666]">{row.original.area}</div>
-            ),
-        },
-        {
-            accessorKey: "type",
-            header: "TYPE",
-            cell: ({ row }: { row: Row<AreaData> }) => (
-                <div className="text-[#666666]">{row.original.type}</div>
-            ),
-        },
-        {
-            accessorKey: "charge",
-            header: "CHARGE",
-            cell: ({ row }: { row: Row<AreaData> }) => (
-                <div className="text-[#666666]">{row.original.charge}</div>
-            ),
-        },
-        {
-            accessorKey: "discount",
-            header: "DISCOUNT",
-            cell: ({ row }: { row: Row<AreaData> }) => (
-                <div className="text-[#666666]">{row.original.discount}</div>
-            ),
-        },
-        {
-            accessorKey: "status",
-            header: "STATUS",
-            cell: ({ row }: { row: Row<AreaData> }) => (
-                <div className="flex items-center gap-2">
-                    <Switch
-                        checked={row.original.status}
-                        onCheckedChange={(checked) => handleStatusChange(row.original, checked)}
-                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
-                    />
-                    <DropdownActions
-                        options={[
-                            {
-                                label: "Edit",
-                                onClick: () => handleEditClick(row.original),
-                            },
-                            {
-                                label: "Delete",
-                                onClick: () => row.original.uuid && handleDeleteArea(row.original.uuid),
-                                confirm1: true,
-                            }
-                        ]}
-                    />
-                </div>
-            ),
-        },
-    ];
 
 
     return (
-        <div>
+        <div className="w-full">
             <Accordion
                 type="multiple"
                 defaultValue={["tour", "defaults", "size"]}
                 className="w-full space-y-4 "
             >
-                {userType === "admin" && (
-                    <AccordionItem value="tour" className="border-none">
-                        <AccordionTrigger
-                            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] ${userType === "admin"
-                                ? "[&>svg]:text-[#4290E9]"
-                                : "[&>svg]:text-[#6BAE41]"
-                                }  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                        >
-                            <div
-                                className="flex items-center justify-between w-full"
-                            >
-                                <p>TOUR SETTINGS</p>
-                                <div
-                                    className="flex items-center gap-x-[10px] pr-[24px] cursor-pointer group"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAddClick();
-                                    }}
-                                >
-                                    <p className="text-base font-semibold font-raleway group-hover:underline transition-all duration-200">Add</p>
-                                    <Plus
-                                        className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm transition-transform duration-300 group-hover:rotate-90`}
-                                    />
-                                </div>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="w-full pb-0">
-                            <DataTable
-                                data={areas}
-                                columns={columns}
-                                loading={loading}
-                                dataName="Tour Settings"
-                                userType={userType || 'admin'}
-                                error={false}
-                            />
-                        </AccordionContent>
-                    </AccordionItem>
-                )}
 
                 <AccordionItem value="defaults" className="border-none">
                     <AccordionTrigger
@@ -450,19 +270,22 @@ export default function GlobalTourSetting() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-[#666666] font-semibold">Default Song</Label>
+                                    <Label className="text-[#666666] font-semibold">Default Audio</Label>
                                     <Select
-                                        value={tourDefaults.default_song}
-                                        onValueChange={(val) => handleTourDefaultChange('default_song', val)}
+                                        value={tourDefaults.default_audio_uuid || ""}
+                                        onValueChange={(val) => handleTourDefaultChange('default_audio_uuid', val)}
                                     >
                                         <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
-                                            <SelectValue placeholder="Select Song" />
+                                            <SelectValue placeholder={orgAudios.length > 0 ? "Select Audio" : "No audio files uploaded"} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="tell-me-what">Tell-me-what</SelectItem>
-                                            <SelectItem value="embrace">Embrace</SelectItem>
-                                            <SelectItem value="sandbreaker">Sandbreaker</SelectItem>
-                                            <SelectItem value="showreel">Showreel</SelectItem>
+                                            {orgAudios.length > 0 ? (
+                                                orgAudios.map(audio => (
+                                                    <SelectItem key={audio.uuid} value={audio.uuid}>{audio.name}</SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="none" disabled>No audio files found</SelectItem>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -622,16 +445,6 @@ export default function GlobalTourSetting() {
                                 </div>
                             </div>
                         </div>
-                        {/* Save Button for Defaults */}
-                        <div className="w-full flex justify-end mt-6 mb-4 px-4">
-                            <button
-                                type="button"
-                                onClick={handleSaveMediaSettings}
-                                className={`w-[200px] h-[44px] ${userType}-bg text-white rounded-[6px] font-[600] text-[16px] hover:opacity-90 transition-opacity`}
-                            >
-                                Save Changes
-                            </button>
-                        </div>
                     </AccordionContent>
                 </AccordionItem>
 
@@ -720,27 +533,12 @@ export default function GlobalTourSetting() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Save Button */}
-                        <div className="w-full flex justify-end mt-6 mb-4 px-4">
-                            <button
-                                type="button"
-                                onClick={handleSaveMediaSettings}
-                                className={`w-[200px] h-[44px] ${userType}-bg text-white rounded-[6px] font-[600] text-[16px] hover:opacity-90 transition-opacity`}
-                            >
-                                Save Changes
-                            </button>
-                        </div>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
-            <AddAreaPopup
-                open={popupOpen}
-                setOpen={handlePopupClose}
-                onAdd={handleAddArea}
-                onEdit={handleEditArea}
-                editingArea={editingArea}
-            />
         </div>
     );
-}
+});
+GlobalTourSetting.displayName = "GlobalTourSetting";
+
+export default GlobalTourSetting;

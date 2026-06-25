@@ -446,8 +446,9 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         )}
                         {userType !== 'agent' && userType !== 'vendor' && (
                             <Button
+                                variant="outline"
                                 onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-[150px] flex justify-center items-center border-none`}
                             >
                                 Upgrade Plan
                             </Button>

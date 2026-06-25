@@ -54,7 +54,7 @@ type Props = {
     onShowHiddenMedia?: () => void;
 };
 const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }) => {
-    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, imagesPerRow, filesToHide, setFilesToHide, isHidingMode, setIsHidingMode, approvalSelectedUuids, setApprovalSelectedUuids, setFileManagerMode, fileManagerMode } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -154,13 +154,14 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
     };
 
     const [open, setOpen] = useState(false);
+    const [area, setArea] = useState<any[]>([]);
 
     useEffect(() => {
         if (orderData?.areas && area.length === 0) {
             setArea(orderData.areas);
         }
-    }, [orderData, area.length, setArea]);
-
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderData]);
 
     // Filter existing files safely with useMemo to prevent infinite loops
     const currentServiceFiles = useMemo(() => {
@@ -604,7 +605,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
 
                         {userType === 'admin' && (
                             <div
-                                className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
+                                className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/90 p-1.5 rounded-[4px] shadow-sm border border-gray-200"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (isLocal) {
@@ -612,30 +613,53 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                             prev.map(f => f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f)
                                         );
                                     } else {
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
+                                        if (file.is_admin_approved) {
+                                            setFilesData(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                    ...prev,
+                                                    files: prev.files.map(f => {
+                                                        if (f.uuid === file.uuid) {
+                                                            setChangedFileUuids(prevSet => {
+                                                                const newSet = new Set(prevSet);
+                                                                newSet.add(f.uuid);
+                                                                return newSet;
+                                                            });
+                                                            return { ...f, is_admin_approved: false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                };
+                                            });
+                                        } else {
+                                            setApprovalSelectedUuids(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid!)) {
+                                                    next.delete(file.uuid!);
+                                                } else {
+                                                    next.add(file.uuid!);
+                                                }
+                                                return next;
+                                            });
+                                        }
                                     }
                                 }}
                             >
-                                <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                    {file.is_admin_approved && <Check color="white" size={12} />}
-                                </div>
-                                <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                {isLocal || file.is_admin_approved ? (
+                                    <>
+                                        <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                            {file.is_admin_approved && <Check color="white" size={12} />}
+                                        </div>
+                                        <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                            {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                        </div>
+                                        <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                    </>
+                                )}
                             </div>
                         )}
 
@@ -690,7 +714,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 : (file.created_at ? format(new Date(file.created_at), 'MM/dd/yyyy') : format(new Date(), 'MM/dd/yyyy'))
                             }
                         </p>
-                        {isLocal ? null : canDownloadFile({
+                        {isLocal || (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : canDownloadFile({
                             file: file as Files,
                             currentService,
                             orderData,
@@ -733,8 +757,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
                 className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                        ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
-                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                        ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
+                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
             >
                 <div onClick={(e) => {
@@ -991,7 +1015,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg text-white hover:brightness-110 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
                                         >
                                             Upgrade Plan
                                         </Button>
@@ -1016,8 +1040,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </div>
                             {userType !== 'vendor' && (
                                 <Button
+                                    variant="outline"
                                     onClick={() => setOpenUpgrade(true)}
-                                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg ml-2`}
+                                    className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-[150px] flex justify-center items-center ml-2 border-none`}
                                 >
                                     Upgrade Plan
                                 </Button>

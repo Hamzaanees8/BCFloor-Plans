@@ -54,7 +54,8 @@ const PublicTour = () => {
     const [activeTab, setActiveTab] = useState("Home");
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
-    const [isAudioPlaying, setIsAudioPlaying] = useState(true);
+    const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+    const [hasSetInitialAudioState, setHasSetInitialAudioState] = useState(false);
     const [isAudioMuted, setIsAudioMuted] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [visitorId, setVisitorId] = useState<string>('');
@@ -116,6 +117,21 @@ const PublicTour = () => {
             fetchOrderData();
         }
     }, [orderuuid, orgSlug]);
+
+    useEffect(() => {
+        if (orderData && !hasSetInitialAudioState) {
+            const slideShow = orderData.tours?.[0]?.slide_show as any;
+            if (slideShow && slideShow.auto_play !== undefined) {
+                // Parse boolean or string ("1", "true")
+                const isAutoPlay = slideShow.auto_play === true || slideShow.auto_play === "1" || slideShow.auto_play === "true";
+                setIsAudioPlaying(isAutoPlay);
+            } else {
+                // Fallback to true if undefined
+                setIsAudioPlaying(true);
+            }
+            setHasSetInitialAudioState(true);
+        }
+    }, [orderData, hasSetInitialAudioState]);
 
     // Extract files from orderData.tours[0].files
     const tourPhotos = useMemo(() => {

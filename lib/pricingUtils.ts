@@ -227,15 +227,21 @@ export const resolveServicePrice = (params: {
   if (invoices && invoices.length > 0) {
     for (const invoice of invoices) {
       if (invoice.items && invoice.items.length > 0) {
-        const item = invoice.items.find(
+        const matchingItems = invoice.items.filter(
           (i: any) =>
             i.order_service_id === orderService.id ||
             i.orderService?.id === orderService.id
         );
-        if (item && item.unit_price) {
-          const qty = parseFloat(item.quantity) || 1;
-          const unitPrice = parseFloat(item.unit_price) || 0;
-          return qty * unitPrice;
+        
+        if (matchingItems.length > 0) {
+          const totalAmount = matchingItems.reduce((sum: number, item: any) => {
+            const itemAmount = parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0));
+            return sum + itemAmount;
+          }, 0);
+          
+          if (totalAmount > 0) {
+            return totalAmount;
+          }
         }
       }
     }

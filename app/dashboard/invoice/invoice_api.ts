@@ -98,3 +98,15 @@ export async function PayInvoiceWithStripe(
         throw new Error(response.data?.message || 'Failed to create payment session');
     }
 }
+
+export async function UpdateInvoiceExtraItems(uuid: string, extraItems: {
+    order_service_id: number;
+    description: string;
+    quantity: number;
+    unit_price: number;
+}[]) {
+    const response = await api.post(`/invoices/${uuid}/extra-items`, {
+        extra_items: extraItems
+    });
+    return response.data;
+}

@@ -60,6 +60,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     imagesPerRow,
     deletedSnapshotUuids,
     tourSettings,
+    tourDefaultSettings,
   } = useFileManagerContext();
 
   const { startUpload } = useGlobalFileUpload();
@@ -117,19 +118,33 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   }, [selectedAudioTrack, audioUrl, setAudioUrl]);
 
   React.useEffect(() => {
-    if (tourSettings) {
-      if (tourSettings.autoplay_enabled !== undefined && typeof tourSettings.autoplay_enabled === 'boolean') {
-        setAutoPlay(tourSettings.autoplay_enabled);
+    // Determine the source of truth for settings:
+    // If per-tour settings exist, use them. Otherwise, fall back to org defaults.
+    const settings = tourSettings && Object.keys(tourSettings).length > 0 ? tourSettings : tourDefaultSettings;
+
+    if (settings) {
+      if (settings.autoplay_enabled !== undefined && typeof settings.autoplay_enabled === 'boolean') {
+        setAutoPlay(settings.autoplay_enabled);
       }
-      if (tourSettings.transition_effect && Array.isArray(tourSettings.transition_effect) && tourSettings.transition_effect.length > 0) {
-        // ensure current transition is in the list or set to first
-        if (!tourSettings.transition_effect.includes(transition)) {
-          setTransition(tourSettings.transition_effect[0]);
+      if (settings.transition_effect && Array.isArray(settings.transition_effect) && settings.transition_effect.length > 0) {
+        if (!settings.transition_effect.includes(transition)) {
+          setTransition(settings.transition_effect[0]);
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tourSettings]);
+  }, [tourSettings, tourDefaultSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    // If no audio is currently selected (or it's "none") and we have an org default audio, auto-select it.
+    // This applies primarily to new tours that haven't saved a specific audio track yet.
+    if ((!selectedAudioTrack || selectedAudioTrack === "none") && tourDefaultSettings?.default_audio_uuid) {
+      // Find the corresponding URL from agentAudios, or fallback to the UUID string directly (since backend might accept UUID)
+      const matchedAudio = agentAudios.find(a => a.uuid === tourDefaultSettings.default_audio_uuid);
+      if (matchedAudio && matchedAudio.audio_url) {
+        handleAudioTrackChange(matchedAudio.audio_url);
+      }
+    }
+  }, [selectedAudioTrack, tourDefaultSettings, agentAudios]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Compute globally-sorted photo list ───────────────────────────────────
   // getGlobalPhotoOrder sorts by sort_order ASC, ties broken by service_id ASC

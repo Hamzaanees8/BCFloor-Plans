@@ -303,6 +303,7 @@ const GlobalSettings = () => {
     const headerRef = useRef<HTMLDivElement>(null);
     const orgSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
     const portalSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
+    const tourSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
 
     // Override overflow-x: hidden on ancestor elements that break sticky positioning
     useEffect(() => {
@@ -1155,7 +1156,18 @@ const GlobalSettings = () => {
                     >
                         Save Changes
                     </Button>
-                ) : activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Email Logs" ? null : (
+                ) : activeTab === "Tour Settings" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            tourSettingsRef.current?.save();
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center justify-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
+                ) : activeTab === "Templates" || activeTab === "Email Logs" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -2748,7 +2760,7 @@ const GlobalSettings = () => {
                     )}
 
                     {activeTab === "Tour Settings" && userType === "admin" && (
-                        <GlobalTourSetting />
+                        <GlobalTourSetting ref={tourSettingsRef} />
                     )}
                     {activeTab === "Appearances" && userType === "admin" && (
                         <WhiteLabelSettings />

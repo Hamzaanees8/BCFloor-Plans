@@ -57,7 +57,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
-    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide, approvalSelectedUuids, setApprovalSelectedUuids } = useFileManagerContext();
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const [isHiding, setIsHiding] = useState(false);
@@ -698,32 +698,58 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </Tooltip>
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
+                                        if (file.is_admin_approved) {
+                                            // Optional: allow un-approving if already approved? 
+                                            // The user request only mentioned approving pending files.
+                                            setFilesData(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                    ...prev,
+                                                    files: prev.files.map(f => {
+                                                        if (f.uuid === file.uuid) {
+                                                            setChangedFileUuids(prevSet => {
+                                                                const newSet = new Set(prevSet);
+                                                                newSet.add(f.uuid);
+                                                                return newSet;
+                                                            });
+                                                            return { ...f, is_admin_approved: false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                };
+                                            });
+                                        } else {
+                                            // Toggle selection for approval
+                                            setApprovalSelectedUuids(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid!)) {
+                                                    next.delete(file.uuid!);
+                                                } else {
+                                                    next.add(file.uuid!);
+                                                }
+                                                return next;
+                                            });
+                                        }
                                     }}
                                 >
-                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                        {file.is_admin_approved && <Check color="white" size={12} />}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                    {file.is_admin_approved ? (
+                                        <>
+                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
+                                                <Check color="white" size={12} />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                                {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
@@ -866,6 +892,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
                             </div>
                         ) : (
+                            (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : 
                             (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
@@ -1146,8 +1173,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
                 className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
-                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                    ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
+                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
             >
                 <div onClick={(e) => {
@@ -1167,7 +1194,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <Button
                     onClick={() => setIsBulkDeselecting(true)}
                     variant="outline"
-                    className="h-8 px-4 text-sm font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#E06D5E] hover:text-white"
+                    className="h-8 px-4 text-sm font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white"
                 >
                     Bulk Remove
                 </Button>
@@ -1184,8 +1211,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         Cancel
                     </Button>
                     <Button
+                        disabled={bulkDeselectedIds.size === 0}
                         onClick={handleBulkDeselectDone}
-                        className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#c45a4d] text-white"
+                        className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white"
                     >
                         Done ({bulkDeselectedIds.size})
                     </Button>
@@ -1520,7 +1548,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg text-white hover:brightness-110 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
                                         >
                                             Upgrade Plan
                                         </Button>

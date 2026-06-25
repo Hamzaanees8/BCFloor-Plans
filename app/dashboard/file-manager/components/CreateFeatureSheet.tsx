@@ -730,69 +730,69 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
               <div className="flex gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
+                    <button
+                      disabled={isDownloading}
+                      className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                    >
+                      {isDownloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Download PDF"
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[180px]">
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(false)}
+                      className="cursor-pointer"
+                    >
+                      Download (No Bleed)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(true)}
+                      className="cursor-pointer"
+                    >
+                      Download (With Bleed)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Copy Style button — only visible when a template is open */}
+                {selectedTemplate && (
                   <button
-                    disabled={isDownloading}
-                    className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                    type="button"
+                    onClick={() => setCopyStyleOpen(true)}
+                    className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:opacity-80`}
                   >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Download PDF"
-                    )}
+                    Copy Style
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[180px]">
-                  <DropdownMenuItem
-                    onClick={() => handleDownload(false)}
-                    className="cursor-pointer"
-                  >
-                    Download (No Bleed)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDownload(true)}
-                    className="cursor-pointer"
-                  >
-                    Download (With Bleed)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
 
-              {/* Copy Style button — only visible when a template is open */}
-              {selectedTemplate && (
-                <button
-                  type="button"
-                  onClick={() => setCopyStyleOpen(true)}
-                  className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:opacity-80`}
+                {(userType === 'agent' || userType === 'admin') && selectedTemplate && selectedSheetUuid && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPrintModalOpen(true)}
+                    className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Send Print Request
+                  </button>
+                )}
+              </div>
+              <div className="text-center">
+                <div
+                  className={`text-[16px] font-alexandria font-bold ${userType}-text`}
                 >
-                  Copy Style
-                </button>
-              )}
-
-              {(userType === 'agent' || userType === 'admin') && selectedTemplate && selectedSheetUuid && (
-                <button
-                  type="button"
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
-                >
-                  <Printer className="w-4 h-4" />
-                  Send Print Request
-                </button>
-              )}
-            </div>
-            <div className="text-center">
-              <div
-                className={`text-[16px] font-alexandria font-bold ${userType}-text`}
-              >
-                Feature Sheets
+                  Feature Sheets
+                </div>
+              </div>
+              <div className="flex gap-3 items-center">
+                {/* Service integration removed */}
               </div>
             </div>
-            <div className="flex gap-3 items-center">
-              {/* Service integration removed */}
-            </div>
-          </div>
           )}
 
           {!selectedTemplate && !isReadonly && (
@@ -1061,111 +1061,194 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                 className="w-full space-y-4"
               >
                 {!isReadonly && (
-                <AccordionItem value="FeatureSheetSettings">
-                  <AccordionTrigger
-                    className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  >
-                    General Information
-                  </AccordionTrigger>
-                  <AccordionContent className="grid gap-4 !overflow-visible">
-                    <div className="w-full flex flex-col items-center px-[16px]">
-                      <div className="flex w-full gap-3 mt-4 justify-end">
-                        <div className="text-center">
-                          <div className="text-[24px] font-alexandria font-normal leading-[18px] text-[#7D7D7D]">
-                            25 Copies
+                  <AccordionItem value="FeatureSheetSettings">
+                    <AccordionTrigger
+                      className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    >
+                      General Information
+                    </AccordionTrigger>
+                    <AccordionContent className="grid gap-4 !overflow-visible">
+                      <div className="w-full flex flex-col items-center px-[16px]">
+                        <div className="flex w-full gap-3 mt-4 justify-end">
+                          <div className="text-center">
+                            <div className="text-[24px] font-alexandria font-normal leading-[18px] text-[#7D7D7D]">
+                              25 Copies
+                            </div>
+                            <div className="text-[12px] font-alexandria font-normal text-[#7D7D7D]">
+                              Printed
+                            </div>
                           </div>
-                          <div className="text-[12px] font-alexandria font-normal text-[#7D7D7D]">
-                            Printed
-                          </div>
+                          <button className="text-center px-4 py-2 text-[13px] w-[133px] h-[32px] transition-colors bg-[#8E8E8E] hover:brightness-90 text-white leading-3 rounded-[6px] font-[500]">
+                            Upgrade Plan
+                          </button>
                         </div>
-                        <button className="text-center px-4 py-2 text-[13px] w-[133px] h-[32px] transition-colors bg-[#8E8E8E] text-white leading-3 rounded-[6px] font-[500]">
-                          Upgrade Plan
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 !hidden">
-                        <div className="">
-                          <div ref={wrapperRef} className="relative w-full">
-                            <label
-                              htmlFor="bgcolor"
-                              className="block text-sm font-medium text-gray-700"
-                            >
-                              Primary Color
-                            </label>
+                        <div className="grid-cols-1 md:grid-cols-3 gap-6 !hidden">
+                          <div className="">
+                            <div ref={wrapperRef} className="relative w-full">
+                              <label
+                                htmlFor="bgcolor"
+                                className="block text-sm font-medium text-gray-700"
+                              >
+                                Primary Color
+                              </label>
 
-                            {/* Box + Input side by side */}
-                            <div className="flex items-center gap-3 mt-2">
-                              {/* Color preview box */}
-                              <div
-                                className="w-8 h-8 border border-gray-400 rounded"
-                                style={{
-                                  backgroundColor: `#${formData.background || "ffffff"}`,
-                                }}
-                              />
-
-                              {/* Input wrapper */}
-                              <div className="relative flex-1">
-                                <span
-                                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-700"
+                              {/* Box + Input side by side */}
+                              <div className="flex items-center gap-3 mt-2">
+                                {/* Color preview box */}
+                                <div
+                                  className="w-8 h-8 border border-gray-400 rounded"
                                   style={{
-                                    color: `#${formData.background || ""}`,
-                                  }}
-                                >
-                                  #
-                                </span>
-
-                                <Input
-                                  id="bgcolor"
-                                  value={formData.background}
-                                  onFocus={() => setOpenColorPicker(true)}
-                                  onClick={() => setOpenColorPicker(true)}
-                                  onChange={(e) => {
-                                    const value = e.target.value
-                                      .replace(/[^0-9a-fA-F]/g, "")
-                                      .slice(0, 6);
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      background: value,
-                                    }));
-                                  }}
-                                  className="pl-6 pr-4 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB]"
-                                  maxLength={6}
-                                  style={{
-                                    color: `#${formData.background || ""}`,
+                                    backgroundColor: `#${formData.background || "ffffff"}`,
                                   }}
                                 />
+
+                                {/* Input wrapper */}
+                                <div className="relative flex-1">
+                                  <span
+                                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-700"
+                                    style={{
+                                      color: `#${formData.background || ""}`,
+                                    }}
+                                  >
+                                    #
+                                  </span>
+
+                                  <Input
+                                    id="bgcolor"
+                                    value={formData.background}
+                                    onFocus={() => setOpenColorPicker(true)}
+                                    onClick={() => setOpenColorPicker(true)}
+                                    onChange={(e) => {
+                                      const value = e.target.value
+                                        .replace(/[^0-9a-fA-F]/g, "")
+                                        .slice(0, 6);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        background: value,
+                                      }));
+                                    }}
+                                    className="pl-6 pr-4 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB]"
+                                    maxLength={6}
+                                    style={{
+                                      color: `#${formData.background || ""}`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {openColorPicker && (
+                                <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
+                                  <HexColorPicker
+                                    className="!w-[175px]"
+                                    color={`#${formData.background}`}
+                                    onChange={(newColor) =>
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        background: newColor.replace(/^#/, ""),
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="mt-4 w-full">
+                                <label className="text-[#666666]">Logo</label>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                  {/* Preview */}
+                                  <div className="flex h-[128px] items-end gap-x-[6px]">
+                                    <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
+                                      {logoPreview && (
+                                        <Image
+                                          unoptimized
+                                          src={logoPreview}
+                                          alt="Logo Preview"
+                                          width={193}
+                                          height={128}
+                                          className="object-cover w-full h-full"
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Button */}
+                                  <div className="flex flex-1 w-full">
+                                    <div className="flex flex-col gap-3 justify-between w-full self-center">
+                                      <div>
+                                        <button
+                                          type="button"
+                                          onClick={triggerLogoInput}
+                                          className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
+                                        >
+                                          Choose Image
+                                        </button>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        accept="image/png, image/jpeg"
+                                        ref={logoInputRef}
+                                        onChange={handleLogoChange}
+                                        className="hidden"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-
-                            {openColorPicker && (
-                              <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
-                                <HexColorPicker
-                                  className="!w-[175px]"
-                                  color={`#${formData.background}`}
-                                  onChange={(newColor) =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      background: newColor.replace(/^#/, ""),
-                                    }))
-                                  }
-                                />
-                              </div>
-                            )}
                           </div>
-                          <div>
+                          <div className="">
+                            <div>
+                              <label htmlFor="">Template</label>
+                              <Select
+                                value={selectedTemplate}
+                                onValueChange={handleTemplateChange}
+                              >
+                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                  <SelectValue placeholder="Select Template" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {/* Standard Templates */}
+                                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">
+                                    Standard Templates
+                                  </div>
+                                  {templateOptions
+                                    .filter((opt) => opt.startsWith("BCFPStandard"))
+                                    .map((template) => (
+                                      <SelectItem key={template} value={template}>
+                                        {template}
+                                      </SelectItem>
+                                    ))}
+
+                                  {/* Uploaded PDFs */}
+                                  {uploadedPdfs.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">
+                                        Uploaded Sheets
+                                      </div>
+                                      {uploadedPdfs.map((pdf) => (
+                                        <SelectItem key={pdf.name} value={pdf.name}>
+                                          {pdf.name}
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <div className="mt-4 w-full">
-                              <label className="text-[#666666]">Logo</label>
-                              <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Preview */}
-                                <div className="flex h-[128px] items-end gap-x-[6px]">
-                                  <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
-                                    {logoPreview && (
+                              <label className="text-[#666666]">Realtor Image</label>
+                              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                                {/* Circle Preview */}
+                                <div className="flex items-center gap-x-[6px]">
+                                  <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
+                                    {realtorPreview && (
                                       <Image
                                         unoptimized
-                                        src={logoPreview}
-                                        alt="Logo Preview"
-                                        width={193}
-                                        height={128}
-                                        className="object-cover w-full h-full"
+                                        src={realtorPreview}
+                                        alt="Realtor Preview"
+                                        width={62}
+                                        height={62}
+                                        className="object-cover w-full h-full rounded-full"
                                       />
                                     )}
                                   </div>
@@ -1177,7 +1260,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                                     <div>
                                       <button
                                         type="button"
-                                        onClick={triggerLogoInput}
+                                        onClick={triggerRealtorInput}
                                         className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
                                       >
                                         Choose Image
@@ -1186,8 +1269,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                                     <input
                                       type="file"
                                       accept="image/png, image/jpeg"
-                                      ref={logoInputRef}
-                                      onChange={handleLogoChange}
+                                      ref={realtorInputRef}
+                                      onChange={handleRealtorChange}
                                       className="hidden"
                                     />
                                   </div>
@@ -1195,9 +1278,54 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                               </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="">
                           <div>
+                            <div className="space-y-4 mt-4">
+                              {/* Email Link */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Email Link
+                                </label>
+                                <input
+                                  type="email"
+                                  value={email}
+                                  onChange={(e) => setEmail(e.target.value)}
+                                  placeholder="email@gmail.com"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
+                              </div>
+
+                              {/* LinkedIn Link */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  LinkedIn Link
+                                </label>
+                                <input
+                                  type="url"
+                                  value={linkedin}
+                                  onChange={(e) => setLinkedin(e.target.value)}
+                                  placeholder="linkedin.com/in/yourname"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
+                              </div>
+
+                              {/* Phone Number */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Phone Number
+                                </label>
+                                <input
+                                  type="tel"
+                                  value={phone}
+                                  onChange={(e) => setPhone(e.target.value)}
+                                  placeholder="123-123-1234"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex w-full">
+                          <div className="w-full sm:w-[20%]">
                             <label htmlFor="">Template</label>
                             <Select
                               value={selectedTemplate}
@@ -1235,138 +1363,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="mt-4 w-full">
-                            <label className="text-[#666666]">Realtor Image</label>
-                            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                              {/* Circle Preview */}
-                              <div className="flex items-center gap-x-[6px]">
-                                <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
-                                  {realtorPreview && (
-                                    <Image
-                                      unoptimized
-                                      src={realtorPreview}
-                                      alt="Realtor Preview"
-                                      width={62}
-                                      height={62}
-                                      className="object-cover w-full h-full rounded-full"
-                                    />
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Button */}
-                              <div className="flex flex-1 w-full">
-                                <div className="flex flex-col gap-3 justify-between w-full self-center">
-                                  <div>
-                                    <button
-                                      type="button"
-                                      onClick={triggerRealtorInput}
-                                      className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
-                                    >
-                                      Choose Image
-                                    </button>
-                                  </div>
-                                  <input
-                                    type="file"
-                                    accept="image/png, image/jpeg"
-                                    ref={realtorInputRef}
-                                    onChange={handleRealtorChange}
-                                    className="hidden"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="space-y-4 mt-4">
-                            {/* Email Link */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                Email Link
-                              </label>
-                              <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="email@gmail.com"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-
-                            {/* LinkedIn Link */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                LinkedIn Link
-                              </label>
-                              <input
-                                type="url"
-                                value={linkedin}
-                                onChange={(e) => setLinkedin(e.target.value)}
-                                placeholder="linkedin.com/in/yourname"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-
-                            {/* Phone Number */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                Phone Number
-                              </label>
-                              <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="123-123-1234"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-                          </div>
                         </div>
                       </div>
-                      <div className="flex w-full">
-                        <div className="w-full sm:w-[20%]">
-                          <label htmlFor="">Template</label>
-                          <Select
-                            value={selectedTemplate}
-                            onValueChange={handleTemplateChange}
-                          >
-                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                              <SelectValue placeholder="Select Template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {/* Standard Templates */}
-                              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">
-                                Standard Templates
-                              </div>
-                              {templateOptions
-                                .filter((opt) => opt.startsWith("BCFPStandard"))
-                                .map((template) => (
-                                  <SelectItem key={template} value={template}>
-                                    {template}
-                                  </SelectItem>
-                                ))}
-
-                              {/* Uploaded PDFs */}
-                              {uploadedPdfs.length > 0 && (
-                                <>
-                                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">
-                                    Uploaded Sheets
-                                  </div>
-                                  {uploadedPdfs.map((pdf) => (
-                                    <SelectItem key={pdf.name} value={pdf.name}>
-                                      {pdf.name}
-                                    </SelectItem>
-                                  ))}
-                                </>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                    </AccordionContent>
+                  </AccordionItem>
                 )}
 
                 <AccordionItem value="FeatureSheetPreview" className="border-t-[1px] border-[#BBBBBB]">
@@ -1377,11 +1377,11 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       <span className="flex items-center gap-2">
                         Feature Sheet Preview
                       </span>
-                      <Button 
-                        onClick={(e) => { 
-                          e.preventDefault(); 
-                          e.stopPropagation(); 
-                          handleDownload(false); 
+                      <Button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDownload(false);
                         }}
                         disabled={isDownloading}
                         className="shadow-md h-[36px] text-sm font-semibold capitalize px-4 bg-white border-2 border-current text-current hover:bg-gray-50"
@@ -1397,178 +1397,178 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4 !overflow-visible !max-h-full">
                     <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-8">
-                        <div className="relative shadow-xl">
-                          <div
-                            id="pdf-section"
-                            className={isTabloid ? "tabloid-sheet" : ""}
-                            style={pdfSectionStyle}
-                          >
-                            {selectedTemplate === "BCFPStandard" && (
-                              <BcfpStandard
-                                key={selectedSheetUuid || "new-BCFPStandard"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
-                            {selectedTemplate === "BCFPStandard2" && (
-                              <BcfpStandard2
-                                key={selectedSheetUuid || "new-BCFPStandard2"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard3" && (
-                              <BcfpStandard3
-                                key={selectedSheetUuid || "new-BCFPStandard3"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard4" && (
-                              <BcfpStandard4
-                                key={selectedSheetUuid || "new-BCFPStandard4"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
-                            {selectedTemplate === "BCFPStandard6" && (
-                              <BcfpStandard6
-                                key={selectedSheetUuid || "new-BCFPStandard6"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard7" && (
-                              <BcfpStandard7
-                                key={selectedSheetUuid || "new-BCFPStandard7"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard8" && (
-                              <BcfpStandard8
-                                key={selectedSheetUuid || "new-BCFPStandard8"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard9" && (
-                              <BcfpStandard9
-                                key={selectedSheetUuid || "new-BCFPStandard9"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard10" && (
-                              <BcfpStandard10
-                                key={selectedSheetUuid || "new-BCFPStandard10"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard11" && (
-                              <BcfpStandard11
-                                key={selectedSheetUuid || "new-BCFPStandard11"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard12" && (
-                              <BcfpStandard12
-                                key={selectedSheetUuid || "new-BCFPStandard12"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard13" && (
-                              <BcfpStandard13
-                                key={selectedSheetUuid || "new-BCFPStandard13"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard14" && (
-                              <BcfpStandard14
-                                key={selectedSheetUuid || "new-BCFPStandard14"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard15" && (
-                              <BcfpStandard15
-                                key={selectedSheetUuid || "new-BCFPStandard15"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard16" && (
-                              <BcfpStandard16
-                                key={selectedSheetUuid || "new-BCFPStandard16"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard17" && (
-                              <BcfpStandard17
-                                key={selectedSheetUuid || "new-BCFPStandard17"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard18" && (
-                              <BcfpStandard18
-                                key={selectedSheetUuid || "new-BCFPStandard18"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard19" && (
-                              <BcfpStandard19
-                                key={selectedSheetUuid || "new-BCFPStandard19"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard20" && (
-                              <BcfpStandard20
-                                key={selectedSheetUuid || "new-BCFPStandard20"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard21" && (
-                              <BcfpStandard21
-                                key={selectedSheetUuid || "new-BCFPStandard21"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard22" && (
-                              <BcfpStandard22
-                                key={selectedSheetUuid || "new-BCFPStandard22"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard23" && (
-                              <BcfpStandard23
-                                key={selectedSheetUuid || "new-BCFPStandard23"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                            {selectedTemplate === "BCFPStandard24" && (
-                              <BcfpStandard24
-                                key={selectedSheetUuid || "new-BCFPStandard24"}
-                                ref={activeStandardRef}
-                                orderData={orderData || null}
-                              />
-                            )}
-                          </div>
+                      <div className="relative shadow-xl">
+                        <div
+                          id="pdf-section"
+                          className={isTabloid ? "tabloid-sheet" : ""}
+                          style={pdfSectionStyle}
+                        >
+                          {selectedTemplate === "BCFPStandard" && (
+                            <BcfpStandard
+                              key={selectedSheetUuid || "new-BCFPStandard"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
+                          {selectedTemplate === "BCFPStandard2" && (
+                            <BcfpStandard2
+                              key={selectedSheetUuid || "new-BCFPStandard2"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard3" && (
+                            <BcfpStandard3
+                              key={selectedSheetUuid || "new-BCFPStandard3"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard4" && (
+                            <BcfpStandard4
+                              key={selectedSheetUuid || "new-BCFPStandard4"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
+                          {selectedTemplate === "BCFPStandard6" && (
+                            <BcfpStandard6
+                              key={selectedSheetUuid || "new-BCFPStandard6"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard7" && (
+                            <BcfpStandard7
+                              key={selectedSheetUuid || "new-BCFPStandard7"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard8" && (
+                            <BcfpStandard8
+                              key={selectedSheetUuid || "new-BCFPStandard8"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard9" && (
+                            <BcfpStandard9
+                              key={selectedSheetUuid || "new-BCFPStandard9"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard10" && (
+                            <BcfpStandard10
+                              key={selectedSheetUuid || "new-BCFPStandard10"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard11" && (
+                            <BcfpStandard11
+                              key={selectedSheetUuid || "new-BCFPStandard11"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard12" && (
+                            <BcfpStandard12
+                              key={selectedSheetUuid || "new-BCFPStandard12"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard13" && (
+                            <BcfpStandard13
+                              key={selectedSheetUuid || "new-BCFPStandard13"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard14" && (
+                            <BcfpStandard14
+                              key={selectedSheetUuid || "new-BCFPStandard14"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard15" && (
+                            <BcfpStandard15
+                              key={selectedSheetUuid || "new-BCFPStandard15"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard16" && (
+                            <BcfpStandard16
+                              key={selectedSheetUuid || "new-BCFPStandard16"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard17" && (
+                            <BcfpStandard17
+                              key={selectedSheetUuid || "new-BCFPStandard17"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard18" && (
+                            <BcfpStandard18
+                              key={selectedSheetUuid || "new-BCFPStandard18"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard19" && (
+                            <BcfpStandard19
+                              key={selectedSheetUuid || "new-BCFPStandard19"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard20" && (
+                            <BcfpStandard20
+                              key={selectedSheetUuid || "new-BCFPStandard20"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard21" && (
+                            <BcfpStandard21
+                              key={selectedSheetUuid || "new-BCFPStandard21"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard22" && (
+                            <BcfpStandard22
+                              key={selectedSheetUuid || "new-BCFPStandard22"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard23" && (
+                            <BcfpStandard23
+                              key={selectedSheetUuid || "new-BCFPStandard23"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
+                          {selectedTemplate === "BCFPStandard24" && (
+                            <BcfpStandard24
+                              key={selectedSheetUuid || "new-BCFPStandard24"}
+                              ref={activeStandardRef}
+                              orderData={orderData || null}
+                            />
+                          )}
                         </div>
                       </div>
+                    </div>
                     {!isReadonly && (
                       <>
                         {/* Print Request Drawer */}

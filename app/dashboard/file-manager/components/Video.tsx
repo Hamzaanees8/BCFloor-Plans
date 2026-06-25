@@ -37,7 +37,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setSelectionChangedUuids, setFilesData, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, filesToHide, setFilesToHide, isHidingMode, setIsHidingMode, approvalSelectedUuids, setApprovalSelectedUuids } = useFileManagerContext();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -620,32 +620,55 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
+                                        if (file.is_admin_approved) {
+                                            setFilesData(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                    ...prev,
+                                                    files: prev.files.map(f => {
+                                                        if (f.uuid === file.uuid) {
+                                                            setChangedFileUuids(prevSet => {
+                                                                const newSet = new Set(prevSet);
+                                                                newSet.add(f.uuid);
+                                                                return newSet;
+                                                            });
+                                                            return { ...f, is_admin_approved: false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                };
+                                            });
+                                        } else {
+                                            setApprovalSelectedUuids(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid!)) {
+                                                    next.delete(file.uuid!);
+                                                } else {
+                                                    next.add(file.uuid!);
+                                                }
+                                                return next;
+                                            });
+                                        }
                                     }}
                                 >
-                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                        {file.is_admin_approved && <Check color="white" size={12} />}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                    {file.is_admin_approved ? (
+                                        <>
+                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
+                                                <Check color="white" size={12} />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                                {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
@@ -701,7 +724,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
                             )}
                         </p>
-                        {isLocal ? null : (
+                        {isLocal || (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : (
                             (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
@@ -840,8 +863,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
                 className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                        ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
-                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                        ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
+                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
             >
                 <div onClick={(e) => {
@@ -956,7 +979,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
 
                         {!isScrolled && (
                             <span className='text-[12px] text-[#7D7D7D]'>
-                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
+                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 1} Files`}
                                 {userType !== 'agent' && (
                                     <span className='ml-1'>
                                         ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {bookingToUse?.option?.quantity || 1})
@@ -1014,7 +1037,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                 </p>
                                 <p className='text-[#7D7D7D] text-[10px] leading-none'>
-                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Files`}
+                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Files`}
                                 </p>
                             </div>
                             <Button
@@ -1036,7 +1059,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                 </p>
                                 <p className='text-[#7D7D7D] text-[10px] leading-none'>
-                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Files`}
+                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Files`}
                                 </p>
                             </div>
                             <Button
@@ -1096,7 +1119,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 {userType === 'agent' ? (
                     (() => {
                         const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
-                        const currentLimit = bookingToUse?.option?.quantity || 0;
+                        const currentLimit = bookingToUse?.option?.quantity || 1;
                         const isOverLimit = selectedCount > currentLimit;
 
                         // Find next option
@@ -1125,7 +1148,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     <Button
                                         variant="outline"
                                         onClick={() => setOpenUpgrade(true)}
-                                        className={`${userType}-bg text-white hover:brightness-110 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                        className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
                                     >
                                         Upgrade Plan
                                     </Button>
@@ -1143,8 +1166,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 ) : (
                     userType !== 'vendor' && (
                         <Button
+                            variant="outline"
                             onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
                         >
                             Upgrade Plan
                         </Button>

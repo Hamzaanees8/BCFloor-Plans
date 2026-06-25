@@ -164,7 +164,7 @@ export default function UpgradeServicePopup({
 
                 {/* Upgrade Button */}
                 <Button
-                    className={`w-full mt-4 ${userType}-bg hover-${userType}-bg text-white`}
+                    className={`w-full mt-4 ${userType}-bg hover-${userType}-bg text-white hover:brightness-90 hover:!text-white border-none`}
                     onClick={handleUpgrade}
                     disabled={!selected || isLoading}
                 >

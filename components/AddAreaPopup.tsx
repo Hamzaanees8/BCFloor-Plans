@@ -114,7 +114,7 @@ export default function AddAreaPopup({
       <DialogContent className="w-[320px] md:w-[445px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
         <div onClick={(e) => e.stopPropagation()} onChange={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+            <DialogTitle className="flex items-center uppercase justify-between text-[#424242] text-[18px] font-[600]">
               {isEditMode ? "Edit Area" : "Add an Area"}
               <Button className="border-none !shadow-none bg-transparent hover:bg-transparent" onClick={handleClose}>
                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
@@ -225,14 +225,14 @@ export default function AddAreaPopup({
           <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
             <Button
               onClick={handleClose}
-              className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
+              className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#BBBBBB] text-[#424242] hover:bg-[#f9f9f9]"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!customTitle || charge === "" || discount === "" || isLoading}
-              className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full md:w-[176px] h-[44px] font-[400] text-[20px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[#424242] text-white hover:bg-[#333333] w-full md:w-[176px] h-[44px] font-[400] text-[20px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : (isEditMode ? "Update" : "Add")}
             </Button>

@@ -366,7 +366,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             (userType === "agent" || userType === "vendor") &&
             item.url === "/dashboard/global-settings"
           ) {
-            return { ...item, title: "Settings" };
+            return { ...item, title: "Settings", url: "/dashboard/settings" };
           }
           return item;
         }),

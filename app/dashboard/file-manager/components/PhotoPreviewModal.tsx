@@ -64,6 +64,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const [isCopied, setIsCopied] = useState(false);
     const [videoMessage, setVideoMessage] = useState<string>('');
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const handleCopy = () => {
         if (!name) return;
@@ -154,6 +155,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     {type === 'video' ? (
                         <div className="relative w-full h-full flex justify-center items-center">
                             <video
+                                ref={videoRef}
                                 src={mediaUrl}
                                 poster={poster}
                                 controls={!videoMessage}
@@ -162,15 +164,29 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                 playsInline
                                 className="max-w-full max-h-full rounded-md"
                                 onTimeUpdate={(e) => {
-                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 10) {
+                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 5) {
                                         e.currentTarget.pause();
+                                        if (document.fullscreenElement && document.exitFullscreen) {
+                                            document.exitFullscreen().catch(err => console.error(err));
+                                        } else if ((document as any).webkitFullscreenElement && (document as any).webkitExitFullscreen) {
+                                            (document as any).webkitExitFullscreen();
+                                        } else if ((e.currentTarget as any).webkitDisplayingFullscreen && (e.currentTarget as any).webkitExitFullscreen) {
+                                            (e.currentTarget as any).webkitExitFullscreen();
+                                        }
                                         setVideoMessage("Pay service to view full video.");
                                     }
                                 }}
                                 onSeeking={(e) => {
-                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 10) {
+                                    if (isRestrictedVideo && e.currentTarget.currentTime >= 5) {
                                         e.currentTarget.pause();
-                                        e.currentTarget.currentTime = 10;
+                                        e.currentTarget.currentTime = 5;
+                                        if (document.fullscreenElement && document.exitFullscreen) {
+                                            document.exitFullscreen().catch(err => console.error(err));
+                                        } else if ((document as any).webkitFullscreenElement && (document as any).webkitExitFullscreen) {
+                                            (document as any).webkitExitFullscreen();
+                                        } else if ((e.currentTarget as any).webkitDisplayingFullscreen && (e.currentTarget as any).webkitExitFullscreen) {
+                                            (e.currentTarget as any).webkitExitFullscreen();
+                                        }
                                         setVideoMessage("Pay service to view full video.");
                                     }
                                 }}
@@ -200,7 +216,12 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                                 Unlock Full Video
                                             </Button>
                                             <Button 
-                                                onClick={() => setVideoMessage('')} 
+                                                onClick={() => {
+                                                    setVideoMessage('');
+                                                    if (videoRef.current) {
+                                                        videoRef.current.currentTime = 0;
+                                                    }
+                                                }} 
                                                 variant="outline" 
                                                 className="w-full text-gray-600 bg-white border-gray-200 hover:bg-gray-50 hover:text-gray-900 font-semibold h-[44px] rounded-[8px] transition-all"
                                             >

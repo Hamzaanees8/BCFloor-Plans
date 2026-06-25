@@ -26,7 +26,7 @@ function getPageTitle(pathname: string): string {
     if (pathname.includes('/agents')) return 'Agents';
     if (pathname.includes('/vendors')) return 'Vendors';
     if (pathname.includes('/admin')) return 'Admin';
-    if (pathname.includes('/global-settings')) return 'Settings';
+    if (pathname.includes('/global-settings') || pathname.includes('/settings')) return 'Settings';
     if (pathname.includes('/matterport')) return '3D / Matterport';
     if (pathname.includes('/file-manager')) return 'File Manager';
     if (pathname.includes('/invoice')) return 'Invoice';
