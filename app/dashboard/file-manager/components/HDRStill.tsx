@@ -51,7 +51,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -548,7 +548,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             } else if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
                                                 setBulkDeselectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                             } else if (!isHidingMode) {
-                                                onOpenInvoice?.(currentService?.name);
+                                                onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                             }
                                         }}
                                     />
@@ -560,7 +560,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             if (isHidingMode && file.uuid) {
                                                 setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                             } else if (!isHidingMode) {
-                                                onOpenInvoice?.(currentService?.name);
+                                                onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                             }
                                         }}
                                     />
@@ -613,7 +613,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
-                            {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                            {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -1376,7 +1376,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </div>
                                 <Button
                                     onClick={() => {
-                                        onOpenInvoice?.(currentService?.name);
+                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
                                     className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
@@ -1405,7 +1405,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </div>
                                 <Button
                                     onClick={() => {
-                                        onOpenInvoice?.(currentService?.name);
+                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
                                     className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'

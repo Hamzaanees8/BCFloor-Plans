@@ -20,7 +20,7 @@ interface DownloadTabProps {
     orderData: Order | null;
     /** Booking-aware service groups passed from FileManager (key = service definition UUID) */
     groupedOrderServices?: Map<string, OrderServiceEntry[]>;
-    onOpenInvoice?: (serviceName?: string) => void;
+    onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -207,6 +207,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
         name: s.label,
         files: s.files,
         isPaid: s.isPaid,
+        bookingUuid: s.bookingEntry?.uuid,
     })), [bookingSections]);
 
     // Filter paid files for agents (for download actions)
@@ -429,7 +430,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                 <Button
                                     onClick={() => {
                                         if (!isPaid) {
-                                            onOpenInvoice?.(service.name);
+                                            onOpenInvoice?.(service.name, service.bookingUuid);
                                             return;
                                         }
                                         openSizeModal(servicePhotos, service.name);
@@ -446,7 +447,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                 <Button
                                     onClick={() => {
                                         if (!isPaid) {
-                                            onOpenInvoice?.(service.name);
+                                            onOpenInvoice?.(service.name, service.bookingUuid);
                                             return;
                                         }
                                         handleDownload(serviceVideos, service.name, "original");
@@ -485,7 +486,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                 <span
                                                     onClick={() => {
                                                         if (!section.isPaid) {
-                                                            onOpenInvoice?.(section.bookingEntry?.service.name);
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name, section.bookingEntry?.uuid);
                                                         }
                                                     }}
                                                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
@@ -498,7 +499,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                 <Button
                                                     onClick={() => {
                                                         if (!section.isPaid) {
-                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label);
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label, section.bookingEntry?.uuid);
                                                             return;
                                                         }
                                                         openSizeModal(sectionPhotos, section.label);
@@ -515,7 +516,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                 <Button
                                                     onClick={() => {
                                                         if (!section.isPaid) {
-                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label);
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label, section.bookingEntry?.uuid);
                                                             return;
                                                         }
                                                         handleDownload(sectionVideos, section.label, 'original');
@@ -602,7 +603,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                         <div
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                onOpenInvoice?.(section.bookingEntry?.service.name);
+                                                                onOpenInvoice?.(section.bookingEntry?.service.name, section.bookingEntry?.uuid);
                                                             }}
                                                             className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer hover:bg-black/70"
                                                         >

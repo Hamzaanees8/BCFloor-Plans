@@ -46,7 +46,7 @@ type Props = {
     reviewFilesEnabled?: boolean;
     mediaDateBoundary?: MediaDateBoundary;
     currentBookedService?: OrderService;
-    onOpenInvoice?: (serviceName?: string) => void;
+    onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
     gstRate?: number;
     onSave?: () => void;
     isScrolled?: boolean;
@@ -472,7 +472,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
                                 )}
-                                {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                     <span
                                         className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
                                         onClick={(e) => {
@@ -519,7 +519,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         if (isHidingMode && file.uuid) {
                                             setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                         } else if (!isHidingMode) {
-                                            onOpenInvoice?.(currentService?.name);
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }
                                     }}
                                 />
@@ -531,7 +531,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         if (isHidingMode && file.uuid) {
                                             setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                         } else if (!isHidingMode) {
-                                            onOpenInvoice?.(currentService?.name);
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }
                                     }}
                                 />
@@ -578,7 +578,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
                                 )}
-                                {(userType === 'admin' || userType === 'agent') && file.uuid && (!file.file || typeof file.file === 'string') && (
+                                {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (!file.file || typeof file.file === 'string') && (
                                     <span
                                         className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
                                         onClick={(e) => {
@@ -868,7 +868,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                     <Button
                                         onClick={() => {
-                                            onOpenInvoice?.(currentService?.name);
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }}
                                         className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
@@ -890,7 +890,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                     <Button
                                         onClick={() => {
-                                            onOpenInvoice?.(currentService?.name);
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }}
                                         className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white cursor-pointer
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'

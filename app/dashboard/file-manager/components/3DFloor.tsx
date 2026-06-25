@@ -26,7 +26,7 @@ import {
 import { ServiceCompletion } from '../file-manager';
 import { api } from '@/lib/api';
 
-function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
+function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const { links, setLinks, setPreviewFiles, filesData, isHidingMode, filesToHide, setFilesToHide, tourSettings } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -396,7 +396,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 </div>
                                 <Button
                                     onClick={() => {
-                                        onOpenInvoice?.(currentService?.name);
+                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
                                     className={`flex justify-center items-center transition-all duration-300 cursor-pointer ${
                                         isScrolled ? "h-[28px] w-[90px] text-[11px]" : "h-[32px] w-[100px]"
@@ -426,7 +426,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 </div>
                                 <Button
                                     onClick={() => {
-                                        onOpenInvoice?.(currentService?.name);
+                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
                                     className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'

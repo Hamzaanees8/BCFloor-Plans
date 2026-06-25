@@ -481,7 +481,7 @@ const FileManager = () => {
   const activeSlot = orderData?.slots?.find(
     (slot) => slot.service_id === activeService?.id
   );
-  
+
   let rawReviewFiles;
   if (userType === 'vendor') {
     rawReviewFiles = currentUser?.review_files;
@@ -592,9 +592,29 @@ const FileManager = () => {
     return invoice;
   };
 
-  const handleOpenInvoice = (serviceName?: string) => {
-    const serviceInv = serviceName
-      ? invoices.find(inv => {
+  const handleOpenInvoice = (serviceName?: string, orderServiceUuid?: string) => {
+    let serviceInv;
+
+    if (orderServiceUuid) {
+      const matchedBooking = services.find(s => s.uuid === orderServiceUuid);
+      const bookingId = matchedBooking?.id;
+
+      serviceInv = invoices.find(inv => {
+        const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+        if (isConsolidated) return false;
+        return inv.items?.some((i: any) => {
+          const os = i.order_service || i.orderService;
+          if (os?.uuid === orderServiceUuid) return true;
+          if (bookingId && (Number(os?.id) === Number(bookingId) || Number(i.order_service_id) === Number(bookingId) || Number(i.orderServiceId) === Number(bookingId))) {
+            return true;
+          }
+          return false;
+        });
+      });
+    }
+
+    if (!serviceInv && serviceName) {
+      serviceInv = invoices.find(inv => {
         const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
         if (isConsolidated) return false;
         return inv.items?.some((i: any) => {
@@ -602,8 +622,8 @@ const FileManager = () => {
           const sName = serviceName.toLowerCase();
           return desc.includes(sName) || sName.includes(desc);
         });
-      })
-      : undefined;
+      });
+    }
 
     const finalInv = serviceInv || invoices[0];
 
@@ -634,20 +654,20 @@ const FileManager = () => {
 
     let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
     if (currentBookedService) {
-        const squareFootage = orderData?.property?.square_footage ? parseFloat(orderData.property.square_footage.toString()) : 0;
-        const displayPrice = resolveServicePrice({
-            orderService: currentBookedService,
-            catalogService: activeService,
-            squareFootage,
-            invoices
-        });
-        currentBookedService = {
-            ...currentBookedService,
-            option: {
-                ...currentBookedService.option,
-                amount: displayPrice.toString()
-            }
-        };
+      const squareFootage = orderData?.property?.square_footage ? parseFloat(orderData.property.square_footage.toString()) : 0;
+      const displayPrice = resolveServicePrice({
+        orderService: currentBookedService,
+        catalogService: activeService,
+        squareFootage,
+        invoices
+      });
+      currentBookedService = {
+        ...currentBookedService,
+        option: {
+          ...currentBookedService.option,
+          amount: displayPrice.toString()
+        }
+      };
     }
 
     switch (category) {
@@ -1493,7 +1513,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "download"
                   ? `bg-[#DC9600] text-white border-[#DC9600]`
                   : `text-[#DC9600] border-[#DC9600]`
@@ -1520,7 +1540,7 @@ const FileManager = () => {
                     params.set("serviceId", serviceUuid);
                     router.replace(`?${params.toString()}`);
                   }}
-                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                     } ${isActive
                       ? `${userType}-bg text-white ${userType}-border`
                       : `${userType}-text ${userType}-border`
@@ -1544,7 +1564,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "tour"
                   ? `${userType}-bg text-white ${userType}-border`
                   : `${userType}-text  ${userType}-border`
@@ -1566,7 +1586,7 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[36px]" : "h-[60px]"
                 } ${activeTab === "CreateFeatureSheet"
                   ? `${userType}-bg text-white ${userType}-border`
                   : `${userType}-text  ${userType}-border`

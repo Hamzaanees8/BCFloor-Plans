@@ -27,7 +27,7 @@ import { api } from '@/lib/api';
 
 
 
-function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
+function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -474,7 +474,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
-                            {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                            {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                 <span
                                     className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
                                     onClick={(e) => {
@@ -599,7 +599,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                             <Check color="white" size={48} className="opacity-100" />
                                         </div>
                                     )}
-                                    {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                    {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                         <span
                                             className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
                                             onClick={(e) => {
@@ -1019,7 +1019,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             </div>
                             <Button
                                 onClick={() => {
-                                    onOpenInvoice?.(currentService?.name);
+                                    onOpenInvoice?.(currentService?.name, currentBookedService?.uuid);
                                 }}
                                 className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                     ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
@@ -1041,7 +1041,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             </div>
                             <Button
                                 onClick={() => {
-                                    onOpenInvoice?.(currentService?.name);
+                                    onOpenInvoice?.(currentService?.name, currentBookedService?.uuid);
                                 }}
                                 className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white cursor-pointer
                                     ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
@@ -1190,7 +1190,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
                     isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
-                    onOpenInvoice={() => onOpenInvoice?.(currentService?.name)}
+                    onOpenInvoice={() => onOpenInvoice?.(currentService?.name, currentBookedService?.uuid)}
                     onSave={(newName) => {
                         if (!editingFile) return;
 
