@@ -17,8 +17,9 @@ import { vendorBillingService, VendorInvoice } from "../VendorBillingService";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { Eye, Download as DownloadIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
     Dialog,
     DialogContent,
@@ -41,6 +42,7 @@ export default function MyInvoicesPage() {
     
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
+    const isMobile = useIsMobile();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
@@ -100,12 +102,79 @@ export default function MyInvoicesPage() {
             </div>
 
             <div className="p-6 space-y-6">
-                <Card>
+                <Card className={isMobile ? "border-0 shadow-none bg-transparent" : ""}>
                 {loading ? (
                     <div className="p-4 space-y-4">
                         <Skeleton className="h-12 w-full" />
                         <Skeleton className="h-12 w-full" />
                         <Skeleton className="h-12 w-full" />
+                    </div>
+                ) : isMobile ? (
+                    <div className="space-y-4">
+                        {invoices.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground text-sm font-medium">
+                                No invoices found.
+                            </div>
+                        ) : (
+                            invoices.map((invoice) => {
+                                const status = invoice.status || "draft";
+                                let bgColor = "#E06D5E"; // cancelled
+                                if (status === "paid") bgColor = "#6BAE41";
+                                else if (status === "draft") bgColor = "#F5A623";
+
+                                return (
+                                    <Card key={invoice.uuid} className="overflow-hidden border border-gray-100 shadow-sm">
+                                        <CardContent className="p-4 space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
+                                                        #{invoice.invoice_number}
+                                                    </h3>
+                                                    <p className="text-[10px] text-gray-400 mt-1">
+                                                        {new Date(invoice.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[14px] font-bold text-gray-800">${Number(invoice.total_amount).toFixed(2)}</p>
+                                                    <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
+                                                        {status.toUpperCase()}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-xs text-gray-500 grid grid-cols-2 gap-2 pt-2 border-t border-gray-50">
+                                                <div>
+                                                    <span className="text-gray-400">Services:</span> ${Number(invoice.subtotal).toFixed(2)}
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-400">Travel:</span> ${Number(invoice.travel_amount).toFixed(2)}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2 pt-3 border-t border-gray-100">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="flex-1 h-9 text-xs gap-1.5"
+                                                    onClick={() => handleView(invoice)}
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    Details
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-9 w-9 p-0 flex-shrink-0"
+                                                    onClick={() => handleView(invoice)}
+                                                >
+                                                    <DownloadIcon className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })
+                        )}
                     </div>
                 ) : (
                     <Table>
@@ -202,15 +271,15 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-4">
+            <DialogContent className="w-[95vw] md:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8 border-b pb-4">
                     <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
                         Invoice Details: {invoice.invoice_number}
                     </DialogTitle>
                     <Button 
                         variant="outline" 
                         size="sm" 
-                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none"
+                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none w-full sm:w-auto"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                         onClick={handleDownload}
                     >
@@ -244,7 +313,7 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
                 <DialogFooter className="border-t pt-4">
                     <Button 
                         onClick={onClose}
-                        className="text-white hover:brightness-110 transition-all px-8 h-10"
+                        className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                     >
                         Close

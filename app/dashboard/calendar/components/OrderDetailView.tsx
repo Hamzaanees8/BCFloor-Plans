@@ -479,7 +479,7 @@ export default function OrderDetailView({
           }
         }}
       >
-        <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 [&>button]:hidden font-alexandria font-[400] overflow-hidden">
+        <DialogContent className="w-[95vw] md:w-full md:max-w-3xl max-w-[95vw] h-[95vh] flex flex-col p-0 [&>button]:hidden font-alexandria font-[400] overflow-hidden">
           <div className="px-6 pt-6">
             <DialogHeader>
               <div className="flex justify-between items-center">
@@ -507,11 +507,11 @@ export default function OrderDetailView({
                 </Button>
               </div>
               <div>
-                <div className="flex gap-4 pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666]">
+                <div className="flex gap-4 pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666] overflow-x-auto whitespace-nowrap scrollbar-none">
                   <Button
                     variant={activeTab === "appointment" ? "default" : "outline"}
                     onClick={() => setActiveTab("appointment")}
-                    className={`${activeTab === "appointment" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                    className={`${activeTab === "appointment" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                     style={{
                       backgroundColor:
                         activeTab !== "appointment"
@@ -525,7 +525,7 @@ export default function OrderDetailView({
                     <Button
                       variant={activeTab === "square_footage" ? "default" : "outline"}
                       onClick={() => setActiveTab("square_footage")}
-                      className={`${activeTab === "square_footage" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                      className={`${activeTab === "square_footage" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                       style={{
                         backgroundColor:
                           activeTab !== "square_footage"
@@ -539,7 +539,7 @@ export default function OrderDetailView({
                   <Button
                     variant={activeTab === "history" ? "default" : "outline"}
                     onClick={() => setActiveTab("history")}
-                    className={`${activeTab === "history" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                    className={`${activeTab === "history" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px] shrink-0`}
                     style={{
                       backgroundColor:
                         activeTab !== "history"

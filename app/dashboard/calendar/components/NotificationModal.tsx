@@ -318,7 +318,7 @@ const NotificationModal: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-[#FAFAFA] w-[750px] max-w-[750px] max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto">
+      <DialogContent className="bg-[#FAFAFA] w-[95vw] sm:w-[750px] max-w-[95vw] sm:max-w-[750px] max-h-[90vh] sm:max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto">
         <DialogHeader>
           <DialogTitle className={`${userType}-text flex items-center justify-between text-[18px] uppercase font-semibold border-b border-[#E4E4E4] pb-2`}>
             Edit Notification
@@ -327,15 +327,15 @@ const NotificationModal: React.FC<Props> = ({
             </Button>
           </DialogTitle>
         </DialogHeader>
-
+ 
         <div className="text-[#666666] text-[16px] font-[400] px-1">
           {showAgentModal && <p>Agent Notification</p>}
           {showVendorModal && <p>Vendor Notification</p>}
         </div>
-
+ 
         {showAgentModal && (
           <Select value={selectedAgentTemplate} onValueChange={(v) => handleAgentTemplateChange(v)}>
-            <SelectTrigger className="h-[42px] w-[340px] bg-[#EEEEEE] border-[#BBBBBB]">
+            <SelectTrigger className="h-[42px] w-full sm:w-[340px] bg-[#EEEEEE] border-[#BBBBBB]">
               <SelectValue placeholder="Select a template" />
             </SelectTrigger>
             <SelectContent>
@@ -343,10 +343,10 @@ const NotificationModal: React.FC<Props> = ({
             </SelectContent>
           </Select>
         )}
-
+ 
         {showVendorModal && (
           <Select value={selectedVendorTemplate} onValueChange={(v) => handleVendorTemplateChange(v)}>
-            <SelectTrigger className="h-[42px] w-[340px] bg-[#EEEEEE] border-[#BBBBBB]">
+            <SelectTrigger className="h-[42px] w-full sm:w-[340px] bg-[#EEEEEE] border-[#BBBBBB]">
               <SelectValue placeholder="Select a template" />
             </SelectTrigger>
             <SelectContent>

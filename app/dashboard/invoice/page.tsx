@@ -9,13 +9,17 @@ import { DataTable } from '@/components/DataTable'
 import { ColumnDef } from "@tanstack/react-table"
 import DropdownActions from "@/components/DropdownActions"
 import { Button } from '@/components/ui/button'
-import { Plus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, ChevronsUpDown, Eye, RotateCcw } from 'lucide-react'
 import RefundModal from './components/RefundModal'
 import { Get as GetAgents } from '../agents/agents'
 import { GetListing } from '../listings/listing'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SearchableSelect } from '../orders/components/SearchableSelect'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 type Invoice = {
     id: number;
@@ -56,6 +60,7 @@ const InvoiceListPage = () => {
     
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
+    const isMobile = useIsMobile()
     const role = (userType as string) || 'admin'
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin']
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`
@@ -368,15 +373,94 @@ const InvoiceListPage = () => {
             </div>
 
             <div className="w-full">
-                <DataTable
-                    columns={columns}
-                    data={filteredInvoices}
-                    loading={loading}
-                    error={error}
-                    dataName="Invoices"
-                    userType={userType}
-                    headerBgOverride={headerBg}
-                />
+                {loading ? (
+                    <div className="p-4 space-y-4">
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                    </div>
+                ) : isMobile ? (
+                    <div className="p-4 space-y-4">
+                        {filteredInvoices.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground text-sm font-medium">
+                                No Invoices found.
+                            </div>
+                        ) : (
+                            filteredInvoices.map((inv) => {
+                                const status = (inv.status || 'unpaid').toUpperCase();
+                                let bgColor = "#E06D5E"; // Unpaid / Cancelled / Void
+                                if (status === "PAID") bgColor = "#6BAE41";
+                                else if (status === "ISSUED") bgColor = "#4A90E2";
+                                else if (status === "VOID") bgColor = "#A0A0A0";
+                                else if (status === "PARTIAL") bgColor = "#F5A623";
+
+                                return (
+                                    <Card key={inv.uuid} className="overflow-hidden border border-gray-100 shadow-sm font-alexandria">
+                                        <CardContent className="p-4 space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
+                                                        {inv.invoice_number || `Invoice #${inv.id}`}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                                        Agent: {inv.agent?.first_name} {inv.agent?.last_name}
+                                                    </p>
+                                                    <p className="text-[11px] text-gray-400 mt-1">
+                                                        Property: {inv.order?.property?.address || 'N/A'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <p className="text-[14px] font-bold text-gray-800">${Number(inv.total).toFixed(2)}</p>
+                                                    <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
+                                                        {status}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-[10px] text-gray-400 pt-2 border-t border-gray-50 flex justify-between">
+                                                <span>Issued: {new Date(inv.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</span>
+                                                <span>Currency: {inv.currency}</span>
+                                            </div>
+
+                                            <div className="flex gap-2 pt-3 border-t border-gray-100">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="flex-1 h-9 text-xs gap-1.5"
+                                                    onClick={() => router.push(`/dashboard/invoice/${inv.uuid}`)}
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    View Details
+                                                </Button>
+                                                {inv.status === 'paid' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1 h-9 text-xs gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                                        onClick={() => handleRefund(inv)}
+                                                    >
+                                                        <RotateCcw className="h-3.5 w-3.5" />
+                                                        Refund
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })
+                        )}
+                    </div>
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={filteredInvoices}
+                        loading={loading}
+                        error={error}
+                        dataName="Invoices"
+                        userType={userType}
+                        headerBgOverride={headerBg}
+                    />
+                )}
             </div>
 
             <RefundModal
