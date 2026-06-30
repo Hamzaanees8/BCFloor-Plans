@@ -80,8 +80,14 @@ export default function MobileVendorEarnings() {
     try {
       const res = await GetMyEarnings({ period });
       const data = res?.data ?? res;
-      setEarnings(data?.earnings ?? []);
-      setSummary(data?.summary ?? { total: 0, services: 0, travel: 0 });
+      
+      setEarnings(data?.items ?? []);
+      
+      setSummary({
+        total: data?.summary?.total_earned ?? 0,
+        services: data?.summary?.total_services ?? 0,
+        travel: data?.summary?.total_travel ?? 0,
+      });
     } catch (err) {
       console.error('Failed to fetch earnings:', err);
     } finally {

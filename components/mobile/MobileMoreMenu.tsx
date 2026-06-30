@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bell,
   Calendar,
@@ -186,14 +187,6 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
 
   const filteredNav = useMemo(() => getFilteredNav(role), [role]);
 
-  const handleNavigate = useCallback(
-    (url: string) => {
-      router.push(url);
-      onClose();
-    },
-    [router, onClose],
-  );
-
   const handleLogout = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -289,10 +282,10 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
               const isNotifications = item.url === '/dashboard/notifications';
 
               return (
-                <button
+                <Link
                   key={item.url}
-                  type="button"
-                  onClick={() => handleNavigate(item.url)}
+                  href={item.url}
+                  onClick={onClose}
                   className="flex items-center gap-3 w-full px-4 min-h-[48px] text-left active:bg-gray-50 transition-colors focus:outline-none"
                 >
                   <span className="relative flex items-center justify-center w-5 h-5 shrink-0">
@@ -308,7 +301,7 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
                   <span className="text-[15px] text-gray-800 font-normal">
                     {item.title}
                   </span>
-                </button>
+                </Link>
               );
             })}
           </div>

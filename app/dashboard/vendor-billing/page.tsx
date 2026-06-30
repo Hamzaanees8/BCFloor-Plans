@@ -1040,13 +1040,13 @@ const Page = () => {
         }
     }, [vendorsGrouped]);
 
-    // Auto-expand vendor row if logged in as a vendor
+    // Auto-expand vendor row if logged in as a vendor (desktop only)
     useEffect(() => {
-        if (userType === 'vendor' && vendorsGrouped.length > 0 && expandedRow === null) {
+        if (userType === 'vendor' && vendorsGrouped.length > 0 && expandedRow === null && !isMobile) {
             setExpandedRow(0);
             toggleRowRef.current(0, vendorsGrouped[0]);
         }
-    }, [userType, vendorsGrouped, expandedRow]);
+    }, [userType, vendorsGrouped, expandedRow, isMobile]);
 
     const totalPages = Math.ceil(vendorsGrouped.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;

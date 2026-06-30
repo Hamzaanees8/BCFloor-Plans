@@ -99,14 +99,14 @@ const ServiceItem = ({
     }
   }
   return (
-    <div className="p-4 w-[450px] text-[#666] font-alexandria">
+    <div className="p-4 w-full md:w-[450px] text-[#666] font-alexandria">
       <label htmlFor="serviceName" className="block text-sm font-normal mb-2">
         Service Name <span className="text-red-500">*</span>
       </label>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center justify-between gap-3 w-full">
           <span
-            className={`w-[400px] border rounded-[8px] h-[42px] flex items-center pl-2 ${fieldErrors?.[`services[${index}].service_id`]
+            className={`flex-1 border rounded-[8px] h-[42px] flex items-center pl-2 ${fieldErrors?.[`services[${index}].service_id`]
               ? "border-red-500"
               : "border-[#BBBBBB]"
               }`}
@@ -214,7 +214,7 @@ const ServiceItem = ({
           </Accordion>
         </div>
       )}
-      <div className="flex justify-end mr-9 mt-4">
+      <div className="flex justify-end mr-0 md:mr-9 mt-4">
         <Button
           className={`w-[110px] h-[35px] border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
           onClick={() => handleRemove(selectedService?.vendor_service_id ?? "")}

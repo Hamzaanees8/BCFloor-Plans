@@ -159,6 +159,17 @@ export default function MobileVendorToday() {
   };
 
   // ── Derive today's and upcoming slots ──────────────────────────────────
+  
+  const datesWithBookings = React.useMemo(() => {
+    const dates = new Set<string>();
+    orders.forEach((order) => {
+      order.slots?.forEach((slot) => {
+        if (slot.date) dates.add(slot.date);
+      });
+    });
+    return dates;
+  }, [orders]);
+
 
   const buildSlotList = (filterFn: (date: string) => boolean): SlotWithOrder[] => {
     const items: SlotWithOrder[] = [];
@@ -427,12 +438,13 @@ export default function MobileVendorToday() {
             const isSelected = day.dateStr === selectedDate;
             const isTodayDate = day.dateStr === today;
             const activeColor = appliedSettings?.vendor?.pageTabColor || '#DC9600';
+            const hasBooking = datesWithBookings.has(day.dateStr);
             
             return (
               <div 
                 key={day.dateStr}
                 onClick={() => setSelectedDate(day.dateStr)}
-                className={`py-1.5 rounded-lg cursor-pointer transition-all border ${
+                className={`py-1.5 rounded-lg cursor-pointer transition-all border flex flex-col items-center justify-center ${
                   isSelected 
                     ? 'text-white font-bold shadow-sm' 
                     : isTodayDate
@@ -446,6 +458,11 @@ export default function MobileVendorToday() {
               >
                 <div className="text-[9px] uppercase opacity-75">{day.dayName.slice(0, 1)}</div>
                 <div className="text-xs font-semibold mt-0.5">{day.dayNum}</div>
+                {hasBooking ? (
+                  <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSelected ? 'white' : activeColor }} />
+                ) : (
+                  <div className="w-1 h-1 mt-0.5" />
+                )}
               </div>
             );
           })}

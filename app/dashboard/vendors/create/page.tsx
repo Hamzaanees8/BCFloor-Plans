@@ -41,7 +41,7 @@ import {
 } from "../vendors";
 import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, ArrowLeft } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
 import VendorEarningsHistory from "@/components/VendorEarningsHistory";
@@ -65,6 +65,7 @@ import { S3UploadService } from "@/lib/upload/s3-service";
 import { PresignedUrlRequest, ConfirmUploadRequest } from "@/lib/upload/types";
 import { validateForm, ValidationSchema } from "@/lib/validation";
 import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 // import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
   company_name: string;
@@ -169,6 +170,7 @@ const daysOfWeek = [
 const VendorForm = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const header = headerRef.current;
@@ -1130,103 +1132,57 @@ const VendorForm = () => {
   }, [state, code]);
 
   return (
-    <div className="font-alexandria">
-      <div
-        className="w-full h-[80px] font-alexandria z-10 flex justify-between px-[20px] items-center sticky top-0"
-        style={{
-          backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-          boxShadow: "0px 4px 4px #0000001F",
-        }}
-      >
-        {userType === "vendor" && (
-          <p
-            className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}
+    <div className="font-alexandria pb-16">
+      {isMobile ? (
+        <div className="sticky top-0 z-40 bg-white shadow-sm">
+          {/* Header */}
+          <div
+            className="flex items-center h-14 px-4 border-b shrink-0"
+            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
           >
-            {" "}
-            Settings
-          </p>
-        )}
-        {userType !== "vendor" && (
-          <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
-            {" "}
-            Vendor
-            {currentUser
-              ? ` › ${currentUser.first_name} ${currentUser.last_name}`
-              : " › Create"}
-          </p>
-        )}
-        <div className="flex gap-[10px] items-center">
-          {active === "travel" && (
-            <Button className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-white text-[#4290E9] hover:bg-[#f0f0f0] text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center">
-              Payout Period
-            </Button>
-          )}
-          {/* {(active === "travel") && (
-                        <Button
-                            className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'
-                        >
-                            Payments
-                        </Button>
-                    )} */}
-          {(active === "details" || active === "work hours") && (
-            <Button
-              onClick={(e) => {
-                handleSubmit(e);
-              }}
-              disabled={isLoading}
-              className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
-            >
-              {isLoading ? (
-                <Loader2 className="animate-spin w-5 h-5" />
-              ) : (
-                "Save Changes"
+            <button type="button" onClick={() => router.back()} className={`mr-3 ${userType}-text`}>
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className={`text-[16px] font-semibold truncate flex-1 ${userType}-text`}>
+              {userType === "vendor"
+                ? "Settings"
+                : currentUser
+                ? `Vendor › ${currentUser.first_name} ${currentUser.last_name}`
+                : "Vendor › Create"}
+            </h1>
+            <div className="flex gap-2 items-center">
+              {(active === "details" || active === "work hours") && (
+                <Button
+                  onClick={(e) => handleSubmit(e)}
+                  disabled={isLoading}
+                  className={`h-[32px] px-3 border-[1px] ${userType}-border ${userType}-bg text-[12px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
+                >
+                  {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Save"}
+                </Button>
               )}
-            </Button>
-          )}
-        </div>
-      </div>
-      {/* <SaveModal
-        isOpen={openSaveDialog}
-        onClose={() => setOpenSaveDialog(false)}
-        isLoading={isLoading}
-        isSuccess={true}
-        backLink="/dashboard/vendors"
-        title={"Vendors"}
-      /> */}
-      {
-        <div
-          className={`flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] sticky top-[80px] z-10`}
-          style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-        >
-          <div className="flex gap-2">
+            </div>
+          </div>
+          {/* Scrollable tabs */}
+          <div className="flex overflow-x-auto gap-2 px-4 py-3 bg-[#E4E4E4] border-b border-[#BBBBBB] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <button
               onClick={() => setActive("details")}
-              className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${active === "details"
-                  ? `text-white ${userType}-bg`
-                  : "bg-[#F2F2F2] text-[#666666]"
-                }`}
+              className={`px-4 py-1.5 rounded-[6px] text-xs font-bold whitespace-nowrap h-[32px]
+                ${active === "details" ? `text-white ${userType}-bg` : "bg-[#F2F2F2] text-[#666666]"}`}
             >
               DETAILS
             </button>
             <button
               onClick={() => setActive("work hours")}
-              className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${active === "work hours"
-                  ? `text-white ${userType}-bg`
-                  : "bg-[#F2F2F2] text-[#666666]"
-                }`}
+              className={`px-4 py-1.5 rounded-[6px] text-xs font-bold whitespace-nowrap h-[32px]
+                ${active === "work hours" ? `text-white ${userType}-bg` : "bg-[#F2F2F2] text-[#666666]"}`}
             >
               WORK HOURS
             </button>
             {userType !== "vendor" && currentUser?.uuid && (
               <button
                 onClick={() => setActive("travel")}
-                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                ${active === "travel"
-                    ? `text-white ${userType}-bg`
-                    : "bg-[#F2F2F2] text-[#666666]"
-                  }`}
+                className={`px-4 py-1.5 rounded-[6px] text-xs font-bold whitespace-nowrap h-[32px]
+                  ${active === "travel" ? `text-white ${userType}-bg` : "bg-[#F2F2F2] text-[#666666]"}`}
               >
                 TRAVEL
               </button>
@@ -1234,19 +1190,117 @@ const VendorForm = () => {
             {currentUser?.uuid && (
               <button
                 onClick={() => setActive("history")}
-                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                    ${active === "history"
-                    ? `text-white ${userType}-bg`
-                    : "bg-[#F2F2F2] text-[#666666]"
-                  }`}
+                className={`px-4 py-1.5 rounded-[6px] text-xs font-bold whitespace-nowrap h-[32px]
+                  ${active === "history" ? `text-white ${userType}-bg` : "bg-[#F2F2F2] text-[#666666]"}`}
               >
                 HISTORY
               </button>
             )}
           </div>
         </div>
-      }
-      <div>
+      ) : (
+        <>
+          <div
+            className="w-full h-[80px] font-alexandria z-10 flex justify-between px-[20px] items-center sticky top-0"
+            style={{
+              backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+              boxShadow: "0px 4px 4px #0000001F",
+            }}
+          >
+            {userType === "vendor" && (
+              <p
+                className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}
+              >
+                {" "}
+                Settings
+              </p>
+            )}
+            {userType !== "vendor" && (
+              <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
+                {" "}
+                Vendor
+                {currentUser
+                  ? ` › ${currentUser.first_name} ${currentUser.last_name}`
+                  : " › Create"}
+              </p>
+            )}
+            <div className="flex gap-[10px] items-center">
+              {active === "travel" && (
+                <Button className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-white text-[#4290E9] hover:bg-[#f0f0f0] text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center">
+                  Payout Period
+                </Button>
+              )}
+              {(active === "details" || active === "work hours") && (
+                <Button
+                  onClick={(e) => {
+                    handleSubmit(e);
+                  }}
+                  disabled={isLoading}
+                  className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
+                >
+                  {isLoading ? (
+                    <Loader2 className="animate-spin w-5 h-5" />
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+          <div
+            className={`flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] sticky top-[80px] z-10`}
+            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+          >
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActive("details")}
+                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                              ${active === "details"
+                    ? `text-white ${userType}-bg`
+                    : "bg-[#F2F2F2] text-[#666666]"
+                  }`}
+              >
+                DETAILS
+              </button>
+              <button
+                onClick={() => setActive("work hours")}
+                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                              ${active === "work hours"
+                    ? `text-white ${userType}-bg`
+                    : "bg-[#F2F2F2] text-[#666666]"
+                  }`}
+              >
+                WORK HOURS
+              </button>
+              {userType !== "vendor" && currentUser?.uuid && (
+                <button
+                  onClick={() => setActive("travel")}
+                  className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                                  ${active === "travel"
+                      ? `text-white ${userType}-bg`
+                      : "bg-[#F2F2F2] text-[#666666]"
+                    }`}
+                >
+                  TRAVEL
+                </button>
+              )}
+              {currentUser?.uuid && (
+                <button
+                  onClick={() => setActive("history")}
+                  className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                                      ${active === "history"
+                      ? `text-white ${userType}-bg`
+                      : "bg-[#F2F2F2] text-[#666666]"
+                    }`}
+                >
+                  HISTORY
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      <div className="w-full overflow-x-hidden">
         {active === "details" && (
           <form
             onChange={() => {

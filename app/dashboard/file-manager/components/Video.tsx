@@ -1095,9 +1095,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                 </div>
             }
-            <div className={`p-3 md:p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}>
-                <div className="flex items-center gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
-                    <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+            <div className={`p-3 md:p-4 flex flex-wrap md:flex-nowrap justify-between items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}>
+                <div className="flex items-center gap-2 flex-nowrap w-auto order-1">
+                    <div className="hidden md:block">
+                        <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                    </div>
                     <GridSizeToggle />
                 </div>
 
@@ -1116,20 +1118,22 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         const diffAmount = nextAmount - currentAmount;
 
                         return (
-                            <div className="flex items-center gap-4 md:gap-8 flex-wrap w-full md:w-auto justify-between md:justify-end">
-                                <div className="flex flex-col items-center">
-                                    <span className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
-                                        {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
-                                    </span>
-                                    <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                            <div className="contents md:flex md:items-center md:gap-4 lg:gap-8 md:w-auto md:justify-end">
+                                <div className="flex items-center gap-4 md:gap-8 order-3 md:order-1 w-full md:w-auto justify-end md:justify-center mt-1 md:mt-0">
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-[16px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
+                                            {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
+                                        </span>
+                                        <span className={`text-[10px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-[16px] md:text-[26px] font-medium text-[#666666] leading-none">
+                                            {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                                        </span>
+                                        <span className="text-[10px] md:text-[12px] text-[#666666] mt-1">Available</span>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col items-center">
-                                    <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
-                                        {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
-                                    </span>
-                                    <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
-                                </div>
-                                <div className="flex flex-col items-end">
+                                <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
                                     <Button
                                         variant="outline"
                                         onClick={() => setOpenUpgrade(true)}
@@ -1150,13 +1154,15 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     })()
                 ) : (
                     userType !== 'vendor' && (
-                        <Button
-                            variant="outline"
-                            onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
-                        >
-                            Upgrade Plan
-                        </Button>
+                        <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
+                            >
+                                Upgrade Plan
+                            </Button>
+                        </div>
                     )
                 )}
             </div>

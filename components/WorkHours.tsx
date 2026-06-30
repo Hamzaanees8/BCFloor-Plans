@@ -51,6 +51,7 @@ import ImageSourceModal from "@/app/dashboard/file-manager/components/ImageSourc
 import VendorWorkGallery, { VendorsTourMedia } from "./vendorWorkGallery";
 import { friendlyTimeZoneNames } from "@/components/GlobalSettings";
 import { DateTime } from "luxon";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface DaySchedule {
   day: string;
@@ -359,6 +360,7 @@ const VendorWorkHours = ({
   const [showAllTimeOffs, setShowAllTimeOffs] = useState(false);
   const [paginatedBreaks, setPaginatedBreaks] = useState<Break[]>([]);
   const { userType } = useAppContext();
+  const isMobile = useIsMobile();
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -858,7 +860,7 @@ const VendorWorkHours = ({
   };
 
   return (
-    <div className="w-full flex justify-center font-alexandria">
+    <div className="w-full flex justify-center font-alexandria overflow-x-hidden">
       <Accordion
         type="multiple"
         defaultValue={[
@@ -879,8 +881,8 @@ const VendorWorkHours = ({
             WORK HOURS
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
-            <div className="w-full flex justify-center">
-              <div className="w-[450px] p-6  rounded-lg text-[14px] text-[#666666]">
+            <div className="w-full flex flex-col items-center">
+              <div className="w-full md:w-[450px] p-4 md:p-6 rounded-lg text-[14px] text-[#666666]">
                 <p className="text-[#666666] text-[14px] mb-6">
                   Scheduling settings have impact on ordering from all customers
                   - addresses, last job location, working hours, duration of
@@ -1320,7 +1322,7 @@ const VendorWorkHours = ({
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                 <div className="grid grid-cols-1 gap-[16px]">
                   <div className="col-span-1">
                     <div className="flex items-center justify-between mb-4">
@@ -1617,8 +1619,52 @@ const VendorWorkHours = ({
                         ? "No breaks scheduled"
                         : "No upcoming breaks"}
                     </p>
+                  ) : isMobile ? (
+                    <div className="flex flex-col gap-4 w-full">
+                      {paginatedBreaks?.map((brk) => {
+                        const options = [
+                          {
+                            label: "Edit",
+                            onClick: () => {
+                              setSelectedBreak(brk);
+                              setIsBreakPopupOpen(true);
+                            },
+                          },
+                          {
+                            label: "Delete",
+                            onClick: () => handleDelete(brk.uuid || ""),
+                            confirm1: true,
+                            className: "text-[#E06D5E] hover:text-[#E06D5E]",
+                          },
+                        ];
+
+                        return (
+                          <div key={brk.uuid} className="bg-white p-4 rounded-[6px] border border-[#BBBBBB] flex flex-col gap-2 shadow-sm text-left">
+                            <div className="flex justify-between items-start">
+                              <span className="font-semibold text-[#424242]">{brk.title}</span>
+                              <DropdownActions options={options} />
+                            </div>
+                            <div className="text-sm text-[#666666] flex justify-between">
+                              <span className="font-semibold text-[#7D7D7D]">From:</span> 
+                              <span>{brk.start_date || brk.date} {brk.start_time}</span>
+                            </div>
+                            <div className="text-sm text-[#666666] flex justify-between">
+                              <span className="font-semibold text-[#7D7D7D]">To:</span> 
+                              <span>{brk.end_date || brk.date} {brk.end_time}</span>
+                            </div>
+                            {brk.address && (
+                              <div className="text-sm text-[#666666] flex flex-col mt-1">
+                                <span className="font-semibold text-[#7D7D7D]">Location:</span> 
+                                <span className="truncate">{brk.address}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <Table className="font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]">
+                    <div className="w-full min-w-0">
+                      <Table className="font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]">
                       <TableHeader>
                         <TableRow
                           className="font-alexandria h-[54px] hover:bg-transparent"
@@ -1691,6 +1737,7 @@ const VendorWorkHours = ({
                         })}
                       </TableBody>
                     </Table>
+                    </div>
                   );
                 })()}
               </div>
@@ -1747,7 +1794,7 @@ const VendorWorkHours = ({
             Vendor Work
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
-            <div className="w-full flex flex-col items-center">
+            <div className="w-full flex flex-col">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1776,11 +1823,11 @@ const VendorWorkHours = ({
                 />
               )}
 
-              <div className="w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                <p className="font-alexandria text-[#666666] px-[10px]">
+              <div className="w-full py-[32px] px-[10px] flex flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                <p className="font-alexandria text-[#666666]">
                   Add photos to gallery
                 </p>
-                <div className="flex flex-col items-center">
+                <div className="w-full flex flex-col">
                   {dragging && (
                     <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
                       <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
@@ -1800,9 +1847,9 @@ const VendorWorkHours = ({
                       </div>
                     </div>
                   )}
-                  {/* Modified FileUploader to trigger source selection modal */}
+                  {/* Upload drop zone */}
                   <div
-                    className="w-full max-w-[450px] h-[200px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#4290E9] transition-colors"
+                    className="w-full h-[200px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#4290E9] transition-colors"
                     onClick={handleUploadClick}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
@@ -1818,20 +1865,16 @@ const VendorWorkHours = ({
                   </div>
                 </div>
                 {allImagesForDisplay.length > 0 && (
-                  <div className="w-full mt-8 flex justify-center">
-                    <Carousel className="relative w-full max-w-[1100px]">
-                      <CarouselContent>
+                  <div className="w-full mt-4 overflow-x-hidden">
+                    <Carousel className="relative w-full">
+                      <CarouselContent className="-ml-2">
                         {allImagesForDisplay.map((file, index) => {
-                          // const fileType = file.type === 'new' ? 'local' :
-                          //     file.type === 'gallery' ? 'gallery' :
-                          //         'existing';
-
                           return (
                             <CarouselItem
                               key={file.id}
-                              className="basis-1/6 flex justify-center items-center relative group"
+                              className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 relative group"
                             >
-                              <div className="relative w-[160px] h-[160px] rounded-lg overflow-hidden border border-gray-300">
+                              <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-300">
                                 {file.is_processing ? (
                                   <div className="w-full h-full flex items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-[10px]">Processing...</p>
@@ -1850,7 +1893,7 @@ const VendorWorkHours = ({
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveFile(file)}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                     >
                                       <X className="w-4 h-4" />
                                     </button>
@@ -1860,8 +1903,8 @@ const VendorWorkHours = ({
                           );
                         })}
                       </CarouselContent>
-                      <CarouselPrevious className="absolute left-[-40px] top-1/2 -translate-y-1/2 z-10" />
-                      <CarouselNext className="absolute right-[-40px] top-1/2 -translate-y-1/2 z-10" />
+                      <CarouselPrevious className="absolute left-2 md:left-[-40px] top-1/2 -translate-y-1/2 z-10" />
+                      <CarouselNext className="absolute right-2 md:right-[-40px] top-1/2 -translate-y-1/2 z-10" />
                     </Carousel>
                   </div>
                 )}

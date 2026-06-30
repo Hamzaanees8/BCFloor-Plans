@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bell,
   Calendar,
@@ -9,7 +10,6 @@ import {
   CreditCard,
   Home,
   Menu,
-  Ruler,
   type LucideIcon,
 } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
@@ -41,7 +41,7 @@ const agentTabs: TabConfig[] = [
 
 const vendorTabs: TabConfig[] = [
   { key: 'today', label: 'Today', icon: Calendar, route: '/dashboard/calendar' },
-  { key: 'sqft', label: 'Sq Ft', icon: Ruler, route: '/dashboard/calendar?sqft=1' },
+  { key: 'listings', label: 'Listings', icon: ClipboardList, route: '/dashboard/listings' },
   { key: 'billing', label: 'Billing', icon: CreditCard, route: '/dashboard/vendor-billing' },
   { key: 'alerts', label: 'Alerts', icon: Bell, route: '/dashboard/notifications' },
   { key: 'more', label: 'More', icon: Menu, route: null },
@@ -101,13 +101,8 @@ export default function MobileBottomNav({ onMoreClick }: MobileBottomNavProps) {
           const Icon = tab.icon;
           const isBell = tab.key === 'alerts';
 
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => handleTabPress(tab)}
-              className="flex flex-col items-center justify-center flex-1 h-full min-h-[48px] relative focus:outline-none active:opacity-70 transition-opacity"
-            >
+          const content = (
+            <>
               {/* Active indicator bar */}
               {active && (
                 <span
@@ -135,6 +130,29 @@ export default function MobileBottomNav({ onMoreClick }: MobileBottomNavProps) {
               >
                 {tab.label}
               </span>
+            </>
+          );
+
+          if (tab.route) {
+            return (
+              <Link
+                key={tab.key}
+                href={tab.route}
+                className="flex flex-col items-center justify-center flex-1 h-full min-h-[48px] relative focus:outline-none active:opacity-70 transition-opacity"
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => handleTabPress(tab)}
+              className="flex flex-col items-center justify-center flex-1 h-full min-h-[48px] relative focus:outline-none active:opacity-70 transition-opacity"
+            >
+              {content}
             </button>
           );
         })}

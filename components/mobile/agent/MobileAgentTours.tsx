@@ -11,6 +11,8 @@ import { GetPublicTours } from '@/app/agent/agent'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { toast } from 'sonner'
 import type { Tour } from '@/lib/types'
+import MobileBottomNav from '@/components/mobile/MobileBottomNav'
+import MobileMoreMenu from '@/components/mobile/MobileMoreMenu'
 
 const slugify = (text: string) =>
   text
@@ -72,6 +74,7 @@ export default function MobileAgentTours() {
   const [tours, setTours] = useState<Tour[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
 
   const agentColor = appliedSettings?.agent?.pageTabColor || '#6BAE41'
 
@@ -129,7 +132,8 @@ export default function MobileAgentTours() {
   }
 
   return (
-    <div className="flex flex-col h-full font-alexandria">
+    <>
+      <div className="flex flex-col h-full font-alexandria pb-[56px]">
       {/* Search Bar */}
       <div className="sticky top-0 z-10 bg-white px-4 pt-4 pb-3 border-b border-gray-100">
         <div className="relative">
@@ -224,5 +228,8 @@ export default function MobileAgentTours() {
         )}
       </div>
     </div>
+    <MobileBottomNav onMoreClick={() => setMoreMenuOpen(true)} />
+    <MobileMoreMenu open={moreMenuOpen} onClose={() => setMoreMenuOpen(false)} />
+    </>
   )
 }

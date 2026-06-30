@@ -203,6 +203,19 @@ export default function MobileAdminDashboard() {
       .slice(0, 5)
   }, [orders])
 
+  const datesWithBookings = useMemo(() => {
+    const dates = new Set<string>()
+    orders.forEach((order) => {
+      const slots = (order as any).slots
+      if (Array.isArray(slots)) {
+        slots.forEach((slot: any) => {
+          if (slot.date) dates.add(slot.date)
+        })
+      }
+    })
+    return dates
+  }, [orders])
+
   const summaryCards = [
     {
       label: "Today's Bookings",
@@ -303,12 +316,13 @@ export default function MobileAdminDashboard() {
                 const isSelected = day.dateStr === selectedDate;
                 const isTodayDate = day.dateStr === todayStr;
                 const activeColor = appliedSettings?.admin?.pageTabColor || '#4290E9';
+                const hasBooking = datesWithBookings.has(day.dateStr);
                 
                 return (
                   <div 
                     key={day.dateStr}
                     onClick={() => setSelectedDate(day.dateStr)}
-                    className={`py-1.5 rounded-lg cursor-pointer transition-all border ${
+                    className={`py-1.5 rounded-lg cursor-pointer transition-all border flex flex-col items-center justify-center ${
                       isSelected 
                         ? 'text-white font-bold shadow-sm' 
                         : isTodayDate
@@ -322,6 +336,11 @@ export default function MobileAdminDashboard() {
                   >
                     <div className="text-[9px] uppercase opacity-75">{day.dayName.slice(0, 1)}</div>
                     <div className="text-xs font-semibold mt-0.5">{day.dayNum}</div>
+                    {hasBooking ? (
+                      <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSelected ? 'white' : activeColor }} />
+                    ) : (
+                      <div className="w-1 h-1 mt-0.5" />
+                    )}
                   </div>
                 );
               })}

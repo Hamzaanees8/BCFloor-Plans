@@ -89,7 +89,8 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         "bookings-new.localhost",
         "booking-new.localhost",
         "teams-new.localhost",
-        "vendors-new.localhost"
+        "vendors-new.localhost",
+        "agents-new.localhost"
       ];
       
       if (defaultDomains.includes(domainWithoutPort)) {

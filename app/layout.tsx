@@ -85,6 +85,7 @@ export default async function RootLayout({
     "booking-new.localhost",
     "teams-new.localhost",
     "vendors-new.localhost",
+    "agents-new.localhost",
     "localhost",
     "127.0.0.1"
   ];
