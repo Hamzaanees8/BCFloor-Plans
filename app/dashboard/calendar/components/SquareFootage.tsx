@@ -78,7 +78,7 @@ function SquareFootage({ currentOrder, isPaid }: SquareFootageProps) {
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left Column */}
                     <div className="space-y-4">
                         {renderSection(titles.finished, finishedAreas, finishedTotal)}

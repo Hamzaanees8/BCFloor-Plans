@@ -484,27 +484,29 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </Button>
                                 </div>
                             )}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className="cursor-pointer absolute top-2 left-2 z-10"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const fileKey = `${file.file.name}-${file.file.size}`;
-                                            handleToggleFeatured(fileKey, file.is_featured || false);
-                                        }}
-                                    >
-                                        {file.is_featured ? (
-                                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
-                                        ) : (
-                                            <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
-                                        )}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
-                                </TooltipContent>
-                            </Tooltip>
+                            {userType !== 'vendor' && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className="cursor-pointer absolute top-2 left-2 z-10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const fileKey = `${file.file.name}-${file.file.size}`;
+                                                handleToggleFeatured(fileKey, file.is_featured || false);
+                                            }}
+                                        >
+                                            {file.is_featured ? (
+                                                <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                            ) : (
+                                                <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                            )}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
                             {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
@@ -650,52 +652,54 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </div>
                                 </div>
                             )}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className="cursor-pointer absolute top-2 left-2 z-10"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFilesData(prev => {
-                                                if (!prev) return prev;
-                                                return {
-                                                    ...prev,
-                                                    files: prev.files.map(f => {
-                                                        if (f.uuid === file.uuid) {
-                                                            setChangedFileUuids(prevSet => {
-                                                                const newSet = new Set(prevSet);
-                                                                newSet.add(f.uuid);
-                                                                return newSet;
-                                                            });
-                                                            return { ...f, is_featured: !f.is_featured };
-                                                        }
-                                                        if (f.service?.uuid === currentService?.uuid) {
-                                                            if (f.is_featured) {
+                            {userType !== 'vendor' && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className="cursor-pointer absolute top-2 left-2 z-10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
                                                                 setChangedFileUuids(prevSet => {
                                                                     const newSet = new Set(prevSet);
                                                                     newSet.add(f.uuid);
                                                                     return newSet;
                                                                 });
+                                                                return { ...f, is_featured: !f.is_featured };
                                                             }
-                                                            return { ...f, is_featured: false };
-                                                        }
-                                                        return f;
-                                                    })
-                                                };
-                                            });
-                                        }}
-                                    >
-                                        {file.is_featured ? (
-                                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
-                                        ) : (
-                                            <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
-                                        )}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
-                                </TooltipContent>
-                            </Tooltip>
+                                                            if (f.service?.uuid === currentService?.uuid) {
+                                                                if (f.is_featured) {
+                                                                    setChangedFileUuids(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        newSet.add(f.uuid);
+                                                                        return newSet;
+                                                                    });
+                                                                }
+                                                                return { ...f, is_featured: false };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            {file.is_featured ? (
+                                                <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                            ) : (
+                                                <Star className="w-6 h-6 text-white hover:text-yellow-400" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,1))' }} />
+                                            )}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
                             {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200"
@@ -892,22 +896,22 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
                             </div>
                         ) : (
-                            (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : 
-                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
-                                <span
-                                    onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
-                                    className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
-                                >
-                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                </span>
-                            ) : (
-                                <span
-                                    title="service not paid yet"
-                                    className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
-                                >
-                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                </span>
-                            )
+                            (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null :
+                                (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
+                                        className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                    >
+                                        <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                    </span>
+                                ) : (
+                                    <span
+                                        title="service not paid yet"
+                                        className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                    >
+                                        <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                    </span>
+                                )
                         )}
                     </div>
                 </div>
@@ -1299,30 +1303,31 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 document.body
             )}            {!isListing && (
                 <div
-                    className={`w-full flex justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 ${isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                    className={`w-full flex flex-wrap justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 gap-y-2 ${isScrolled ? "sticky min-h-[44px] py-1 shadow-sm" : "relative min-h-[66px] py-2"
                         }`}
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
                         top: isScrolled ? `${stickyOffset}px` : "auto"
                     }}
                 >
-                    <div>
+                    {/* Left: Upload/Download button */}
+                    <div className="shrink-0">
                         {userType !== 'agent' ? (
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
-                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                        }`}
+                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                        } px-1 md:px-4`}
                                 >
                                     Add File
                                 </Button>
                                 {userType === 'admin' && (
                                     <Button
                                         onClick={() => setShowDownloadModal(true)}
-                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                            }`}
+                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                            } px-1 md:px-4`}
                                     >
-                                        Download Files
+                                        Download
                                     </Button>
                                 )}
                                 <input
@@ -1342,14 +1347,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }}
                                     title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                        } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
-                                    Download Files
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                        } px-1 md:px-4 ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                    Download
                                 </Button>
                             </div>
                         )}
                     </div>
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                    {/* Center: title — hidden on mobile when scrolled to avoid clutter */}
+                    <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
                             <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
                             {!isScrolled && (
@@ -1359,7 +1365,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             )}
                         </p>
                     </div>
-                    <div className='flex justify-center items-center gap-x-[14px]'>
+                    {/* Right: price + paid/unpaid + other actions */}
+                    <div className='flex justify-center items-center gap-x-2 md:gap-x-[14px] shrink-0'>
                         {/* {(userType === 'agent') && (
                             <Button
                                 onClick={() => {
@@ -1381,7 +1388,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             <Button
                                 onClick={handleSubmitAdminApproval}
                                 disabled={isSubmitting}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]" : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[150px] w-fit px-2 md:px-4 md:text-[12px]"
                                     }`}
                             >
                                 {isSubmitting ? (
@@ -1393,12 +1400,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </Button>
                         )}
                         {userType === 'admin' && (
-                            <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                            <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                         {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Photos`}
                                     </p>
                                 </div>
@@ -1406,7 +1413,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -1422,12 +1429,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             orderData={orderData ? orderData : null}
                         />
                         {userType === 'agent' && (
-                            <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                            <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                         {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Photos`}
                                     </p>
                                 </div>
@@ -1435,7 +1442,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -1481,19 +1488,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             )}
 
             {userType === 'agent' && (
-                <div className="p-4 flex justify-between items-center gap-4 border-b border-gray-200 font-alexandria">
-                    <div className="flex items-center gap-4">
+                <div className="p-3 md:p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria">
+                    {/* Left controls: grid + per-row + sort */}
+                    <div className="flex items-center gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
                         <GridSizeToggle />
-                        <span className="text-[12px] text-[#7D7D7D] font-medium mr-2">Images per row</span>
+                        <span className="text-[11px] md:text-[12px] text-[#7D7D7D] font-medium hidden sm:inline">Images per row</span>
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
+                                    className="h-[28px] md:h-[32px] px-2 md:px-3 flex gap-1 md:gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm text-[11px] md:text-sm ml-auto md:ml-0"
                                 >
-                                    <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
-                                    <span className="text-sm font-medium">Sort By: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                    <ListFilter className="w-3 h-3 md:w-4 md:h-4 text-[#7D7D7D]" />
+                                    <span className="font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
@@ -1516,7 +1524,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </DropdownMenu>
                     </div>
 
-                    <div className="flex items-center gap-8">
+                    {/* Right: counters + upgrade */}
+                    <div className="flex items-center gap-4 md:gap-8 flex-wrap w-full md:w-auto justify-between md:justify-end">
                         {(() => {
                             const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
                             const currentLimit = bookingToUse?.option?.quantity || 0;
@@ -1533,27 +1542,27 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             return (
                                 <>
                                     <div className="flex flex-col items-center">
-                                        <span className={`text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
+                                        <span className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
                                             {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
                                         </span>
-                                        <span className={`text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                                        <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
                                     </div>
                                     <div className="flex flex-col items-center">
-                                        <span className="text-[26px] font-medium text-[#666666] leading-none">
+                                        <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
                                             {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
                                         </span>
-                                        <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                                        <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
                                     </div>
                                     <div className="flex flex-col items-end">
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 md:mb-2 text-[11px] md:text-sm`}
                                         >
                                             Upgrade Plan
                                         </Button>
                                         {isOverLimit && nextOption && (
-                                            <div className="text-right text-[12px] text-[#666666] leading-[1.4]">
+                                            <div className="text-right text-[11px] md:text-[12px] text-[#666666] leading-[1.4]">
                                                 <div>{nextOption.quantity} Photos</div>
                                                 <div>+{diffAmount.toFixed(2)}</div>
                                                 <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
@@ -1568,18 +1577,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             )}
 
             {userType !== 'agent' && !isListing && (
-                <div className="p-4 flex justify-between items-center gap-4 border-b border-gray-200">
-                    <div className="flex items-center gap-4">
-                        <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                <div className="p-3 md:p-4 flex flex-row flex-nowrap justify-between items-center gap-x-2 md:gap-x-4 border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-none">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="hidden md:block">
+                            <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                        </div>
                         <GridSizeToggle />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
+                                    className="h-[28px] md:h-[32px] px-2 md:px-3 flex gap-1 md:gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm text-[11px] md:text-sm shrink-0"
                                 >
-                                    <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
-                                    <span className="text-sm font-medium">Sort By: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                    <ListFilter className="w-3 h-3 md:w-4 md:h-4 text-[#7D7D7D]" />
+                                    <span className="font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
@@ -1601,17 +1612,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                    <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2 md:gap-4 shrink-0 justify-end">
                         <div className="flex flex-col items-center">
-                            <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                            <span className="text-[20px] md:text-[22px] font-medium text-[#7D7D7D] leading-none">
                                 {currentServiceFiles?.filter(f => !f.is_deleted).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
                             </span>
-                            <span className="text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
+                            <span className="text-[11px] md:text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
                         </div>
                         {userType !== 'vendor' && (
                             <Button
                                 onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                                className={`${userType}-bg h-[28px] md:h-[32px] w-auto px-2 md:px-[10px] flex justify-center items-center hover-${userType}-bg text-[11px] md:text-sm`}
                             >
                                 Upgrade photo package
                             </Button>

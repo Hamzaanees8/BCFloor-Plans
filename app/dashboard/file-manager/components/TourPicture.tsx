@@ -410,11 +410,11 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         {/* ── Arrange Photos ─────────────────────────────────────────────── */}
         <AccordionItem value="item-1">
           <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
-            <AccordionTrigger className="px-[14px] py-[19px] flex-1 hover:no-underline text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full">
+            <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
               Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
             </AccordionTrigger>
             {globalSortedPhotos.length > 0 && (
-              <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="hidden md:flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {isReorderMode ? (
                   <div className="flex items-center gap-2">
                     <Button
@@ -526,7 +526,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
         {/* ── Slideshow Settings ─────────────────────────────────────────── */}
         <AccordionItem value="item-2">
-          <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current">
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Settings
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
@@ -640,11 +640,11 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
         {/* ── Slideshow Preview ──────────────────────────────────────────── */}
         <AccordionItem value="item-3">
-          <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current">
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Preview
           </AccordionTrigger>
           <AccordionContent>
-            <div className="p-4 space-y-4 h-[700px]">
+            <div className="p-4 space-y-4 h-[350px] md:h-[700px]">
               <CustomSlideshow
                 images={checkedImages}
                 delay={delay}
@@ -658,6 +658,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                 }
                 propIsPlaying={autoPlay}
                 propSetIsPlaying={setAutoPlay}
+                className="w-full h-full"
               />
             </div>
           </AccordionContent>

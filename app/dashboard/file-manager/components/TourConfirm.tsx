@@ -391,7 +391,7 @@ const TourConfirm = ({
       <Accordion type="single" defaultValue="Preview" className="w-full">
         <AccordionItem value="Preview" className={hideAccordion ? "border-none" : ""}>
           {!hideAccordion && (
-            <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-semibold uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2">
+            <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-semibold uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2" style={{ color: roleSettings.pageTabColor, backgroundColor: `var(--${role}-page-bg, #E4E4E4)` }}>
               <div className="flex items-center gap-4">
                 <span>Preview</span>
                 <select

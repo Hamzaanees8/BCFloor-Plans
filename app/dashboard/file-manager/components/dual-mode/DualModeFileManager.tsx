@@ -46,7 +46,18 @@ export function DualModeFileManager({
     savedFilesAction
 }: DualModeFileManagerProps) {
     const { userType } = useAppContext();
-    const { selectionChangedUuids, isSaving, imagesPerRow } = useFileManagerContext();
+    const { selectionChangedUuids, isSaving, imagesPerRow: contextImagesPerRow } = useFileManagerContext();
+    const imagesPerRow = contextImagesPerRow;
+    const [isMobile, setIsMobile] = React.useState(false);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const savedItems = items.filter(item => item.status === 'uploaded').sort((a, b) => {
         if (userType === 'agent') {
             const aSelected = !!(a.originalData?.is_agent_approved || a.originalData?.is_complimentary);
@@ -112,7 +123,7 @@ export function DualModeFileManager({
                     <Accordion type="multiple" defaultValue={["all"]} className="w-full">
                         <AccordionItem value="all" className="overflow-hidden shadow-sm">
                             <AccordionTrigger
-                                className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                             >
                                 <div className="flex items-center flex-1 justify-between pr-4">
@@ -121,7 +132,7 @@ export function DualModeFileManager({
                                         {saveButton}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {savedFilesAction && <div onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
+                                        {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
                                         {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                     </div>
                                 </div>
@@ -176,7 +187,7 @@ export function DualModeFileManager({
                                 {unsavedItems.length > 0 && (
                                     <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
                                         <AccordionTrigger
-                                            className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                            className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                             style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                         >
                                             Unsaved Files ({unsavedItems.length})
@@ -188,7 +199,7 @@ export function DualModeFileManager({
                                                     onOrderChange={handleUnsavedOrderChange}
                                                     mode={mode}
                                                     renderItem={renderItem}
-                                                    columns={Math.floor(imagesPerRow / 2)}
+                                                    columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
                                                 />
                                             </div>
                                         </AccordionContent>
@@ -197,12 +208,12 @@ export function DualModeFileManager({
 
                                 <AccordionItem value="saved" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         <div className="flex items-center flex-1 justify-between pr-4">
                                             <span>Unselected Files ({agentUnselectedItems.length})</span>
-                                            {unselectedAction}
+                                            <div className="hidden md:block" onClick={e => e.stopPropagation()}>{unselectedAction}</div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t border-[#BBBBBB]">
@@ -217,7 +228,7 @@ export function DualModeFileManager({
                                                 onOrderChange={() => { }}
                                                 mode={mode}
                                                 renderItem={renderItem}
-                                                columns={Math.floor(imagesPerRow / 2)}
+                                                columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
                                             />
                                         )}
                                     </AccordionContent>
@@ -244,7 +255,7 @@ export function DualModeFileManager({
                             <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
                                 <AccordionItem value="selected" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         <div className="flex items-center flex-1 justify-between pr-4">
@@ -253,7 +264,7 @@ export function DualModeFileManager({
                                                 {saveButton}
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {selectedAction}
+                                                {selectedAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{selectedAction}</div>}
                                                 {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
                                         </div>
@@ -270,7 +281,7 @@ export function DualModeFileManager({
                                                 onOrderChange={handleSelectedOrderChange}
                                                 mode={mode}
                                                 renderItem={renderItem}
-                                                columns={Math.floor(imagesPerRow / 2)}
+                                                columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
                                             />
                                         )}
                                     </AccordionContent>
@@ -285,7 +296,7 @@ export function DualModeFileManager({
                             {unsavedItems.length > 0 && (
                                 <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         Unsaved Files ({unsavedItems.length})
@@ -306,13 +317,13 @@ export function DualModeFileManager({
 
                             <AccordionItem value="saved" className="overflow-hidden shadow-sm">
                                 <AccordionTrigger
-                                    className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                 >
                                     <div className="flex items-center flex-1 justify-between pr-4">
                                         <span>Saved Files ({savedItems.length})</span>
                                         <div className="flex items-center gap-2">
-                                            {savedFilesAction && <div onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
+                                            {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
                                             {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                         </div>
                                     </div>

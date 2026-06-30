@@ -781,21 +781,20 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
         <div>
             {!isListing && (
                 <div
-                    className={`w-full justify-between font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible transition-all duration-300 ${isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[65px]"
+                    className={`w-full flex flex-wrap justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 gap-y-2 ${isScrolled ? "sticky min-h-[44px] py-1 shadow-sm" : "relative min-h-[66px] py-2"
                         }`}
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
                         top: isScrolled ? `${stickyOffset}px` : "auto"
                     }}
                 >
-
-                    <div>
+                    <div className="shrink-0">
                         {(userType !== 'agent') ? (
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className={`justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "w-[150px] md:w-[143px] h-[32px] md:h-[32px] text-[14px] md:text-[16px] font-[600]"
-                                        }`}
+                                    className={`justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                        } px-1 md:px-4`}
                                 >
                                     Add File
                                 </Button>
@@ -804,8 +803,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         onClick={() => {
                                             setShowDownloadModal(true);
                                         }}
-                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                            }`}
+                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                            } px-1 md:px-4`}
                                     >
                                         Download Files
                                     </Button>
@@ -819,15 +818,15 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     }}
                                     title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                        } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                        } px-1 md:px-4 ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                                 >
                                     Download Files
                                 </Button>
                             </div>
                         )}
                     </div>
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                    <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
                             <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
                             {!isScrolled && (
@@ -837,9 +836,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             )}
                         </p>
                     </div>
-                    <div className='flex items-center gap-x-[14px]'>
-                        {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
-                        <div className='flex justify-center items-center gap-x-[14px]'>
+                    <div className='flex items-center gap-x-2 shrink-0'>
+                        <div className='flex justify-center items-center gap-x-2 md:gap-x-[14px] shrink-0'>
 
                             {/* {(userType === 'agent') && (
                                 <Button
@@ -863,7 +861,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 <Button
                                     onClick={handleSubmitAdminApproval}
                                     disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]" : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[150px] w-fit px-2 md:px-4 md:text-[12px]"
                                         }`}
                                 >
                                     {isSubmitting ? (
@@ -881,12 +879,12 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 orderData={orderData ? orderData : null}
                             />
                             {userType === 'agent' ? (
-                                <div className='flex items-center gap-[10px] mr-2'>
-                                    <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                        <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                                <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                    <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                        <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                             ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                         </p>
-                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                             {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Files`}
                                         </p>
                                     </div>
@@ -894,7 +892,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         onClick={() => {
                                             onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }}
-                                        className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
+                                        className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                                 : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -903,12 +901,12 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </Button>
                                 </div>
                             ) : userType === 'admin' ? (
-                                <div className='flex items-center gap-[10px] mr-2'>
-                                    <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                        <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                                <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                    <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                        <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                             ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                         </p>
-                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                             {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Files`}
                                         </p>
                                     </div>
@@ -916,7 +914,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         onClick={() => {
                                             onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                         }}
-                                        className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white cursor-pointer
+                                        className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center font-bold text-white cursor-pointer px-1 md:px-4
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                                 : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -977,9 +975,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
             </div>}
             {!isListing &&
-                <div className={`p-4 flex justify-between items-center gap-4 border-b border-gray-200`}>
-                    <div className="flex items-center gap-4">
-                        <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                <div className={`p-3 md:p-4 flex flex-row flex-wrap justify-between items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}>
+                    <div className="flex items-center gap-2 w-auto">
+                        <div className="hidden md:block">
+                            <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                        </div>
                         <GridSizeToggle />
                     </div>
 
@@ -998,29 +998,29 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             const diffAmount = nextAmount - currentAmount;
 
                             return (
-                                <div className="flex items-center gap-8">
+                                <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
                                     <div className="flex flex-col items-center">
-                                        <span className={`text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
+                                        <span className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
                                             {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
                                         </span>
-                                        <span className={`text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                                        <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
                                     </div>
                                     <div className="flex flex-col items-center">
-                                        <span className="text-[26px] font-medium text-[#666666] leading-none">
+                                        <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
                                             {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
                                         </span>
-                                        <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                                        <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
                                     </div>
                                     <div className="flex flex-col items-end">
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 md:mb-2 text-[11px] md:text-sm`}
                                         >
                                             Upgrade Plan
                                         </Button>
                                         {isOverLimit && nextOption && (
-                                            <div className="text-right text-[12px] text-[#666666] leading-[1.4]">
+                                            <div className="text-right text-[11px] md:text-[12px] text-[#666666] leading-[1.4]">
                                                 <div>{nextOption.quantity} Floor Plans</div>
                                                 <div>+{diffAmount.toFixed(2)}</div>
                                                 <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
@@ -1031,18 +1031,18 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             );
                         })()
                     ) : (
-                        <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
                             <div className="flex flex-col items-center">
-                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                                <span className="text-[20px] md:text-[22px] font-medium text-[#7D7D7D] leading-none">
                                     {currentServiceFiles?.filter(f => !f.is_deleted).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
                                 </span>
-                                <span className="text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
+                                <span className="text-[11px] md:text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
                             </div>
                             {userType !== 'vendor' && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setOpenUpgrade(true)}
-                                    className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-[150px] flex justify-center items-center ml-2 border-none`}
+                                    className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center ml-2 border-none text-[11px] md:text-sm`}
                                 >
                                     Upgrade Plan
                                 </Button>
@@ -1050,11 +1050,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                         </div>
                     )}
                 </div>}
-            <div className='px-[200px] pt-[54px]'>
-                <div className='px-[80px] pb-[60px] gap-y-6'>
+            <div className='w-full px-4 md:px-[200px] pt-6 md:pt-[54px]'>
+                <div className='w-full px-2 md:px-[80px] pb-8 md:pb-[60px] gap-y-6'>
                     <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
-                    <div className="flex justify-center">
-                        <div className="w-[700px] pt-6">
+                    <div className="flex justify-center w-full">
+                        <div className="w-full md:w-[700px] pt-4 md:pt-6 overflow-x-auto">
                             <SquareFootage
                                 currentOrder={orderData || undefined}
                                 isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}

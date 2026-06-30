@@ -115,9 +115,9 @@ const FileRow = React.memo(({
 
   return (
     <div className={`flex flex-col pb-6 ${isLast ? '' : 'border-b border-[#E4E4E4]'}`}>
-      <div className="flex gap-[10px] pr-[10px]">
-        <div className="w-auto">
-          <div className="w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative" style={{ aspectRatio: '16/9' }}>
+      <div className="flex flex-col md:flex-row gap-4 md:gap-[10px] md:pr-[10px]">
+        <div className="w-full md:w-auto">
+          <div className="w-full md:w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative" style={{ aspectRatio: '16/9' }}>
             <OptimizedImagePreview file={file} className="w-full h-full object-contain" />
 
             <span
@@ -145,7 +145,7 @@ const FileRow = React.memo(({
           </div>
           
           {file.type.startsWith('video/') && onThumbnailChange && (
-            <div className="mt-2 w-[200px] flex flex-col gap-2">
+            <div className="mt-2 w-full md:w-[200px] flex flex-col gap-2">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -157,7 +157,7 @@ const FileRow = React.memo(({
               {thumbnailFile && (
                 <div className="flex flex-col gap-1">
                   <Label className="text-[12px] text-[#7d7d7d] font-semibold">Thumbnail</Label>
-                  <div className="w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative border border-dashed border-[#7d7d7d]" style={{ aspectRatio: '16/9' }}>
+                  <div className="w-full md:w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative border border-dashed border-[#7d7d7d]" style={{ aspectRatio: '16/9' }}>
                     <OptimizedImagePreview file={thumbnailFile} className="w-full h-full object-contain" />
                     <span
                       className="flex items-center justify-center w-[20px] h-[20px] bg-white/90 hover:bg-white rounded-full absolute top-1.5 right-1.5 z-10 cursor-pointer shadow-md transition-all"
@@ -467,7 +467,7 @@ export default function FilePreviewModal({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className="w-[320px] md:w-[700px] max-w-none h-[90vh] md:h-[95vh] flex flex-col font-alexandria gap-0 p-4 md:p-6"
+          className="w-[95vw] md:w-[700px] max-w-none h-[90vh] md:h-[95vh] flex flex-col font-alexandria gap-0 p-4 md:p-6"
           onPointerDownOutside={(e) => {
             if (localFiles.length > 0) {
               e.preventDefault();

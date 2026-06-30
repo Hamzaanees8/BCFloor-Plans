@@ -177,6 +177,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         }
         // Use currentOrder?.uuid to only re-run when a different order is selected,
         // avoiding overwrites when orderData array reference changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, currentOrder?.uuid, setOrderServices, setSelectedSlots]);
 
     // Sync service options with square footage when area changes

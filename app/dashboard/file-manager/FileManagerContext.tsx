@@ -413,6 +413,12 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [area, setArea] = useState<Area[]>([]);
     const [fileManagerMode, setFileManagerMode] = useState<'upload' | 'reorder'>('upload');
     const [imagesPerRow, setImagesPerRow] = useState<number>(4);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            setImagesPerRow(2);
+        }
+    }, []);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [isHidingMode, setIsHidingMode] = useState<boolean>(false);
     const [filesToHide, setFilesToHide] = useState<Set<string>>(new Set());

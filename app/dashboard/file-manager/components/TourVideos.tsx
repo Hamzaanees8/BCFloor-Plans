@@ -54,7 +54,7 @@ function TourVideos() {
     }
     return (
         <div className="p-4">
-            <div className="mb-6 h-[95vh] w-full bg-black rounded overflow-hidden">
+            <div className="mb-6 h-[350px] md:h-[700px] w-full bg-black rounded overflow-hidden">
                 <video
                     src={mainVideoSrc}
                     poster={mainVideoPoster}
@@ -64,7 +64,7 @@ function TourVideos() {
 
             </div>
             {(selectedVideoFiles.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (
-                <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
+                <div className="mt-4 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-3">
                     {selectedVideoFiles.map((file, idx) => (
                         <div key={idx} onClick={() => setMainVideo({src: URL.createObjectURL(file.file)})} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer bg-black overflow-hidden">

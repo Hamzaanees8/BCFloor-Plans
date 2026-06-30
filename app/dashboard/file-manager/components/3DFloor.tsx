@@ -345,17 +345,17 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
 
             {!isListing && (
                 <div
-                    className={`w-full flex justify-between items-center px-4 font-alexandria transition-all duration-300 z-10 ${
-                      isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                    className={`w-full flex flex-wrap justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 gap-y-2 ${
+                      isScrolled ? "sticky min-h-[44px] py-1 shadow-sm" : "relative min-h-[66px] py-2"
                     }`}
                     style={{
                       backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
                       top: isScrolled ? `${stickyOffset}px` : "auto"
                     }}
                 >
-                    <div>
+                    <div className="shrink-0">
                     </div>
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                    <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
                             <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>
                                 {currentService ? currentService.name : '3D Tour'}
@@ -367,13 +367,12 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             )}
                         </p>
                     </div>
-                    <div className='flex justify-center items-center gap-x-[14px]'>
+                    <div className='flex justify-center items-center gap-x-2 md:gap-x-[14px] shrink-0'>
                         {!isHidingMode && userType === 'vendor' && reviewFilesEnabled && (
                             <Button
                                 onClick={handleSubmitAdminApproval}
                                 disabled={isSubmitting}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${isScrolled ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]" : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[150px] w-fit px-2 md:px-4 md:text-[12px]"
                                 }`}
                             >
                                 {isSubmitting ? (
@@ -385,12 +384,12 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             </Button>
                         )}
                         {userType === 'admin' && (
-                            <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                            <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                         {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Link`}
                                     </p>
                                 </div>
@@ -398,11 +397,10 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`flex justify-center items-center transition-all duration-300 cursor-pointer ${
-                                        isScrolled ? "h-[28px] w-[90px] text-[11px]" : "h-[32px] w-[100px]"
-                                    } ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
+                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
                                     {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                 </Button>
@@ -415,12 +413,12 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             orderData={orderData ? orderData : null}
                         />
                         {userType === 'agent' && (
-                            <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className={`text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                            <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
+                                <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
+                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
                                         {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Link`}
                                     </p>
                                 </div>
@@ -428,7 +426,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -448,7 +446,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             <Button
                                 variant="outline"
                                 onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-[150px] flex justify-center items-center border-none`}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center border-none text-[11px] md:text-sm`}
                             >
                                 Upgrade Plan
                             </Button>
@@ -469,8 +467,8 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
             )}
 
             {!isListing && (
-                <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
-                    <div className="flex items-center gap-4">
+                <div className={`p-3 md:p-4 flex ${userType === 'agent' ? 'flex-col md:flex-row justify-between' : 'justify-end'} items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}>
+                    <div className="flex items-center gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
                     </div>
 
                     {/* {userType === 'agent' && (
@@ -502,23 +500,23 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                     )} */}
                 </div>
             )}
-            <div className='flex flex-col items-center justify-center my-4'>
+            <div className='flex flex-col items-center justify-center my-4 w-full'>
                 {userType === 'vendor' && reviewFilesEnabled && (
-                    <div className="w-[650px] mb-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm">
+                    <div className="w-full max-w-[650px] mx-auto mb-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm px-4 md:px-4">
                         <span className="text-[18px] text-blue-600 mt-0.5">ℹ️</span>
                         <p className="text-[13px] text-blue-700 leading-relaxed">
                             Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
                         </p>
                     </div>
                 )}
-                <div className='w-[650px]'>
+                <div className='w-full max-w-[650px] px-4 md:px-0'>
                     <Label className='text-[14px] text-[#424242]'>
                         3D Tour Link - Branded
                         {brandedApiLinkObj?.is_hidden && (
                             <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">Hidden</span>
                         )}
                     </Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col md:flex-row gap-2 md:gap-4 mt-1">
 
                         {userType === 'agent' ? (
                             <div className="relative w-full">
@@ -573,7 +571,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "min-w-[220px] w-fit justify-start text-left font-normal bg-white h-[42px] border-[#BBBBBB]",
+                                        "w-full md:min-w-[220px] md:w-fit justify-start text-left font-normal bg-white h-[42px] border-[#BBBBBB]",
                                         !brandedExpiry && "text-muted-foreground"
                                     )}
                                     disabled={userType === 'agent'}
@@ -594,14 +592,14 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                     </div>
                 </div>
 
-                <div className='w-[650px] mt-[10px]'>
+                <div className='w-full max-w-[650px] px-4 md:px-0 mt-[10px] md:mt-[20px]'>
                     <Label className='text-[14px] text-[#424242]'>
                         3D Tour Link - Unbranded
                         {unbrandedApiLinkObj?.is_hidden && (
                             <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">Hidden</span>
                         )}
                     </Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col md:flex-row gap-2 md:gap-4 mt-1">
 
                         {userType === 'agent' ? (
                             <div className="relative w-full">
@@ -656,7 +654,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "min-w-[220px] w-fit justify-start text-left font-normal bg-white h-[42px] border-[#BBBBBB]",
+                                        "w-full md:min-w-[220px] md:w-fit justify-start text-left font-normal bg-white h-[42px] border-[#BBBBBB]",
                                         !unbrandedExpiry && "text-muted-foreground"
                                     )}
                                     disabled={userType === 'agent'}
@@ -691,12 +689,12 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         <AccordionContent>
                             <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
                                 {userType === 'agent' && !isPaid && (
-                                    <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                    <div className="w-full md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
                                         You have not paid for this service yet. Pay the service to visit/view Matterport.
                                     </div>
                                 )}
                                 {isValidUrl(brandedLink) && canAgentView && (
-                                    <div className="relative w-[80%] h-[500px]">
+                                    <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
                                         <iframe
                                             src={brandedLink}
                                             className="w-full h-full border"
@@ -706,7 +704,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 )}
 
                                 {isValidUrl(unbrandedLink) && canAgentView && (
-                                    <div className="relative w-[80%] h-[500px]">
+                                    <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
                                         <iframe
                                             src={unbrandedLink}
                                             className="w-full h-full border"

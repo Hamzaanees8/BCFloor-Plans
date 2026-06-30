@@ -446,7 +446,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                   </label>
                 </div>
                 {isReorderMode ? (
-                  <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -469,7 +469,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
+                    className="hidden md:flex h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
                     onClick={() => setIsReorderMode(true)}
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
