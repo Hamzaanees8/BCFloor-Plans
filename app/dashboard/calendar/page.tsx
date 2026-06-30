@@ -204,14 +204,7 @@ const Page = () => {
 
     // Mobile views: show simplified role-specific views instead of complex calendar
     if (isMobile) {
-        if (userType === 'vendor') {
-            return <MobileVendorToday />;
-        }
-        if (userType === 'admin') {
-            return <MobileAdminDashboard />;
-        }
-        // Agent on mobile: show simplified schedule view too
-        return <MobileAdminDashboard />;
+        return <MobileVendorToday />;
     }
 
     return (

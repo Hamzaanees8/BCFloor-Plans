@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Get } from '@/app/dashboard/orders/orders';
 import { Order } from '@/app/dashboard/orders/page';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { useAppContext } from '@/app/context/AppContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,6 +75,9 @@ interface SlotWithOrder {
 export default function MobileVendorToday() {
   const router = useRouter();
   const { appliedSettings } = useWhiteLabel();
+  const { userType } = useAppContext();
+  
+  const roleColor = appliedSettings?.[(userType as keyof typeof appliedSettings) || 'admin']?.pageTabColor || '#DC9600';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -346,8 +350,8 @@ export default function MobileVendorToday() {
 
               {/* Edit Square Footage button */}
               <Button
-                className="w-full h-[48px] text-[14px] font-medium vendor-bg text-white hover:opacity-90"
-                style={{ backgroundColor: appliedSettings?.vendor?.pageTabColor || '#DC9600' }}
+                className="w-full h-[48px] text-[14px] font-medium text-white hover:opacity-90"
+                style={{ backgroundColor: roleColor }}
                 onClick={() => router.push(`/dashboard/orders/${order.id}?mobile_sqft=1`)}
               >
                 <Ruler className="w-4 h-4 mr-2" />
@@ -437,7 +441,6 @@ export default function MobileVendorToday() {
           {getWeekDays(weekStart).map((day) => {
             const isSelected = day.dateStr === selectedDate;
             const isTodayDate = day.dateStr === today;
-            const activeColor = appliedSettings?.vendor?.pageTabColor || '#DC9600';
             const hasBooking = datesWithBookings.has(day.dateStr);
             
             return (
@@ -448,18 +451,19 @@ export default function MobileVendorToday() {
                   isSelected 
                     ? 'text-white font-bold shadow-sm' 
                     : isTodayDate
-                      ? 'bg-amber-50 text-[#DC9600] border-amber-250 font-semibold'
+                      ? 'bg-blue-50 font-semibold border-blue-200'
                       : 'border-transparent hover:bg-gray-50 text-gray-600'
                 }`}
                 style={{
-                  backgroundColor: isSelected ? activeColor : '',
-                  borderColor: isSelected ? activeColor : isTodayDate ? '#F59E0B' : 'transparent',
+                  backgroundColor: isSelected ? roleColor : '',
+                  borderColor: isSelected ? roleColor : '',
+                  color: isTodayDate && !isSelected ? roleColor : ''
                 }}
               >
                 <div className="text-[9px] uppercase opacity-75">{day.dayName.slice(0, 1)}</div>
                 <div className="text-xs font-semibold mt-0.5">{day.dayNum}</div>
                 {hasBooking ? (
-                  <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSelected ? 'white' : activeColor }} />
+                  <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSelected ? 'white' : roleColor }} />
                 ) : (
                   <div className="w-1 h-1 mt-0.5" />
                 )}

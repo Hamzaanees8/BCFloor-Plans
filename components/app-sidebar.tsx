@@ -453,7 +453,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </button>
       <div
-        className="pt-[20px] px-[25px]"
+        className="pt-[20px] px-[12px]"
         style={{ backgroundColor: roleSettings.sidebarBg }}
       >
         {showBackButton && !isCollapsed ? (
@@ -474,7 +474,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </div>
       <SidebarContent
-        className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? "px-0" : "px-[25px]"}`}
+        className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? "px-0" : "px-[12px]"}`}
         style={{ backgroundColor: roleSettings.sidebarBg }}
       >
         {filteredNavMain.map((item) => (

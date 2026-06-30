@@ -912,7 +912,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     ) : null;
 
     return (
-        <div>
+        <div className="pb-24 md:pb-0">
             <div
                 className={`w-full flex flex-wrap justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 gap-y-2 ${isScrolled ? "sticky min-h-[44px] py-1 shadow-sm" : "relative min-h-[66px] py-2"
                     }`}
