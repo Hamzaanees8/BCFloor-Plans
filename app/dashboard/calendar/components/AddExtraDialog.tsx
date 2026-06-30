@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
+import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 // const CATEGORY_OPTIONS = ["Finished", "Subtotal", "Other"];
 
@@ -23,6 +25,10 @@ interface AddExtraDialogProps {
 }
 
 export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished", tourSettings = [] }: AddExtraDialogProps) {
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const roleColor = appliedSettings?.[(userType as keyof typeof appliedSettings) || 'admin']?.pageTabColor || '#DC9600';
+
     const [selected, setSelected] = useState("");
     const [category, setCategory] = useState<"Finished" | "Subtotal" | "Other">(defaultCategory);
     const [customTitle, setCustomTitle] = useState("");
@@ -44,7 +50,7 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
     const dropdownOptions = [...filteredOptions, "Custom..."];
 
     const isCustom = selected === "Custom...";
-    const isValid = selected && (!isCustom || customTitle.trim() !== "");
+    const isValid = selected && (!isCustom || customTitle.trim() !== "") && squareFootage.trim() !== "";
 
     const handleSubmit = () => {
         if (!isValid) return;
@@ -72,7 +78,7 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[320px] md-[470px] font-alexandria">
                 <DialogHeader>
-                    <DialogTitle className="text-[18px] text-[#4290E9] font-bold">ADD A CUSTOM LEVEL</DialogTitle>
+                    <DialogTitle className="text-[18px] font-bold uppercase" style={{ color: roleColor }}>Add a custom level</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -125,10 +131,22 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                        <Button className="w-full text-[#4290E9] border-[#4290E9] hover:bg-[#4290E9] hover:text-[#fff] h-[44px]" variant="outline" onClick={() => onOpenChange(false)
-
-                        }>Cancel</Button>
-                        <Button className="w-full bg-[#4290E9] hover:bg-[#4999f4] text-white h-[44px]" disabled={!isValid} onClick={handleSubmit}>Add</Button>
+                        <Button 
+                            className="w-full h-[44px] bg-white hover:bg-gray-50" 
+                            variant="outline" 
+                            style={{ color: roleColor, borderColor: roleColor }}
+                            onClick={() => onOpenChange(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="w-full text-white h-[44px] hover:opacity-90" 
+                            style={{ backgroundColor: roleColor }}
+                            disabled={!isValid} 
+                            onClick={handleSubmit}
+                        >
+                            Add
+                        </Button>
                     </div>
                 </div>
             </DialogContent>

@@ -443,7 +443,7 @@ const Contact = () => {
                                                 setSelectedAgentId(value);
                                             }}
                                         >
-                                            <SelectTrigger className="w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                            <SelectTrigger className="w-full md:w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
                                                 <SelectValue placeholder="Select Agent" />
                                                 <span className="custom-arrow">
                                                     <DropDownArrow />

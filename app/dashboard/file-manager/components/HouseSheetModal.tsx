@@ -147,8 +147,8 @@ const HouseSheetModal: React.FC<Props> = ({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="w-[95vw] md:w-[730px] max-w-[95vw] md:max-w-[730px] h-[600px] max-h-[90vh] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                 <DialogHeader>
-                    <DialogTitle className={`flex items-start md:items-center uppercase justify-between ${userType}-text text-[16px] md:text-[24px] font-[400] gap-2`}>
-                        <span className="break-words text-left">{orderData?.property_address}, {orderData?.property_location} › Order #{orderData?.id || ""}</span>
+                    <DialogTitle className={`flex items-start md:items-center uppercase justify-between ${userType}-text text-[14px] md:text-[24px] font-[400] gap-2`}>
+                        <span className="break-words text-left">{orderData?.property_address}, {orderData?.property_location} {orderData?.id ? `> Order #${orderData.id}` : ""}</span>
                         <Button
                             variant="ghost"
                             onClick={() => {

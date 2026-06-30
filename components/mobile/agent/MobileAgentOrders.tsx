@@ -2,15 +2,17 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Package, Eye, CreditCard, ImageOff } from 'lucide-react'
+import { Search, Package, Eye, CreditCard, ImageOff, Ruler } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Get } from '@/app/dashboard/orders/orders'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import type { ListingOrder } from '@/lib/types'
+import SquareFootage from '@/app/dashboard/calendar/components/SquareFootage'
 
 type FilterType = 'All' | 'Processing' | 'Completed' | 'Unpaid'
 
@@ -109,6 +111,7 @@ export default function MobileAgentOrders() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterType>('All')
+  const [viewSqftOrder, setViewSqftOrder] = useState<ListingOrder | null>(null)
 
   const agentColor = appliedSettings?.agent?.pageTabColor || '#6BAE41'
 
@@ -286,12 +289,38 @@ export default function MobileAgentOrders() {
                       View Tour
                     </Button>
                   )}
+                  {order.areas && order.areas.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-9 text-xs font-medium rounded-lg"
+                      style={{ borderColor: agentColor, color: agentColor }}
+                      onClick={() => setViewSqftOrder(order)}
+                    >
+                      <Ruler className="h-3.5 w-3.5 mr-1.5" />
+                      Square Footage
+                    </Button>
+                  )}
                 </div>
               </Card>
             )
           })
         )}
       </div>
+
+      {/* Square Footage Viewer Dialog */}
+      <Dialog open={!!viewSqftOrder} onOpenChange={(open) => !open && setViewSqftOrder(null)}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md w-full max-h-[90vh] overflow-y-auto p-4 md:p-6 font-alexandria">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-gray-800">
+              Square Footage
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            <SquareFootage currentOrder={(viewSqftOrder as any) || undefined} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

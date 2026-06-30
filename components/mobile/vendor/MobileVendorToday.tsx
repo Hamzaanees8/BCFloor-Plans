@@ -24,7 +24,10 @@ import {
   Mail,
   Phone,
   StickyNote,
+  Eye,
 } from 'lucide-react';
+import SquareFootage from '@/app/dashboard/calendar/components/SquareFootage';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +86,7 @@ export default function MobileVendorToday() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewSqftOrder, setViewSqftOrder] = useState<Order | null>(null);
 
   const today = getTodayString();
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -349,14 +353,25 @@ export default function MobileVendorToday() {
               )}
 
               {/* Edit Square Footage button */}
-              <Button
-                className="w-full h-[48px] text-[14px] font-medium text-white hover:opacity-90"
-                style={{ backgroundColor: roleColor }}
-                onClick={() => router.push(`/dashboard/orders/${order.id}?mobile_sqft=1`)}
-              >
-                <Ruler className="w-4 h-4 mr-2" />
-                Edit Square Footage
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full h-[48px] text-[14px] font-medium text-[#7D7D7D] bg-white border border-[#D0D0D0] hover:bg-gray-50"
+                  onClick={() => setViewSqftOrder(order)}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Square Footage
+                </Button>
+                {userType !== 'agent' && (
+                  <Button
+                    className="w-full h-[48px] text-[14px] font-medium text-white hover:opacity-90"
+                    style={{ backgroundColor: roleColor }}
+                    onClick={() => router.push(`/dashboard/orders/${order.uuid}?mobile_sqft=1`)}
+                  >
+                    <Ruler className="w-4 h-4 mr-2" />
+                    Edit Square Footage
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -504,6 +519,20 @@ export default function MobileVendorToday() {
           ))}
         </div>
       )}
+
+      {/* Square Footage Viewer Dialog */}
+      <Dialog open={!!viewSqftOrder} onOpenChange={(open) => !open && setViewSqftOrder(null)}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md w-full max-h-[90vh] overflow-y-auto p-4 md:p-6 font-alexandria">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-gray-800">
+              Square Footage
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            <SquareFootage currentOrder={viewSqftOrder || undefined} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

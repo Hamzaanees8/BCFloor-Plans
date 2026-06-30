@@ -10,6 +10,7 @@ import {
   Loader2,
   MapPin,
   Ruler,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,9 +18,11 @@ import { toast } from 'sonner'
 import { GetOneOrder } from '@/app/dashboard/orders/orders'
 import { GetTourSettings } from '@/app/dashboard/global-settings/global-settings'
 import { UpdatePropertySquareFootage } from '@/app/dashboard/listings/listing'
+import { EditOrder } from '@/app/dashboard/calendar/calendar'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import type { Order } from '@/app/dashboard/orders/page'
+import AddExtraDialog from '@/app/dashboard/calendar/components/AddExtraDialog'
 
 /* ── Types ────────────────────────────────────────────────────────────── */
 interface TourSetting {
@@ -76,6 +79,9 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
     other: true,
   })
 
+  const [openAddDialog, setOpenAddDialog] = useState(false)
+  const [dialogDefaultCategory, setDialogDefaultCategory] = useState<'Finished' | 'Subtotal' | 'Other'>('Finished')
+
   /* ── Data fetching ──────────────────────────────────────────────────── */
   useEffect(() => {
     async function load() {
@@ -107,62 +113,65 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
 
   /* ── Build fields from tour settings + order areas ─────────────────── */
   useEffect(() => {
-    if (tourSettings.length === 0 || !order) return
-
-    const orderAreaMap = new Map<string, { footage: number; custom_title?: string }>()
-    order?.areas?.forEach((area: Area) => {
-      const key = (area.custom_title || area.type).trim().toLowerCase()
-      orderAreaMap.set(key, { footage: area.footage, custom_title: area.custom_title })
-    })
+    if (tourSettings.length === 0) return
 
     const finished: Field[] = []
     const subtotal: Field[] = []
     const other: Field[] = []
 
-    tourSettings.forEach((setting) => {
-      const label = setting.area
-      const key = label.trim().toLowerCase()
-      const existing = orderAreaMap.get(key)
-
-      const category: 'Finished' | 'Subtotal' | 'Other' =
-        setting.type === 'Finished Area'
-          ? 'Finished'
-          : setting.type === 'Sub Area'
-          ? 'Subtotal'
-          : 'Other'
-
+    // 1. Add all existing areas from current order
+    order?.areas?.forEach((area: Area) => {
+      const category = (area.category || area.type) as 'Finished' | 'Subtotal' | 'Other'
+      const label = area.custom_title || area.type
+      
       const field: Field = {
         id: uniqueId++,
         label,
-        value: existing?.footage ?? 0,
-        custom_title: label,
-        category,
+        value: area.footage || 0,
+        custom_title: area.custom_title,
+        category: ['Finished', 'Subtotal', 'Other'].includes(category) ? category : 'Other',
       }
 
-      if (category === 'Finished') finished.push(field)
-      else if (category === 'Subtotal') subtotal.push(field)
+      if (field.category === 'Finished') finished.push(field)
+      else if (field.category === 'Subtotal') subtotal.push(field)
       else other.push(field)
     })
 
-    // Include any order subtotal areas not covered by tour settings
-    order?.areas?.forEach((area: Area) => {
-      if ((area.type as string) === 'Subtotal') {
-        const alreadyAdded = subtotal.some(
-          (s) =>
-            s.label.trim().toLowerCase() ===
-            (area.custom_title || area.type).trim().toLowerCase()
-        )
-        if (!alreadyAdded) {
-          subtotal.push({
-            id: uniqueId++,
-            label: area.custom_title || area.type,
-            value: area.footage,
-            custom_title: area.custom_title,
-            category: 'Subtotal',
-          })
-        }
-      }
-    })
+    // 2. Add defaults if empty
+    const finishedSettings = tourSettings.filter(s => s.type === 'Finished Area')
+    const subtotalSettings = tourSettings.filter(s => s.type === 'Sub Area')
+    const otherSettings = tourSettings.filter(s => s.type !== 'Finished Area' && s.type !== 'Sub Area')
+
+    if (finished.length === 0 && finishedSettings.length > 0) {
+      const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === 'main level') || finishedSettings[0]
+      finished.push({
+        id: uniqueId++,
+        label: mainLevelSetting.area,
+        value: 0,
+        custom_title: mainLevelSetting.area,
+        category: 'Finished'
+      })
+    }
+
+    if (subtotal.length === 0 && subtotalSettings.length > 0) {
+      subtotal.push({
+        id: uniqueId++,
+        label: subtotalSettings[0].area,
+        value: 0,
+        custom_title: subtotalSettings[0].area,
+        category: 'Subtotal'
+      })
+    }
+
+    if (other.length === 0 && otherSettings.length > 0) {
+      other.push({
+        id: uniqueId++,
+        label: otherSettings[0].area,
+        value: 0,
+        custom_title: otherSettings[0].area,
+        category: 'Other'
+      })
+    }
 
     setFinishedAreas(finished)
     setSubtotalAreas(subtotal)
@@ -183,12 +192,39 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
     list.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0)
 
   const grandTotal = useMemo(
-    () => total(finishedAreas) + total(subtotalAreas) + total(otherAreas),
-    [finishedAreas, subtotalAreas, otherAreas]
+    () => total(finishedAreas) + total(subtotalAreas),
+    [finishedAreas, subtotalAreas]
   )
 
   const toggleSection = (key: string) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const handleRemove = (
+    id: number,
+    list: Field[],
+    setList: React.Dispatch<React.SetStateAction<Field[]>>
+  ) => {
+    setList(list.filter((item) => item.id !== id))
+  }
+
+  const handleAddExtra = (
+    label: string,
+    sqft: number,
+    category: 'Finished' | 'Subtotal' | 'Other',
+    customLabel?: string
+  ) => {
+    const newField: Field = {
+      id: uniqueId++,
+      label,
+      value: sqft,
+      category,
+      custom_title: customLabel,
+    }
+
+    if (category === 'Finished') setFinishedAreas((prev) => [...prev, newField])
+    else if (category === 'Subtotal') setSubtotalAreas((prev) => [...prev, newField])
+    else setOtherAreas((prev) => [...prev, newField])
   }
 
   /* ── Save ───────────────────────────────────────────────────────────── */
@@ -207,17 +243,43 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
           category: item.category,
         }))
 
-      const propertyId = order.property_id || (order as any).property?.uuid
+      const propertyId = (order as any).property?.uuid
       if (propertyId) {
         await UpdatePropertySquareFootage(
           String(propertyId),
           grandTotal,
           newAreas,
           {
-            property_address: order.property_address,
-            square_footage: grandTotal,
-            areas: newAreas,
+            agent_id: (order as any).agent?.uuid,
+            address: (order as any).property?.address,
+            city: (order as any).property?.city,
+            province: (order as any).property?.province,
+            country: (order as any).property?.country,
+            listing_price: Number((order as any).property?.listing_price),
+            mls_number: (order as any).property?.mls_number,
+            bedrooms: Number((order as any).property?.bedrooms),
+            bathrooms: Number((order as any).property?.bathrooms),
+            lot_size: (order as any).property?.lot_size,
+            year_constructed: Number((order as any).property?.year_constructed),
+            parking_spots: Number((order as any).property?.parking_spots),
+            property_type: (order as any).property?.property_type,
+            property_status: (order as any).property?.property_status,
+            heading: (order as any).property?.heading,
+            description: (order as any).property?.description,
           } as any
+        )
+      }
+
+      const token = localStorage.getItem('token')
+      if (token && order.uuid) {
+        await EditOrder(
+          order.uuid,
+          {
+            areas: newAreas,
+            update_invoice: 0,
+            _method: 'PUT',
+          } as any,
+          token
         )
       }
 
@@ -278,8 +340,6 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
     const isOpen = openSections[sectionKey] ?? true
     const sectionTotal = total(list)
 
-    if (list.length === 0) return null
-
     return (
       <div className="mobile-card overflow-hidden !p-0">
         {/* Section header */}
@@ -308,10 +368,12 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
                 key={field.id}
                 className="flex items-center justify-between px-4 py-3"
               >
-                <label className="text-sm text-gray-600 flex-1 pr-3">
-                  {field.label}
-                </label>
-                <div className="relative">
+                <div className="flex items-center flex-1 pr-3">
+                  <label className="text-sm text-gray-600 truncate">
+                    {field.label}
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
                   <input
                     type="number"
                     inputMode="numeric"
@@ -325,9 +387,34 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
                     }}
                     placeholder="0"
                   />
+                  {userType !== 'agent' && (
+                    <button
+                      onClick={() => handleRemove(field.id, list, setList)}
+                      className="p-2 text-gray-400 hover:text-red-500 rounded-lg"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
+            
+            {userType !== 'agent' && (
+              <div className="px-4 py-3 bg-gray-50/50">
+                <Button
+                  variant="ghost"
+                  className="w-full text-[#4290E9] hover:bg-blue-50 h-10 border border-dashed border-[#4290E9]/30"
+                  onClick={() => {
+                    const category =
+                      sectionKey === 'finished' ? 'Finished' : sectionKey === 'subtotal' ? 'Subtotal' : 'Other';
+                    setDialogDefaultCategory(category);
+                    setOpenAddDialog(true);
+                  }}
+                >
+                  + Add area
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -338,7 +425,7 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
   return (
     <div className="min-h-screen font-alexandria" style={{ backgroundColor: roleSettings.pageBg }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b px-4 py-3">
+      <div className="relative z-10 bg-white border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
@@ -347,13 +434,18 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
             <ArrowLeft className="w-4 h-4 text-gray-600" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-gray-900 truncate">
+            <h1 className="text-[14px] font-semibold text-gray-900 truncate">
               Edit Square Footage
             </h1>
             <div className="flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
               <p className="text-xs text-gray-500 truncate">
-                {order.property_address || 'Unknown address'}
+                {[
+                  order.property_address,
+                  order.property_location,
+                  (order as any).property?.address,
+                  (order as any).property?.city
+                ].filter(Boolean).join(' ') || 'Address not provided'}
               </p>
             </div>
           </div>
@@ -361,7 +453,7 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
       </div>
 
       {/* Sections */}
-      <div className="p-4 space-y-3 pb-36">
+      <div className="p-4 space-y-3 pb-[200px]">
         {renderSection('Finished Area', 'finished', finishedAreas, setFinishedAreas)}
         {renderSection('Subtotal Area', 'subtotal', subtotalAreas, setSubtotalAreas)}
         {renderSection('Other', 'other', otherAreas, setOtherAreas)}
@@ -404,6 +496,14 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
           </Button>
         </div>
       </div>
+
+      <AddExtraDialog
+        open={openAddDialog}
+        onOpenChange={setOpenAddDialog}
+        onAddExtra={handleAddExtra}
+        defaultCategory={dialogDefaultCategory}
+        tourSettings={tourSettings}
+      />
     </div>
   )
 }

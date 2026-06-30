@@ -529,7 +529,7 @@ const OrderForm = () => {
                 accentColor={roleSettings.pageTabColor}
                 description="Please sign in or sign up for scheduling."
             />
-            <div ref={headerRef} className={`w-full h-[80px] font-alexandria sticky ${isBookNowMode ? 'top-[104px]' : 'top-0'} z-50 flex justify-between px-[20px] items-center border-b`} style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className={`w-full min-h-[80px] h-auto py-3 md:py-0 font-alexandria sticky ${isBookNowMode ? 'top-[104px]' : 'top-0'} z-50 flex flex-col md:flex-row justify-between gap-3 md:gap-0 px-[20px] items-center border-b`} style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
                     {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
                 <div className='flex gap-2'>
@@ -580,7 +580,7 @@ const OrderForm = () => {
 
 
             </div>
-            <div className={`sticky ${isBookNowMode ? 'top-[184px]' : 'top-[80px]'} z-40 flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm`} style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >
+            <div className={`sticky ${isBookNowMode ? 'top-[184px]' : 'top-[80px]'} z-40 flex justify-center items-center gap-x-2.5 px-0 sm:px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm`} style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >
                 <OrderStepper
                     currentTab={active}
                     onTabChange={handleTabClick}

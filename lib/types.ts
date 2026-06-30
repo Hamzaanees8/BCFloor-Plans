@@ -345,6 +345,12 @@ export interface ListingOrder {
             thumbnail_url?: string;
         }[];
     }[];
+    areas?: {
+        footage: number;
+        type: string;
+        id: number;
+        uuid: string;
+    }[];
 }
 
 export interface Listings {

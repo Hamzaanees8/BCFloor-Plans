@@ -235,9 +235,9 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
         {isOpen && (
           <div className="p-4 space-y-3 bg-white">
             {list.map(field => (
-              <div key={field.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full pb-2 sm:pb-0 border-b sm:border-none border-gray-100">
-                <span className="w-full sm:w-[120px] text-[13px] sm:text-[14px] font-medium sm:font-normal truncate">{field.label}</span>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div key={field.id} className="flex flex-row items-center justify-between gap-2 w-full pb-2 sm:pb-0 border-b sm:border-none border-gray-100">
+                <span className="flex-1 text-[13px] sm:text-[14px] font-medium sm:font-normal truncate pr-2">{field.label}</span>
+                <div className="flex items-center gap-2 w-auto">
                   <Input
                     type="number"
                     min={0}
@@ -249,24 +249,24 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
                       handleChange(field.id, list, setList, { value: isNaN(value) ? 0 : value });
                     }}
                     readOnly={userType === 'agent'}
-                    className="flex-1 sm:w-[130px] h-[36px] sm:h-[42px] border-[#7D7D7D] bg-[#EEEEEE] text-[14px] sm:text-[16px] border appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-[80px] sm:w-[130px] h-[40px] sm:h-[42px] text-right sm:text-left sm:bg-[#EEEEEE] sm:border-[#7D7D7D] bg-white border-gray-200 text-[16px] font-semibold sm:font-normal rounded-lg sm:rounded-md border appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
-                  <span className="text-[13px] sm:text-[14px]">FT²</span>
+                  <span className="hidden sm:inline text-[13px] sm:text-[14px]">FT²</span>
                   {userType !== 'agent' && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-[#666666] hover:text-red-500 shrink-0 h-[36px] w-[36px]"
+                      className="text-gray-400 sm:text-[#666666] hover:text-red-500 shrink-0 h-[36px] w-[36px]"
                       onClick={() => handleRemove(field.id, list, setList)}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5 sm:w-4 sm:h-4" />
                     </Button>
                   )}
                 </div>
               </div>
             ))}
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center sm:pr-[50px] w-full max-w-[400px] gap-2 pt-2">
+            <div className="flex flex-row justify-between items-center sm:pr-[50px] w-full max-w-[400px] gap-2 pt-2">
               {userType !== 'agent' && (
                 <Button
                   className='text-[#4290E9] hover:bg-blue-50 p-0 h-auto'
@@ -279,7 +279,7 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
                   +Add area
                 </Button>
               )}
-              {showTotal && <div className="font-semibold w-full sm:w-auto flex justify-between sm:block"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
+              {showTotal && <div className="font-semibold flex gap-4 text-gray-700 sm:text-black"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
             </div>
           </div>
         )}

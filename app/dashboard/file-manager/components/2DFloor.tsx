@@ -1057,7 +1057,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                         <div className="w-full md:w-[700px] pt-4 md:pt-6 overflow-x-auto">
                             <SquareFootage
                                 currentOrder={orderData || undefined}
-                                isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                             />
                         </div>
                     </div>

@@ -12,7 +12,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileVendorToday from '@/components/mobile/vendor/MobileVendorToday';
-import MobileAdminDashboard from '@/components/mobile/admin/MobileAdminDashboard';
+
 
 type Vendor = {
     uuid?: string;
