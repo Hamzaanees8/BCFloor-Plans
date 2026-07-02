@@ -90,10 +90,10 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             {!isUnpaidAgent && (
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
                 {/* Branded */}
-                <div className='flex items-end gap-x-5 w-[474px]'>
+                <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
                     {brandedLinks.length > 0 && (
-                        <div className='flex items-end gap-x-5'>
-                            <div className="flex flex-col gap-y-4 w-[474px]">
+                        <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
+                            <div className="flex flex-col gap-y-4 w-full">
                                 <Label className="text-[16px] text-[#424242]">
                                     3D Tour Link - Branded
                                 </Label>
@@ -118,10 +118,10 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                 </div>
 
                 {/* Unbranded */}
-                <div className='flex items-end gap-x-5 w-[474px]'>
+                <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
                     {unbrandedLinks.length > 0 && (
-                        <div className='flex items-end gap-x-5'>
-                            <div className="flex flex-col gap-y-4 w-[474px]">
+                        <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
+                            <div className="flex flex-col gap-y-4 w-full">
                                 <Label className="text-[16px] text-[#424242]">
                                     3D Tour Link - Unbranded
                                 </Label>
@@ -149,23 +149,23 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             </div>
             )}
             <div className='w-full'>
-                <Accordion type="single" defaultValue="Preview" className="w-full">
-                    <AccordionItem value="Preview">
-                        <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                            Matterport Preview
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
-                                {isUnpaidAgent ? (
-                                    <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
-                                        You have not paid for this service yet. Pay the service to visit/view Matterport.
-                                    </div>
-                                ) : (
-                                    <>
-                                        {brandedLinks.map(
+                <Accordion type="single" collapsible className="w-full">
+                    {brandedLinks.some(l => isValidUrl(l.link)) && (
+                        <AccordionItem value="Preview-Branded">
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                Matterport Preview-Branded
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                    {isUnpaidAgent ? (
+                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    ) : (
+                                        brandedLinks.map(
                                             (link, idx) =>
                                                 isValidUrl(link.link) && (
-                                                    <div key={`preview-branded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                    <div key={`preview-branded-${idx}`} className="relative w-full px-4 md:px-0 md:w-[80%] h-[300px] md:h-[500px]">
                                                         <iframe
                                                             src={link.link}
                                                             className="w-full h-full border"
@@ -173,12 +173,29 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                                         ></iframe>
                                                     </div>
                                                 )
-                                        )}
+                                        )
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
 
-                                        {unbrandedLinks.map(
+                    {unbrandedLinks.some(l => isValidUrl(l.link)) && (
+                        <AccordionItem value="Preview-Unbranded">
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                Matterport Preview-Unbranded
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                    {isUnpaidAgent ? (
+                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    ) : (
+                                        unbrandedLinks.map(
                                             (link, idx) =>
                                                 isValidUrl(link.link) && (
-                                                    <div key={`preview-unbranded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                    <div key={`preview-unbranded-${idx}`} className="relative w-full px-4 md:px-0 md:w-[80%] h-[300px] md:h-[500px]">
                                                         <iframe
                                                             src={link.link}
                                                             className="w-full h-full border"
@@ -186,23 +203,19 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                                         ></iframe>
                                                     </div>
                                                 )
-                                        )}
+                                        )
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
 
-                                        {/* Fallback if no valid URLs */}
-                                        {brandedLinks.every(l => !isValidUrl(l.link)) &&
-                                            unbrandedLinks.every(l => !isValidUrl(l.link)) && (
-                                                <p className="text-gray-500">
-                                                    Enter a valid link to preview the 3D tour
-                                                </p>
-                                            )}
-                                    </>
-                                )}
-                            </div>
-
-                        </AccordionContent>
-                    </AccordionItem>
+                    {brandedLinks.every(l => !isValidUrl(l.link)) && unbrandedLinks.every(l => !isValidUrl(l.link)) && (
+                        <div className="w-full flex justify-center py-8">
+                            <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
+                        </div>
+                    )}
                 </Accordion>
-
             </div>
         </div>
             </div>

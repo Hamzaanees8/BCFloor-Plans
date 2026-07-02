@@ -38,7 +38,7 @@ export default function MobilePrintRequestsList({
 }: MobilePrintRequestsListProps) {
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="space-y-2">
@@ -54,7 +54,7 @@ export default function MobilePrintRequestsList({
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500">
+      <div className="p-8 pb-20 text-center text-red-500">
         Failed to load print requests. Please try again.
       </div>
     );
@@ -62,14 +62,14 @@ export default function MobilePrintRequestsList({
 
   if (requests.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 pb-20 text-center text-gray-400">
         No print requests found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {requests.map((req) => {
         const date = new Date(req.created_at).toLocaleDateString('en-US', {
           year: 'numeric',

@@ -117,7 +117,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="w-[95%] md:w-[800px] max-w-[900px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden bg-white">
                 <DialogHeader className="mb-2">
-                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-3 uppercase`}>
+                    <DialogTitle className={`flex items-start md:items-center justify-between ${userType}-text text-[16px] md:text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-3 uppercase`}>
                         <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-2">
                                 <span>Hidden Media</span>
@@ -272,8 +272,8 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                 </div>
 
                 <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-alexandria border-t pt-4">
-                    <div className="flex w-full items-center justify-between">
-                        <p className="text-[14px] text-[#666666]">
+                    <div className="flex flex-col md:flex-row w-full items-center justify-between gap-4 md:gap-0">
+                        <p className="text-[14px] text-[#666666] self-start md:self-auto">
                             {isFetching ? (
                                 <span className="flex items-center gap-1.5 text-[13px]">
                                     <Loader2 size={13} className="animate-spin" /> Loading hidden media...
@@ -282,19 +282,19 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                                 `${selectedUuids.size} items selected`
                             )}
                         </p>
-                        <div className="flex gap-[10px]">
+                        <div className="flex w-full md:w-auto gap-[10px] justify-between md:justify-end">
                             <Button 
                                 onClick={onClose} 
                                 variant="outline" 
                                 disabled={isLoading}
-                                className={`bg-white w-[100px] h-[40px] text-[16px] font-[400] ${userType}-text ${userType}-border hover-${userType}-bg hover:opacity-95 ${userType}-button`}
+                                className={`bg-white flex-1 md:flex-none md:w-[100px] h-[40px] text-[14px] md:text-[16px] font-[400] ${userType}-text ${userType}-border hover-${userType}-bg hover:opacity-95 ${userType}-button`}
                             >
                                 Cancel
                             </Button>
                             <Button 
                                 onClick={handleUnhide} 
                                 disabled={selectedUuids.size === 0 || isLoading || !!isFetching}
-                                className={`${userType}-border hover:opacity-95 text-white ${userType}-bg hover-${userType}-bg h-[40px] px-6 font-[400] text-[16px] min-w-[150px]`}
+                                className={`${userType}-border hover:opacity-95 text-white ${userType}-bg hover-${userType}-bg h-[40px] px-2 md:px-6 font-[400] text-[14px] md:text-[16px] flex-1 md:flex-none md:min-w-[150px]`}
                             >
                                 {isLoading ? (
                                     <>

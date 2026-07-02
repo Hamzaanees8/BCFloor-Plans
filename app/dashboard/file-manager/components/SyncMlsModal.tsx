@@ -54,6 +54,18 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   const { startUpload } = useGlobalFileUpload();
   const [isGlobalSaving, setGlobalSaving] = useState(false);
 
+  // Mobile layout state
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const mlsInputRef = React.useRef<HTMLInputElement>(null);
+  const [showMlsError, setShowMlsError] = useState(false);
+
   const performValidation = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -106,6 +118,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
   const handleMlsChange = (val: string) => {
     setMlsNumber(val);
+    setShowMlsError(false);
     performValidation(val);
     if (val.trim() === '' || !/^[A-Z0-9]{7,12}$/i.test(val.trim())) {
       setSelectedFiles([]);
@@ -116,7 +129,12 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   const totalFilesCount = validApiFiles.length;
 
   const handleSelectAllGlobal = (checked: boolean) => {
-    if (!isMlsValid) return;
+    if (!mlsNumber.trim() || !isMlsValid) {
+      setShowMlsError(true);
+      mlsInputRef.current?.focus();
+      mlsInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     if (checked) {
       setSelectedFiles(validApiFiles.map((f) => f.uuid));
     } else {
@@ -125,11 +143,16 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   };
 
   const handleToggleFile = useCallback((fileId: string) => {
-    if (!isMlsValid) return;
+    if (!mlsNumber.trim() || !isMlsValid) {
+      setShowMlsError(true);
+      mlsInputRef.current?.focus();
+      mlsInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSelectedFiles((prev) =>
       prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
     );
-  }, [isMlsValid]);
+  }, [isMlsValid, mlsNumber]);
 
   const handlePhotoOrderChange = useCallback((newItems: FileItem[]) => {
     setPhotoItems(newItems);
@@ -344,11 +367,12 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
               <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
             </div>
           </div>
-          <div className="flex items-center justify-between px-2 py-2 bg-white text-[13px] border-t border-[#E4E4E4]">
-            <p className="text-[#424242] font-semibold truncate max-w-[80%]">
+
+          <div className={`items-center justify-between px-2 py-2 bg-white text-[13px] border-t border-[#E4E4E4] ${isReorderMode ? 'hidden md:flex' : 'flex'}`}>
+            <p className="text-[#424242] font-semibold truncate max-w-[80%] text-[10px] md:text-[13px]">
               {file.group?.trim() ? file.group : file.name}
             </p>
-            <span className="text-[#999] text-[10px] uppercase ml-1 shrink-0">
+            <span className="text-[#999] text-[8px] md:text-[10px] uppercase ml-1 shrink-0">
               {file.type}
             </span>
           </div>
@@ -377,18 +401,19 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-2 sidebar-scroll mt-4">
+        <div className="flex-1 overflow-y-auto pr-2 sidebar-scroll mt-4 flex flex-col">
           {/* MLS Number Field */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-[#E4E4E4] mb-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-[#E4E4E4] mb-4 order-2 md:order-1">
             <p className={`text-[14px] font-semibold ${userType}-text mb-2 uppercase tracking-wider`}>
               MLS Number {isMlsMissing && <span className="text-red-500">*</span>}
             </p>
             <div className="relative">
               <Input
+                ref={mlsInputRef}
                 value={mlsNumber}
                 onChange={(e) => handleMlsChange(e.target.value)}
                 placeholder="e.g. X1234567"
-                className={`h-[44px] pr-10 ${mlsStatus === 'valid' ? 'border-green-500' : mlsStatus === 'invalid' ? 'border-red-400' : 'border-[#BBBBBB]'
+                className={`h-[44px] pr-10 ${(mlsStatus === 'valid' && !showMlsError) ? 'border-green-500' : (mlsStatus === 'invalid' || showMlsError) ? 'border-red-400 focus-visible:ring-red-400' : 'border-[#BBBBBB]'
                   }`}
                 disabled={isSyncing || isExistingMls}
               />
@@ -397,13 +422,19 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                 {mlsStatus === 'invalid' && <AlertCircle className="w-4 h-4 text-red-500" />}
               </div>
             </div>
-            {mlsStatus === 'invalid' && (
+            {mlsStatus === 'invalid' && !showMlsError && (
               <p className="text-red-500 text-[12px] mt-1 italic flex items-center gap-1">
                 <AlertCircle className="w-3 h-3 shrink-0" />
                 Invalid MLS format. Use Letter+7-8 digits (CA) or 7-10 digits (US).
               </p>
             )}
-            {isMlsMissing && mlsStatus === 'idle' && (
+            {showMlsError && (
+              <p className="text-red-500 text-[13px] mt-2 font-semibold flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Please enter an MLS Number before selecting media for sync.
+              </p>
+            )}
+            {isMlsMissing && mlsStatus === 'idle' && !showMlsError && (
               <p className={`${userType}-text opacity-70 text-[12px] mt-1 italic flex items-center gap-1`}>
                 <Info className="w-3 h-3 shrink-0" />
                 Enter your mls number to sync to mls.
@@ -412,7 +443,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
           </div>
 
           {/* Info Box */}
-          <div className="mb-4 p-4 rounded-lg flex gap-3 items-start border border-blue-200 bg-blue-50/50">
+          <div className="mb-4 p-4 rounded-lg flex gap-3 items-start border border-blue-200 bg-blue-50/50 order-1 md:order-2">
             <Info className="w-5 h-5 shrink-0 text-blue-500 mt-0.5" />
             <div className="text-[13px] text-blue-900/80 leading-relaxed">
               <p className="font-semibold text-blue-900 mb-1 text-[14px]">MLS Photo Order Information</p>
@@ -426,7 +457,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
           </div>
 
           {totalFilesCount > 0 ? (
-            <>
+            <div className="order-3">
               <div className="flex items-center justify-between mb-4 px-2">
                 <div className="flex items-center gap-x-2.5">
                   <div
@@ -446,7 +477,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                   </label>
                 </div>
                 {isReorderMode ? (
-                  <div className="hidden md:flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -469,7 +500,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                   <Button
                     variant="outline"
                     size="sm"
-                    className="hidden md:flex h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
+                    className="flex md:flex h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
                     onClick={() => setIsReorderMode(true)}
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
@@ -487,13 +518,13 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                     onOrderChange={handlePhotoOrderChange}
                     mode={isReorderMode ? "reorder" : "upload"}
                     renderItem={renderPhotoCard}
-                    columns={4}
+                    columns={isMobile ? 2 : 4}
                   />
                 </div>
               )}
-            </>
+            </div>
           ) : (
-            <div className="bg-white p-8 rounded-lg border border-[#E4E4E4] flex flex-col items-center justify-center text-center">
+            <div className="bg-white p-8 rounded-lg border border-[#E4E4E4] flex flex-col items-center justify-center text-center order-3">
               <Package className="w-12 h-12 text-gray-300 mb-4" />
               <p className={`${userType}-text font-semibold text-[16px] mb-1`}>
                 No media available for sync.

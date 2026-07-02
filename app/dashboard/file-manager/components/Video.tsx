@@ -847,7 +847,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    files: prev.files.filter(f => !filesToHide.has(f.uuid))
+                    files: prev.files.map(f => filesToHide.has(f.uuid) ? { ...f, is_hidden: true } : f)
                 };
             });
         } catch (error: any) {
@@ -863,7 +863,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
                         ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
                         : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
@@ -890,7 +890,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
                         ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
                         : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
                     }`}

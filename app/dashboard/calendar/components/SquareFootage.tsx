@@ -129,14 +129,31 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
 
     const isCalculated = areas.length > 0;
 
+    const isRestricted = useMemo(() => {
+        if (userType !== 'agent') return false;
+        
+        // Find if there's a floor plan service
+        const floorPlanService = currentOrder?.services?.find((s: any) => 
+            s.service?.category?.name?.toLowerCase().includes("floor plan") || 
+            s.service?.name?.toLowerCase().includes("floor plan")
+        );
+
+        if (floorPlanService) {
+            const isPaid = floorPlanService.payment_status === "PAID" || currentOrder?.payment_status === "PAID";
+            return !isPaid;
+        }
+        
+        return false;
+    }, [currentOrder, userType]);
+
     /** Plain-text copy-ready string, rebuilt only when data changes */
     const formattedText = useMemo(() => {
-        if (!isCalculated) return '';
+        if (!isCalculated || isRestricted) return '';
         const address = [currentOrder?.property_address, currentOrder?.property_location]
             .filter(Boolean)
             .join(', ');
         return buildSquareFootageText(address, areas, titles);
-    }, [areas, titles, currentOrder?.property_address, currentOrder?.property_location, isCalculated]);
+    }, [areas, titles, currentOrder?.property_address, currentOrder?.property_location, isCalculated, isRestricted]);
 
     const handleCopy = useCallback(() => {
         if (!formattedText) return;
@@ -155,6 +172,10 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
             {!isCalculated ? (
                 <div className="flex flex-col items-center justify-center py-8 text-[#7D7D7D]">
                     <p className="text-[15px] italic">Square footage has not been calculated/uploaded yet.</p>
+                </div>
+            ) : isRestricted ? (
+                <div className="flex flex-col items-center justify-center py-8 text-[#7D7D7D]">
+                    <p className="text-[15px] italic text-[#E06D5E]">Square footage details are hidden because the floor plan service is not paid yet.</p>
                 </div>
             ) : (
                 <>

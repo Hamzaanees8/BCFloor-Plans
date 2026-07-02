@@ -249,7 +249,7 @@ export default function MobileAdminDashboard() {
 
   return (
     <div className="flex flex-col h-full font-alexandria">
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-20">
         {/* Summary Cards */}
         <div className="px-4 pt-4 pb-2">
           <div className="grid grid-cols-2 gap-3">

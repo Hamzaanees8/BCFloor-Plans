@@ -26,7 +26,7 @@ import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { toast } from "sonner";
-import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoiceExtraItems } from "../../invoice/invoice_api";
+import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoiceExtraItems, UpdateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import {
   Dialog,
@@ -237,6 +237,8 @@ const FileManager = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [isEditingInvoice, setIsEditingInvoice] = useState<boolean>(false);
+  const [editingInvoiceData, setEditingInvoiceData] = useState<any>(null);
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -1248,15 +1250,86 @@ const FileManager = () => {
         {/* Invoice Document View Modal */}
         <Dialog
           open={!!viewingInvoice}
-          onOpenChange={(open) => !open && setViewingInvoice(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setViewingInvoice(null);
+              setIsEditingInvoice(false);
+              setEditingInvoiceData(null);
+            }
+          }}
         >
           <DialogContent className="max-w-4xl w-[95vw] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
             {viewingInvoice && (
               <>
                 <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
-                  <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
-                    Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
-                    <div className="flex items-center gap-4">
+                  <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
+                    <div className="flex flex-col items-start w-full md:w-auto">
+                        <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: `var(--${userType}-page-tab-color)` }}>
+                            Invoice
+                        </span>
+                        <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                            #{viewingInvoice.invoice_number || viewingInvoice.id}
+                        </span>
+                    </div>
+                    
+                    <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
+                      {userType === "admin" &&
+                        viewingInvoice.status?.toUpperCase() !== "PAID" &&
+                        viewingInvoice.status?.toUpperCase() !== "VOID" && (
+                          isEditingInvoice ? (
+                            <div className="flex gap-2 w-full md:w-auto flex-1">
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    await UpdateInvoice(viewingInvoice.uuid, {
+                                      notes: editingInvoiceData.notes,
+                                      tax_rate: editingInvoiceData.tax_rate,
+                                      items: editingInvoiceData.items.map((item: any) => ({
+                                        uuid: item.uuid,
+                                        description: item.description,
+                                        quantity: parseInt(item.quantity || "1", 10),
+                                        unit_price: parseFloat(item.unit_price || "0"),
+                                        order_service_uuid: item.order_service?.uuid || item.orderService?.uuid || item.order_service_uuid
+                                      }))
+                                    });
+                                    toast.success("Invoice updated successfully!");
+                                    setIsEditingInvoice(false);
+                                    
+                                    if (orderData?.uuid) {
+                                      const updatedInvoices = await GetInvoicesByOrder(orderData.uuid);
+                                      setInvoices(Array.isArray(updatedInvoices.data) ? updatedInvoices.data : []);
+                                      const updatedInvoice = Array.isArray(updatedInvoices.data) ? updatedInvoices.data.find((i: any) => i.uuid === viewingInvoice.uuid) : null;
+                                      if (updatedInvoice) setViewingInvoice(updatedInvoice);
+                                    }
+                                  } catch (error) {
+                                    console.error("Error updating invoice:", error);
+                                    toast.error("Failed to update invoice");
+                                  }
+                                }}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                              >
+                                Save Changes
+                              </Button>
+                              <Button
+                                onClick={() => setIsEditingInvoice(false)}
+                                variant="outline"
+                                className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                setIsEditingInvoice(true);
+                                setEditingInvoiceData(JSON.parse(JSON.stringify(viewingInvoice)));
+                              }}
+                              className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                            >
+                              Update Invoice
+                            </Button>
+                          )
+                      )}
                       {userType !== "vendor" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
                         viewingInvoice.status?.toUpperCase() !== "VOID" && (
@@ -1266,19 +1339,19 @@ const FileManager = () => {
                                 handlePayInvoice(viewingInvoice);
                                 setViewingInvoice(null);
                               }}
-                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
+                              className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
                             >
                               Pay Now
                             </Button>
                           ) : (
-                            <div className="flex gap-2">
-                              {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
+                              <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
+                                {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
                                 <Button
                                   onClick={() => {
                                     handlePayInvoice(viewingInvoice, "on_behalf");
                                     setViewingInvoice(null);
                                   }}
-                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
+                                  className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
                                 >
                                   Pay on Behalf
                                 </Button>
@@ -1289,7 +1362,7 @@ const FileManager = () => {
                                     handlePayInvoice(viewingInvoice, "self");
                                     setViewingInvoice(null);
                                   }}
-                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
+                                  className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
                                 >
                                   Pay Self
                                 </Button>
@@ -1297,10 +1370,11 @@ const FileManager = () => {
                             </div>
                           )
                         )}
-                      <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
-                        <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                      </Button>
                     </div>
+                    
+                    <Button className="absolute right-0 top-0 md:static border-none !shadow-none bg-transparent hover:bg-transparent p-0 md:ml-4 shrink-0 transition-opacity hover:opacity-70" onClick={() => setViewingInvoice(null)}>
+                      <X className="!w-[22px] !h-[22px] cursor-pointer text-[#7D7D7D]" />
+                    </Button>
                   </DialogTitle>
                 </DialogHeader>
 
@@ -1308,13 +1382,45 @@ const FileManager = () => {
                   <div className="flex flex-col items-center">
                     <InvoiceDocument
                       invoice={viewingInvoice}
-                      editData={viewingInvoice}
-                      isEditing={false}
-                      updateItem={() => { }}
-                      addItem={() => { }}
-                      removeItem={() => { }}
-                      updateTaxRate={() => { }}
-                      setEditData={() => { }}
+                      editData={editingInvoiceData || viewingInvoice}
+                      isEditing={isEditingInvoice}
+                      updateItem={(index, field, value) => {
+                        setEditingInvoiceData((prev: any) => {
+                          const newItems = [...prev.items];
+                          newItems[index][field] = value;
+                          newItems[index].amount = (parseFloat(newItems[index].quantity || "0") * parseFloat(newItems[index].unit_price || "0")).toFixed(2);
+                          
+                          const subtotal = newItems.reduce((acc: number, item: any) => acc + parseFloat(item.amount || '0'), 0);
+                          const taxAmount = subtotal * (parseFloat(prev.tax_rate || "0") / 100);
+                          const total = subtotal + taxAmount;
+
+                          return { ...prev, items: newItems, subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                        });
+                      }}
+                      addItem={() => {
+                        setEditingInvoiceData((prev: any) => ({
+                          ...prev,
+                          items: [...prev.items, { description: '', quantity: 1, unit_price: 0, amount: 0 }]
+                        }));
+                      }}
+                      removeItem={(index) => {
+                        setEditingInvoiceData((prev: any) => {
+                          const newItems = prev.items.filter((_: any, i: number) => i !== index);
+                          const subtotal = newItems.reduce((acc: number, item: any) => acc + parseFloat(item.amount || '0'), 0);
+                          const taxAmount = subtotal * (parseFloat(prev.tax_rate || "0") / 100);
+                          const total = subtotal + taxAmount;
+                          return { ...prev, items: newItems, subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                        });
+                      }}
+                      updateTaxRate={(val) => {
+                        setEditingInvoiceData((prev: any) => {
+                          const subtotal = parseFloat(prev.subtotal || "0");
+                          const taxAmount = subtotal * (parseFloat(val || "0") / 100);
+                          const total = subtotal + taxAmount;
+                          return { ...prev, tax_rate: val, tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                        });
+                      }}
+                      setEditData={setEditingInvoiceData}
                       roleSettings={{
                         pageTabColor: `var(--${userType}-page-tab-color, #4290E9)`,
                         pageBg: `var(--${userType}-page-bg, #FFFFFF)`,
@@ -1438,10 +1544,10 @@ const FileManager = () => {
             }`}
           style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
         >
-          <div className="flex items-center justify-start md:justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none px-2 md:px-4">
-            <div className="flex items-center gap-x-2 md:gap-x-6 shrink-0 w-max mx-auto md:w-auto">
+          <div className="flex items-center justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none px-2 md:px-4">
+            <div className="flex items-center justify-center gap-x-2 md:gap-x-6 shrink-0 w-full md:w-auto">
               <div
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 min-w-fit md:min-w-[95px] ${isScrolled ? "h-[26px] w-auto md:w-[120px]" : "h-[30px] w-auto md:w-[150px]"
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
                   } ${true
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `text-[#666666] font-[700]`
@@ -1457,7 +1563,7 @@ const FileManager = () => {
               {userType !== 'vendor' && (
                 <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
-                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 min-w-fit md:min-w-[95px] ${isScrolled ? "h-[26px] w-auto md:w-[120px]" : "h-[30px] w-auto md:w-[150px]"
+                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
                     } ${false
                       ? `${userType}-bg text-white font-[700] ${userType}-border`
                       : `text-[#666666] font-[700]`
@@ -1473,7 +1579,7 @@ const FileManager = () => {
               )}
               <SafeLink
                 href={`/dashboard/orders/${orderId}`}
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 min-w-fit md:min-w-[95px] ${isScrolled ? "h-[26px] w-auto md:w-[120px]" : "h-[30px] w-auto md:w-[150px]"
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
                   } ${false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `text-[#666666] font-[700]`
@@ -1821,7 +1927,7 @@ const FileManager = () => {
         );
       })()}
 
-      <div>{renderContent()}</div>
+      <div className="pb-24 md:pb-0">{renderContent()}</div>
 
       <HiddenMediaModal
         open={isHiddenMediaModalOpen}

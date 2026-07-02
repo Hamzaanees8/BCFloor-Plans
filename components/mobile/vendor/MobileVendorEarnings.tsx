@@ -103,7 +103,7 @@ export default function MobileVendorEarnings() {
 
   if (loading) {
     return (
-      <div className="font-alexandria p-4 space-y-4">
+      <div className="font-alexandria p-4 space-y-4 pb-20">
         <Skeleton className="h-7 w-40" />
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3].map((i) => (

@@ -3,7 +3,8 @@ import {
     DndContext,
     closestCenter,
     KeyboardSensor,
-    PointerSensor,
+    MouseSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragEndEvent,
@@ -67,9 +68,15 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
     const [activeId, setActiveId] = React.useState<string | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(MouseSensor, {
             activationConstraint: {
-                distance: 5, // 5px movement before drag starts to allow clicking inside
+                distance: 5,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250, // 250ms press before drag starts, allows normal scrolling
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor, {

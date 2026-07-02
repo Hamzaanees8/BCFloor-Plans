@@ -488,7 +488,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className="cursor-pointer absolute top-2 left-2 z-10"
+                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const fileKey = `${file.file.name}-${file.file.size}`;
@@ -619,7 +619,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setFilesToHide(prev => {
@@ -656,7 +656,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className="cursor-pointer absolute top-2 left-2 z-10"
+                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setFilesData(prev => {
@@ -702,7 +702,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200"
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:flex' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (file.is_admin_approved) {
@@ -759,7 +759,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
                             {userType === 'agent' && !file.is_complimentary && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:flex' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
@@ -863,12 +863,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     )}
                 </div>
                 <div
-                    className='grid grid-cols-2 gap-1 justify-between items-center px-1 py-1'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: '14px' }}
+                    className="grid grid-cols-2 gap-1 justify-between items-center px-1 py-1"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                 >
                     {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{isLocal ? file.file.name : file.name}</p> */}
-                    <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
-                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}>
+                    <div className='col-span-2 flex items-center justify-between overflow-hidden'>
+                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1 text-[9px] md:text-[14px]'>
                             <CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})
                             {file.is_hidden && (
                                 <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
@@ -1022,7 +1022,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    files: prev.files.filter(f => !filesToHide.has(f.uuid))
+                    files: prev.files.map(f => filesToHide.has(f.uuid) ? { ...f, is_hidden: true } : f)
                 };
             });
         } catch (error: any) {
@@ -1176,7 +1176,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
                     ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
                     : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
@@ -1198,7 +1198,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <Button
                     onClick={() => setIsBulkDeselecting(true)}
                     variant="outline"
-                    className="h-8 px-4 text-sm font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white"
+                    className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white"
                 >
                     Bulk Remove
                 </Button>
@@ -1210,14 +1210,14 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             setBulkDeselectedIds(new Set());
                         }}
                         variant="ghost"
-                        className="h-8 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+                        className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
                     >
                         Cancel
                     </Button>
                     <Button
                         disabled={bulkDeselectedIds.size === 0}
                         onClick={handleBulkDeselectDone}
-                        className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white"
+                        className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white"
                     >
                         Done ({bulkDeselectedIds.size})
                     </Button>
@@ -1232,7 +1232,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
                     ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none'
                     : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
                     }`}
@@ -1669,7 +1669,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         disabled={userType === 'agent'}
                         onSave={onSave}
                         savedFilesAction={adminSavedFilesAction}
-                        modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
+                        modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}
                         unselectedAction={unselectedAction}
                         unselectedSubHeader={unselectedSubHeader}
                         selectedAction={selectedAction}

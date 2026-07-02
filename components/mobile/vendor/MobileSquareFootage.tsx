@@ -296,7 +296,7 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
   /* ── Loading state ──────────────────────────────────────────────────── */
   if (loading) {
     return (
-      <div className="min-h-screen font-alexandria p-4 space-y-4" style={{ backgroundColor: roleSettings.pageBg }}>
+      <div className="min-h-screen font-alexandria p-4 space-y-4 pb-20" style={{ backgroundColor: roleSettings.pageBg }}>
         <div className="flex items-center gap-3 mb-4">
           <Skeleton className="w-8 h-8 rounded" />
           <Skeleton className="h-5 w-48" />
@@ -423,7 +423,7 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
 
   /* ── Render ─────────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen font-alexandria" style={{ backgroundColor: roleSettings.pageBg }}>
+    <div className="min-h-screen font-alexandria pb-20" style={{ backgroundColor: roleSettings.pageBg }}>
       {/* Header */}
       <div className="relative z-10 bg-white border-b px-4 py-3">
         <div className="flex items-center gap-3">

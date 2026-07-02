@@ -415,9 +415,31 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [imagesPerRow, setImagesPerRow] = useState<number>(4);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.innerWidth < 768) {
-            setImagesPerRow(2);
+        if (typeof window === 'undefined') return;
+        
+        let isMobile = window.innerWidth < 768;
+        
+        const handleResize = () => {
+            const currentIsMobile = window.innerWidth < 768;
+            
+            if (currentIsMobile !== isMobile) {
+                // Crossed breakpoint
+                isMobile = currentIsMobile;
+                if (isMobile) {
+                    setImagesPerRow(1);
+                } else {
+                    setImagesPerRow(prev => prev === 1 ? 4 : prev);
+                }
+            }
+        };
+        
+        // Initial setup
+        if (isMobile) {
+            setImagesPerRow(1);
         }
+        
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [isHidingMode, setIsHidingMode] = useState<boolean>(false);

@@ -214,8 +214,8 @@ const InvoicePreviewPage = () => {
     return (
         <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
             {/* Standard Whitelabel Header */}
-            <div className="sticky top-0 z-50 flex h-[80px] items-center justify-between px-[20px] no-print font-alexandria" 
-                 style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
+            <div className="sticky top-0 z-50 flex h-[80px] items-center justify-between px-[20px] no-print font-alexandria"
+                style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
                 <div className="flex items-center gap-4">
                     <h1 className="text-[16px] md:text-[24px] font-[400]" style={{ color: roleSettings.pageTabColor }}>
                         Invoice #{invoice.invoice_number || invoice.id}
@@ -224,18 +224,18 @@ const InvoicePreviewPage = () => {
                 <div className="flex gap-3">
                     {isEditing ? (
                         <>
-                            <Button 
-                                variant="outline" 
-                                className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]" 
-                                onClick={() => setIsEditing(false)} 
+                            <Button
+                                variant="outline"
+                                className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"
+                                onClick={() => setIsEditing(false)}
                                 disabled={saving}
                             >
                                 <X className="mr-2 h-4 w-4" /> Cancel
                             </Button>
-                            <Button 
-                                className="text-white h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110 active:scale-[0.98] transition-all" 
+                            <Button
+                                className="text-white h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110 active:scale-[0.98] transition-all"
                                 style={{ backgroundColor: roleSettings.pageTabColor }}
-                                onClick={handleSave} 
+                                onClick={handleSave}
                                 disabled={saving}
                             >
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} Save Changes
@@ -249,18 +249,18 @@ const InvoicePreviewPage = () => {
                                 </Button>
                             )}
                             {role === 'admin' && invoice.status === 'paid' && (
-                                <Button 
-                                    variant="outline" 
-                                    className="bg-orange-500 text-white hover:bg-orange-600 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]" 
-                                    onClick={handleRefund} 
+                                <Button
+                                    variant="outline"
+                                    className="bg-orange-500 text-white hover:bg-orange-600 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"
+                                    onClick={handleRefund}
                                     disabled={saving}
                                 >
                                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />} Refund
                                 </Button>
                             )}
                             {role === 'admin' && invoice.status !== 'paid' && (
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"
                                     style={{
                                         backgroundColor: roleSettings.pageBg,
@@ -272,8 +272,8 @@ const InvoicePreviewPage = () => {
                                     <Edit2 className="mr-2 h-4 w-4" /> Edit
                                 </Button>
                             )}
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"
                                 style={{
                                     backgroundColor: roleSettings.pageBg,
@@ -312,7 +312,7 @@ const InvoicePreviewPage = () => {
                 />
             </div>
 
-            <RefundModal 
+            <RefundModal
                 isOpen={isRefundModalOpen}
                 onClose={() => setIsRefundModalOpen(false)}
                 invoice={invoice}

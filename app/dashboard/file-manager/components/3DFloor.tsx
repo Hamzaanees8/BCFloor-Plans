@@ -678,50 +678,88 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
             </div>
 
             <div className='w-full'>
-                <Accordion type="single" defaultValue="Preview" className="w-full">
-                    <AccordionItem value="Preview">
-                        <AccordionTrigger
-                            className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current"
-                            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                        >
-                            Matterport Preview
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
-                                {userType === 'agent' && !isPaid && (
-                                    <div className="w-full md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
-                                        You have not paid for this service yet. Pay the service to visit/view Matterport.
-                                    </div>
-                                )}
-                                {isValidUrl(brandedLink) && canAgentView && (
-                                    <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
-                                        <iframe
-                                            src={brandedLink}
-                                            className="w-full h-full border"
-                                            allowFullScreen
-                                        ></iframe>
-                                    </div>
-                                )}
+                <Accordion type="multiple" defaultValue={["Preview-Branded", "Preview-Unbranded", "Preview"]} className="w-full">
+                    {(!isValidUrl(brandedLink) && !isValidUrl(unbrandedLink)) && (
+                        <AccordionItem value="Preview">
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current ${userType}-text`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >
+                                Matterport Preview
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                    {userType === 'agent' && !isPaid && (
+                                        <div className="w-full md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    )}
+                                    {canAgentView && (
+                                        <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
 
-                                {isValidUrl(unbrandedLink) && canAgentView && (
-                                    <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
-                                        <iframe
-                                            src={unbrandedLink}
-                                            className="w-full h-full border"
-                                            allowFullScreen
-                                        ></iframe>
-                                    </div>
-                                )}
+                    {isValidUrl(brandedLink) && (
+                        <AccordionItem value="Preview-Branded">
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current ${userType}-text`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >
+                                Matterport Preview-Branded
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                    {userType === 'agent' && !isPaid && (
+                                        <div className="w-full md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    )}
+                                    {canAgentView && (
+                                        <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
+                                            <iframe
+                                                src={brandedLink}
+                                                className="w-full h-full border"
+                                                allowFullScreen
+                                            ></iframe>
+                                        </div>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
 
-                                {canAgentView && !isValidUrl(brandedLink) && !isValidUrl(unbrandedLink) && (
-                                    <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
-                                )}
-                            </div>
-
-                        </AccordionContent>
-                    </AccordionItem>
+                    {isValidUrl(unbrandedLink) && (
+                        <AccordionItem value="Preview-Unbranded">
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current ${userType}-text`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >
+                                Matterport Preview-Unbranded
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                    {userType === 'agent' && !isPaid && (
+                                        <div className="w-full md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    )}
+                                    {canAgentView && (
+                                        <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
+                                            <iframe
+                                                src={unbrandedLink}
+                                                className="w-full h-full border"
+                                                allowFullScreen
+                                            ></iframe>
+                                        </div>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
                 </Accordion>
-
             </div>
         </div >
     )

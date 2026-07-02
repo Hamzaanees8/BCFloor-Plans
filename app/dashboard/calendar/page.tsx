@@ -204,7 +204,7 @@ const Page = () => {
 
     // Mobile views: show simplified role-specific views instead of complex calendar
     if (isMobile) {
-        return <MobileVendorToday />;
+        return <MobileVendorToday vendorData={vendorData as any} setVendorData={setVendorData as any} />;
     }
 
     return (

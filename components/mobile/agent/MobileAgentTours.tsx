@@ -133,7 +133,7 @@ export default function MobileAgentTours() {
 
   return (
     <>
-      <div className="flex flex-col h-full font-alexandria pb-[56px]">
+      <div className="flex flex-col h-full font-alexandria">
       {/* Search Bar */}
       <div className="sticky top-0 z-10 bg-white px-4 pt-4 pb-3 border-b border-gray-100">
         <div className="relative">
@@ -148,7 +148,7 @@ export default function MobileAgentTours() {
       </div>
 
       {/* Tour List */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 pb-20">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <TourCardSkeleton key={i} />)
         ) : filteredTours.length === 0 ? (

@@ -62,7 +62,7 @@ export default function MobileVendorsList({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="flex items-center gap-3">
@@ -80,7 +80,7 @@ export default function MobileVendorsList({
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500">
+      <div className="p-8 pb-20 text-center text-red-500">
         Failed to load vendors. Please try again.
       </div>
     );
@@ -88,14 +88,14 @@ export default function MobileVendorsList({
 
   if (vendors.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 pb-20 text-center text-gray-400">
         No vendors found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {vendors.map((vendor) => {
         const fullName = `${vendor.first_name} ${vendor.last_name}`;
         const initials = `${vendor.first_name?.[0] || ''}${vendor.last_name?.[0] || ''}`.toUpperCase() || 'V';

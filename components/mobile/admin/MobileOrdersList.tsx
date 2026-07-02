@@ -186,7 +186,7 @@ export default function MobileOrdersList() {
       </div>
 
       {/* Orders list */}
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {loading ? (
           <>
             {[...Array(5)].map((_, i) => (

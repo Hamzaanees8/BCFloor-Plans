@@ -148,23 +148,103 @@ const InvoiceDocument = ({
             </div>
 
             {/* Items Table */}
-            <div className="flex-grow overflow-x-auto w-full">
-                <table className="w-full min-w-[500px] md:min-w-0">
-                    <thead>
+            <div className="flex-grow w-full">
+                <table className="w-full block md:table">
+                    <thead className="hidden md:table-header-group">
                         <tr className="border-t-2 border-opacity-30 text-[10px] font-bold uppercase text-gray-500" style={{ borderColor: settings.pageTabColor }}>
                             <th className="py-3 md:py-4 text-left px-2 md:px-4">Item</th>
                             <th className="py-3 md:py-4 text-center">Quantity</th>
                             <th className="py-3 md:py-4 text-right px-2 md:px-4">Amount</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 italic-text-container">
+                    <tbody className="block md:table-row-group divide-y-0 md:divide-y md:divide-gray-100 italic-text-container">
                         {(isEditing ? editData.items : invoice.items || []).map((item: any, idx: number) => {
                             const serviceOption = item.order_service?.option?.title || item.orderService?.option?.title;
                             return (
-                                <tr key={idx} className="group hover:bg-gray-50 transition-colors">
-                                    <td className="py-3 md:py-4 px-2 md:px-4">
+                                <tr key={idx} className="group hover:bg-gray-50 transition-colors block md:table-row border border-[#EBEBEB] md:border-0 md:border-b md:border-gray-100 rounded-[8px] md:rounded-none bg-[#F8F9FA] md:bg-transparent p-3 md:p-0 mb-3 md:mb-0">
+                                    {/* Mobile layout wrapper - only visible on mobile */}
+                                    <td className="md:hidden block w-full">
+                                        <div className="flex flex-col gap-2 w-full">
+                                            {/* Top row: Description and Option */}
+                                            <div className="flex justify-between items-start w-full gap-2">
+                                                <div className="flex-grow">
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={item.description}
+                                                            onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                                                            className="font-medium text-gray-900 h-8 w-full text-sm bg-white"
+                                                            placeholder="Item description"
+                                                        />
+                                                    ) : (
+                                                        <span className="font-bold text-gray-900 text-sm leading-tight block">{item.description}</span>
+                                                    )}
+                                                    {serviceOption && (
+                                                        <span className="inline-block mt-1.5 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-white"
+                                                            style={{
+                                                                color: settings.pageTabColor,
+                                                                borderColor: `${settings.pageTabColor}33`
+                                                            }}>
+                                                            {serviceOption}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isEditing && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0 bg-white"
+                                                        onClick={() => removeItem(idx)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* Bottom row: Qty, Rate, Total Amount */}
+                                            <div className="flex justify-between items-end w-full mt-1 bg-white p-2.5 rounded-[6px] border border-[#EEEEEE] shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Qty</span>
+                                                        {isEditing ? (
+                                                            <Input
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                                                                className="w-14 text-center h-7 text-xs"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm font-semibold text-gray-700">{item.quantity}</span>
+                                                        )}
+                                                    </div>
+                                                    {isEditing && (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Rate</span>
+                                                            <Input
+                                                                type="number"
+                                                                value={item.unit_price}
+                                                                onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
+                                                                className="w-20 text-right h-7 text-xs font-black"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Amount</span>
+                                                    <span className="text-sm font-bold text-gray-900">
+                                                        {isEditing ?
+                                                            `$${Number((item.quantity * item.unit_price) || 0).toFixed(2)}` :
+                                                            `$${Number(item.amount || 0).toFixed(2)}`
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Desktop layout wrapper - hidden on mobile */}
+                                    <td className="hidden md:table-cell py-3 md:py-4 px-2 md:px-4">
                                         <div className="flex flex-col gap-1">
-                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 {isEditing ? (
                                                     <Input
                                                         value={item.description}
@@ -187,7 +267,7 @@ const InvoiceDocument = ({
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-3 md:py-4 text-center text-gray-700 font-medium text-xs md:text-sm">
+                                    <td className="hidden md:table-cell py-3 md:py-4 text-center text-gray-700 font-medium text-xs md:text-sm">
                                         {isEditing ? (
                                             <Input
                                                 type="number"
@@ -199,7 +279,7 @@ const InvoiceDocument = ({
                                             item.quantity
                                         )}
                                     </td>
-                                    <td className="py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
+                                    <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
                                         {isEditing ? (
                                             <div className="flex items-center justify-end gap-2">
                                                 <span className="text-xs text-gray-400">Rate:</span>

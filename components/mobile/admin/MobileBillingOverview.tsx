@@ -163,7 +163,7 @@ export default function MobileBillingOverview() {
   }, [billings, searchQuery, activeFilter])
 
   return (
-    <div className="min-h-screen font-alexandria" style={{ backgroundColor: roleSettings.pageBg }}>
+    <div className="min-h-screen font-alexandria pb-20" style={{ backgroundColor: roleSettings.pageBg }}>
       {/* Summary cards */}
       <div className="px-4 pt-4 pb-2">
         <div className="grid grid-cols-2 gap-3">

@@ -133,11 +133,15 @@ export function DualModeFileManager({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
-                                        {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
+                                        {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                     </div>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="p-0 border-t border-[#BBBBBB]">
+                                <div className="flex md:hidden items-center justify-end gap-2 p-4 pb-0 w-full">
+                                    {modeToggleButton && <div>{modeToggleButton}</div>}
+                                    {savedFilesAction && <div>{savedFilesAction}</div>}
+                                </div>
                                 <div className={`p-4 min-h-[200px] transition-all duration-300 ${mode === 'upload' && !hideDashedBorder ? 'bg-[#F9F9F9] border-2 border-dashed border-[#BBBBBB] m-4 rounded-xl' : 'bg-transparent border-2 border-transparent m-4'}`}>
                                     {items.length === 0 ? (
                                         <div className="flex items-center justify-center p-8 text-gray-500">
@@ -265,11 +269,15 @@ export function DualModeFileManager({
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {selectedAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{selectedAction}</div>}
-                                                {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
+                                                {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                        <div className="flex md:hidden items-center justify-end gap-2 mb-4 w-full">
+                                            {modeToggleButton && <div>{modeToggleButton}</div>}
+                                            {selectedAction && <div>{selectedAction}</div>}
+                                        </div>
                                         {selectedSubHeader}
                                         {selectedItems.length === 0 ? (
                                             <div className="flex items-center justify-center p-8 text-gray-500">
@@ -324,11 +332,15 @@ export function DualModeFileManager({
                                         <span>Saved Files ({savedItems.length})</span>
                                         <div className="flex items-center gap-2">
                                             {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
-                                            {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
+                                            {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                         </div>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                    <div className="flex md:hidden items-center justify-end gap-2 mb-4 w-full">
+                                        {modeToggleButton && <div>{modeToggleButton}</div>}
+                                        {savedFilesAction && <div>{savedFilesAction}</div>}
+                                    </div>
                                     {savedItems.length === 0 ? (
                                         <div className="flex items-center justify-center p-8 text-gray-500">
                                             No saved files

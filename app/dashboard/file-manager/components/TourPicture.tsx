@@ -148,8 +148,15 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
   // ─── Compute globally-sorted photo list ───────────────────────────────────
   // getGlobalPhotoOrder sorts by sort_order ASC, ties broken by service_id ASC
-  let globalSortedPhotos: Files[] = filesData?.files
-    ? getGlobalPhotoOrder(filesData.files)
+  const validPhotos = filesData?.files?.filter(
+    (file) =>
+      file?.service?.name !== "2D Floor Plans" &&
+      file?.service?.name !== "3D Floor Plans" &&
+      file.type === "photo"
+  ) || [];
+
+  let globalSortedPhotos: Files[] = validPhotos.length > 0
+    ? getGlobalPhotoOrder(validPhotos)
     : [];
 
   if (userType === 'agent') {
@@ -161,7 +168,13 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   // ─── Rebuild FileItem[] whenever the API files change ─────────────────────
   // We only rebuild from filesData, NOT on every fileItems setState, to avoid loops.
   useEffect(() => {
-    const globalPhotos = filesData?.files ? getGlobalPhotoOrder(filesData.files) : [];
+    const validPhotosForEffect = filesData?.files?.filter(
+      (file) =>
+        file?.service?.name !== "2D Floor Plans" &&
+        file?.service?.name !== "3D Floor Plans" &&
+        file.type === "photo"
+    ) || [];
+    const globalPhotos = validPhotosForEffect.length > 0 ? getGlobalPhotoOrder(validPhotosForEffect) : [];
     const agentFiltered = userType === 'agent'
       ? globalPhotos.filter(f => f.is_agent_approved || f.is_complimentary)
       : globalPhotos;
@@ -276,7 +289,13 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
   const handleCancelReorder = useCallback(() => {
     // Revert fileItems to match filesData
-    const globalPhotos = filesData?.files ? getGlobalPhotoOrder(filesData.files) : [];
+    const validPhotosForCancel = filesData?.files?.filter(
+      (file) =>
+        file?.service?.name !== "2D Floor Plans" &&
+        file?.service?.name !== "3D Floor Plans" &&
+        file.type === "photo"
+    ) || [];
+    const globalPhotos = validPhotosForCancel.length > 0 ? getGlobalPhotoOrder(validPhotosForCancel) : [];
     const agentFiltered = userType === 'agent'
       ? globalPhotos.filter(f => f.is_agent_approved || f.is_complimentary)
       : globalPhotos;
@@ -312,7 +331,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
       return (
         <div className="relative bg-black rounded-sm overflow-hidden group select-none">
-          <div className="relative w-full h-[180px] overflow-hidden">
+          <div className="relative w-full aspect-video overflow-hidden">
             {isPanoramaFile(file) && <PanoramaBadge />}
             {file.is_processing ? (
               <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
@@ -336,12 +355,12 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between px-2 py-1 bg-[#BBBBBB] text-[12px]">
-            <p className="text-[#8E8E8E] truncate max-w-[80%]">
+          <div className="flex items-center justify-between px-1 py-1 bg-[#BBBBBB]">
+            <p className="text-[#8E8E8E] truncate max-w-[80%] text-[9px] md:text-[12px]">
               <CopyableFileName name={file.service?.name ?? "Photo"} />
             </p>
             {/* Show the current global position number */}
-            <span className="text-[#aaa] text-[10px] ml-1 shrink-0">
+            <span className="text-[#aaa] text-[8px] md:text-[10px] ml-1 shrink-0">
               #{file.sort_order}
             </span>
           </div>
@@ -410,11 +429,11 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         {/* ── Arrange Photos ─────────────────────────────────────────────── */}
         <AccordionItem value="item-1">
           <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
-            <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
+            <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
               Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
             </AccordionTrigger>
             {globalSortedPhotos.length > 0 && (
-              <div className="hidden md:flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {isReorderMode ? (
                   <div className="flex items-center gap-2">
                     <Button
@@ -462,10 +481,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                 <div className="w-full bg-[#BBBBBB] p-3 space-y-3">
                   {/* Pending (local, not-yet-uploaded) files — shown above the grid */}
                   {selectedFiles.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${imagesPerRow}, minmax(0, 1fr))` }}>
                       {selectedFiles.map((file, idx) => (
                         <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                          <div className="relative w-full h-[180px] overflow-hidden">
+                          <div className="relative w-full aspect-video overflow-hidden">
                             <OptimizedImagePreview
                               file={file.file}
                               alt="preview"
@@ -526,7 +545,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
         {/* ── Slideshow Settings ─────────────────────────────────────────── */}
         <AccordionItem value="item-2">
-          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Settings
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
@@ -640,7 +659,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
         {/* ── Slideshow Preview ──────────────────────────────────────────── */}
         <AccordionItem value="item-3">
-          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Preview
           </AccordionTrigger>
           <AccordionContent>

@@ -41,7 +41,7 @@ export default function BreakQuickViewCard({ data, onClose, vendorData, breakAct
 
     return (
         <Card
-            className="w-full sm:w-[405px] font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-50 min-h-[100vh] overflow-y-auto flex flex-col justify-between"
+            className="w-full sm:w-[405px] font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-50 h-[100dvh] overflow-y-auto flex flex-col justify-between"
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
         >
             <CardContent className="flex flex-col gap-[12px] p-0">
@@ -138,26 +138,26 @@ export default function BreakQuickViewCard({ data, onClose, vendorData, breakAct
                 )}
             </CardContent>
 
-            <CardFooter className="p-0 mt-10">
-                <div className="w-full flex justify-end gap-[10px]">
+            <CardFooter className="p-0 mt-10 pb-16 sm:pb-4">
+                <div className="w-full flex flex-wrap justify-end gap-[10px]">
                     <Button
                         onClick={onClose}
-                        className={`${userType}-bg border-[1px] text-[14px] flex justify-center items-center ${userType}-border hover-${userType}-bg text-[#fff] rounded-none w-[132px] h-[32px] hover:text-white`}
+                        className={`${userType}-bg border-[1px] text-[14px] flex-1 sm:flex-none justify-center items-center ${userType}-border hover-${userType}-bg text-[#fff] rounded-none sm:w-[132px] h-[32px] hover:text-white`}
                     >
                         Close
                     </Button>
-                    {!isExternalEvent && data.uuid &&
+                    {!isExternalEvent && data.uuid && (userType === 'admin' || userType === 'vendor') &&
                         <Button
                             onClick={breakAction}
-                            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border rounded-none w-[132px] h-[32px] hover:text-white hover-${userType}-bg ${userType}-text ${userType}-button`}
+                            className={`bg-transparent border-[1px] text-[14px] flex-1 sm:flex-none justify-center items-center ${userType}-border rounded-none sm:w-[132px] h-[32px] hover:text-white hover-${userType}-bg ${userType}-text ${userType}-button`}
                         >
                             Edit
                         </Button>
                     }
-                    {!isExternalEvent && data.uuid &&
+                    {!isExternalEvent && data.uuid && (userType === 'admin' || userType === 'vendor') &&
                         <Button
                             onClick={handleDelete}
-                            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border rounded-none w-[132px] h-[32px] hover:text-white hover-${userType}-bg ${userType}-text ${userType}-button`}
+                            className={`bg-transparent border-[1px] text-[14px] flex-1 sm:flex-none justify-center items-center ${userType}-border rounded-none sm:w-[132px] h-[32px] hover:text-white hover-${userType}-bg ${userType}-text ${userType}-button`}
                         >
                             Delete
                         </Button>

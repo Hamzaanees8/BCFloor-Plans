@@ -250,7 +250,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
 
   if (loading) {
     return (
-      <div className="min-h-screen font-alexandria p-4 space-y-4" style={{ backgroundColor: roleSettings.pageBg }}>
+      <div className="min-h-screen font-alexandria p-4 space-y-4 pb-20" style={{ backgroundColor: roleSettings.pageBg }}>
         <div className="flex items-center gap-3">
           <Skeleton className="w-8 h-8 rounded" />
           <Skeleton className="h-5 w-40" />
@@ -274,7 +274,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
 
   if (!billing) {
     return (
-      <div className="min-h-screen font-alexandria flex items-center justify-center p-4" style={{ backgroundColor: roleSettings.pageBg }}>
+      <div className="min-h-screen font-alexandria flex items-center justify-center p-4 pb-20" style={{ backgroundColor: roleSettings.pageBg }}>
         <div className="text-center text-gray-400">
           <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p className="text-sm font-medium">Billing record not found</p>
@@ -645,10 +645,18 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
       {viewingInvoiceDoc && (
         <Dialog open={!!viewingInvoiceDoc} onOpenChange={(open) => !open && setViewingInvoiceDoc(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] rounded-lg p-0 overflow-hidden flex flex-col font-alexandria border border-[#BBBBBB] bg-white [&>button]:hidden">
-            <DialogHeader className="p-4 border-b border-[#BBBBBB] bg-white">
-              <DialogTitle className="flex items-center justify-between text-base font-bold uppercase" style={{ color: roleSettings.pageTabColor }}>
-                <span>Invoice #{viewingInvoiceDoc.invoice_number || viewingInvoiceDoc.id}</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full" onClick={() => setViewingInvoiceDoc(null)}>
+            <DialogHeader className="p-4 border-b border-[#BBBBBB] bg-white relative">
+              <DialogTitle className="flex flex-col md:flex-row items-start md:items-center justify-between relative gap-4 md:gap-0 pr-6 md:pr-0 w-full font-alexandria">
+                <div className="flex flex-col items-start w-full md:w-auto">
+                  <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: roleSettings.pageTabColor }}>
+                    Invoice
+                  </span>
+                  <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                    #{viewingInvoiceDoc.invoice_number || viewingInvoiceDoc.id}
+                  </span>
+                </div>
+
+                <Button variant="ghost" size="icon" className="absolute right-0 top-0 md:static h-8 w-8 hover:bg-gray-100 rounded-full md:ml-4 shrink-0 transition-opacity hover:opacity-70" onClick={() => setViewingInvoiceDoc(null)}>
                   <X className="h-5 w-5 text-gray-500" />
                 </Button>
               </DialogTitle>

@@ -73,7 +73,7 @@ export default function MobileAdminVendorBilling({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="space-y-2">
@@ -89,14 +89,14 @@ export default function MobileAdminVendorBilling({
 
   if (vendorsGrouped.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500 font-medium">
+      <div className="p-8 pb-20 text-center text-gray-500 font-medium">
         No vendor billing data found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {vendorsGrouped.map((vg) => {
         const isExpanded = expandedVendor === vg.vendorId;
         const status = getVendorStatus(vg);

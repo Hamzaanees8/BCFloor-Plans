@@ -145,58 +145,64 @@ const HouseSheetModal: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="w-[95vw] md:w-[730px] max-w-[95vw] md:max-w-[730px] h-[600px] max-h-[90vh] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
-                <DialogHeader>
-                    <DialogTitle className={`flex items-start md:items-center uppercase justify-between ${userType}-text text-[14px] md:text-[24px] font-[400] gap-2`}>
-                        <span className="break-words text-left">{orderData?.property_address}, {orderData?.property_location} {orderData?.id ? `> Order #${orderData.id}` : ""}</span>
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setOpen(false)
-                            }}
-                            className="border-none !shadow-none p-0 h-auto hover:bg-transparent"
-                        >
-                            <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </Button>
-                    </DialogTitle>
-                    <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                    <div className="flex items-center justify-end space-x-2 py-2">
-                        <Switch id="update-invoice-housesheet" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
-                        <Label htmlFor="update-invoice-housesheet" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
-                    </div>
-                </DialogHeader>
-
-                <div className="overflow-y-auto pr-2 pb-4">
-                    <EditSquareFootage
-                        currentOrder={orderData || undefined}
-                        area={tempArea}
-                        setArea={setTempArea}
-                        updateInvoice={updateInvoice}
-                        setUpdateInvoice={setUpdateInvoice}
-                        hideHeader={true}
-                    />
+            <DialogContent className="w-[95vw] md:w-[730px] max-w-[95vw] md:max-w-[730px] p-0 md:p-6 h-[95vh] md:h-[600px] max-h-[95vh] md:max-h-[90vh] overflow-hidden md:overflow-y-auto flex flex-col md:flex-col gap-0 md:gap-[10px] rounded-[8px] font-alexandria [&>button]:hidden">
+                <div className="px-4 pt-4 pb-2 md:p-0">
+                    <DialogHeader>
+                        <DialogTitle className={`flex items-start md:items-center uppercase justify-between ${userType}-text text-[14px] md:text-[24px] font-[400] gap-2`}>
+                            <span className="break-words text-left">{orderData?.property_address}, {orderData?.property_location} {orderData?.id ? `> Order #${orderData.id}` : ""}</span>
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    setOpen(false)
+                                }}
+                                className="border-none !shadow-none p-0 h-auto hover:bg-transparent"
+                            >
+                                <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                            </Button>
+                        </DialogTitle>
+                        <hr className="w-full h-[1px] text-[#BBBBBB]" />
+                        <div className="flex items-center justify-end space-x-2 py-2">
+                            <Switch id="update-invoice-housesheet" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+                            <Label htmlFor="update-invoice-housesheet" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+                        </div>
+                    </DialogHeader>
                 </div>
 
-                <div className="flex flex-col " >
-                    <div className="flex flex-col gap-4">
-                        <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-raleway">
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpen(false)}
-                                className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
-                            >
-                                Close
-                            </Button>
-                            <Button
-                                onClick={(e) => {
-                                    handleSubmitOrder(e)
-                                }}
-                                className={`${userType}-bg w-full md:w-[170px] h-[44px] text-[20px] font-[600] text-white hover-${userType}-bg`}
-                            >
-                                Save And Exit
-                            </Button>
-                        </DialogFooter>
+                <div className="flex-1 overflow-y-auto px-4 py-2 md:px-0 md:py-0 md:overflow-visible">
+                    <div className="overflow-y-auto pr-2 pb-4">
+                        <EditSquareFootage
+                            currentOrder={orderData || undefined}
+                            area={tempArea}
+                            setArea={setTempArea}
+                            updateInvoice={updateInvoice}
+                            setUpdateInvoice={setUpdateInvoice}
+                            hideHeader={true}
+                        />
+                    </div>
+                </div>
+
+                <div className="p-4 pt-2 border-t md:p-0 md:border-none md:mt-0">
+                    <div className="flex flex-col " >
+                        <div className="flex flex-col gap-4">
+                            <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px] hidden md:block" />
+                            <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-raleway">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setOpen(false)}
+                                    className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
+                                >
+                                    Close
+                                </Button>
+                                <Button
+                                    onClick={(e) => {
+                                        handleSubmitOrder(e)
+                                    }}
+                                    className={`${userType}-bg w-full md:w-[170px] h-[44px] text-[20px] font-[600] text-white hover-${userType}-bg`}
+                                >
+                                    Save And Exit
+                                </Button>
+                            </DialogFooter>
+                        </div>
                     </div>
                 </div>
             </DialogContent>

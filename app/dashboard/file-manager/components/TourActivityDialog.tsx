@@ -63,7 +63,7 @@ export default function TourActivityDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-none !w-[60vw] p-0 overflow-y-auto h-[90vh] rounded-xl shadow-2xl font-alexandria">
+            <DialogContent className="max-w-none !w-[95vw] md:!w-[80vw] lg:!w-[60vw] p-0 overflow-y-auto h-[90vh] rounded-xl shadow-2xl font-alexandria">
                 <DialogHeader className="px-6 pt-4">
                     <DialogTitle className="text-[24px] text-[#4290E9] pt-5">
                         Tour Activity
@@ -169,7 +169,7 @@ export default function TourActivityDialog({
                                                 key={i}
                                                 className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
                                             >
-                                                <span className="w-[25%] text-[#7D7D7D] text-[15px]">{date}</span>
+                                                <span className="w-[35%] md:w-[25%] text-[#7D7D7D] text-[12px] md:text-[15px] truncate">{date}</span>
                                                 <div className="flex-1 h-10  overflow-hidden">
                                                     <div
                                                         className={cn(
@@ -203,7 +203,7 @@ export default function TourActivityDialog({
                                                 key={i}
                                                 className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
                                             >
-                                                <span className="w-[25%] text-[#7D7D7D] text-[15px]">{domain}</span>
+                                                <span className="w-[35%] md:w-[25%] text-[#7D7D7D] text-[12px] md:text-[15px] truncate">{domain}</span>
                                                 <div className="flex-1 h-10  overflow-hidden">
                                                     <div
                                                         className={cn(
@@ -232,7 +232,7 @@ export default function TourActivityDialog({
                     </div>
                 }
                 {activeTab === "settings" &&
-                    <div className="px-10 text-[#424242]">
+                    <div className="px-6 md:px-10 text-[#424242]">
                         <div className="mb-4">
                             <h4 className="text-sm text-[#424242] mb-2">
                                 Email Tour Stats to Agent
@@ -309,7 +309,7 @@ export default function TourActivityDialog({
                                 Email Tour Stats Frequency
                             </h4>
                             <Select value={frequency} onValueChange={setFrequency}>
-                                <SelectTrigger className="border-[#BBBBBB] h-[40px] bg-[#EEEEEE] w-[50%]">
+                                <SelectTrigger className="border-[#BBBBBB] h-[40px] bg-[#EEEEEE] w-full md:w-[50%]">
                                     <SelectValue placeholder="Select Frequency" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -337,7 +337,7 @@ export default function TourActivityDialog({
                     </div>
                 }
 
-                <div className="flex justify-end gap-3 my-10 px-10 text-[20px] font-[600]">
+                <div className="flex flex-col md:flex-row justify-end gap-3 my-10 px-6 md:px-10 text-[20px] font-[600]">
                     <Button className="bg-[#4290E9] text-white text-sm h-[40px]">
                         View Tour
                     </Button>

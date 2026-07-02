@@ -209,10 +209,10 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
     };
 
     return (
-      <div className="border border-gray-200 rounded overflow-hidden">
+      <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden md:rounded md:shadow-none md:border-gray-200 md:border">
         {/* Header Bar */}
         <div
-          className="flex items-center justify-between bg-[#F3F4F6] px-4 py-2 cursor-pointer transition-colors hover:bg-gray-200"
+          className="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer transition-colors md:bg-[#F3F4F6] md:py-2"
           onClick={() => toggleSection(titleKey)}
         >
           <div className="flex items-center gap-2">
@@ -222,9 +222,14 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
               onBlur={handleTitleSave}
               readOnly={userType === 'agent'}
               onClick={(e) => e.stopPropagation()} // Prevent toggling when editing title
-              className="text-[14px] font-semibold border-transparent hover:border-gray-300 focus:border-[#4290E9] bg-transparent w-auto min-w-[150px] px-2 h-8"
+              className="text-sm font-semibold text-gray-700 bg-transparent border-none w-auto max-w-[120px] h-auto p-0 focus-visible:ring-0 md:text-[14px] md:min-w-[150px] md:px-2 md:h-8 md:hover:border-gray-300 md:focus-visible:border-[#4290E9] shadow-none"
             />
-            {userType !== 'agent' && <Pencil className="w-4 h-4 text-gray-400" />}
+            {userType !== 'agent' && <Pencil className="hidden md:block w-4 h-4 text-gray-400" />}
+            
+            {/* Mobile section total badge */}
+            <span className="block md:hidden text-[10px] text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {total(list).toLocaleString()} sq ft
+            </span>
           </div>
           <ChevronDown
             className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
@@ -233,10 +238,10 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
 
         {/* Collapsible Content */}
         {isOpen && (
-          <div className="p-4 space-y-3 bg-white">
+          <div className="divide-y divide-gray-100 md:divide-none md:p-4 md:space-y-3 bg-white">
             {list.map(field => (
-              <div key={field.id} className="flex flex-row items-center justify-between gap-2 w-full pb-2 sm:pb-0 border-b sm:border-none border-gray-100">
-                <span className="flex-1 text-[13px] sm:text-[14px] font-medium sm:font-normal truncate pr-2">{field.label}</span>
+              <div key={field.id} className="flex flex-row items-center justify-between px-4 py-3 md:px-0 md:py-0 md:pb-0 md:border-none md:gap-2">
+                <span className="flex-1 text-[13px] md:text-[14px] font-medium md:font-normal truncate pr-2 text-gray-600 md:text-black">{field.label}</span>
                 <div className="flex items-center gap-2 w-auto">
                   <Input
                     type="number"
@@ -249,14 +254,15 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
                       handleChange(field.id, list, setList, { value: isNaN(value) ? 0 : value });
                     }}
                     readOnly={userType === 'agent'}
-                    className="w-[80px] sm:w-[130px] h-[40px] sm:h-[42px] text-right sm:text-left sm:bg-[#EEEEEE] sm:border-[#7D7D7D] bg-white border-gray-200 text-[16px] font-semibold sm:font-normal rounded-lg sm:rounded-md border appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    placeholder="0"
+                    className="w-24 h-12 text-right text-lg font-semibold rounded-lg border border-gray-200 px-3 bg-white md:w-[130px] md:h-[42px] md:text-left md:text-[16px] md:font-normal md:bg-[#EEEEEE] md:border-[#7D7D7D] md:rounded-md appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-[#4290E9] md:focus-visible:ring-0"
                   />
-                  <span className="hidden sm:inline text-[13px] sm:text-[14px]">FT²</span>
+                  <span className="hidden md:inline text-[13px] sm:text-[14px]">FT²</span>
                   {userType !== 'agent' && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-gray-400 sm:text-[#666666] hover:text-red-500 shrink-0 h-[36px] w-[36px]"
+                      className="text-gray-400 md:text-[#666666] hover:text-red-500 shrink-0 h-[36px] w-[36px]"
                       onClick={() => handleRemove(field.id, list, setList)}
                     >
                       <X className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -266,20 +272,20 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
               </div>
             ))}
 
-            <div className="flex flex-row justify-between items-center sm:pr-[50px] w-full max-w-[400px] gap-2 pt-2">
+            <div className="px-4 py-3 bg-gray-50/50 md:bg-transparent md:p-0 md:pt-2 flex flex-row justify-between items-center md:pr-[50px] w-full md:max-w-[400px] md:gap-2">
               {userType !== 'agent' && (
                 <Button
-                  className='text-[#4290E9] hover:bg-blue-50 p-0 h-auto'
+                  className='w-full text-[#4290E9] hover:bg-blue-50 h-10 border border-dashed border-[#4290E9]/30 text-sm md:w-auto md:border-none md:p-0 md:h-auto md:justify-start md:bg-transparent'
                   variant="ghost"
                   onClick={() => {
                     setDialogDefaultCategory(getCategoryFromKey(titleKey));
                     setOpenAddDialog(true);
                   }}
                 >
-                  +Add area
+                  + Add area
                 </Button>
               )}
-              {showTotal && <div className="font-semibold flex gap-4 text-gray-700 sm:text-black"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
+              {showTotal && <div className="hidden md:flex font-semibold gap-4 text-gray-700 sm:text-black"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
             </div>
           </div>
         )}
@@ -288,9 +294,9 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
   };
 
   return (
-    <div className="bg-[#F5F5F5] p-4 rounded border border-gray-300 text-[14px] text-[#666666] font-alexandria space-y-6">
+    <div className="bg-transparent p-0 border-none space-y-3 md:bg-[#F5F5F5] md:p-4 md:rounded md:border md:border-gray-300 text-[14px] text-[#666666] font-alexandria md:space-y-6 pb-4 md:pb-0">
       {!hideHeader && (
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 md:px-0">
           <div className="text-[16px] md:text-[24px] font-[400] break-words">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
           {userType !== 'vendor' && (
             <div className="flex items-center space-x-2">
@@ -301,14 +307,24 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
         </div>
       )}
 
-      {renderSection('finished', finishedAreas, setFinishedAreas)}
-      {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
-      {renderSection('other', otherAreas, setOtherAreas)}
+      <div className="px-4 md:px-0 space-y-3 md:space-y-6">
+        {renderSection('finished', finishedAreas, setFinishedAreas)}
+        {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
+        {renderSection('other', otherAreas, setOtherAreas)}
+      </div>
 
-      {/* Grand Total Row */}
-      <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
+      {/* Grand Total Row (Desktop) */}
+      <div className="hidden md:flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
         <span className="font-bold pl-2">Grand Total</span>
         <span className="font-bold">{grandTotal} Sq.ft</span>
+      </div>
+      
+      {/* Grand Total Row (Mobile) */}
+      <div className="flex md:hidden items-center justify-between px-4 py-3 bg-white border-t mt-4 border-b">
+        <span className="text-sm font-medium text-gray-600">Grand Total</span>
+        <span className="text-xl font-bold text-gray-900">
+          {grandTotal.toLocaleString()} <span className="text-sm font-normal text-gray-400">sq ft</span>
+        </span>
       </div>
 
       <AddExtraDialog

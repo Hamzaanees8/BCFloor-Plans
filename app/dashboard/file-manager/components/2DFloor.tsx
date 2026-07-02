@@ -394,7 +394,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    files: prev.files.filter(f => !filesToHide.has(f.uuid))
+                    files: prev.files.map(f => filesToHide.has(f.uuid) ? { ...f, is_hidden: true } : f)
                 };
             });
         } catch (error: any) {
@@ -500,7 +500,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                                     prev.map(f => f.file === file.file ? { ...f, is_deleted: false } : f)
                                                 );
                                             }}
-                                            className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
+                                            className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
                                         >
                                             Restore
                                         </Button>
@@ -756,9 +756,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                 asChild
                 disabled={isHiding}
                 variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                        ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
-                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
+                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
+                        ? 'h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
+                        : 'h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
                     }`}
             >
                 <div onClick={(e) => {

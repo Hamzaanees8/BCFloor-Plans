@@ -94,7 +94,7 @@ export default function MobileMatterportList({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="space-y-2">
@@ -110,14 +110,14 @@ export default function MobileMatterportList({
 
   if (tours.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 pb-20 text-center text-gray-400">
         No 3D tours found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {tours.map((tour) => {
         return (
           <Card key={tour.orderuud} className="overflow-hidden border border-gray-100 shadow-sm">

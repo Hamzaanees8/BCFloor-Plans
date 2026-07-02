@@ -15,7 +15,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
         <Button
             variant={isUpload ? "default" : "secondary"}
             onClick={() => onModeChange(isUpload ? 'reorder' : 'upload')}
-            className={`transition-all duration-300 h-8 px-3 text-xs ${isUpload ? 'bg-[#DC9600] hover:bg-[#eda304] text-white' : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white'}`}
+            className={`transition-all duration-300 h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium flex items-center justify-center ${isUpload ? 'bg-[#DC9600] hover:bg-[#eda304] text-white' : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white'}`}
         >
             {isUpload ? (
                 <>

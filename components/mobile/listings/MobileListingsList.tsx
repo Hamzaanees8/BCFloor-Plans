@@ -116,7 +116,7 @@ export default function MobileListingsList({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="space-y-2">
@@ -135,7 +135,7 @@ export default function MobileListingsList({
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500">
+      <div className="p-8 pb-20 text-center text-red-500">
         Failed to load listings. Please try again.
       </div>
     );
@@ -143,14 +143,14 @@ export default function MobileListingsList({
 
   if (listings.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 pb-20 text-center text-gray-400">
         No listings found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {listings.map((listing) => {
         const projStatus = getProjectStatus(listing.orders);
         const payStatus = getPaymentStatus(listing.orders);
@@ -208,35 +208,35 @@ export default function MobileListingsList({
                       {formattedAddress || 'No Address'}
                     </h3>
 
-                  {/* Agent Details */}
-                  {userType !== 'agent' && listing.agent && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Agent: {listing.agent.first_name} {listing.agent.last_name}
-                    </p>
-                  )}
-
-                  {/* Price */}
-                  {listing.listing_price && (
-                    <p className="text-xs font-semibold text-gray-700 mt-1">
-                      Price: ${new Intl.NumberFormat('en-US').format(listing.listing_price)}
-                    </p>
-                  )}
-
-                  {/* Badges */}
-                  <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${projStatus.color}`}>
-                      <ClipboardList className="w-3 h-3 mr-1" />
-                      {projStatus.label}
-                    </Badge>
-                    {latestOrder && (
-                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${payStatus.color}`}>
-                        <CreditCard className="w-3 h-3 mr-1" />
-                        {payStatus.label}
-                      </Badge>
+                    {/* Agent Details */}
+                    {userType !== 'agent' && listing.agent && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Agent: {listing.agent.first_name} {listing.agent.last_name}
+                      </p>
                     )}
+
+                    {/* Price */}
+                    {listing.listing_price && (
+                      <p className="text-xs font-semibold text-gray-700 mt-1">
+                        Price: ${new Intl.NumberFormat('en-US').format(listing.listing_price)}
+                      </p>
+                    )}
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${projStatus.color}`}>
+                        <ClipboardList className="w-3 h-3 mr-1" />
+                        {projStatus.label}
+                      </Badge>
+                      {latestOrder && (
+                        <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${payStatus.color}`}>
+                          <CreditCard className="w-3 h-3 mr-1" />
+                          {payStatus.label}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
                 {/* More Action Menu */}
                 <DropdownMenu>
@@ -270,12 +270,13 @@ export default function MobileListingsList({
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 flex items-center gap-1">
                       <Globe className="h-3.5 w-3.5" />
-                      Tour Active:
+                      Property Status:
                     </span>
                     <Switch
-                      checked={!!listing.tour_activated}
+                      checked={!!listing.status}
                       disabled={togglingMap[listing.uuid || '']}
                       onCheckedChange={(checked) => handleStatusToggle(listing, checked)}
+                      className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                     />
                   </div>
                 ) : (

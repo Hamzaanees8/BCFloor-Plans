@@ -61,7 +61,7 @@ export default function MobileAgentsList({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ export default function MobileAgentsList({
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500">
+      <div className="p-8 pb-20 text-center text-red-500">
         Failed to load agents. Please try again.
       </div>
     );
@@ -87,14 +87,14 @@ export default function MobileAgentsList({
 
   if (agents.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 pb-20 text-center text-gray-400">
         No agents found.
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {agents.map((agent) => {
         const fullName = `${agent.first_name} ${agent.last_name}`;
         const initials = `${agent.first_name?.[0] || ''}${agent.last_name?.[0] || ''}`.toUpperCase() || 'A';

@@ -1614,7 +1614,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
   const handleConfirmDeselect = () => {
     if (!pendingDeselect) return;
-    
+
     setSelectedSlots((prev: Slot[]) =>
       prev.filter((slot: Slot) => slot.service_id !== service.uuid)
     );
@@ -1626,7 +1626,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const handleCancelDeselect = () => {
     if (!pendingDeselect) return;
     const { slotStart, slotEnd, selectedDate, serviceSlotsForDate } = pendingDeselect;
-    
+
     if (serviceSlotsForDate.length > 1) {
       const firstSlot = serviceSlotsForDate[0];
       const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];

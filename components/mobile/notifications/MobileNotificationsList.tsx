@@ -45,7 +45,7 @@ export default function MobileNotificationsList({
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 pb-20">
         {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i} className="p-4">
             <div className="space-y-2">
@@ -64,7 +64,7 @@ export default function MobileNotificationsList({
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500 font-medium">
+      <div className="p-8 pb-20 text-center text-red-500 font-medium">
         Failed to load notifications. Please try again.
       </div>
     );
@@ -72,7 +72,7 @@ export default function MobileNotificationsList({
 
   if (notifications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-gray-400 space-y-2">
+      <div className="flex flex-col items-center justify-center p-12 pb-20 text-gray-400 space-y-2">
         <BellOff className="w-10 h-10 text-gray-300" />
         <p className="text-sm font-medium">No notifications found</p>
       </div>
@@ -80,7 +80,7 @@ export default function MobileNotificationsList({
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 pb-20">
       {notifications.map((notification) => {
         const addressText = getNotificationAddress(notification);
         const formattedDate = getFormattedDate(notification);

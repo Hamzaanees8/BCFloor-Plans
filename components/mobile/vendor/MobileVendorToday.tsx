@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   User,
+  Camera,
   Wrench,
   Clock,
   RefreshCw,
@@ -25,9 +26,16 @@ import {
   Phone,
   StickyNote,
   Eye,
+  Coffee,
+  FileText
 } from 'lucide-react';
 import SquareFootage from '@/app/dashboard/calendar/components/SquareFootage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import AddBreakPopup from '@/app/dashboard/calendar/components/AddBreakPopup';
+import BreakQuickViewCard from '@/app/dashboard/calendar/components/BreakQuickViewCard';
+import { DeleteVendorBreak } from '@/app/dashboard/calendar/calendar';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { toast } from 'sonner';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -73,13 +81,28 @@ interface SlotWithOrder {
   slot: Order['slots'][number];
 }
 
+type TimeOffEvent = {
+  uuid: string;
+  title: string;
+  start: Date;
+  end: Date;
+  vendor_id: string;
+  address?: string;
+  isBreak: true;
+  vendor_name?: string;
+};
+
+type ScheduleItem =
+  | { type: 'order'; data: SlotWithOrder; date: string; startTime: string }
+  | { type: 'break'; data: TimeOffEvent; date: string; startTime: string };
+
 // ── Component ───────────────────────────────────────────────────────────────
 
-export default function MobileVendorToday() {
+export default function MobileVendorToday({ vendorData, setVendorData }: { vendorData?: any[], setVendorData?: any }) {
   const router = useRouter();
   const { appliedSettings } = useWhiteLabel();
   const { userType } = useAppContext();
-  
+
   const roleColor = appliedSettings?.[(userType as keyof typeof appliedSettings) || 'admin']?.pageTabColor || '#DC9600';
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -87,6 +110,20 @@ export default function MobileVendorToday() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [viewSqftOrder, setViewSqftOrder] = useState<Order | null>(null);
+
+  const [isAddBreakOpen, setIsAddBreakOpen] = useState(false);
+  const [selectedBreakEvent, setSelectedBreakEvent] = useState<any>(null);
+  const [showBreakQuickView, setShowBreakQuickView] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [breakToDelete, setBreakToDelete] = useState<any>(null);
+
+  const [showAgain, setShowAgain] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('confirmation_dialog_delete_show_again');
+      return stored ? JSON.parse(stored) : true;
+    }
+    return true;
+  });
 
   const today = getTodayString();
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -167,7 +204,37 @@ export default function MobileVendorToday() {
   };
 
   // ── Derive today's and upcoming slots ──────────────────────────────────
-  
+
+  // Extract breaks from vendorData
+  const allBreaks = React.useMemo(() => {
+    const breaks: TimeOffEvent[] = [];
+    if (!vendorData) return breaks;
+
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
+
+    vendorData.forEach((vendor: any) => {
+      // Filter out other vendors' breaks if logged in as a vendor
+      if (userType === 'vendor' && vendor.uuid !== userUuid) return;
+
+      if (vendor.additional_breaks && Array.isArray(vendor.additional_breaks)) {
+        vendor.additional_breaks.forEach((brk: any) => {
+          breaks.push({
+            uuid: brk.uuid,
+            title: brk.title || "Time Off",
+            start: new Date(`${brk.start_date}T${brk.start_time}`),
+            end: new Date(`${brk.end_date}T${brk.end_time}`),
+            vendor_id: vendor.uuid,
+            address: brk.address,
+            isBreak: true,
+            vendor_name: `${vendor.first_name} ${vendor.last_name}`
+          });
+        });
+      }
+    });
+    return breaks;
+  }, [vendorData, userType]);
+
   const datesWithBookings = React.useMemo(() => {
     const dates = new Set<string>();
     orders.forEach((order) => {
@@ -175,32 +242,62 @@ export default function MobileVendorToday() {
         if (slot.date) dates.add(slot.date);
       });
     });
+    allBreaks.forEach(brk => {
+      // Break might span multiple days, simplify by using start_date
+      const startDateStr = brk.start.toISOString().split('T')[0];
+      dates.add(startDateStr);
+    });
     return dates;
-  }, [orders]);
+  }, [orders, allBreaks]);
+
+  const nextBookingDate = React.useMemo(() => {
+    const sortedDates = Array.from(datesWithBookings).sort();
+    return sortedDates.find(date => date > selectedDate) || null;
+  }, [datesWithBookings, selectedDate]);
+
+  const handleNextBookingClick = () => {
+    if (nextBookingDate) {
+      setSelectedDate(nextBookingDate);
+      const d = new Date(nextBookingDate + 'T00:00:00');
+      const day = d.getDay();
+      const diff = d.getDate() - day;
+      setWeekStart(new Date(d.setDate(diff)));
+    }
+  };
 
 
-  const buildSlotList = (filterFn: (date: string) => boolean): SlotWithOrder[] => {
-    const items: SlotWithOrder[] = [];
+  const buildScheduleList = (filterFn: (date: string) => boolean): ScheduleItem[] => {
+    const items: ScheduleItem[] = [];
     orders.forEach((order) => {
       order.slots?.forEach((slot) => {
         if (filterFn(slot.date)) {
-          items.push({ order, slot });
+          items.push({ type: 'order', data: { order, slot }, date: slot.date, startTime: slot.start_time });
         }
       });
     });
+
+    allBreaks.forEach((brk) => {
+      const dateStr = brk.start.toLocaleDateString('en-CA'); // YYYY-MM-DD local format
+      if (filterFn(dateStr)) {
+        const h = String(brk.start.getHours()).padStart(2, '0');
+        const m = String(brk.start.getMinutes()).padStart(2, '0');
+        items.push({ type: 'break', data: brk, date: dateStr, startTime: `${h}:${m}` });
+      }
+    });
+
     // Sort chronologically by date then start_time
     items.sort((a, b) => {
-      const dateCompare = a.slot.date.localeCompare(b.slot.date);
+      const dateCompare = a.date.localeCompare(b.date);
       if (dateCompare !== 0) return dateCompare;
-      return (a.slot.start_time || '').localeCompare(b.slot.start_time || '');
+      return (a.startTime || '').localeCompare(b.startTime || '');
     });
     return items;
   };
 
-  const todaySlots = buildSlotList((date) => date === selectedDate);
+  const todaySlots = buildScheduleList((date) => date === selectedDate);
 
   // Next 7 days (excluding today)
-  const upcomingSlots = buildSlotList((date) => {
+  const upcomingSlots = buildScheduleList((date) => {
     if (date <= today) return false;
     const target = new Date(date + 'T00:00:00');
     const limit = new Date(today + 'T00:00:00');
@@ -209,20 +306,102 @@ export default function MobileVendorToday() {
   });
 
   // Group upcoming by date
-  const upcomingByDate: Record<string, SlotWithOrder[]> = {};
+  const upcomingByDate: Record<string, ScheduleItem[]> = {};
   upcomingSlots.forEach((item) => {
-    if (!upcomingByDate[item.slot.date]) upcomingByDate[item.slot.date] = [];
-    upcomingByDate[item.slot.date].push(item);
+    if (!upcomingByDate[item.date]) upcomingByDate[item.date] = [];
+    upcomingByDate[item.date].push(item);
   });
 
   const toggleExpand = (orderId: number) => {
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   };
 
+  const handleDeleteBreak = async () => {
+    if (!breakToDelete) return;
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      await DeleteVendorBreak(breakToDelete.uuid, token);
+      toast.success("Time Off deleted successfully");
+      setIsConfirmOpen(false);
+      setShowBreakQuickView(false);
+      if (setVendorData && vendorData) {
+        const updatedVendorData = vendorData.map(v => {
+          if (v.uuid === breakToDelete.vendor_id) {
+            return {
+              ...v,
+              additional_breaks: v.additional_breaks?.filter((b: any) => b.uuid !== breakToDelete.uuid)
+            };
+          }
+          return v;
+        });
+        setVendorData(updatedVendorData);
+      }
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }, 1000);
+    } catch (error) {
+      toast.error("Failed to delete time off");
+      console.error(error);
+    }
+  };
+
   // ── Render helpers ─────────────────────────────────────────────────────
 
-  const renderAppointmentCard = (item: SlotWithOrder) => {
-    const { order, slot } = item;
+  const renderBreakCard = (item: TimeOffEvent) => {
+    const startTimeStr = item.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const endTimeStr = item.end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    return (
+      <Card
+        key={`break-${item.uuid}`}
+        className="border border-gray-200 shadow-sm overflow-hidden bg-gray-50/60"
+      >
+        <CardContent className="p-0">
+          <div
+            className="p-4 cursor-pointer active:bg-gray-100 transition-colors flex flex-col"
+            onClick={() => {
+              setSelectedBreakEvent(item);
+              setShowBreakQuickView(true);
+            }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-[15px] font-semibold text-gray-700">
+                <Coffee className="w-4 h-4 text-gray-500" />
+                {startTimeStr} – {endTimeStr}
+              </div>
+              <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-gray-200 text-gray-700 border-gray-300">
+                Time Off
+              </Badge>
+            </div>
+            <div className="flex items-start gap-2 mb-1">
+              <span className="text-[13px] font-medium text-gray-800">{item.title}</span>
+            </div>
+            {item.vendor_name && (
+              <div className="flex items-center gap-2 mb-1">
+                <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="text-[12px] text-gray-600">{item.vendor_name}</span>
+              </div>
+            )}
+            {item.address && (
+              <div className="flex items-start gap-2 mt-1">
+                <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                <span className="text-[12px] text-gray-500 leading-tight">{item.address}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderAppointmentCard = (item: ScheduleItem) => {
+    if (item.type === 'break') {
+      return renderBreakCard(item.data);
+    }
+    const { order, slot } = item.data;
     const isExpanded = expandedId === order.id;
     const services = order.services
       ?.map((s) => s.service?.name)
@@ -231,6 +410,13 @@ export default function MobileVendorToday() {
     const agentName = order.agent
       ? `${order.agent.first_name} ${order.agent.last_name}`
       : '';
+    const vendorName = slot.vendor
+      ? `${slot.vendor.first_name} ${slot.vendor.last_name}`
+      : order.vendor
+        ? `${order.vendor.first_name} ${order.vendor.last_name}`
+        : '';
+    const vendorEmail = slot.vendor?.email || order.vendor?.email;
+    const vendorPhone = slot.vendor?.primary_phone || order.vendor?.primary_phone;
     const totalFootage = order.areas?.reduce((sum, a) => sum + (a.footage || 0), 0) || 0;
     const latestNote = order.notes?.length ? order.notes[order.notes.length - 1] : null;
 
@@ -245,7 +431,7 @@ export default function MobileVendorToday() {
             className="p-4 cursor-pointer active:bg-gray-50 transition-colors"
             onClick={() => toggleExpand(order.id)}
           >
-            {/* Time */}
+            {/* Time and Status */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-[15px] font-semibold text-gray-900">
                 <Clock className="w-4 h-4 text-[#DC9600]" />
@@ -260,6 +446,12 @@ export default function MobileVendorToday() {
             <div className="flex items-start gap-2 mb-2">
               <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
               <span className="text-[13px] text-gray-700 leading-tight">{order.property_address}</span>
+            </div>
+
+            {/* Order Number */}
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span className="text-[12px] font-medium text-gray-600">Order #{order.id}</span>
             </div>
 
             {/* Navigate button */}
@@ -289,11 +481,21 @@ export default function MobileVendorToday() {
               </div>
             )}
 
-            {/* Agent */}
-            {agentName && (
+            {/* User Info (Agent/Vendor) */}
+            {(userType === 'vendor' || userType === 'admin') && agentName && (
               <div className="flex items-center gap-2 mb-1">
                 <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                <span className="text-[12px] text-gray-600">{agentName}</span>
+                <span className="text-[12px] text-gray-600">
+                  {agentName} {userType === 'admin' ? '(Agent)' : ''}
+                </span>
+              </div>
+            )}
+            {(userType === 'agent' || userType === 'admin') && vendorName && (
+              <div className="flex items-center gap-2 mb-1">
+                <Camera className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="text-[12px] text-gray-600">
+                  {vendorName} {userType === 'admin' ? '(Vendor)' : ''}
+                </span>
               </div>
             )}
 
@@ -329,25 +531,49 @@ export default function MobileVendorToday() {
               )}
 
               {/* Agent contact */}
-              {order.agent?.email && (
+              {(userType === 'vendor' || userType === 'admin') && order.agent?.email && (
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-gray-400" />
                   <a
                     href={`mailto:${order.agent.email}`}
                     className="text-[12px] text-blue-600 underline"
                   >
-                    {order.agent.email}
+                    {order.agent.email} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Agent)</span> : ''}
                   </a>
                 </div>
               )}
-              {order.agent?.primary_phone && (
+              {(userType === 'vendor' || userType === 'admin') && order.agent?.primary_phone && (
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-gray-400" />
                   <a
                     href={`tel:${order.agent.primary_phone}`}
                     className="text-[12px] text-blue-600 underline"
                   >
-                    {order.agent.primary_phone}
+                    {order.agent.primary_phone} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Agent)</span> : ''}
+                  </a>
+                </div>
+              )}
+
+              {/* Vendor contact */}
+              {(userType === 'agent' || userType === 'admin') && vendorEmail && (
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <a
+                    href={`mailto:${vendorEmail}`}
+                    className="text-[12px] text-blue-600 underline"
+                  >
+                    {vendorEmail} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Vendor)</span> : ''}
+                  </a>
+                </div>
+              )}
+              {(userType === 'agent' || userType === 'admin') && vendorPhone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <a
+                    href={`tel:${vendorPhone}`}
+                    className="text-[12px] text-blue-600 underline"
+                  >
+                    {vendorPhone} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Vendor)</span> : ''}
                   </a>
                 </div>
               )}
@@ -411,22 +637,37 @@ export default function MobileVendorToday() {
           <h1 className="text-[20px] font-semibold text-gray-900">Schedule</h1>
           <p className="text-[13px] text-gray-500 mt-0.5">{formatDateHeader(selectedDate)}</p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <RefreshCw className={`w-5 h-5 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="flex items-center gap-2">
+          {(userType === 'admin' || userType === 'vendor') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedBreakEvent(null);
+                setIsAddBreakOpen(true);
+              }}
+              className="text-[12px] h-[34px] font-medium"
+            >
+              Add Time Off
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
       {/* Week strip picker */}
       <div className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={handlePrevWeek}
               className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
             >
@@ -435,21 +676,34 @@ export default function MobileVendorToday() {
             <span className="text-xs font-bold text-gray-700 min-w-[100px] text-center">
               {formatMonthYear(weekStart)}
             </span>
-            <button 
+            <button
               onClick={handleNextWeek}
               className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-50 border border-gray-100 text-gray-600 text-xs"
             >
               ▶
             </button>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleGoToToday}
-            className="h-7 text-[11px] px-2"
-          >
-            Today
-          </Button>
+          <div className="flex items-center gap-2">
+            {userType !== 'admin' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextBookingClick}
+                disabled={!nextBookingDate}
+                className="h-7 text-[11px] px-2"
+              >
+                Next
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGoToToday}
+              className="h-7 text-[11px] px-2"
+            >
+              Today
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-center">
@@ -457,18 +711,17 @@ export default function MobileVendorToday() {
             const isSelected = day.dateStr === selectedDate;
             const isTodayDate = day.dateStr === today;
             const hasBooking = datesWithBookings.has(day.dateStr);
-            
+
             return (
-              <div 
+              <div
                 key={day.dateStr}
                 onClick={() => setSelectedDate(day.dateStr)}
-                className={`py-1.5 rounded-lg cursor-pointer transition-all border flex flex-col items-center justify-center ${
-                  isSelected 
-                    ? 'text-white font-bold shadow-sm' 
-                    : isTodayDate
-                      ? 'bg-blue-50 font-semibold border-blue-200'
-                      : 'border-transparent hover:bg-gray-50 text-gray-600'
-                }`}
+                className={`py-1.5 rounded-lg cursor-pointer transition-all border flex flex-col items-center justify-center ${isSelected
+                  ? 'text-white font-bold shadow-sm'
+                  : isTodayDate
+                    ? 'bg-blue-50 font-semibold border-blue-200'
+                    : 'border-transparent hover:bg-gray-50 text-gray-600'
+                  }`}
                 style={{
                   backgroundColor: isSelected ? roleColor : '',
                   borderColor: isSelected ? roleColor : '',
@@ -533,6 +786,51 @@ export default function MobileVendorToday() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Time Off Popup */}
+      <AddBreakPopup
+        open={isAddBreakOpen}
+        setOpen={setIsAddBreakOpen}
+        vendorData={vendorData || []}
+        popupType="break"
+        currentBreak={selectedBreakEvent}
+        setVendorData={setVendorData}
+        onAddBreak={() => { }} // Additional action if needed
+      />
+
+      {/* Quick View Break Card Overlay */}
+      {showBreakQuickView && selectedBreakEvent && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end bg-black/20">
+          <BreakQuickViewCard
+            data={selectedBreakEvent}
+            onClose={() => {
+              setShowBreakQuickView(false);
+              setSelectedBreakEvent(null);
+            }}
+            vendorData={vendorData || []}
+            handleDelete={() => {
+              setBreakToDelete(selectedBreakEvent);
+              setIsConfirmOpen(true);
+            }}
+            breakAction={() => {
+              // Edit action
+              setShowBreakQuickView(false);
+              setIsAddBreakOpen(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      <ConfirmationDialog
+        open={isConfirmOpen}
+        setOpen={setIsConfirmOpen}
+        onConfirm={handleDeleteBreak}
+        title="Delete Time Off"
+        description="Are you sure you want to delete this time off? This action cannot be undone."
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain(!showAgain)}
+      />
     </div>
   );
 }

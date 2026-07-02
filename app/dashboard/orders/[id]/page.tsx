@@ -650,11 +650,11 @@ function Page() {
         className="w-full h-[60px] font-alexandria pr-5 z-20 sticky top-[80px] flex items-center border-b border-[#BBBBBB]"
         style={{ backgroundColor: headerBg }}
       >
-        <div className="flex items-center justify-center w-full">
-          <div className="flex items-center justify-center gap-x-6 w-full">
+        <div className="flex items-center justify-center w-full px-2 md:px-0 overflow-x-auto whitespace-nowrap scrollbar-none">
+          <div className="flex items-center justify-center gap-x-2 md:gap-x-6 shrink-0 w-full md:w-auto">
             <Link
               href={`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`}
-              className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+              className="h-[30px] w-full md:w-[150px] flex-1 md:flex-none cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 md:min-w-[95px]"
               style={
                 false
                   ? {
@@ -674,7 +674,7 @@ function Page() {
             {userType !== "vendor" && (
               <Link
                 href={`/dashboard/listings/create/${orderData?.property?.uuid}`}
-                className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+                className="h-[30px] w-full md:w-[150px] flex-1 md:flex-none cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 md:min-w-[95px]"
                 style={
                   false
                     ? {
@@ -694,7 +694,7 @@ function Page() {
             )}
             <Link
               href={`/dashboard/orders/${orderData?.uuid}`}
-              className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+              className="h-[30px] w-full md:w-[150px] flex-1 md:flex-none cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 md:min-w-[95px]"
               style={
                 true
                   ? {

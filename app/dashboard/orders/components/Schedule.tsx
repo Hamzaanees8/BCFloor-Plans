@@ -290,7 +290,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
             });
 
             const uniqueVendors = Array.from(uniqueVendorsMap.values());
-            
+
             if (uniqueVendors.length > 0) {
                 for (let i = 0; i < uniqueVendors.length; i += 25) {
                     const batch = uniqueVendors.slice(i, i + 25);
@@ -410,7 +410,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     </p>
                 </div>
             </div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-4 md:px-16 py-4 border-b border-[#EEEEEE] bg-white gap-4 md:gap-0">
+            <div className="flex justify-between items-center px-4 md:px-16 py-4 border-b border-[#EEEEEE] bg-white">
                 <div className="flex items-center gap-4">
                     <span className="text-[12px] text-[#7D7D7D]">Master Date Selection:</span>
                     <Popover>
@@ -443,7 +443,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     </Popover>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-6 md:gap-16 text-[#7D7D7D] px-4 md:px-16 py-6 auto-rows-max max-w-[1200px] mx-auto">
+            <div className="flex flex-col md:grid md:grid-cols-3 gap-8 md:gap-16 text-[#7D7D7D] px-4 md:px-16 py-6 auto-rows-max">
                 {(() => {
                     const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
                     return servicesToSchedule?.map((service, idx) => {
@@ -965,9 +965,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                                 </div>
 
-                                {(idx === servicesToSchedule?.length - 1) && (
-                                    <div className="col-span-1 mt-4">
-                                        <div className="flex flex-wrap justify-between items-center border border-[#EEEEEE] bg-white p-4 rounded-lg gap-4">
+                                {((idx + 1) % 3 === 0 || idx === servicesToSchedule?.length - 1) && (
+                                    <div className="col-span-1 md:col-span-3 w-full">
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-0 border border-[#EEEEEE] bg-white p-4 rounded-lg">
                                             <div className="flex items-center gap-2 text-[9px] text-[#424242]">
                                                 <span className="w-3 h-3 bg-[#2BC6FF] inline-block" />
                                                 <span>Travel From Home</span>

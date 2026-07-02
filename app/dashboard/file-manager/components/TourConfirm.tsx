@@ -879,7 +879,7 @@ const TourConfirm = ({
                 </div>
               )}
               <div
-                className="w-full flex flex-col items-center gap-10 pt-[80px]"
+                className="w-full pt-[80px]"
                 style={{ display: activeTab === "Matterport" ? undefined : "none" }}
               >
                 {!displayMatterportLinks?.length ? (
@@ -893,26 +893,35 @@ const TourConfirm = ({
                     </div>
                   )
                 ) : (
-                  <>
-                    {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') ? (
-                      <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
-                        You have not paid for this service yet. Pay the service to visit/view Matterport.
-                      </div>
-                    ) : (
-                      displayMatterportLinks?.map(
-                        (link, idx) =>
-                          isValidUrl(link.link) && (
-                            <div key={`preview-matterport-${idx}`} className="relative w-full md:w-[80%] h-[300px] sm:h-[500px] mt-4 px-4 md:px-0">
-                              <iframe
-                                src={link.link}
-                                className="w-full h-full border"
-                                allowFullScreen
-                              ></iframe>
+                  <Accordion type="single" collapsible defaultValue="Preview-Matterport" className="w-full">
+                    <AccordionItem value="Preview-Matterport">
+                      <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${role}-page-bg, #E4E4E4)` }}>
+                        Matterport Preview-{activeTourType === 'branded' ? 'Branded' : 'Unbranded'}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="w-full flex flex-col items-center gap-10 py-[30px]">
+                          {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') ? (
+                            <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
+                              You have not paid for this service yet. Pay the service to visit/view Matterport.
                             </div>
-                          )
-                      )
-                    )}
-                  </>
+                          ) : (
+                            displayMatterportLinks?.map(
+                              (link, idx) =>
+                                isValidUrl(link.link) && (
+                                  <div key={`preview-matterport-${idx}`} className="relative w-full md:w-[80%] h-[300px] sm:h-[500px] mt-4 px-4 md:px-0">
+                                    <iframe
+                                      src={link.link}
+                                      className="w-full h-full border"
+                                      allowFullScreen
+                                    ></iframe>
+                                  </div>
+                                )
+                            )
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 )}
               </div>
 

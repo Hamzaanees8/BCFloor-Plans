@@ -32,10 +32,10 @@ const adminTabs: TabConfig[] = [
 ];
 
 const agentTabs: TabConfig[] = [
+  { key: 'schedule', label: 'Schedule', icon: Calendar, route: '/dashboard/calendar' },
   { key: 'listings', label: 'Listings', icon: ClipboardList, route: '/dashboard/listings' },
   { key: 'pay', label: 'Pay', icon: CreditCard, route: '/dashboard/billing' },
   { key: 'tours', label: 'Tours', icon: Home, route: '/agent/tours' },
-  { key: 'alerts', label: 'Alerts', icon: Bell, route: '/dashboard/notifications' },
   { key: 'more', label: 'More', icon: Menu, route: null },
 ];
 
