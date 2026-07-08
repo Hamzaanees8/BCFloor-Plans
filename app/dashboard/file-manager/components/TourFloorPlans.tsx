@@ -14,6 +14,7 @@ import { DeleteSnapshot } from "../file-manager";
 
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 
@@ -429,6 +430,16 @@ function TourFloorPlans({ type = "" }) {
   }
 
   return (
+    <div className="relative">
+      {userType === 'vendor' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+          </TooltipTrigger>
+          <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
+        </Tooltip>
+      )}
+      <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
     <div className={`w-full h-auto font-alexandria bg-gray-100 py-6  ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}>
       {type !== "confirm" && (
         <div className="mb-6 mr-6 bg-[#E3F2FD] border-l-4 border-[#1E88E5] text-[#1565C0] p-4 rounded-r-lg shadow-sm flex items-start gap-3">
@@ -932,6 +943,8 @@ function TourFloorPlans({ type = "" }) {
           </div>
         </div>
       )}
+    </div>
+    </div>
     </div>
   );
 }

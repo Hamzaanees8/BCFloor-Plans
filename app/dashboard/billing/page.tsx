@@ -268,10 +268,15 @@ const Page = () => {
                      || serviceInvoices[0] 
                      || invoicesList[0];
       } else {
-        // Order-level action: prefer the consolidated invoice, then primary, then first
+        // Order-level action: prefer active consolidated invoice, then active primary, then first active, fallback to first
+        const isVoid = (s?: string) => s ? ["void", "cancelled", "canceled"].includes(s.toLowerCase()) : false;
+        const validInvoices = invoicesList.filter((inv: any) => !isVoid(inv.status));
         targetInvoice =
+          validInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
+          validInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("cancellation fee") || inv.items?.some((i: any) => i.description?.toLowerCase().includes("cancellation fee"))) ||
+          validInvoices.find((inv: any) => inv.agent_type === "primary") ||
+          validInvoices[0] ||
           invoicesList.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
-          invoicesList.find((inv: any) => inv.agent_type === "primary") ||
           invoicesList[0];
       }
 
@@ -289,7 +294,7 @@ const Page = () => {
         // can choose which one to pay. If only one unpaid invoice, go straight to Stripe.
         const unpaidInvoices = invoicesList.filter((inv: any) => {
           const s = (inv.status || "").toUpperCase();
-          return s !== "PAID" && s !== "VOID";
+          return s !== "PAID" && s !== "VOID" && s !== "CANCELLED" && s !== "CANCELED";
         });
 
         const hasCoAgentInvoice = unpaidInvoices.some((inv: any) => inv.agent_type === "co-agent");
@@ -311,7 +316,7 @@ const Page = () => {
           unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
           unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
           unpaidInvoices[0] ||
-          targetInvoice;
+          (targetInvoice && targetInvoice.status?.toUpperCase() !== "VOID" && targetInvoice.status?.toUpperCase() !== "PAID" ? targetInvoice : null);
 
         if (invoiceToPay) {
           await PayInvoiceWithStripe(
@@ -323,6 +328,13 @@ const Page = () => {
             undefined
           );
         } else {
+          // If the target invoice is VOID, block fallback payment
+          if (targetInvoice && targetInvoice.status?.toUpperCase() === "VOID") {
+            toast.error("This invoice has been voided and cannot be paid.");
+            setActionLoading(null);
+            setInvoicesLoading(false);
+            return;
+          }
           const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;
           await handlePay(billing.order_id, billing.agent_uuid ?? "", amount, {
             paymentType: serviceId ? "service" : "full",
@@ -907,6 +919,15 @@ const Page = () => {
                     {expandedRow === index && (() => {
                       const orderInvoices = rowInvoices[billing.order_uuid] || [];
                       const primaryInvoice = orderInvoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || orderInvoices[0];
+                      const isVoidOrCancelled = (s?: string) => s ? ["void", "cancelled", "canceled"].includes(s.toLowerCase()) : false;
+                      const actualOrderCancelled = isVoidOrCancelled(billing.status) || isVoidOrCancelled((billing as any).order_status) || (orderInvoices.length > 0 && isVoidOrCancelled(orderInvoices[0]?.order?.order_status));
+                      const isOrderCancelledOrVoid = actualOrderCancelled || isVoidOrCancelled(primaryInvoice?.status);
+                      
+                      const hasCancellationFee = orderInvoices.some(inv => !isVoidOrCancelled(inv.status) && (inv.notes?.toLowerCase().includes("cancellation fee") || inv.items?.some((i: any) => i.description?.toLowerCase().includes("cancellation fee"))));
+                      const activeInvoices = orderInvoices.filter(inv => !isVoidOrCancelled(inv.status));
+                      const calculatedRemaining = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv.total || inv.total_amount || "0") - parseFloat(inv.paid_amount || "0")), 0);
+                      const displayRemaining = actualOrderCancelled && orderInvoices.length > 0 ? calculatedRemaining : billing.remaining_amount;
+                      const shouldShowPayAll = displayRemaining > 0 && (!isOrderCancelledOrVoid || hasCancellationFee);
                       const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
                       const taxAmount = parseFloat(primaryInvoice?.tax_amount || "0");
                       const subtotalVal = parseFloat(primaryInvoice?.subtotal || "0");
@@ -960,7 +981,7 @@ const Page = () => {
                                           )}
                                         </Button>
 
-                                        {billing.remaining_amount > 0 && (
+                                        {shouldShowPayAll && (
                                           <Button
                                             onClick={() => handleInvoiceAction(billing, "pay")}
                                             disabled={actionLoading !== null}
@@ -970,12 +991,12 @@ const Page = () => {
                                             {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
                                               <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
                                             ) : (
-                                              "Pay All"
+                                              hasCancellationFee ? "Pay Cancellation Fee" : "Pay All"
                                             )}
                                           </Button>
                                         )}
 
-                                        {role === 'admin' && billing.remaining_amount > 0 && (
+                                        {role === 'admin' && shouldShowPayAll && (
                                           <Button
                                             onClick={async () => {
                                               try {
@@ -984,7 +1005,7 @@ const Page = () => {
                                                 const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
                                                 const unpaidInvoices = invoicesList.filter((inv: any) => {
                                                   const s = (inv.status || "").toUpperCase();
-                                                  return s !== "PAID" && s !== "VOID";
+                                                  return s !== "PAID" && s !== "VOID" && s !== "CANCELLED" && s !== "CANCELED";
                                                 });
                                                 const invoiceToPay =
                                                   unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
@@ -992,10 +1013,10 @@ const Page = () => {
                                                   unpaidInvoices[0] ||
                                                   invoicesList[0];
                                                 
-                                                if (invoiceToPay) {
+                                                if (invoiceToPay && invoiceToPay.status?.toUpperCase() !== "VOID") {
                                                   handleOpenManualPayment(invoiceToPay);
                                                 } else {
-                                                  toast.error("No invoice found to mark as paid.");
+                                                  toast.error("No valid invoice found to mark as paid.");
                                                 }
                                               } catch (err) {
                                                 console.error("Failed to load invoice for manual payment:", err);
@@ -1098,7 +1119,7 @@ const Page = () => {
                                         <div>
                                           <span className="text-gray-500 block text-xs">Balance Due</span>
                                           <span className="font-bold text-[#E06D5E]">
-                                            {billing.remaining_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                            {displayRemaining.toLocaleString("en-US", { style: "currency", currency: "USD" })}
                                           </span>
                                         </div>
                                       </div>
@@ -1121,7 +1142,7 @@ const Page = () => {
                                         <div>
                                           <span className="text-gray-500 block text-xs">Balance Due</span>
                                           <span className="font-bold text-[#E06D5E]">
-                                            {billing.remaining_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                            {displayRemaining.toLocaleString("en-US", { style: "currency", currency: "USD" })}
                                           </span>
                                         </div>
                                       </div>
@@ -1136,6 +1157,23 @@ const Page = () => {
                                   </h3>
                                   {billing.services.map((service) => {
                                     const serviceUuid = service.uuid || service.order_service_uuid;
+                                    
+                                    // Fetch the invoice specifically matched for this service to check its status
+                                    const matchedServiceInvoices = orderInvoices.filter((inv: any) =>
+                                      inv.items?.some((i: any) => {
+                                        const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                                        const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+                                        return sUuid === serviceUuid || sId?.toString() === serviceUuid;
+                                      })
+                                    );
+                                    const serviceTargetInvoice = matchedServiceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated")) || matchedServiceInvoices[0];
+
+                                    const isServiceVoid = 
+                                      isVoidOrCancelled(service.status) || 
+                                      (service.related_invoices?.length > 0 && service.related_invoices.every(inv => isVoidOrCancelled(inv.status))) ||
+                                      (serviceTargetInvoice && isVoidOrCancelled(serviceTargetInvoice.status));
+                                      
+                                    const shouldHideServicePay = actualOrderCancelled || isServiceVoid;
                                     return (
                                       <div
                                         key={service.service_id}
@@ -1187,7 +1225,7 @@ const Page = () => {
                                                     "Invoice"
                                                   )}
                                                 </Button>
-                                                {service.status !== "paid" && billing.status !== "paid" && (
+                                                {service.status !== "paid" && billing.status !== "paid" && !shouldHideServicePay && (
                                                   <>
                                                     <Button
                                                       onClick={() => handleInvoiceAction(billing, "pay", serviceUuid, service.amount)}
@@ -1220,10 +1258,10 @@ const Page = () => {
                                                                                || serviceInvoices[0] 
                                                                                || invoicesList[0];
 
-                                                            if (targetInvoice) {
+                                                            if (targetInvoice && !isVoidOrCancelled(targetInvoice.status)) {
                                                               handleOpenManualPayment(targetInvoice);
                                                             } else {
-                                                              toast.error("No invoice found for this service.");
+                                                              toast.error("No valid invoice found for this service.");
                                                             }
                                                           } catch (err) {
                                                             console.error(err);
@@ -1477,6 +1515,8 @@ const Page = () => {
               let filteredList = selectedServiceId
                 ? invoices.filter(inv => {
                     const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+                    const isLateFee = inv.notes?.toLowerCase().includes("late fee") || inv.notes?.toLowerCase().includes("late_fee") || inv.type === 'late_fee' || inv.is_late_fee;
+                    if (isLateFee) return true; // Show late fee invoices
                     if (isConsolidated) return false;
                     return inv.items?.some((i: any) => {
                       const sUuid = i.order_service?.uuid || i.orderService?.uuid;
@@ -1484,7 +1524,7 @@ const Page = () => {
                       return sUuid === selectedServiceId || sId?.toString() === selectedServiceId;
                     });
                   })
-                : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated"));
+                : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated") || inv.notes?.toLowerCase().includes("late fee") || inv.notes?.toLowerCase().includes("late_fee") || inv.type === 'late_fee' || inv.is_late_fee);
 
               if (!selectedServiceId && filteredList.length === 0) {
                 filteredList = invoices;
@@ -1784,7 +1824,7 @@ const Page = () => {
                 </button>
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                {serviceInvoicePopup.invoice.status?.toUpperCase() !== 'PAID' && (
+                {!["PAID", "VOID", "CANCELLED", "CANCELED"].includes(serviceInvoicePopup.invoice.status?.toUpperCase() || "") && (
                   <div className="flex gap-2 w-full sm:w-auto justify-end">
                     <Button
                       onClick={() => {

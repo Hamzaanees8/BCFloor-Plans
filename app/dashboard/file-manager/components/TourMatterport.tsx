@@ -7,6 +7,7 @@ import { CheckIcon } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useAppContext } from "@/app/context/AppContext";
 import { Order } from '../../orders/page';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
@@ -88,6 +89,16 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             )}
             <div className={!hasLinks ? 'hidden' : ''} style={{ display: !hasLinks ? 'none' : undefined }}>
             {!isUnpaidAgent && (
+            <div className="relative">
+                {userType === 'vendor' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+                        </TooltipTrigger>
+                        <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
+                    </Tooltip>
+                )}
+                <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
                 {/* Branded */}
                 <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
@@ -146,6 +157,8 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                         </div>
                     )}
                 </div>
+            </div>
+            </div>
             </div>
             )}
             <div className='w-full'>

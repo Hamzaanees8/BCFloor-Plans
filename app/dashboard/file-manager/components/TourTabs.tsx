@@ -9,7 +9,6 @@ import TourVideos from './TourVideos';
 import TourFloorPlans from './TourFloorPlans';
 import TourConfirm from './TourConfirm';
 import { useAppContext } from '@/app/context/AppContext';
-import TourActivityDialog from './TourActivityDialog';
 
 // const tabs = ['Settings', 'Photos', 'Floorplan', 'Matterport', 'Confirm'];
 interface TourProps {
@@ -20,7 +19,6 @@ interface TourProps {
 
 export default function TourTabs({ orderData, setOrderData, onRefresh }: TourProps) {
   const [activeTab, setActiveTab] = useState('Settings');
-  const [open, setOpen] = useState(false);
   const { userType } = useAppContext()
 
   const hasPhotos = orderData?.services.some(s => s.service.name.toLowerCase().includes('photo'));
@@ -92,14 +90,6 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
           <TourConfirm orderData={orderData} />
         </div>
       </div>
-      {orderData?.tours?.[0]?.uuid && (
-        <TourActivityDialog
-          open={open}
-          onOpenChange={setOpen}
-          tourUuid={orderData.tours[0].uuid}
-          propertyAddress={`${orderData.property.address}, ${orderData.property.city}, ${orderData.property.province}`}
-        />
-      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useLoadScript } from "@react-google-maps/api";
 import {
     Table,
     TableBody,
@@ -19,7 +20,7 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, Loader2, Download } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,16 +28,12 @@ import { GetOne, GetVendorEarnings, GetMyEarnings } from "../vendors/vendors";
 import { useRouter } from "next/navigation";
 import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
 import { vendorBillingService, VendorInvoice } from "./VendorBillingService";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
-import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileVendorEarnings from "@/components/mobile/vendor/MobileVendorEarnings";
 import MobileAdminVendorBilling from "@/components/mobile/vendor-billing/MobileAdminVendorBilling";
-
-import Script from "next/script";
-
 
 
 
@@ -1053,16 +1050,19 @@ const Page = () => {
     const endIndex = startIndex + itemsPerPage;
     const paginatedVendors = vendorsGrouped.slice(startIndex, endIndex);
 
+    useLoadScript({
+        id: 'google-map-script',
+        googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
+        version: "3.64",
+        libraries: ["places", "drawing"] as any
+    });
+
     if (isMobile && userType === "vendor") {
         return <MobileVendorEarnings />;
     }
 
     return (
         <div className="text-[#424242]">
-            <Script
-                src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY || ""}&libraries=places&v=3.64`}
-                strategy="lazyOnload"
-            />
             {isMobile ? (
                 <div className="font-alexandria pb-16 bg-[#F2F2F2]">
                     <div
@@ -1106,6 +1106,8 @@ const Page = () => {
                         setViewingInvoice={setViewingInvoice}
                         setIsViewModalOpen={setIsViewModalOpen}
                         router={router}
+                        expandedRow={expandedRow}
+                        toggleRow={toggleRowRef.current}
                     />
                 </div>
             ) : (
@@ -1119,23 +1121,21 @@ const Page = () => {
                     Billing ({vendorsGrouped.length})
                 </p>
                 <div className="flex items-center gap-4">
+                    <Button
+                        onClick={() => router.push(userType === 'vendor' ? '/dashboard/vendor-billing/my-invoices' : '/dashboard/vendor-billing/invoices')}
+                        className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
+                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                    >
+                        View Invoices
+                    </Button>
                     {userType !== 'vendor' && (
-                        <>
-                            <Button
-                                onClick={() => router.push(userType === 'vendor' ? '/dashboard/vendor-billing/my-invoices' : '/dashboard/vendor-billing/invoices')}
-                                className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
-                                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                            >
-                                View Invoices
-                            </Button>
-                            <Button
-                                onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
-                                className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
-                                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                            >
-                                Create Invoice
-                            </Button>
-                        </>
+                        <Button
+                            onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
+                            className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
+                            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                        >
+                            Create Invoice
+                        </Button>
                     )}
                     <Select onValueChange={(value) => console.log(value)}>
                         <SelectTrigger
@@ -1697,107 +1697,105 @@ const Page = () => {
 
             {/* View Invoice Modal */}
             <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[850px] p-4 sm:p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-base sm:text-xl font-bold flex flex-col sm:flex-row gap-2 sm:items-center justify-between w-full">
-                            <span>Invoice #{viewingInvoice?.invoice_number}</span>
-                            {viewingInvoice && (
-                                <Button
-                                    onClick={() => {
-                                        const name = `Invoice_${viewingInvoice?.invoice_number || 'draft'}.pdf`;
-                                        DownloadInvoicePdf('invoice-pdf-content', name);
-                                    }}
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
-                                >
-                                    <Download className="w-4 h-4" /> Download PDF
-                                </Button>
-                            )}
-                        </DialogTitle>
-                    </DialogHeader>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden">
                     {viewingInvoice ? (
-                        <div className="bg-white p-3 sm:p-6 rounded-lg border border-gray-100 shadow-inner space-y-6">
-                            <InvoiceDocument
-                                invoice={{
-                                    ...viewingInvoice,
-                                    items: viewingInvoice.lines?.map((line: any) => ({
-                                        ...line,
-                                        quantity: line.quantity || 1,
-                                        unit_price: line.unit_price || line.amount,
-                                    })) || []
-                                }}
-                                editData={{
-                                    ...viewingInvoice,
-                                    items: viewingInvoice.lines?.map((line: any) => ({
-                                        ...line,
-                                        quantity: line.quantity || 1,
-                                        unit_price: line.unit_price || line.amount,
-                                    })) || []
-                                }}
-                                isEditing={false}
-                                updateItem={() => { }}
-                                addItem={() => { }}
-                                removeItem={() => { }}
-                                updateTaxRate={() => { }}
-                                setEditData={() => { }}
-                                roleSettings={roleSettings}
-                            />
+                        <>
+                            <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white shrink-0">
+                                <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
+                                    <div className="flex flex-col items-start w-full md:w-auto">
+                                        <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: `var(--${userType}-page-tab-color, #000)` }}>
+                                            Invoice
+                                        </span>
+                                        <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                                            #{viewingInvoice?.invoice_number || viewingInvoice?.id}
+                                        </span>
+                                    </div>
 
-                            {/* Hidden PDF component for high-accuracy capture */}
-                            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                                <InvoicePdfDocument
-                                    invoice={{
-                                        ...viewingInvoice,
-                                        items: viewingInvoice.lines?.map((line: any) => ({
-                                            ...line,
-                                            quantity: line.quantity || 1,
-                                            unit_price: line.unit_price || line.amount,
-                                        })) || []
-                                    }}
-                                    roleSettings={roleSettings}
-                                />
-                            </div>
+                                    <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
+                                        {userType === 'admin' && (viewingInvoice?.status === 'pending_payment' || viewingInvoice?.status === 'draft') && (
+                                            <Button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    triggerPaymentAction(() => handlePayInvoice(
+                                                        viewingInvoice.uuid, 
+                                                        (viewingInvoice as any).vendor_uuid || (viewingInvoice.vendor as any)?.uuid, 
+                                                        (viewingInvoice as any).vendor_id || (viewingInvoice.vendor as any)?.id, 
+                                                        viewingInvoice.invoice_number, 
+                                                        Number(viewingInvoice.total_amount)
+                                                    ));
+                                                    setIsViewModalOpen(false);
+                                                }}
+                                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                                            >
+                                                Pay Now
+                                            </Button>
+                                        )}
+                                    </div>
+                                </DialogTitle>
+                            </DialogHeader>
 
-                            {/* Line Items Breakdown (Task 2.2) */}
-                            <div className="border-t pt-4">
-                                <h4 className="font-semibold text-sm mb-3">Line Items Breakdown</h4>
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="border-b bg-gray-50 text-gray-500 font-bold">
-                                            <th className="text-left p-2">Description</th>
-                                            <th className="text-center p-2">Type</th>
-                                            <th className="text-right p-2">Quantity</th>
-                                            <th className="text-right p-2">Unit Price</th>
-                                            <th className="text-right p-2">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {viewingInvoice.lines?.map((line: any, idx: number) => (
-                                            <tr key={idx} className="border-b text-gray-700">
-                                                <td className="p-2">{line.description}</td>
-                                                <td className="text-center p-2">
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${line.type === 'travel' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-                                                        }`}>
-                                                        {line.type?.toUpperCase()}
-                                                    </span>
-                                                </td>
-                                                <td className="text-right p-2">{line.quantity || 1}</td>
-                                                <td className="text-right p-2">${Number(line.unit_price || line.amount).toFixed(2)}</td>
-                                                <td className="text-right p-2 font-semibold">${Number(line.amount).toFixed(2)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#F9F9F9]">
+                                <div className="flex flex-col items-center">
+                                    <InvoiceDocument
+                                        invoice={{
+                                            ...viewingInvoice,
+                                            items: viewingInvoice.lines?.map((line: any) => ({
+                                                ...line,
+                                                quantity: line.quantity || 1,
+                                                unit_price: line.unit_price || line.amount,
+                                            })) || []
+                                        }}
+                                        editData={{
+                                            ...viewingInvoice,
+                                            items: viewingInvoice.lines?.map((line: any) => ({
+                                                ...line,
+                                                quantity: line.quantity || 1,
+                                                unit_price: line.unit_price || line.amount,
+                                            })) || []
+                                        }}
+                                        isEditing={false}
+                                        updateItem={() => { }}
+                                        addItem={() => { }}
+                                        removeItem={() => { }}
+                                        updateTaxRate={() => { }}
+                                        setEditData={() => { }}
+                                        roleSettings={roleSettings}
+                                    />
 
-                            {/* Warning if no lines */}
-                            {(!viewingInvoice.lines || viewingInvoice.lines.length === 0) && (
-                                <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                                    ⚠️ No line items found. This invoice may not have travel costs recorded.
+                                    {/* Hidden PDF component for high-accuracy capture */}
+                                    <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                                        <InvoicePdfDocument
+                                            invoice={{
+                                                ...viewingInvoice,
+                                                items: viewingInvoice.lines?.map((line: any) => ({
+                                                    ...line,
+                                                    quantity: line.quantity || 1,
+                                                    unit_price: line.unit_price || line.amount,
+                                                })) || []
+                                            }}
+                                            roleSettings={roleSettings}
+                                        />
+                                    </div>
+
+                                    {/* Warning if no lines */}
+                                    {(!viewingInvoice.lines || viewingInvoice.lines.length === 0) && (
+                                        <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 mt-4 w-full text-center">
+                                            ⚠️ No line items found. This invoice may not have travel costs recorded.
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                            <DialogFooter className="border-t p-4 shrink-0 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                                <Button 
+                                    onClick={() => setIsViewModalOpen(false)}
+                                    className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
+                                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                                >
+                                    Close
+                                </Button>
+                            </DialogFooter>
+                        </>
                     ) : (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="animate-spin h-8 w-8 text-gray-400" />

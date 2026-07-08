@@ -211,6 +211,16 @@ const VendorForm = () => {
   const [secondaryPhone, setSecondaryPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [companyWebsite, setCompanyWebsite] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [taxEnabled, setTaxEnabled] = useState(true);
+  const [taxCountry, setTaxCountry] = useState("CA");
+  const [taxExempt, setTaxExempt] = useState(false);
+  const [taxType, setTaxType] = useState("GST_HST");
+  const [taxNumberGstHst, setTaxNumberGstHst] = useState("");
+  const [taxNumberPst, setTaxNumberPst] = useState("");
+  const [taxNumberQst, setTaxNumberQst] = useState("");
+  const [taxNumberUs, setTaxNumberUs] = useState("");
+  const [taxRateOverride, setTaxRateOverride] = useState("");
   const [active, setActive] = useState("details");
   const [countries, setCountries] = useState<
     { name: string; isoCode: string }[]
@@ -527,6 +537,21 @@ const VendorForm = () => {
         setEnableServiceArea(!!currentUser.settings.enable_service_area);
         setForceServiceArea(!!currentUser.settings.force_service_area);
         setInKilometers(!!currentUser.settings.is_kilometers);
+        
+        setTaxEnabled(currentUser.settings.tax_enabled ?? true);
+        const savedCountry = currentUser.settings.tax_country || "CA";
+        setTaxCountry(savedCountry);
+        setTaxExempt(!!currentUser.settings.tax_exempt);
+        setTaxType(currentUser.settings.tax_type || "GST_HST");
+        
+        const rawTaxNumber = currentUser.settings.tax_number || (currentUser as any).tax_number || "";
+        const cleanTaxNumber = rawTaxNumber.replace(/^(GST\/HST:\s*|GST:\s*|PST:\s*|QST:\s*|US State Tax ID:\s*)/i, '').split(',')[0].trim();
+
+        setTaxNumberGstHst(currentUser.settings.tax_number_gst_hst || (savedCountry === "CA" ? cleanTaxNumber : ""));
+        setTaxNumberPst(currentUser.settings.tax_number_pst || "");
+        setTaxNumberQst(currentUser.settings.tax_number_qst || "");
+        setTaxNumberUs(currentUser.settings.tax_number_us || (savedCountry === "US" ? cleanTaxNumber : ""));
+        setTaxRateOverride(currentUser.settings.tax_rate?.toString() || "");
       }
       if (currentUser.company) {
         setCompanyLogoUrl(currentUser.company.company_logo_url);
@@ -535,6 +560,10 @@ const VendorForm = () => {
         setCompanyLogoFileName(currentUser.company.company_logo || "");
         setCompanyName(currentUser.company.company_name || "");
         setCompanyWebsite(currentUser.company.company_website || "");
+      }
+      const fetchedTaxNumber = currentUser.settings?.tax_number || (currentUser as any).tax_number;
+      if (fetchedTaxNumber) {
+        setTaxNumber(fetchedTaxNumber);
       }
       if (currentUser.organization_id) {
         setOrganizationId(String(currentUser.organization_id));
@@ -820,6 +849,20 @@ const VendorForm = () => {
       if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
         formattedWebsite = "https://" + formattedWebsite;
       }
+        const calculatedTaxNumber = (() => {
+          if (taxEnabled && !taxExempt) {
+            if (taxCountry === "CA") {
+              if (taxType === "GST_HST") return `GST/HST: ${taxNumberGstHst}`;
+              if (taxType === "GST_PST") return `GST: ${taxNumberGstHst}, PST: ${taxNumberPst}`;
+              if (taxType === "GST_QST") return `GST: ${taxNumberGstHst}, QST: ${taxNumberQst}`;
+              if (taxType === "GST") return `GST: ${taxNumberGstHst}`;
+            } else if (taxCountry === "US") {
+              return `US State Tax ID: ${taxNumberUs}`;
+            }
+          }
+          return undefined;
+        })() || taxNumber || undefined;
+
       const payload: VendorPayload = {
         first_name: firstName,
         last_name: lastName,
@@ -897,6 +940,16 @@ const VendorForm = () => {
           force_service_area: forceServiceArea ? 1 : 0,
           is_kilometers: inkilometers ? 1 : 0,
           next_booking_slot_only: workHours.next_booking_slot_only ? 1 : 0,
+          tax_enabled: taxEnabled,
+          tax_country: taxCountry,
+          tax_exempt: taxExempt,
+          tax_type: taxCountry === "CA" ? taxType : null,
+          tax_number_gst_hst: taxCountry === "CA" ? taxNumberGstHst : null,
+          tax_number_pst: taxCountry === "CA" ? taxNumberPst : null,
+          tax_number_qst: taxCountry === "CA" ? taxNumberQst : null,
+          tax_number_us: taxCountry === "US" ? taxNumberUs : null,
+          tax_rate: taxCountry === "US" ? (taxRateOverride ? Number(taxRateOverride) : null) : null,
+          tax_number: calculatedTaxNumber,
         },
         portfolio_images:
           [...portfolioImages, ...galleryImages].length > 0
@@ -1147,8 +1200,8 @@ const VendorForm = () => {
               {userType === "vendor"
                 ? "Settings"
                 : currentUser
-                ? `Vendor › ${currentUser.first_name} ${currentUser.last_name}`
-                : "Vendor › Create"}
+                  ? `Vendor › ${currentUser.first_name} ${currentUser.last_name}`
+                  : "Vendor › Create"}
             </h1>
             <div className="flex gap-2 items-center">
               {(active === "details" || active === "work hours") && (
@@ -1666,7 +1719,7 @@ const VendorForm = () => {
                             className={`h-[42px] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed ${fieldErrors.company_website
                               ? "border-red-500"
                               : "bg-[#EEEEEE] border-[#BBBBBB]"
-                            }`}
+                              }`}
                             type="text"
                             disabled={userType === "vendor"}
                             readOnly={userType === "vendor"}
@@ -1674,6 +1727,33 @@ const VendorForm = () => {
                           {fieldErrors.company_website && (
                             <p className="text-red-500 text-[10px] mt-1">
                               {fieldErrors.company_website[0]}
+                            </p>
+                          )}
+                        </div>
+                        <div className="col-span-2">
+                          <label htmlFor="">Tax Registration Number </label>
+                          <Input
+                            value={taxNumber}
+                            onChange={(e) => {
+                              setTaxNumber(e.target.value);
+                              if (fieldErrors.tax_number) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.tax_number;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
+                            className={`h-[42px] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed ${fieldErrors.tax_number
+                              ? "border-red-500"
+                              : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
+                            type="text"
+                            placeholder="e.g. GST/HST Number"
+                            disabled={userType === "vendor"}
+                            readOnly={userType === "vendor"}
+                          />
+                          {fieldErrors.tax_number && (
+                            <p className="text-red-500 text-[10px] mt-1">
+                              {fieldErrors.tax_number[0]}
                             </p>
                           )}
                         </div>
@@ -2548,6 +2628,131 @@ const VendorForm = () => {
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="tax-information" className="border-none">
+                <AccordionTrigger
+                  className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
+                >
+                  TAX INFORMATION
+                </AccordionTrigger>
+                <AccordionContent className="grid gap-4">
+                  <div className="w-full flex flex-col items-center">
+                    <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex flex-col gap-[20px] text-[#424242] text-[14px] font-[400]">
+                      <div className="w-full flex items-center justify-between">
+                        <Label>Enable Tax</Label>
+                        <Switch
+                          checked={taxEnabled}
+                          onCheckedChange={setTaxEnabled}
+                          className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                        />
+                      </div>
+
+                      {taxEnabled && (
+                        <>
+                          <div className="w-full flex flex-col gap-2">
+                            <Label>Tax Country</Label>
+                            <Select value={taxCountry} onValueChange={setTaxCountry}>
+                              <SelectTrigger className="w-full bg-[#EEEEEE] border-[#BBBBBB]">
+                                <SelectValue placeholder="Select Country" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="CA">Canada</SelectItem>
+                                <SelectItem value="US">USA</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="w-full flex items-center justify-between">
+                            <Label>Tax Exempt</Label>
+                            <Switch
+                              checked={taxExempt}
+                              onCheckedChange={setTaxExempt}
+                              className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                            />
+                          </div>
+
+                          {!taxExempt && taxCountry === "CA" && (
+                            <>
+                              <div className="w-full flex flex-col gap-2">
+                                <Label>Tax Type</Label>
+                                <Select value={taxType} onValueChange={setTaxType}>
+                                  <SelectTrigger className="w-full bg-[#EEEEEE] border-[#BBBBBB]">
+                                    <SelectValue placeholder="Select Tax Type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="GST_HST">GST/HST only</SelectItem>
+                                    <SelectItem value="GST_PST">GST + PST</SelectItem>
+                                    <SelectItem value="GST_QST">GST + QST</SelectItem>
+                                    <SelectItem value="GST">GST only</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="w-full flex flex-col gap-2">
+                                <Label>GST/HST Number</Label>
+                                <Input
+                                  value={taxNumberGstHst}
+                                  onChange={(e) => setTaxNumberGstHst(e.target.value)}
+                                  className="bg-[#EEEEEE] border-[#BBBBBB]"
+                                />
+                              </div>
+
+                              {taxType === "GST_PST" && (
+                                <div className="w-full flex flex-col gap-2">
+                                  <Label>PST/RST Number</Label>
+                                  <Input
+                                    value={taxNumberPst}
+                                    onChange={(e) => setTaxNumberPst(e.target.value)}
+                                    className="bg-[#EEEEEE] border-[#BBBBBB]"
+                                  />
+                                </div>
+                              )}
+
+                              {taxType === "GST_QST" && (
+                                <div className="w-full flex flex-col gap-2">
+                                  <Label>QST Number</Label>
+                                  <Input
+                                    value={taxNumberQst}
+                                    onChange={(e) => setTaxNumberQst(e.target.value)}
+                                    className="bg-[#EEEEEE] border-[#BBBBBB]"
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {!taxExempt && taxCountry === "US" && (
+                            <>
+                              <div className="w-full flex flex-col gap-2">
+                                <Label>US State Tax ID (EIN/SSN)</Label>
+                                <Input
+                                  value={taxNumberUs}
+                                  onChange={(e) => setTaxNumberUs(e.target.value)}
+                                  className="bg-[#EEEEEE] border-[#BBBBBB]"
+                                />
+                              </div>
+
+                              <div className="w-full flex flex-col gap-2">
+                                <Label>Manual Tax Rate (%)</Label>
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  value={taxRateOverride}
+                                  onChange={(e) => setTaxRateOverride(e.target.value)}
+                                  placeholder="e.g. 8.25"
+                                  className="bg-[#EEEEEE] border-[#BBBBBB]"
+                                />
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </AccordionContent>

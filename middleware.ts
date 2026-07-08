@@ -13,9 +13,9 @@ const AUTH_ROUTES = [
 ];
 
 // Routes that are shared across all portals and should not be rewritten
+// Note: /tour and /tours are intentionally excluded here because the white-label
+// middleware rewrites them (with org_slug injection) before buildResponse is called.
 const SHARED_ROUTES = [
-  '/tour',
-  '/tours',
   '/whitelabel',
 ];
 
@@ -76,6 +76,12 @@ function buildResponse(
     if (pathname.startsWith('/vendor')) {
       return NextResponse.rewrite(new URL('/404', request.url));
     }
+    // Allow shared public routes: /tour and /tours are served as-is
+    // (they were previously in SHARED_ROUTES but moved here so white-label
+    //  rewriting can intercept them first on custom domains)
+    if (pathname.startsWith('/tour') || pathname.startsWith('/tours')) {
+      return NextResponse.next();
+    }
     // Allow agent auth pages, agent pages, and the shared dashboard
     if (
       pathname.startsWith('/agent') ||
@@ -111,6 +117,10 @@ function buildResponse(
   // Block portal-specific pages
   if (pathname.startsWith('/agent') || pathname.startsWith('/vendor')) {
     return NextResponse.rewrite(new URL('/404', request.url));
+  }
+  // Allow shared public routes: /tour and /tours are served as-is
+  if (pathname.startsWith('/tour') || pathname.startsWith('/tours')) {
+    return NextResponse.next();
   }
   // Allow auth routes and dashboard
   if (pathname.startsWith('/dashboard') || isAuthRoute) {
@@ -191,7 +201,9 @@ export async function middleware(request: NextRequest) {
     console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 
-  // For custom domains, check if we need to rewrite to slug-based URLs
+  // For custom domains, check if we need to rewrite to slug-based URLs.
+  // IMPORTANT: This block must run BEFORE buildResponse so that shared routes
+  // like /tours and /tour are rewritten with the org_slug before any early-return.
   if (!isDefaultDomain && orgData && orgData.slug) {
     const slug = orgData.slug as string;
     const pathname = url.pathname;
@@ -216,6 +228,34 @@ export async function middleware(request: NextRequest) {
       const orderuuid = segments[1];
       const targetUrl = new URL(`/tour/${slug}/${orderuuid}${search}`, request.url);
       console.log(`[Middleware] Rewriting whitelabel single tour: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.rewrite(targetUrl);
+      response.cookies.set('org_data', JSON.stringify(orgData), {
+        path: '/',
+        maxAge: 3600,
+        sameSite: 'lax',
+      });
+      return response;
+    }
+
+    // 3. Rewrite "/book-now" -> "/agent/book-now/[org_slug]"
+    if (segments.length === 1 && segments[0] === 'book-now') {
+      const targetUrl = new URL(`/agent/book-now/${slug}${search}`, request.url);
+      console.log(`[Middleware] Rewriting whitelabel book-now: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.rewrite(targetUrl);
+      response.cookies.set('org_data', JSON.stringify(orgData), {
+        path: '/',
+        maxAge: 3600,
+        sameSite: 'lax',
+      });
+      return response;
+    }
+
+    // 4. Rewrite "/book-now/[anything]" -> "/agent/book-now/[org_slug]/[anything]"
+    //    (e.g. nested pages under book-now if they ever exist)
+    if (segments.length >= 2 && segments[0] === 'book-now' && segments[1] !== slug) {
+      const rest = segments.slice(1).join('/');
+      const targetUrl = new URL(`/agent/book-now/${slug}/${rest}${search}`, request.url);
+      console.log(`[Middleware] Rewriting whitelabel book-now nested: ${pathname} -> ${targetUrl.pathname}`);
       const response = NextResponse.rewrite(targetUrl);
       response.cookies.set('org_data', JSON.stringify(orgData), {
         path: '/',

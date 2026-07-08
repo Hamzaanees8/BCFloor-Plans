@@ -129,7 +129,7 @@ const Page = () => {
                         )}
                         <div
                             onClick={() => {
-                                window.open(`/tour/${slugify(address)}/${tour.orders?.uuid}`, '_blank');
+                                window.open(`/tour/${slugify(address)}/${tour.orders?.uuid}?preview=true`, '_blank');
                             }}
                             className={`text-[#4290E9] text-[15px] font-[400] cursor-pointer hover:underline`}
                         >

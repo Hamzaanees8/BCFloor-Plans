@@ -472,18 +472,28 @@ const FileManager = () => {
   useEffect(() => {
     if (!orderData || userType !== "vendor") return;
 
-    // Ignore static tabs
-    if (activeTab === "download" || activeTab === "tour" || activeTab === "CreateFeatureSheet") {
-      return;
-    }
+    if (activeTab === "tour") return;
 
-    // If services have been loaded and the active service tab is not booked for this vendor
-    if (services.length > 0 && !groupedServices.has(activeTab)) {
-      setActiveTab("download");
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("serviceId");
-      router.replace(`?${params.toString()}`);
-      toast.error("You are not authorized to view this service.");
+    const isUnauthorizedService = services.length > 0 && !groupedServices.has(activeTab) && activeTab !== "download" && activeTab !== "CreateFeatureSheet";
+    const isHiddenTab = activeTab === "download" || activeTab === "CreateFeatureSheet";
+
+    if (isHiddenTab || isUnauthorizedService) {
+      const firstServiceUuid = Array.from(groupedServices.keys())[0];
+      if (firstServiceUuid) {
+        setActiveTab(firstServiceUuid);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("serviceId", firstServiceUuid);
+        router.replace(`?${params.toString()}`);
+      } else {
+        setActiveTab("tour");
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("serviceId");
+        router.replace(`?${params.toString()}`);
+      }
+
+      if (isUnauthorizedService) {
+        toast.error("You are not authorized to view this service.");
+      }
     }
   }, [activeTab, services, groupedServices, orderData, userType, searchParams, router]);
 
@@ -1621,28 +1631,30 @@ const FileManager = () => {
         )}
         <div className="flex items-center justify-start md:justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none py-2 px-2 md:px-4">
           <div className="flex items-center gap-x-2 md:gap-x-6 shrink-0 w-max mx-auto md:w-auto">
-            <div
-              key="download"
-              onClick={() => {
-                setActiveTab("download");
-                const params = new URLSearchParams(searchParams.toString());
-                params.delete("serviceId"); // remove serviceId param
-                router.replace(`?${params.toString()}`);
-              }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                } ${activeTab === "download"
-                  ? `bg-[#DC9600] text-white border-[#DC9600]`
-                  : `text-[#DC9600] border-[#DC9600] hover:!bg-[#DC9600] hover:!text-white`
-                }`}
-              style={{
-                backgroundColor:
-                  activeTab === "download"
-                    ? undefined
-                    : `var(--${userType}-page-bg, #F2F2F2)`,
-              }}
-            >
-              Download
-            </div>
+            {userType !== 'vendor' && (
+              <div
+                key="download"
+                onClick={() => {
+                  setActiveTab("download");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("serviceId"); // remove serviceId param
+                  router.replace(`?${params.toString()}`);
+                }}
+                className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
+                  } ${activeTab === "download"
+                    ? `bg-[#DC9600] text-white border-[#DC9600]`
+                    : `text-[#DC9600] border-[#DC9600] hover:!bg-[#DC9600] hover:!text-white`
+                  }`}
+                style={{
+                  backgroundColor:
+                    activeTab === "download"
+                      ? undefined
+                      : `var(--${userType}-page-bg, #F2F2F2)`,
+                }}
+              >
+                Download
+              </div>
+            )}
             {/* Render one tab per unique service uuid */}
             {Array.from(groupedServices.entries()).map(([serviceUuid, group]) => {
               const isActive = serviceUuid === activeTab;
@@ -1694,28 +1706,30 @@ const FileManager = () => {
             >
               Tour
             </div>
-            <div
-              key="CreateFeatureSheet"
-              onClick={() => {
-                setActiveTab("CreateFeatureSheet");
-                const params = new URLSearchParams(searchParams.toString());
-                params.delete("serviceId"); // remove serviceId param
-                router.replace(`?${params.toString()}`);
-              }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                } ${activeTab === "CreateFeatureSheet"
-                  ? `${userType}-bg text-white ${userType}-border`
-                  : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                }`}
-              style={{
-                backgroundColor:
-                  activeTab === "CreateFeatureSheet"
-                    ? undefined
-                    : `var(--${userType}-page-bg, #F2F2F2)`,
-              }}
-            >
-              Create Feature Sheet
-            </div>
+            {userType !== 'vendor' && (
+              <div
+                key="CreateFeatureSheet"
+                onClick={() => {
+                  setActiveTab("CreateFeatureSheet");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("serviceId"); // remove serviceId param
+                  router.replace(`?${params.toString()}`);
+                }}
+                className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
+                  } ${activeTab === "CreateFeatureSheet"
+                    ? `${userType}-bg text-white ${userType}-border`
+                    : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                  }`}
+                style={{
+                  backgroundColor:
+                    activeTab === "CreateFeatureSheet"
+                      ? undefined
+                      : `var(--${userType}-page-bg, #F2F2F2)`,
+                }}
+              >
+                Create Feature Sheet
+              </div>
+            )}
           </div>
         </div>
         {/* {userType !== 'vendor' && (

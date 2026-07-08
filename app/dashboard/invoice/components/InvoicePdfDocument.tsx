@@ -126,6 +126,12 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                                     <Mail size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} />
                                     <span className="leading-snug">{invoice.vendor.email}</span>
                                 </div>
+                                {(invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number) && (
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="font-bold text-[10px] uppercase tracking-wider" style={{ color: settings.pageTabColor }}>Tax ID:</span>
+                                        <span className="text-[10px] leading-snug">{invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number}</span>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <>
@@ -200,7 +206,7 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                     </div>
                     <div className="flex justify-between text-sm px-4">
                         <span className="text-gray-500 font-medium uppercase text-xs">
-                            Tax ({invoice.tax_rate || 0}%):
+                            {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
                         </span>
                         <span className="font-bold text-gray-900">${parseFloat(invoice.tax_amount || '0').toFixed(2)}</span>
                     </div>

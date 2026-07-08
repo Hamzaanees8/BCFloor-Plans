@@ -148,3 +148,7 @@ export const useOrganization = () => {
   }
   return context;
 };
+
+export const useOptionalOrganization = () => {
+  return useContext(OrganizationContext);
+};

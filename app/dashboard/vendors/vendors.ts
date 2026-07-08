@@ -17,6 +17,16 @@ export interface VendorSettings {
   force_service_area: number;
   is_kilometers: number;
   next_booking_slot_only: number;
+  tax_enabled?: boolean;
+  tax_country?: string;
+  tax_exempt?: boolean;
+  tax_type?: string | null;
+  tax_number_gst_hst?: string | null;
+  tax_number_pst?: string | null;
+  tax_number_qst?: string | null;
+  tax_number_us?: string | null;
+  tax_rate?: number | null;
+  tax_number?: string | null;
 }
 export interface VendorCompany {
   name: string;
@@ -71,6 +81,7 @@ export interface VendorPayload {
   avatar?: File;
   company_logo?: File | null;
   company_banner?: File | null;
+  tax_number?: string;
   company?: VendorCompany;
   settings?: VendorSettings;
   services?: SelectedService[];

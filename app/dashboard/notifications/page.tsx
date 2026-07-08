@@ -221,8 +221,11 @@ const Page = () => {
       accessorKey: "created_by_name",
       header: "Created By",
       cell: ({ row }) => (
-        <div className={`text-[15px] font-[400] ${userType}-text`}>
-          {row.original.created_by_name}
+        <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
+          {!row.original.is_read && (
+            <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
+          )}
+          <span>{row.original.created_by_name}</span>
         </div>
       ),
     },

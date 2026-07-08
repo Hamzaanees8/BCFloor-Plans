@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
-import { EditOrderStatus, GetOneOrder } from "../orders";
+import { EditOrderStatus, GetOneOrder, CancelOrder, PreviewCancelOrder } from "../orders";
 import { GetServices } from "../../services/services";
 import { Services } from "../../services/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +39,7 @@ import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
 import VendorOrderEdit from "../components/VendorOrderEdit";
+import CancelOrderDialog, { CancelPreviewData } from "../components/CancelOrderDialog";
 import { Agent } from "@/lib/types";
 import { GetAgents } from "../../calendar/calendar";
 import { toast } from "sonner";
@@ -183,6 +185,9 @@ function Page() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [paymentConfirm, setPaymentConfirm] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isCancelLoading, setIsCancelLoading] = useState(false);
+  const [cancelPreviewData, setCancelPreviewData] = useState<CancelPreviewData | null>(null);
 
   const [origin, setOrigin] = useState("");
 
@@ -196,7 +201,6 @@ function Page() {
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "primary" | "co-agent">("all");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const refreshOrders = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -440,6 +444,44 @@ function Page() {
       setIsLoading(false);
     }
   };
+  const handleCancelOrder = async (reason?: string) => {
+    const token = localStorage.getItem("token");
+    if (!token || !orderData) return;
+    setIsCancelLoading(true);
+    try {
+      await CancelOrder(orderData.uuid, token, reason);
+      toast.success("Order cancelled successfully");
+      setShowCancelDialog(false);
+      setOrder_status("Cancelled");
+      refreshOrders();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to cancel order"
+      );
+    } finally {
+      setIsCancelLoading(false);
+    }
+  };
+
+  const handleCancelClick = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !orderData) return;
+    
+    // Use isCancelLoading for the spinner on the button itself while fetching preview
+    setIsCancelLoading(true);
+    try {
+      const data = await PreviewCancelOrder(orderData.uuid, token);
+      setCancelPreviewData(data.data);
+      setShowCancelDialog(true);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to load cancellation details"
+      );
+    } finally {
+      setIsCancelLoading(false);
+    }
+  };
+
   const handlePaymentClick = async () => {
     if (invoices.length > 0) {
       setShowInvoicesModal(true);
@@ -527,6 +569,18 @@ function Page() {
     return <MobileSquareFootage orderId={orderId} />;
   }
 
+  // --- Cancel Order visibility logic ---
+  const earliestSlotDT = orderData?.slots?.reduce<Date | null>((earliest, slot) => {
+    const dt = new Date(`${slot.date}T${slot.start_time}`);
+    return !earliest || dt < earliest ? dt : earliest;
+  }, null) ?? null;
+
+  const showCancelButton =
+    !!orderData &&
+    orderData.order_status !== "Cancelled" &&
+    (!earliestSlotDT || earliestSlotDT > new Date()) &&
+    (userType === "admin" || userType === "agent");
+
   return (
     <div
       className="font-alexandria"
@@ -541,6 +595,16 @@ function Page() {
           currentOrder={orderData ?? undefined}
           open={openEditPopup}
           onOpenChange={setOpenEditPopup}
+        />
+      )}
+      {showCancelDialog && orderData && (
+        <CancelOrderDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          orderData={orderData}
+          isLoading={isCancelLoading}
+          previewData={cancelPreviewData}
+          onConfirm={handleCancelOrder}
         />
       )}
       <div
@@ -1094,6 +1158,8 @@ function Page() {
                       </Button>
                     </div>
                   )}
+
+
                 </div>
               </div>
             </div>
@@ -1396,6 +1462,27 @@ function Page() {
                     </div>
                   )}
                 </div>
+                {userType !== "vendor" && showCancelButton && (
+                  <div className="flex flex-col mt-[0px] w-full">
+                    <Button
+                      onClick={handleCancelClick}
+                      disabled={isCancelLoading}
+                      className="w-full rounded-[3px] h-[32px] border-[1px] text-[14px] font-[600] flex gap-[5px] justify-center items-center hover:opacity-90 font-raleway border-red-600 bg-red-600 hover:bg-red-500 text-white shadow-sm"
+                    >
+                      {isCancelLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Cancel Order"
+                      )}
+                    </Button>
+                    <p className="text-[12px] text-red-600 mt-2 text-center">
+                      Canceling an order cannot be undone. A cancellation fee may apply depending on the schedule.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[12px]">
                     <span className="text-[14px] font-[500]">Important Final Pricing Notice:</span> The amount shown above is an estimated quote.
@@ -1404,6 +1491,9 @@ function Page() {
                     The final invoice will be generated and sent to you upon project completion.
                   </p>
                 </div>
+
+                {/* Danger Zone */}
+
               </div>
             </div>
           </AccordionContent>
@@ -1597,82 +1687,93 @@ function Page() {
       </Dialog>
 
       <Dialog open={!!viewingInvoice} onOpenChange={(open) => !open && setViewingInvoice(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto px-4 sm:px-8">
-          <DialogHeader className="border-b pb-4 mb-4">
-            <DialogTitle
-              className="text-2xl font-bold"
-              style={{ color: roleSettings.pageTabColor }}
-            >
-              Invoice #{viewingInvoice?.invoice_number || viewingInvoice?.id}
-            </DialogTitle>
-          </DialogHeader>
-
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden">
           {viewingInvoice && (
-            <div className="flex flex-col pb-10">
-              <InvoiceDocument
-                invoice={viewingInvoice}
-                editData={viewingInvoice}
-                isEditing={false}
-                updateItem={() => { }}
-                addItem={() => { }}
-                removeItem={() => { }}
-                updateTaxRate={() => { }}
-                setEditData={() => { }}
-                roleSettings={roleSettings}
-              />
-
-              {userType !== "vendor" &&
-                viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                viewingInvoice.status?.toUpperCase() !== "VOID" && (
-                  <div className="flex justify-end pt-6 mt-6 border-t border-[#BBBBBB] gap-4">
-                    {currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
-                      <Button
-                        onClick={() => {
-                          handlePayInvoice(viewingInvoice);
-                          setViewingInvoice(null);
-                        }}
-                        className="px-8 h-[44px] text-[16px] font-semibold text-white hover:brightness-110"
-                        style={{
-                          backgroundColor: roleSettings.pageTabColor,
-                        }}
-                      >
-                        Pay Now
-                      </Button>
-                    ) : (
-                      <div className="flex gap-4">
-                        {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
-                          <Button
-                            onClick={() => {
-                              handlePayInvoice(viewingInvoice, "on_behalf");
-                              setViewingInvoice(null);
-                            }}
-                            className="px-8 h-[44px] text-[16px] font-semibold text-white hover:brightness-110"
-                            style={{
-                              backgroundColor: roleSettings.pageTabColor,
-                            }}
-                          >
-                            Pay on Behalf
-                          </Button>
-                        )}
-                        {userType !== "admin" && (
-                          <Button
-                            onClick={() => {
-                              handlePayInvoice(viewingInvoice, "self");
-                              setViewingInvoice(null);
-                            }}
-                            className="px-8 h-[44px] text-[16px] font-semibold text-white hover:brightness-110"
-                            style={{
-                              backgroundColor: roleSettings.pageTabColor,
-                            }}
-                          >
-                            Pay Self
-                          </Button>
-                        )}
-                      </div>
-                    )}
+            <>
+              <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white shrink-0">
+                <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
+                  <div className="flex flex-col items-start w-full md:w-auto">
+                    <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: roleSettings.pageTabColor }}>
+                      Invoice
+                    </span>
+                    <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                      #{viewingInvoice?.invoice_number || viewingInvoice?.id}
+                    </span>
                   </div>
-                )}
-            </div>
+
+                  <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
+                    {userType !== "vendor" &&
+                      viewingInvoice.status?.toUpperCase() !== "PAID" &&
+                      viewingInvoice.status?.toUpperCase() !== "VOID" && (
+                        currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
+                          <Button
+                            onClick={() => {
+                              handlePayInvoice(viewingInvoice);
+                              setViewingInvoice(null);
+                            }}
+                            className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                          >
+                            Pay Now
+                          </Button>
+                        ) : (
+                          <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
+                            {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
+                              <Button
+                                onClick={() => {
+                                  handlePayInvoice(viewingInvoice, "on_behalf");
+                                  setViewingInvoice(null);
+                                }}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                              >
+                                Pay on Behalf
+                              </Button>
+                            )}
+                            {userType !== "admin" && (
+                              <Button
+                                onClick={() => {
+                                  handlePayInvoice(viewingInvoice, "self");
+                                  setViewingInvoice(null);
+                                }}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                              >
+                                Pay Self
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      )}
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#F9F9F9]">
+                <div className="flex flex-col items-center">
+                  <InvoiceDocument
+                    invoice={viewingInvoice}
+                    editData={viewingInvoice}
+                    isEditing={false}
+                    updateItem={() => { }}
+                    addItem={() => { }}
+                    removeItem={() => { }}
+                    updateTaxRate={() => { }}
+                    setEditData={() => { }}
+                    roleSettings={roleSettings}
+                  />
+                </div>
+              </div>
+              <DialogFooter className="border-t p-4 shrink-0 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                  <Button 
+                      onClick={() => setViewingInvoice(null)}
+                      className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
+                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                  >
+                      Close
+                  </Button>
+              </DialogFooter>
+            </>
           )}
         </DialogContent>
       </Dialog>

@@ -20,16 +20,8 @@ import { Eye, Download as DownloadIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
-import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+
+import { ViewInvoiceModal } from "../components/ViewInvoiceModal";
 
 export default function MyInvoicesPage() {
     const router = useRouter();
@@ -251,75 +243,3 @@ export default function MyInvoicesPage() {
     );
 }
 
-function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
-    const handleDownload = async () => {
-        if (!invoice) return;
-        const invoiceNumber = invoice.invoice_number || invoice.id;
-        const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadInvoicePdf('invoice-pdf-content', fileName);
-    }
-
-    // Map vendor invoice data to InvoiceDocument format
-    const documentData = {
-        ...invoice,
-        items: invoice.lines?.map((line: any) => ({
-            ...line,
-            quantity: line.quantity || 1,
-            unit_price: line.unit_price || line.amount,
-        })) || []
-    }
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="w-[95vw] md:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8 border-b pb-4">
-                    <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
-                        Invoice Details: {invoice.invoice_number}
-                    </DialogTitle>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none w-full sm:w-auto"
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                        onClick={handleDownload}
-                    >
-                        <DownloadIcon className="h-4 w-4" />
-                        Download PDF
-                    </Button>
-                </DialogHeader>
-                
-                <div className="py-4">
-                    <InvoiceDocument 
-                        invoice={documentData}
-                        editData={null}
-                        isEditing={false}
-                        updateItem={() => {}}
-                        addItem={() => {}}
-                        removeItem={() => {}}
-                        updateTaxRate={() => {}}
-                        setEditData={() => {}}
-                        roleSettings={roleSettings}
-                    />
-                </div>
-
-                {/* Hidden PDF component for high-accuracy capture */}
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    <InvoicePdfDocument
-                        invoice={documentData}
-                        roleSettings={roleSettings}
-                    />
-                </div>
-
-                <DialogFooter className="border-t pt-4">
-                    <Button 
-                        onClick={onClose}
-                        className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                    >
-                        Close
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}

@@ -1,8 +1,10 @@
-import { Eye, FolderOpen, Calendar } from "lucide-react";
+import { Eye, FolderOpen, Calendar, Mail, Phone } from "lucide-react";
 import React from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
 import { Listings, Tour, TourFile } from "@/lib/types";
+import { useOptionalOrganization } from "@/app/context/OrganizationContext";
+import { getAppOrigin } from "@/lib/utils";
 
 interface KanbanViewCardProps {
   data: Listings | Tour;
@@ -77,6 +79,8 @@ const getPaymentStatus = (orders?: any[]) => {
 
 const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardProps) => {
   const { userType } = useAppContext();
+  const orgContext = useOptionalOrganization();
+  const organization = orgContext?.organization;
 
   let file_path = "";
   let addressLine = "";
@@ -84,6 +88,17 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
   let latestOrder: any = null;
   let projStatus = { label: "No Bookings", color: "bg-gray-100/90 text-gray-800 border-gray-200" };
   let payStatus = { label: "N/A", color: "bg-gray-100/90 text-gray-800 border-gray-200" };
+
+  const getAgentDomainUrl = () => {
+    if (userType === 'admin') return getAppOrigin();
+    if (organization && (organization as any).domains) {
+      const agentDomain = (organization as any).domains.find((d: any) => d.portal_type === 'agent');
+      if (agentDomain) return `https://${agentDomain.domain}`;
+    }
+    return getAppOrigin();
+  };
+
+  const agentDomainUrl = getAgentDomainUrl();
 
   if (type === 'tour') {
     const tourData = data as Tour;
@@ -94,7 +109,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     const address = suite ? `${suite} - ${rawAddress}` : rawAddress;
     const city = tourData.orders?.property?.city || "";
     addressLine = address + (city ? ", " + city : "");
-    href = `/tour/${slugify(address)}/${tourData.orders?.uuid}`;
+    href = `${agentDomainUrl}/tour/${slugify(address)}/${tourData.orders?.uuid}`;
   } else {
     const listingData = data as Listings;
     const files = listingData.orders?.[0]?.tours?.[0]?.files;
@@ -114,7 +129,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
       : `/dashboard/listings/create/${listingData.uuid}`;
 
     // We store the public tour URL
-    (KanbanViewCard as any).publicTourUrl = isPublished ? `/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
+    (KanbanViewCard as any).publicTourUrl = isPublished ? `${agentDomainUrl}/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
   }
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -165,7 +180,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             className="absolute top-2 right-2 group/tourbtn z-20"
           >
             <a
-              href={`${(KanbanViewCard as any).publicTourUrl}?type=branded`}
+              href={`${(KanbanViewCard as any).publicTourUrl}?type=branded&preview=true`}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-black/60 hover:bg-emerald-600 text-white p-1.5 rounded-full backdrop-blur-md shadow-sm border border-white/20 transition-all flex items-center justify-center cursor-pointer"
@@ -179,7 +194,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             {/* Dropdown Menu */}
             <div className="absolute right-0 mt-1 w-[130px] bg-white rounded-md shadow-lg border border-gray-100 opacity-0 invisible group-hover/tourbtn:opacity-100 group-hover/tourbtn:visible transition-all duration-200 overflow-hidden flex flex-col">
               <a 
-                href={`${(KanbanViewCard as any).publicTourUrl}?type=branded`}
+                href={`${(KanbanViewCard as any).publicTourUrl}?type=branded&preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 text-[11px] font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-b border-gray-50"
@@ -187,7 +202,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
                 Branded Tour
               </a>
               <a 
-                href={`${(KanbanViewCard as any).publicTourUrl}?type=unbranded`}
+                href={`${(KanbanViewCard as any).publicTourUrl}?type=unbranded&preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 text-[11px] font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
@@ -209,9 +224,27 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
               {addressLine}
             </p>
             {type === 'listing' && (userType === 'admin' || userType === 'vendor') && (data as Listings).agent && (
-              <p className="text-[11px] text-gray-500 mt-1">
-                <span className="font-semibold text-gray-600">Agent:</span> {(data as Listings).agent?.first_name} {(data as Listings).agent?.last_name || 'N/A'}
-              </p>
+              <div className="mt-1 flex flex-col gap-0.5">
+                <p className="text-[11px] text-gray-500">
+                  <span className="font-semibold text-gray-600">Agent:</span> {(data as Listings).agent?.first_name} {(data as Listings).agent?.last_name || 'N/A'}
+                </p>
+                {(data as Listings).agent?.email && (
+                  <div className="flex items-center gap-1.5 mt-0.5" title={(data as Listings).agent?.email}>
+                    <Mail className="h-3 w-3 text-gray-400 shrink-0" />
+                    <p className="text-[10px] text-gray-400 truncate">
+                      {(data as Listings).agent?.email}
+                    </p>
+                  </div>
+                )}
+                {(data as Listings).agent?.primary_phone && (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Phone className="h-3 w-3 text-gray-400 shrink-0" />
+                    <p className="text-[10px] text-gray-400">
+                      {(data as Listings).agent?.primary_phone}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

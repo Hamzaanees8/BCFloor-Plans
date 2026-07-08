@@ -468,24 +468,31 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[850px] p-4 sm:p-6">
-                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3 pr-8">
-                    <DialogTitle className="text-base sm:text-xl font-bold text-left" style={{ color: roleSettings.pageTabColor }}>
-                        Invoice Details: {invoice.invoice_number}
+            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden bg-gray-50">
+                <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white shrink-0">
+                    <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
+                        <div className="flex flex-col items-start w-full md:w-auto">
+                            <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: roleSettings.pageTabColor }}>
+                                Invoice
+                            </span>
+                            <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                                #{invoice.invoice_number || invoice.id}
+                            </span>
+                        </div>
+
+                        <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 flex-col md:flex-row items-start`}>
+                            <Button
+                                onClick={handleDownload}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all`}
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                                <Download className="w-4 h-4 mr-1.5 inline-block" /> Download PDF
+                            </Button>
+                        </div>
                     </DialogTitle>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none w-full sm:w-auto justify-center shrink-0"
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                        onClick={handleDownload}
-                    >
-                        <Download className="h-4 w-4" />
-                        Download PDF
-                    </Button>
                 </DialogHeader>
 
-                <div className="py-4">
+                <div className="py-4 flex-1 overflow-y-auto">
                     <InvoiceDocument
                         invoice={documentData}
                         editData={null}
@@ -507,10 +514,10 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
                     />
                 </div>
 
-                <DialogFooter className="border-t pt-4">
+                <DialogFooter className="border-t p-4 shrink-0 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
                     <Button
                         onClick={onClose}
-                        className="text-white hover:brightness-110 transition-all px-8 h-10"
+                        className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                     >
                         Close
@@ -548,6 +555,7 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
             ...invoice,
             items,
             tax_rate: taxRate,
+            tax_type: invoice.tax_type || "Tax",
             subtotal: subtotal.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
             total: (subtotal + taxAmount).toFixed(2),
@@ -602,6 +610,10 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
         setEditData({ ...editData, tax_rate: val, ...totals });
     };
 
+    const updateTaxType = (val: string) => {
+        setEditData({ ...editData, tax_type: val });
+    };
+
     const handleSave = async () => {
         if (!editData) return;
         const token = localStorage.getItem("token");
@@ -612,6 +624,7 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
             const payload = {
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
+                tax_type: editData.tax_type,
                 lines: editData.items.map((item: any) => ({
                     description: item.description,
                     quantity: item.quantity,
@@ -676,6 +689,7 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
                         addItem={addItem}
                         removeItem={removeItem}
                         updateTaxRate={updateTaxRate}
+                        updateTaxType={updateTaxType}
                         setEditData={setEditData}
                         roleSettings={roleSettings}
                     />

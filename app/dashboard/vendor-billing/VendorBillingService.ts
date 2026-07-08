@@ -82,6 +82,7 @@ export interface GenerateInvoicePayload {
     cycle_end?: string;
     notes?: string;
     tax_rate?: number | string;
+    travel_amount?: number;
     lines?: VendorInvoiceLine[];
 }
 

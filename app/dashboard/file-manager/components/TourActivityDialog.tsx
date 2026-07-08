@@ -38,7 +38,7 @@ export default function TourActivityDialog({
 
     React.useEffect(() => {
         if (open && tourUuid) {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("token") || localStorage.getItem("agentToken") || localStorage.getItem("vendorToken");
             fetchTourStats(tourUuid, undefined, token || undefined)
                 .then(setStats)
                 .catch(console.error)
@@ -138,7 +138,15 @@ export default function TourActivityDialog({
                                         key={item.media_uuid}
                                         className="relative w-full aspect-square bg-[#D9D9D9]  overflow-hidden flex items-center justify-center border"
                                     >
-                                        {/* Ideally we would have thumbnail_url in stats, or fetch it separately. For now placeholders or if media_stats has urls */}
+                                        {item.thumbnail_url ? (
+                                            <img
+                                                src={item.thumbnail_url}
+                                                alt={item.name || "Tour media"}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="text-xs text-gray-500">{item.name || "Media"}</span>
+                                        )}
                                         <div className="absolute bottom-0 w-full bg-[#7D7D7D] h-[30px] text-white text-xs flex items-center justify-center gap-1 py-1">
                                             <Eye className="w-3 h-3" /> {item.views}
                                         </div>

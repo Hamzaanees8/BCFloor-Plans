@@ -102,6 +102,8 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
             const payload = {
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
+                tax_type: editData.tax_type,
+                tax_number: editData.tax_number || editData.tax_snapshot?.tax_number,
                 items: editData.items.map((item: any) => ({
                     description: item.description,
                     quantity: item.quantity,
@@ -184,6 +186,13 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         })
     }
 
+    const updateTaxType = (val: string) => {
+        setEditData({
+            ...editData,
+            tax_type: val
+        })
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto font-alexandria">
@@ -245,6 +254,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         addItem={addItem}
                         removeItem={removeItem}
                         updateTaxRate={updateTaxRate}
+                        updateTaxType={updateTaxType}
                         setEditData={setEditData}
                         roleSettings={roleSettings}
                     />

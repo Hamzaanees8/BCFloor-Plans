@@ -7,6 +7,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -334,12 +335,24 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     return (
         <div className="font-alexandria">
             <div>
-                <form onSubmit={handleSave}>
-                    <Accordion
-                        type="multiple"
-                        defaultValue={["property", "additional", "statistics"]}
-                        className="w-full space-y-4"
-                    >
+                <form onSubmit={userType === 'vendor' ? (e) => e.preventDefault() : handleSave}>
+                    <div className="relative">
+                        {userType === 'vendor' && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    You don&apos;t have permission to change this setting
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+                        <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
+                        <Accordion
+                            type="multiple"
+                            defaultValue={["property", "additional", "statistics"]}
+                            className="w-full space-y-4"
+                        >
                         <AccordionItem value="property">
                             <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                 General Information
@@ -669,9 +682,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     value={first_name}
                                                     onChange={(e) => setfirst_name(e.target.value)}
                                                     placeholder="Enter First Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
-                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
@@ -680,42 +692,38 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     value={last_name}
                                                     onChange={(e) => setlast_name(e.target.value)}
                                                     placeholder="Enter Last Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
-                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div className="col-span-2">
                                                 <label htmlFor="">Company Name</label>
                                                 <Input
                                                     placeholder="Enter Company Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                     value={company_name}
                                                     onChange={(e) => setcompany_name(e.target.value)}
-                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
                                                 <label htmlFor="">License Number</label>
                                                 <Input
                                                     placeholder="Enter License Number"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                     value={license_number}
                                                     onChange={(e) => setlicense_number(e.target.value)}
-                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
                                                 <label htmlFor="">Website</label>
                                                 <Input
                                                     placeholder="Enter Website"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                     value={website}
                                                     onChange={(e) => setwebsite(e.target.value)}
-                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div className='col-span-2 flex items-end gap-x-[6px]'>
@@ -738,8 +746,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         <button
                                                             type="button"
                                                             onClick={triggerFileInput}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8] disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            disabled={userType === "vendor"}
+                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
                                                         >
                                                             Replace
                                                         </button>
@@ -779,8 +786,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         <button
                                                             type="button"
                                                             onClick={triggerFileInput1}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8] disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            disabled={userType === "vendor"}
+                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
                                                         >
                                                             Replace
                                                         </button>
@@ -804,20 +810,17 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             <Input
                                                 value={email}
                                                 onChange={(e) => setemail(e.target.value)}
-                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50' 
+                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' 
                                                 type="email" 
-                                                disabled={userType === "vendor"}
                                             />
-
                                         </div>
                                         <div>
                                             <label htmlFor="">Phone Number </label>
                                             <Input
                                                 value={primary_phone}
                                                 onChange={(e) => setprimary_phone(e.target.value)}
-                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50' 
+                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' 
                                                 type="text" 
-                                                disabled={userType === "vendor"}
                                             />
                                         </div>
 
@@ -835,6 +838,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                         >
                             {saving ? "Saving..." : "Save Changes"}
                         </button>
+                    </div>
+                    </div>
                     </div>
                 </form>
             </div >

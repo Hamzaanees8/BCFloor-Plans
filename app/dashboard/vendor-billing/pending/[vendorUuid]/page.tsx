@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { useLoadScript } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -13,7 +14,6 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import { GetOne } from "@/app/dashboard/vendors/vendors";
 import { Get } from "@/app/dashboard/orders/orders";
-import { getTaxRateByLocation } from "@/lib/taxCalculator";
 import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
 
 const logBillingError = (context: string, message: string, extraData?: any) => {
@@ -38,6 +38,13 @@ export default function PendingItemsPage() {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
+    useLoadScript({
+        id: 'google-map-script',
+        googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
+        version: "3.64",
+        libraries: ["places", "drawing"] as any
+    });
 
     const fetchPendingItems = useCallback(async (token: string) => {
         try {
@@ -64,13 +71,13 @@ export default function PendingItemsPage() {
                 // 1. Service item
                 const serviceAmount = parseFloat(String(item.service.amount || 0));
                 mappedItems.push({
-                    description: `${item.service.service.name} - Order #${item.service.order.id} (${item.service.order.property.property_address})`,
+                    description: `${item.service?.service?.name || 'Service'} - Order #${item.service?.order?.id || ''} (${item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || ''})`,
                     quantity: 1,
                     unit_price: serviceAmount,
                     amount: serviceAmount,
                     type: 'service',
-                    order_service_id: item.service.uuid,
-                    property_address: item.service.order.property.property_address
+                    order_service_id: item.service?.uuid,
+                    property_address: item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || ''
                 });
                 subtotal += serviceAmount;
                 serviceToOrderMap[item.service.uuid] = item.service.order;
@@ -86,7 +93,7 @@ export default function PendingItemsPage() {
                 const ordersToCalculateTravel: any[] = [];
 
                 // Get unique property addresses from pending items
-                const pendingOrderIds = new Set(pendingResponse.items.map(item => item.service.order.id));
+                const pendingOrderIds = new Set(pendingResponse.items.map(item => item.service?.order?.id).filter(Boolean));
 
                 allOrders.forEach((order: any) => {
                     if (!pendingOrderIds.has(order.id)) return;
@@ -96,8 +103,8 @@ export default function PendingItemsPage() {
 
                     ordersToCalculateTravel.push({
                         id: order.id,
-                        address: order.property_address,
-                        location: order.property_location,
+                        address: order.property_address || order.property?.property_address || order.property?.address || '',
+                        location: order.property_location || order.property?.property_location || '',
                         slots: vendorSlots,
                         hasTravelRequiredService: order.services?.some((s: any) => 
                             vendorSlots.some((slot: any) => String(slot.service_id) === String(s.service_id)) && 
@@ -172,23 +179,24 @@ export default function PendingItemsPage() {
             // Combine all items
             const allItems = [...mappedItems, ...travelItems];
 
-            // Calculate tax rate based on vendor location
+            // Read tax rate and details from vendor profile settings
             let taxRate = 0;
-            let calculatedTaxError: string | null = null;
-            
-            try {
-                const vendorProvince = startLocation?.province || startLocation?.state;
-                const vendorCountry = startLocation?.country || "Canada";
+            let taxType = "Tax";
+            let taxSnapshot: any = null;
+            const calculatedTaxError: string | null = null;
+
+            if (vendorDetails?.settings?.tax_enabled) {
+                taxRate = parseFloat(vendorDetails.settings.tax_rate) || 0;
+                taxType = vendorDetails.settings.tax_type || "Tax";
+                const taxNumber = vendorDetails.settings.tax_number || "";
                 
-                if (vendorProvince) {
-                    const taxInfo = getTaxRateByLocation(vendorProvince, vendorCountry);
-                    taxRate = taxInfo.rate;
-                } else {
-                    calculatedTaxError = "Vendor location not found";
-                }
-            } catch (err) {
-                console.error("Tax calculation error:", err);
-                calculatedTaxError = "Could not calculate tax rate";
+                taxSnapshot = {
+                    total_rate: taxRate,
+                    is_registered: !!taxNumber,
+                    tax_number: taxNumber,
+                    taxes: taxType ? [{ name: taxType, rate: taxRate }] : [],
+                    snapshotted_at: new Date().toISOString()
+                };
             }
 
             const taxAmount = subtotal * (taxRate / 100);
@@ -201,10 +209,13 @@ export default function PendingItemsPage() {
                 status: 'draft',
                 items: allItems,
                 tax_rate: taxRate,
+                tax_type: taxType,
+                travel_amount: parseFloat(totalTravelCost.toFixed(2)),
                 subtotal: subtotal.toFixed(2),
                 tax_amount: taxAmount.toFixed(2),
                 total: (subtotal + taxAmount).toFixed(2),
-                notes: ""
+                notes: "",
+                tax_snapshot: taxSnapshot
             });
 
             if (calculatedTaxError) {
@@ -277,6 +288,10 @@ export default function PendingItemsPage() {
         setEditData({ ...editData, tax_rate: val, ...totals });
     };
 
+    const updateTaxType = (val: string) => {
+        setEditData({ ...editData, tax_type: val });
+    };
+
     const handleGenerateInvoice = async () => {
         if (!editData || editData.items.length === 0) {
             toast.error("Your invoice must have at least one valid item.");
@@ -301,86 +316,25 @@ export default function PendingItemsPage() {
                 // Assuming it might fail without uuids. But typically they should have at least one.
             }
 
-            // STEP 2: Issue generation call with all data in a single request (including travel costs and line items)
+            // STEP 2: Issue generation call — travel_amount sent as a top-level field
+            // so the backend saves it directly to vendor_invoices.travel_amount
+            const travelItem = editData.items.find((item: any) => item.type === 'travel');
+            const travelAmount = travelItem ? parseFloat(String(travelItem.amount)) : (editData.travel_amount ?? 0);
+
             const generatePayload = {
                 vendor_uuid: vendorUuid,
                 order_service_uuids: uniqueServiceIds,
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
-                lines: editData.items.map((item: any) => ({
-                    description: item.description,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    amount: parseFloat(item.quantity) * parseFloat(item.unit_price),
-                    type: item.type || 'service',
-                    order_service_id: item.order_service_id || null,
-                })),
+                tax_type: editData.tax_type,
+                tax_number: editData.tax_snapshot?.tax_number,
+                travel_amount: parseFloat(travelAmount.toFixed(2)),
+                tax_snapshot: editData.tax_snapshot
             };
 
-            // VERIFICATION LAYER (Task 2.1)
-            // Pre-save verification: check that travel line items are correctly mapped in payload if present in editor
-            const originalTravelItems = editData.items.filter((item: any) => item.type === 'travel');
-            const payloadTravelItems = generatePayload.lines.filter((item: any) => item.type === 'travel');
-            if (originalTravelItems.length > 0 && payloadTravelItems.length === 0) {
-                console.error("Verification failed: Travel items were present in the invoice editor but missing in payload.");
-                logBillingError("invoice_generation_missing_travel_payload", "Travel items present in draft but missing in payload", {
-                    vendorUuid,
-                    invoiceNotes: editData.notes,
-                    originalItemsCount: editData.items.length,
-                    payloadItemsCount: generatePayload.lines.length
-                });
-                toast.error("⚠️ Billing validation mismatch: Travel items are missing from invoice payload.");
-                setGenerating(false);
-                return;
-            }
+            await vendorBillingService.generateInvoice(generatePayload, token);
 
-            const response = await vendorBillingService.generateInvoice(generatePayload, token);
-
-            // ✅ VERIFICATION: Check all items were saved in database
-            if (response && response.uuid) {
-                const details = await vendorBillingService.getAdminInvoiceDetails(response.uuid, token);
-                
-                const expectedItemCount = editData.items.length;
-                const savedItemCount = details.lines?.length ?? 0;
-                
-                if (savedItemCount !== expectedItemCount) {
-                    toast.warning(
-                        `⚠️ Invoice saved but only ${savedItemCount}/${expectedItemCount} line items stored. ` +
-                        `Missing: ${expectedItemCount - savedItemCount} items (likely travel costs)`
-                    );
-                    logBillingError("invoice_verification_mismatch", "Invoice saved but line item count mismatch", {
-                        vendorUuid,
-                        invoiceUuid: response.uuid,
-                        expected: editData.items,
-                        saved: details.lines
-                    });
-                } else {
-                    // Verify travel items specifically
-                    const travelItems = details.lines?.filter((l: any) => l.type === 'travel') ?? [];
-                    const expectedTravel = editData.items.filter((i: any) => i.type === 'travel').length;
-                    
-                    if (travelItems.length !== expectedTravel) {
-                        const travelAmount = editData.items.find((i: any) => i.type === 'travel')?.amount || 0;
-                        toast.error(
-                            `❌ Travel items not saved! Expected ${expectedTravel}, got ${travelItems.length}. ` +
-                            `Vendor will be underpaid by $${Number(travelAmount).toFixed(2)}`
-                        );
-                        logBillingError("invoice_verification_travel_missing", "Travel items not saved in details", {
-                            vendorUuid,
-                            invoiceUuid: response.uuid,
-                            expectedTravel,
-                            actualTravel: travelItems.length
-                        });
-                        setGenerating(false);
-                        return;
-                    }
-                    
-                    toast.success("✅ Invoice generated with all items verified!");
-                }
-            } else {
-                toast.success("Custom invoice generated successfully!");
-            }
-
+            toast.success("Invoice generated successfully!");
             router.push('/dashboard/vendor-billing?resume_payment=true');
         } catch (err: any) {
             console.error("Failed to generate and map customized invoice:", err);
@@ -395,31 +349,32 @@ export default function PendingItemsPage() {
     };
 
     return (
-        <div className="font-alexandria pb-24" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
-            <div className="sticky top-0 z-40 w-full h-[80px] flex items-center justify-between px-[20px] border-b bg-white" style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
-                <div className="flex items-center gap-4">
-                    <h1 className="text-[16px] md:text-[24px] font-[400] tracking-tight" style={{ color: roleSettings.pageTabColor }}>Review & Map Billing › </h1>
-                    <p className="text-[16px] md:text-[24px] opacity-80" style={{ color: roleSettings.pageTabColor }}>
+        <div className="font-alexandria pb-24 overflow-x-hidden" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
+            <div className="sticky top-0 z-40 w-full min-h-[80px] py-3 md:py-0 md:h-[80px] flex flex-col md:flex-row md:items-center justify-between gap-3 px-3 md:px-[20px] border-b bg-white" style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
+                <div className="flex items-center gap-2 md:gap-4 truncate w-full md:w-auto min-w-0">
+                    <h1 className="text-[15px] md:text-[24px] font-[400] tracking-tight shrink-0 hidden sm:block" style={{ color: roleSettings.pageTabColor }}>Review & Map Billing › </h1>
+                    <h1 className="text-[15px] md:text-[24px] font-[400] tracking-tight shrink-0 sm:hidden" style={{ color: roleSettings.pageTabColor }}>Review Billing › </h1>
+                    <p className="text-[15px] md:text-[24px] opacity-80 truncate min-w-0" style={{ color: roleSettings.pageTabColor }}>
                         {editData?.vendor?.company_name || `${editData?.vendor?.first_name || ''} ${editData?.vendor?.last_name || ''}`}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto shrink-0 min-w-0">
                     <Button 
                         variant="default" 
-                        className="bg-white/10 hover:bg-white/20 text-white border-0"
+                        className="bg-white/10 hover:bg-white/20 text-white border-0 flex-1 md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4 min-w-0"
                         onClick={() => router.push('/dashboard/vendor-billing')}
                         disabled={generating}
                     >
-                        <X className="mr-2 h-4 w-4" /> Cancel
+                        <X className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 shrink-0" /> <span className="truncate">Cancel</span>
                     </Button>
                     <Button 
-                        className="text-white hover:brightness-110 active:scale-[0.98] transition-all border-0 shadow-lg"
+                        className="text-white hover:brightness-110 active:scale-[0.98] transition-all border-0 shadow-lg flex-[2] md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4 min-w-0"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                         onClick={handleGenerateInvoice}
                         disabled={generating || !editData}
                     >
-                        {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Generate Invoice
+                        {generating ? <Loader2 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin shrink-0" /> : <Save className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 shrink-0" />}
+                        <span className="truncate">Generate Invoice</span>
                     </Button>
                 </div>
             </div>
@@ -460,6 +415,7 @@ export default function PendingItemsPage() {
                             addItem={addItem}
                             removeItem={removeItem}
                             updateTaxRate={updateTaxRate}
+                            updateTaxType={updateTaxType}
                             setEditData={setEditData}
                             roleSettings={roleSettings}
                         />

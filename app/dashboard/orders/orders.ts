@@ -931,3 +931,46 @@ export async function SyncToMls(
 
   return data;
 }
+
+export async function PreviewCancelOrder(orderUuid: string, token: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel-preview`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to preview cancel order");
+  }
+
+  return data;
+}
+
+export async function CancelOrder(orderUuid: string, token: string, reason?: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const payload = reason ? { reason } : {};
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to cancel order");
+  }
+
+  return data;
+}

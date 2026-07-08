@@ -428,6 +428,16 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
         {/* ── Arrange Photos ─────────────────────────────────────────────── */}
         <AccordionItem value="item-1">
+          <div className="relative">
+            {userType === 'vendor' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+                </TooltipTrigger>
+                <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
+              </Tooltip>
+            )}
+            <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
           <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
             <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
               Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
@@ -541,10 +551,22 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               )}
             </div>
           </AccordionContent>
+          </div>
+          </div>
         </AccordionItem>
 
         {/* ── Slideshow Settings ─────────────────────────────────────────── */}
         <AccordionItem value="item-2">
+          <div className="relative">
+            {userType === 'vendor' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+                </TooltipTrigger>
+                <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
+              </Tooltip>
+            )}
+            <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
           <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Settings
           </AccordionTrigger>
@@ -655,6 +677,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               </div>
             </div>
           </AccordionContent>
+          </div>
+          </div>
         </AccordionItem>
 
         {/* ── Slideshow Preview ──────────────────────────────────────────── */}

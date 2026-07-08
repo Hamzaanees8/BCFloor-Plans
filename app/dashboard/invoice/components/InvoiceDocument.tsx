@@ -16,6 +16,7 @@ interface InvoiceDocumentProps {
     addItem: () => void;
     removeItem: (index: number) => void;
     updateTaxRate: (val: string) => void;
+    updateTaxType?: (val: string) => void;
     setEditData: (data: any) => void;
     roleSettings: any;
 }
@@ -28,6 +29,7 @@ const InvoiceDocument = ({
     addItem,
     removeItem,
     updateTaxRate,
+    updateTaxType,
     setEditData,
     roleSettings
 }: InvoiceDocumentProps) => {
@@ -135,6 +137,12 @@ const InvoiceDocument = ({
                                 <p className="font-bold text-gray-900">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
                                 {(invoice.vendor.company?.name || invoice.vendor.company_name) && <p>{invoice.vendor.company?.name || invoice.vendor.company_name}</p>}
                                 <p className="flex items-center gap-2 px-1"><Mail size={14} className="shrink-0" style={{ color: settings.pageTabColor }} /> <span>{invoice.vendor.email}</span></p>
+                                {(invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number) && (
+                                    <p className="flex items-center gap-2 px-1 text-[10px] md:text-xs">
+                                        <span className="font-semibold" style={{ color: settings.pageTabColor }}>Tax ID:</span> 
+                                        <span>{invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number}</span>
+                                    </p>
+                                )}
                             </>
                         ) : (
                             <>
@@ -345,19 +353,95 @@ const InvoiceDocument = ({
                         <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">Subtotal:</span>
                         <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.subtotal : (invoice.subtotal || '0')).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-xs md:text-sm items-center">
-                        <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                            Tax {isEditing ? (
-                                <Input
-                                    type="number"
-                                    value={editData.tax_rate}
-                                    onChange={(e) => updateTaxRate(e.target.value)}
-                                    className="w-16 h-6 inline-block ml-1 py-0 px-1 text-right"
-                                />
-                            ) : `(${invoice.tax_rate || 0}%)`}:
-                        </span>
-                        <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : (invoice.tax_amount || '0')).toFixed(2)}</span>
-                    </div>
+                    {/* Travel Compensation row — shown when travel_amount > 0 */}
+                    {(() => {
+                        const travelAmt = parseFloat(
+                            isEditing
+                                ? (editData.travel_amount ?? editData.items?.find((i: any) => i.type === 'travel')?.amount ?? 0)
+                                : (invoice.travel_amount ?? 0)
+                        );
+                        return travelAmt > 0 ? (
+                            <div className="flex justify-between text-xs md:text-sm">
+                                <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">Travel:</span>
+                                <span className="font-bold text-gray-900">${travelAmt.toFixed(2)}</span>
+                            </div>
+                        ) : null;
+                    })()}
+                    {isEditing ? (
+                        <div className="flex flex-col w-full">
+                            <div className="flex justify-between text-xs md:text-sm items-center w-full">
+                                <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                                    {updateTaxType ? (
+                                        <Input
+                                            value={editData.tax_type || "Tax"}
+                                            onChange={(e) => updateTaxType(e.target.value)}
+                                            className="w-24 h-6 inline-block mr-1 py-0 px-1 text-xs"
+                                        />
+                                    ) : (
+                                        editData.tax_type || "Tax Rate"
+                                    )}
+                                    <Input
+                                        type="number"
+                                        value={editData.tax_rate}
+                                        onChange={(e) => updateTaxRate(e.target.value)}
+                                        className="w-16 h-6 inline-block ml-1 py-0 px-1 text-right"
+                                    />
+                                    %:
+                                </span>
+                                <span className="font-bold text-gray-900">${parseFloat(editData.tax_amount || '0').toFixed(2)}</span>
+                            </div>
+                            {editData.tax_snapshot && editData.tax_snapshot.is_registered && editData.tax_snapshot.taxes?.length > 0 && (
+                                <div className="pl-4 border-l-2 border-indigo-100 mt-1 mb-2">
+                                    {editData.tax_snapshot.taxes.map((t: any, i: number) => (
+                                        <div key={i} className="flex justify-between text-[10px] md:text-xs text-gray-400">
+                                            <span>{t.name} ({t.rate}%):</span>
+                                            <span>${((parseFloat(editData.subtotal || 0) * t.rate) / 100).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {editData.tax_snapshot && !editData.tax_snapshot.is_registered && (
+                                <div className="text-[10px] md:text-xs text-gray-400 mt-1 mb-2 text-right">Vendor not registered for tax</div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col w-full gap-2">
+                            {invoice.tax_snapshot && invoice.tax_snapshot.is_registered ? (
+                                <>
+                                    {invoice.tax_snapshot.taxes?.map((t: any, i: number) => (
+                                        <div key={i} className="flex justify-between text-xs md:text-sm items-center">
+                                            <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                                                {t.name} ({t.rate}%):
+                                            </span>
+                                            <span className="font-bold text-gray-900">${((parseFloat(invoice.subtotal || 0) * t.rate) / 100).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                    {(!invoice.tax_snapshot?.taxes || invoice.tax_snapshot.taxes.length === 0) && (
+                                        <div className="flex justify-between text-xs md:text-sm items-center">
+                                            <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                                                {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
+                                            </span>
+                                            <span className="font-bold text-gray-900">${parseFloat(invoice.tax_amount || '0').toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                </>
+                            ) : invoice.tax_snapshot && !invoice.tax_snapshot.is_registered ? (
+                                <div className="flex justify-between text-xs md:text-sm items-center">
+                                    <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                                        Tax (Not Registered):
+                                    </span>
+                                    <span className="font-bold text-gray-900">$0.00</span>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between text-xs md:text-sm items-center">
+                                    <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                                        {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
+                                    </span>
+                                    <span className="font-bold text-gray-900">${parseFloat(invoice.tax_amount || '0').toFixed(2)}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className="flex justify-between items-center px-4 md:px-5 py-3 md:py-4 text-white rounded-sm mt-4 md:mt-6" style={{ backgroundColor: settings.pageTabColor }}>
                         <span className="font-bold uppercase tracking-wider text-xs md:text-sm leading-normal">Total</span>
                         <span className="text-base md:text-xl font-bold leading-normal">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>

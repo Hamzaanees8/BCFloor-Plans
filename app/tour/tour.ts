@@ -117,6 +117,7 @@ export interface TourStatsPayload {
     visitor_id: string;
     referrer?: string;
     media_uuid?: string;
+    preview?: boolean;
 }
 
 export interface TourStats {
@@ -131,7 +132,13 @@ export interface TourStats {
         referrers: { domain: string; count: number }[];
     };
     media: {
-        media_stats: { media_uuid: string; views: number }[];
+        media_stats: {
+            uuid: string;
+            media_uuid: string;
+            name?: string;
+            thumbnail_url?: string;
+            views: number;
+        }[];
     }
 }
 

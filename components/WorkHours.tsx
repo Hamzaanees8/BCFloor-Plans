@@ -1334,15 +1334,17 @@ const VendorWorkHours = ({
                           </span>
                         )}
                       </p>
-                      <div
-                        className="flex items-center gap-x-[10px] cursor-pointer"
-                        onClick={() => setIsAddingService(true)}
-                      >
-                        <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                          Add
-                        </p>
-                        <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
-                      </div>
+                      {userType !== "vendor" && (
+                        <div
+                          className="flex items-center gap-x-[10px] cursor-pointer"
+                          onClick={() => setIsAddingService(true)}
+                        >
+                          <p className="text-base font-semibold font-raleway text-[#6BAE41]">
+                            Add
+                          </p>
+                          <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
+                        </div>
+                      )}
                     </div>
                   </div>
 

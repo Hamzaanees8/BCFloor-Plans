@@ -57,6 +57,7 @@ export type Vendor = {
     primary_phone?: string;
     secondary_phone?: string;
     company_name: string;
+    tax_number?: string;
     avatar_url?: string;
     addresses: Address[];
     settings: { payment_per_km: string }

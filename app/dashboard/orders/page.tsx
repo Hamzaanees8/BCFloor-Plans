@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Delete, Get } from './orders';
+import { Delete, Get, CancelOrder } from './orders';
 import { Address } from '@/lib/types';
 import { useOrderContext } from './context/OrderContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
@@ -21,6 +21,7 @@ import DropdownActions from "@/components/DropdownActions";
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileAgentOrders from '@/components/mobile/agent/MobileAgentOrders';
 import MobileOrdersList from '@/components/mobile/admin/MobileOrdersList';
+import CancelOrderDialog from './components/CancelOrderDialog';
 
 export type Order = {
     id: number;
@@ -317,6 +318,10 @@ const Page = () => {
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
+    const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+    const [showCancelDialog, setShowCancelDialog] = useState(false);
+    const [isCancelLoading, setIsCancelLoading] = useState(false);
+    const [cancelPreviewData] = useState<any | null>(null);
 
     // const [selectedData, setSelectedData] = useState<VendorData | null>(null); // Unused
     const [selectedData1, setSelectedData1] = useState<AgentData | null>(null);
@@ -413,6 +418,41 @@ const Page = () => {
                 console.error('Delete failed:', error);
                 toast.error('Failed to delete Order');
             }
+        }
+    };
+
+    const canShowCancel = (order: Order): boolean => {
+        const earliest = order.slots?.reduce<Date | null>((min, slot) => {
+            const dt = new Date(`${slot.date}T${slot.start_time}`);
+            return !min || dt < min ? dt : min;
+        }, null);
+        return (
+            order.order_status !== 'Cancelled' &&
+            (userType === 'admin' || userType === 'agent') &&
+            (!earliest || earliest > new Date())
+        );
+    };
+
+    const handleCancelFromList = async () => {
+        if (!orderToCancel) return;
+        const token = localStorage.getItem('token') || '';
+        setIsCancelLoading(true);
+        try {
+            await CancelOrder(orderToCancel.uuid, token);
+            toast.success('Order cancelled successfully');
+            setShowCancelDialog(false);
+            setOrderToCancel(null);
+            setOrderData(prev =>
+                prev.map(o =>
+                    o.uuid === orderToCancel.uuid
+                        ? { ...o, order_status: 'Cancelled' }
+                        : o
+                )
+            );
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to cancel order');
+        } finally {
+            setIsCancelLoading(false);
         }
     };
 
@@ -603,7 +643,13 @@ const Page = () => {
                             }
                         },
                     },
-
+                    ...(canShowCancel(row.original) ? [{
+                        label: "Cancel",
+                        onClick: () => {
+                            setOrderToCancel(row.original);
+                            setShowCancelDialog(true);
+                        },
+                    }] : []),
                     {
                         label: "Delete",
                         onClick: () => handleDelete(row.original.uuid ?? ""),
@@ -694,6 +740,20 @@ const Page = () => {
                         type="agent"
                         data={selectedData1}
                         onClose={() => setShowCard(false)}
+                    />
+                )}
+
+                {showCancelDialog && orderToCancel && (
+                    <CancelOrderDialog
+                        open={showCancelDialog}
+                        onOpenChange={(open) => {
+                            setShowCancelDialog(open);
+                            if (!open) setOrderToCancel(null);
+                        }}
+                        orderData={orderToCancel}
+                        isLoading={isCancelLoading}
+                        previewData={cancelPreviewData}
+                        onConfirm={handleCancelFromList}
                     />
                 )}
 

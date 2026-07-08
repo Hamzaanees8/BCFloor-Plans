@@ -27,6 +27,7 @@ import {
   UploadRightIcon,
 } from "@/components/Icons";
 import { Order } from "../../orders/page";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import DynamicMap from "@/components/DYnamicMap";
 import CustomSlideshow from "./CustomPreview";
 import TourFloorPlans from "./TourFloorPlans";
@@ -57,6 +58,7 @@ import { FeatureSheetResponse, templateImages } from "../types/featureSheetTypes
 import { toast } from "sonner";
 import { getGlobalPhotoOrder } from "../utils/sortOrderUtils";
 import { Loader2 } from "lucide-react";
+import { useOptionalOrganization } from "@/app/context/OrganizationContext";
 
 const TourConfirm = ({
   orderData,
@@ -80,6 +82,8 @@ const TourConfirm = ({
 
   const whiteLabelContext = useOptionalWhiteLabel();
   const appliedSettings = whiteLabelContext?.appliedSettings;
+  const orgContext = useOptionalOrganization();
+  const organization = orgContext?.organization;
 
   const role = (userType as string)?.toLowerCase() || "admin";
   const roleSettings =
@@ -329,7 +333,16 @@ const TourConfirm = ({
       .replace(/-+$/, '');       // Trim - from end of text
   };
 
-  const tourUrl = `${mainUrl}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+  const getAgentDomainUrl = () => {
+    if (userType === 'admin') return mainUrl;
+    if (organization && (organization as any).domains) {
+      const agentDomain = (organization as any).domains.find((d: any) => d.portal_type === 'agent');
+      if (agentDomain) return `https://${agentDomain.domain}`;
+    }
+    return mainUrl;
+  };
+
+  const tourUrl = `${getAgentDomainUrl()}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
 
   return (
     <div className="w-full font-alexandria">
@@ -349,7 +362,7 @@ const TourConfirm = ({
                 />
                 <a
                   target="_blank"
-                  href={`${tourUrl}?type=branded`}
+                  href={`${tourUrl}?type=branded&preview=true`}
                   className="w-full sm:w-auto px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white whitespace-nowrap">
                   <span>View Tour</span> <UploadRightIcon size={18} />
                 </a>
@@ -368,14 +381,23 @@ const TourConfirm = ({
                 />
                 <a
                   target="_blank"
-                  href={`${tourUrl}?type=unbranded`}
+                  href={`${tourUrl}?type=unbranded&preview=true`}
                   className="w-full sm:w-auto px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white whitespace-nowrap">
                   <span>View Tour</span> <UploadRightIcon size={18} />
                 </a>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 mt-2">
+            <div className="relative inline-flex flex-wrap items-center gap-3 mt-2">
+              {userType === 'vendor' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+                  </TooltipTrigger>
+                  <TooltipContent>You don&apos;t have permission to perform this action</TooltipContent>
+                </Tooltip>
+              )}
+              <div className={userType === 'vendor' ? 'pointer-events-none select-none flex flex-wrap gap-3' : 'flex flex-wrap gap-3'}>
               <Button
                 onClick={handlePostTour}
                 disabled={isPublishing}
@@ -383,7 +405,8 @@ const TourConfirm = ({
               >
                 {isPublishing ? "Updating..." : isPublished ? "Unpublish Tour" : "Post Tour"}
               </Button>
-              <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType}-bg hover:bg-blue-600`}>Stats</Button>
+              <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType === 'vendor' ? 'vendor-bg' : `${userType}-bg`} hover:bg-blue-600`}>Stats</Button>
+              </div>
             </div>
           </div>
         </div>
@@ -932,8 +955,8 @@ const TourConfirm = ({
       <TourActivityDialog
         open={open}
         onOpenChange={setOpen}
-        tourUuid={orderData?.tours?.[0]?.uuid || ''}
-        propertyAddress={`${orderData?.property.address}, ${orderData?.property.city}, ${orderData?.property.province}`}
+        tourUuid={tourUuid || orderData?.tours?.[0]?.uuid || ''}
+        propertyAddress={`${orderData?.property?.address || ''}, ${orderData?.property?.city || ''}, ${orderData?.property?.province || ''}`}
       />
     </div>
   );

@@ -15,6 +15,8 @@ import {
   Globe,
   Trash2,
   MoreVertical,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -210,13 +212,31 @@ export default function MobileListingsList({
 
                     {/* Agent Details */}
                     {userType !== 'agent' && listing.agent && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Agent: {listing.agent.first_name} {listing.agent.last_name}
-                      </p>
+                      <div className="mt-1">
+                        <p className="text-xs text-gray-500">
+                          Agent: {listing.agent.first_name} {listing.agent.last_name}
+                        </p>
+                        {listing.agent.email && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Mail className="h-3 w-3 text-gray-400 shrink-0" />
+                            <p className="text-[11px] text-gray-400 truncate">
+                              {listing.agent.email}
+                            </p>
+                          </div>
+                        )}
+                        {listing.agent.primary_phone && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Phone className="h-3 w-3 text-gray-400 shrink-0" />
+                            <p className="text-[11px] text-gray-400">
+                              {listing.agent.primary_phone}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Price */}
-                    {listing.listing_price && (
+                    {listing.listing_price && userType !== 'vendor' && (
                       <p className="text-xs font-semibold text-gray-700 mt-1">
                         Price: ${new Intl.NumberFormat('en-US').format(listing.listing_price)}
                       </p>

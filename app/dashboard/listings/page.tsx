@@ -497,7 +497,7 @@ const Page = () => {
           return (
             <div className="flex flex-row items-center gap-1.5">
               <a
-                href={`${publicTourUrl}?type=branded`}
+                href={`${publicTourUrl}?type=branded&preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] font-[600] px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 transition-all shadow-sm w-[90px] justify-center"
@@ -508,7 +508,7 @@ const Page = () => {
                 <span>Branded</span>
               </a>
               <a
-                href={`${publicTourUrl}?type=unbranded`}
+                href={`${publicTourUrl}?type=unbranded&preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] font-[600] px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 transition-all shadow-sm w-[110px] justify-center"

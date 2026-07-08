@@ -168,6 +168,7 @@ const ServiceItem = ({
                           style={{
                             backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                           }}
+                          disabled={userType === "vendor"}
                         />
                         {hasError && (
                           <p className="text-red-500 text-xs mt-1">
@@ -188,6 +189,7 @@ const ServiceItem = ({
                           onValueChange={(value) =>
                             handleTimeAdjustmentChange(option.uuid ?? "", value)
                           }
+                          disabled={userType === "vendor"}
                         >
                           <SelectTrigger
                             className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
@@ -214,14 +216,16 @@ const ServiceItem = ({
           </Accordion>
         </div>
       )}
-      <div className="flex justify-end mr-0 md:mr-9 mt-4">
-        <Button
-          className={`w-[110px] h-[35px] border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
-          onClick={() => handleRemove(selectedService?.vendor_service_id ?? "")}
-        >
-          Remove
-        </Button>
-      </div>
+      {userType !== "vendor" && (
+        <div className="flex justify-end mr-0 md:mr-9 mt-4">
+          <Button
+            className={`w-[110px] h-[35px] border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
+            onClick={() => handleRemove(selectedService?.vendor_service_id ?? "")}
+          >
+            Remove
+          </Button>
+        </div>
+      )}
       {showTimeFields && productOptions.length === 0 && (
         <div className="text-center py-4 text-gray-500">
           No product options available for this service

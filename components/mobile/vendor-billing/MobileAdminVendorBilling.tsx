@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ interface MobileAdminVendorBillingProps {
   setViewingInvoice: (invoice: any) => void;
   setIsViewModalOpen: (open: boolean) => void;
   router: any;
+  expandedRow: number | null;
+  toggleRow: (i: number, vg: any) => void;
 }
 
 export default function MobileAdminVendorBilling({
@@ -43,8 +45,9 @@ export default function MobileAdminVendorBilling({
   setViewingInvoice,
   setIsViewModalOpen,
   router,
+  expandedRow,
+  toggleRow,
 }: MobileAdminVendorBillingProps) {
-  const [expandedVendor, setExpandedVendor] = useState<any | null>(null);
 
   const getVendorStatus = (vg: any) => {
     const invoices = vendorInvoicesMap.get(vg.vendorId) || [];
@@ -97,8 +100,8 @@ export default function MobileAdminVendorBilling({
 
   return (
     <div className="p-4 space-y-3 pb-20">
-      {vendorsGrouped.map((vg) => {
-        const isExpanded = expandedVendor === vg.vendorId;
+      {vendorsGrouped.map((vg, i) => {
+        const isExpanded = expandedRow === i;
         const status = getVendorStatus(vg);
         const invoices = vendorInvoicesMap.get(vg.vendorId) || [];
 
@@ -107,7 +110,7 @@ export default function MobileAdminVendorBilling({
             <CardContent className="p-4">
               <div 
                 className="flex items-start justify-between gap-2 cursor-pointer"
-                onClick={() => setExpandedVendor(isExpanded ? null : vg.vendorId)}
+                onClick={() => toggleRow(i, vg)}
               >
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">

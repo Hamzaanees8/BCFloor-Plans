@@ -46,6 +46,7 @@ const PublicTour = () => {
     const orgSlug = (params.org_slug as string | undefined) || resolvedWhitelabelSlug || undefined;
     
     const tourType = searchParams.get('type');
+    const isPreview = searchParams.get('preview') === 'true';
     
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -103,7 +104,8 @@ const PublicTour = () => {
                     recordTourStat(data.tours[0].uuid, {
                         type: 'view',
                         visitor_id: vId,
-                        referrer: document.referrer
+                        referrer: document.referrer,
+                        ...(isPreview && { preview: true })
                     });
                 }
             } catch (err) {
@@ -116,7 +118,7 @@ const PublicTour = () => {
         if (orderuuid) {
             fetchOrderData();
         }
-    }, [orderuuid, orgSlug]);
+    }, [orderuuid, orgSlug, isPreview]);
 
     useEffect(() => {
         if (orderData && !hasSetInitialAudioState) {
@@ -294,7 +296,8 @@ const PublicTour = () => {
         recordTourStat(orderData.tours[0].uuid, {
             type: 'media_view',
             visitor_id: visitorId,
-            media_uuid: mediaUuid
+            media_uuid: mediaUuid,
+            ...(isPreview && { preview: true })
         });
     };
 

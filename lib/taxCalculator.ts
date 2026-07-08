@@ -10,6 +10,21 @@ interface TaxRateInfo {
   country: string;
 }
 
+export interface TaxComponent {
+  name: string;
+  rate: number;
+}
+
+export interface TaxBreakdown {
+  taxes: TaxComponent[];
+  total_rate: number;
+  location: {
+    country: string;
+    province: string;
+  };
+  is_taxable: boolean;
+}
+
 /**
  * Get tax rate by province/state
  * @param province - Province (Canada) or State (USA)
@@ -304,6 +319,69 @@ export function getTaxRateByLocation(
 
   // Default fallback
   return { rate: 5.0, taxType: "GST (5%)", country: "Canada" };
+}
+
+/**
+ * Get detailed tax breakdown by province/state
+ * Supports multi-component taxes like Quebec (GST + QST)
+ * @param province - Province (Canada) or State (USA)
+ * @param country - "Canada" or "USA"
+ * @returns Tax breakdown with individual components and total rate
+ */
+export function getTaxBreakdownByLocation(
+  province: string,
+  country: string = "Canada"
+): TaxBreakdown {
+  const normalizedCountry = country?.toUpperCase().trim() || "CANADA";
+  const breakdown: TaxBreakdown = {
+    taxes: [],
+    total_rate: 0,
+    location: {
+      country: normalizedCountry === "USA" ? "USA" : "Canada",
+      province: province || ""
+    },
+    is_taxable: true
+  };
+
+  // Base lookup
+  const rateInfo = getTaxRateByLocation(province, country);
+  breakdown.total_rate = rateInfo.rate;
+
+  if (rateInfo.rate === 0) {
+    breakdown.is_taxable = false;
+    return breakdown;
+  }
+
+  // Parse components based on taxType string
+  if (rateInfo.taxType.includes("+")) {
+    // Multi-component (e.g. "GST (5%) + QST (9.975%)")
+    const parts = rateInfo.taxType.split("+").map(p => p.trim());
+    parts.forEach(part => {
+      // Parse "NAME (RATE%)"
+      const match = part.match(/(.+?)\s*\((\d+(?:\.\d+)?)%\)/);
+      if (match) {
+        breakdown.taxes.push({
+          name: match[1].trim(),
+          rate: parseFloat(match[2])
+        });
+      } else {
+        breakdown.taxes.push({ name: part, rate: 0 }); // Fallback
+      }
+    });
+  } else {
+    // Single component
+    const match = rateInfo.taxType.match(/(.+?)\s*\((\d+(?:\.\d+)?)%\)/);
+    if (match) {
+      breakdown.taxes.push({
+        name: match[1].trim(),
+        rate: parseFloat(match[2])
+      });
+    } else {
+      breakdown.taxes.push({ name: rateInfo.taxType, rate: rateInfo.rate });
+    }
+  }
+
+  return breakdown;
 }
 
 /**

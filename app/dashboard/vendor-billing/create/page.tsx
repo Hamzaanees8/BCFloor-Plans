@@ -12,7 +12,6 @@ import { useAppContext } from "@/app/context/AppContext";
 import { CreateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import { batchCalculateTravelCosts, buildTripChainLegs, calculateTravelCostFromBatch } from "@/lib/batchTravelCalculator";
-import { getTaxRateByLocation } from "@/lib/taxCalculator";
 
 
 
@@ -88,25 +87,49 @@ const CreateVendorInvoicePage = () => {
             const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
             const vendorDetails = vendorDetailsRes?.data;
             
-            // AUTO-DETECT TAX RATE BASED ON VENDOR LOCATION
-            let autoTaxRate = 13.0; // Default fallback
-            let taxInfo = { province: "", country: "", taxType: "HST (13%)" };
+            // SET TAX RATE BASED ON VENDOR SETTINGS
+            let autoTaxRate = 0.0;
+            let autoTaxType = "None";
+            let taxInfo: any = { province: "", country: "", taxType: "Tax Exempt", isRegistered: false, tax_number: "Pending" };
+            let currentTaxSnapshot: any = null;
             
-            if (vendorDetails?.addresses && vendorDetails.addresses.length > 0) {
-                const primaryAddress = vendorDetails.addresses[0];
-                const province = primaryAddress.province || "";
-                const country = primaryAddress.country || "Canada";
+            if (vendorDetails?.settings?.tax_enabled && !vendorDetails?.settings?.tax_exempt) {
+                const s = vendorDetails.settings;
+                autoTaxRate = s.tax_rate !== undefined && s.tax_rate !== null ? Number(s.tax_rate) : 13.0;
                 
-                const taxData = getTaxRateByLocation(province, country);
-                autoTaxRate = taxData.rate;
+                if (s.tax_country === "US") {
+                    autoTaxType = "US Sales Tax";
+                } else {
+                    const typeMap: Record<string, string> = {
+                        "GST_HST": "GST/HST",
+                        "GST_PST": "GST + PST",
+                        "GST_QST": "GST + QST",
+                        "GST": "GST"
+                    };
+                    autoTaxType = typeMap[s.tax_type] || s.tax_type || "GST/HST";
+                }
+
+                const isRegistered = true;
+                const taxNumberStr = vendorDetails.tax_number || s.tax_number_gst_hst || s.tax_number_us || "Pending";
+
                 taxInfo = {
-                    province: province,
-                    country: country,
-                    taxType: taxData.taxType
+                    province: "",
+                    country: s.tax_country === "US" ? "USA" : "Canada",
+                    taxType: `${autoTaxType} (${autoTaxRate}%)`,
+                    isRegistered: isRegistered,
+                    tax_number: taxNumberStr
                 };
-                
-                setVendorTaxInfo(taxInfo);
+
+                currentTaxSnapshot = {
+                    taxes: [{ name: autoTaxType, rate: autoTaxRate }],
+                    total_rate: autoTaxRate,
+                    location: { country: s.tax_country === "US" ? "USA" : "Canada", province: "", city: "" },
+                    is_registered: isRegistered,
+                    tax_number: taxNumberStr,
+                    snapshotted_at: new Date().toISOString()
+                };
             }
+            setVendorTaxInfo(taxInfo);
             
             const paymentPerKm = Number(vendorDetails?.settings?.payment_per_km ?? 0);
             const startLocation = vendorDetails?.addresses?.find((a: any) => a.type === 'start_location');
@@ -276,10 +299,13 @@ const CreateVendorInvoicePage = () => {
             setEditData({
                 items: allItems,
                 tax_rate: autoTaxRate.toFixed(2),
+                tax_type: autoTaxType,
+                tax_number: currentTaxSnapshot?.tax_number || vendorDetails?.tax_number || "",
                 subtotal: totals.subtotal,
                 tax_amount: totals.tax_amount,
                 total: totals.total,
-                notes: editData.notes
+                notes: editData.notes,
+                tax_snapshot: currentTaxSnapshot
             });
 
         } catch (err) {
@@ -316,6 +342,10 @@ const CreateVendorInvoicePage = () => {
         setEditData({ ...editData, tax_rate: val, ...totals });
     };
 
+    const updateTaxType = (val: string) => {
+        setEditData({ ...editData, tax_type: val });
+    };
+
     const handleSave = async () => {
         if (!selectedVendorUuid) {
             toast.error("Please select a vendor first");
@@ -335,6 +365,11 @@ const CreateVendorInvoicePage = () => {
                 vendor_uuid: selectedVendorUuid,
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
+                tax_type: editData.tax_type,
+                tax_number: editData.tax_number,
+                tax_amount: editData.tax_amount,
+                subtotal: editData.subtotal,
+                tax_snapshot: editData.tax_snapshot,
                 items: editData.items.map((item: any) => ({
                     description: item.description,
                     quantity: item.quantity,
@@ -365,30 +400,31 @@ const CreateVendorInvoicePage = () => {
     } : null;
 
     return (
-        <div style={{ backgroundColor: roleSettings.pageBg, minHeight: "100vh" }}>
-            <div className="sticky top-0 z-50 flex h-[80px] items-center justify-between px-[20px] font-alexandria"
+        <div className="overflow-x-hidden" style={{ backgroundColor: roleSettings.pageBg, minHeight: "100vh" }}>
+            <div className="sticky top-0 z-50 flex flex-col md:flex-row min-h-[80px] py-3 md:py-0 md:h-[80px] md:items-center justify-between gap-3 px-[20px] font-alexandria"
                 style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
-                <div className="flex items-center gap-4">
-                    <h1 className="text-[16px] md:text-[24px] font-[400]" style={{ color: roleSettings.pageTabColor }}>
+                <div className="flex items-center gap-4 truncate min-w-0">
+                    <h1 className="text-[16px] md:text-[24px] font-[400] truncate min-w-0" style={{ color: roleSettings.pageTabColor }}>
                         Create Vendor Invoice
                     </h1>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto shrink-0 min-w-0">
                     <Button
                         variant="outline"
-                        className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"
+                        className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-2 md:px-6 rounded-[6px] flex-1 md:flex-none text-[11px] md:text-sm min-w-0"
                         onClick={() => router.back()}
                         disabled={saving}
                     >
-                        <X className="mr-2 h-4 w-4" /> Cancel
+                        <X className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 shrink-0" /> <span className="truncate">Cancel</span>
                     </Button>
                     <Button
-                        className="text-white h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110 active:scale-[0.98] transition-all"
+                        className="text-white h-[35px] md:h-[44px] px-2 md:px-6 rounded-[6px] hover:brightness-110 active:scale-[0.98] transition-all flex-[2] md:flex-none text-[11px] md:text-sm min-w-0"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                         onClick={handleSave}
                         disabled={saving || !selectedVendorUuid || loadingData}
                     >
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} Create Invoice
+                        {saving ? <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2 shrink-0" /> : <Save className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 shrink-0" />} 
+                        <span className="truncate">Create Invoice</span>
                     </Button>
                 </div>
             </div>
@@ -412,7 +448,14 @@ const CreateVendorInvoicePage = () => {
                                 <div className="flex-1">
                                     <p className="text-sm font-semibold text-gray-700 mb-1">📍 Tax Location</p>
                                     <p className="text-xs text-gray-600 mb-3">{vendorTaxInfo.province}, {vendorTaxInfo.country}</p>
-                                    <p className="text-sm font-bold text-indigo-700">💳 {vendorTaxInfo.taxType}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold text-indigo-700">💳 {vendorTaxInfo.taxType}</p>
+                                        {vendorTaxInfo.isRegistered ? (
+                                            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Registered ({vendorTaxInfo.tax_number})</span>
+                                        ) : (
+                                            <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">Not Registered</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -440,6 +483,7 @@ const CreateVendorInvoicePage = () => {
                         addItem={addItem}
                         removeItem={removeItem}
                         updateTaxRate={updateTaxRate}
+                        updateTaxType={updateTaxType}
                         setEditData={setEditData}
                         roleSettings={roleSettings}
                     />

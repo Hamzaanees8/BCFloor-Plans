@@ -588,14 +588,14 @@ export default function QuickViewCard({
               </div>
             )}
 
-            {type === "agent" && (
+            {(type === "agent" || (type === "listing" && (data as Listings).agent)) && (
               <div className="grid grid-cols-1 gap-y-[12px]">
                 <div className="flex items-center space-x-[18px]">
                   <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
                   <span
                     className={`text-[15px] font-[400] text-[#4290E9] leading-[32px] ${userType}-text`}
                   >
-                    {data.email}
+                    {type === "listing" ? (data as Listings).agent?.email : (data as AgentData).email}
                   </span>
                 </div>
                 <div className="flex items-center space-x-[18px]">
@@ -604,22 +604,22 @@ export default function QuickViewCard({
                     strokeWidth={1}
                   />
                   <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">
-                    {data.primary_phone}
+                    {type === "listing" ? (data as Listings).agent?.primary_phone : (data as AgentData).primary_phone}
                   </span>
                 </div>
                 <div className="flex items-center space-x-[18px]">
                   <Phone className="w-[24px] text-[#666666]" strokeWidth={1} />
                   <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">
-                    {data.secondary_phone || "N/A"}
+                    {type === "listing" ? ((data as Listings).agent?.secondary_phone || "N/A") : ((data as AgentData).secondary_phone || "N/A")}
                   </span>
                 </div>
-                {userType !== "agent" && (
+                {type === "agent" && userType !== "agent" && (
                   <>
                     <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
                       Notes (Hidden from Agent)
                     </div>
                     <p className="text-[15px] font-[400] text-[#666666]">
-                      {data.notes || "No Notes"}
+                      {(data as AgentData).notes || "No Notes"}
                     </p>
                   </>
                 )}
@@ -628,12 +628,14 @@ export default function QuickViewCard({
             {type === "listing" && (
               <div>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-[19px] text-[15px] font-[400] text-[#666666]">
-                  <div className="flex flex-col items-start gap-[12px]">
-                    <span className="text-[10px] text-[#8E8E8E] font-[700]">
-                      Listing Price
-                    </span>{" "}
-                    ${data?.listing_price}
-                  </div>
+                  {userType !== 'vendor' && (
+                    <div className="flex flex-col items-start gap-[12px]">
+                      <span className="text-[10px] text-[#8E8E8E] font-[700]">
+                        Listing Price
+                      </span>{" "}
+                      ${data?.listing_price}
+                    </div>
+                  )}
                   <div className="flex flex-col items-start gap-[12px]">
                     <span className="text-[10px] text-[#8E8E8E] font-[700]">
                       Bedrooms
