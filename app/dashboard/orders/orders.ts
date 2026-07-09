@@ -974,3 +974,46 @@ export async function CancelOrder(orderUuid: string, token: string, reason?: str
 
   return data;
 }
+
+export async function PreviewCancelService(orderUuid: string, serviceUuid: string, token: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel-service-preview/${serviceUuid}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to preview cancel service");
+  }
+
+  return data;
+}
+
+export async function CancelService(orderUuid: string, serviceUuid: string, token: string, reason?: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const payload = reason ? { reason } : {};
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel-service/${serviceUuid}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to cancel service");
+  }
+
+  return data;
+}

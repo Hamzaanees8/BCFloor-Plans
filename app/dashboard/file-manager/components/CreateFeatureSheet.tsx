@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -86,21 +85,12 @@ export interface CreateFeatureSheetRef {
 const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetProps>(
   function CreateFeatureSheet({ orderData, isReadonly = false, previewSheetUuid }, ref) {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-      if (typeof window === 'undefined') return;
-      const checkMobile = () => setIsMobile(window.innerWidth < 768);
-      checkMobile();
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+
     const logoInputRef = useRef<HTMLInputElement | null>(null);
     const [email, setEmail] = useState<string>("");
     const [linkedin, setLinkedin] = useState<string>("");
     const [phone, setPhone] = useState<string>("");
-    const [previewMode] = useState<"print" | "fit">("print");
-    const workspaceRef = useRef<HTMLDivElement>(null);
-    const [workspaceWidth, setWorkspaceWidth] = useState(1200);
+    // const [previewMode] = useState<"print" | "fit">("print");
     const {
       formData,
       setFormData,
@@ -141,17 +131,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { name: string; url: string }[]
     >([]);
     const [activeTab, setActiveTab] = useState<"listing" | "tabloid" | "my_sheets">("listing");
-
-    useEffect(() => {
-      if (!workspaceRef.current) return;
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          setWorkspaceWidth(entry.contentRect.width);
-        }
-      });
-      observer.observe(workspaceRef.current);
-      return () => observer.disconnect();
-    }, [selectedTemplate]);
+    const pdfSectionRef = useRef<HTMLDivElement>(null);
 
     const [agentSheets, setAgentSheets] = useState<FeatureSheetResponse[]>([]);
     const [loadingAgentSheets, setLoadingAgentSheets] = useState(false);
@@ -173,6 +153,44 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
         setShowAgain(JSON.parse(savedDelete));
       }
     }, []);
+
+    const [numPdfPages, setNumPdfPages] = useState(1);
+
+    // Snap pdf-section height to multiples of 11in (1056px) for full page rendering
+    useEffect(() => {
+      const el = pdfSectionRef.current;
+      if (!el) return;
+
+      const resizeObserver = new ResizeObserver(() => {
+        // Temporarily clear minHeight to measure true scrollHeight
+        el.style.minHeight = '11in';
+        
+        // Use setTimeout to allow DOM to recalculate after resetting minHeight
+        setTimeout(() => {
+          if (!el) return;
+          const pages = el.querySelectorAll('.pdf-page');
+          const isExplicitPage = pages.length > 0;
+          let numPages;
+          
+          if (isExplicitPage) {
+            numPages = pages.length;
+          } else {
+            const contentHeight = el.scrollHeight;
+            const pHeight = 1056; // 11 inches at 96dpi
+            numPages = Math.max(1, Math.ceil(contentHeight / pHeight));
+          }
+          
+          if (numPages !== numPdfPages) {
+            setNumPdfPages(numPages);
+          }
+        }, 0);
+      });
+
+      resizeObserver.observe(el);
+
+      return () => resizeObserver.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTemplate]);
 
     const handleToggleShowAgain = () => {
       const newValue = !showAgain;
@@ -207,13 +225,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
         const sheetName = selectedTemplate.replace(/\.pdf$/i, "");
         const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${sheetName}.pdf`;
 
-        // Determine paper size based on template type
-        const templateInfo = templateImages.find(t => t.id === selectedTemplate);
-        let paperSize = { width: 8.5, height: 11 }; // Default Letter
-
-        if (templateInfo?.type === "tabloid") {
-          paperSize = { width: 17, height: 11 }; // Tabloid Landscape
-        }
+        const paperSize = { width: 8.5, height: 11 }; // Default Letter
 
         await DownloadPdf(
           "pdf-section",
@@ -705,20 +717,13 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       ...uploadedPdfs.map((pdf) => pdf.name),
     ];
 
-    const isTabloid = templateImages.find((t) => t.id === selectedTemplate)?.type === "tabloid";
-    const targetWidth = isTabloid ? 1632 : 816; // width in pixels of tabloid or portrait letter at 96dpi
-    const scale = (isMobile || previewMode === "fit")
-      ? Math.max(0.1, Math.min((workspaceWidth - (isMobile ? 16 : 64)) / targetWidth, 1))
-      : 1;
-
-    const pdfSectionStyle = (isMobile || previewMode === "fit") ? {
-      transform: `scale(${scale})`,
-      transformOrigin: "top center",
-      width: `${targetWidth}px`,
-      height: isTabloid ? "816px" : "1056px",
-      marginBottom: `-${(isTabloid ? 816 : 1056) * (1 - scale)}px`,
-      fontFamily: "'Alexandria', sans-serif"
-    } : {
+    const pdfSectionStyle: React.CSSProperties = {
+      width: "8.5in",
+      minHeight: `${numPdfPages * 11}in`,
+      height: `${numPdfPages * 11}in`,
+      overflow: "hidden",
+      position: "relative",
+      backgroundColor: "white",
       fontFamily: "'Alexandria', sans-serif"
     };
 
@@ -1324,8 +1329,21 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                             </div>
                           </div>
                         </div>
-                        <div className="flex w-full">
-                          <div className="w-full sm:w-[20%]">
+                        <div className="flex w-full flex-col">
+                          <div className="mb-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTemplate("");
+                                setSelectedSheetUuid(null);
+                              }}
+                              className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] w-full sm:w-[20%] transition-colors border-2 ${userType}-border ${userType}-bg text-white rounded-[6px] font-[500] hover:opacity-80`}
+                            >
+                              ← Back
+                            </button>
+                          </div>
+                          <div className="flex w-full">
+                            <div className="w-full sm:w-[20%]">
                             <label htmlFor="">Template</label>
                             <Select
                               value={selectedTemplate}
@@ -1365,7 +1383,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                           </div>
                         </div>
                       </div>
-                    </AccordionContent>
+                    </div>
+                  </AccordionContent>
                   </AccordionItem>
                 )}
 
@@ -1377,22 +1396,6 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       <span className="flex items-center gap-2">
                         Feature Sheet Preview
                       </span>
-                      <Button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDownload(false);
-                        }}
-                        disabled={isDownloading}
-                        className="shadow-md h-[36px] text-sm font-semibold capitalize px-4 bg-white border-2 border-current text-current hover:bg-gray-50"
-                      >
-                        {isDownloading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : "Download PDF"}
-                      </Button>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4 !overflow-visible !max-h-full">
@@ -1400,9 +1403,16 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       <div className="relative shadow-xl">
                         <div
                           id="pdf-section"
-                          className={isTabloid ? "tabloid-sheet" : ""}
+                          ref={pdfSectionRef}
                           style={pdfSectionStyle}
                         >
+                          <div 
+                            data-html2canvas-ignore="true" 
+                            className="absolute inset-0 pointer-events-none z-50"
+                            style={{
+                              backgroundImage: "repeating-linear-gradient(to bottom, transparent, transparent calc(11in - 4px), #cbd5e1 calc(11in - 4px), #cbd5e1 11in)"
+                            }}
+                          />
                           {selectedTemplate === "BCFPStandard" && (
                             <BcfpStandard
                               key={selectedSheetUuid || "new-BCFPStandard"}

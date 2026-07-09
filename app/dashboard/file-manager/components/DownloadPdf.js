@@ -62,6 +62,26 @@ const DownloadPdf = async (
   });
 
   await preloadImages(clone);
+
+  const imagesToConvert = clone.querySelectorAll("img");
+  imagesToConvert.forEach(img => {
+    const compStyle = window.getComputedStyle(img);
+    const isCover = img.classList.contains('object-cover') || compStyle.objectFit === 'cover' || img.style.objectFit === 'cover';
+    const isContain = img.classList.contains('object-contain') || compStyle.objectFit === 'contain' || img.style.objectFit === 'contain';
+    
+    if (isCover || isContain) {
+      const objectFit = isCover ? 'cover' : 'contain';
+      const div = document.createElement("div");
+      div.className = img.className;
+      div.style.cssText = img.style.cssText;
+      div.style.backgroundImage = `url("${img.src}")`;
+      div.style.backgroundSize = objectFit;
+      div.style.backgroundPosition = "center";
+      div.style.backgroundRepeat = "no-repeat";
+      img.parentNode.replaceChild(div, img);
+    }
+  });
+
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   try {
@@ -93,38 +113,59 @@ const DownloadPdf = async (
     for (let i = 0; i < elementsToCapture.length; i++) {
       const el = elementsToCapture[i];
       
-      // Overflow Detection (Debug Warning)
-      if (el.scrollHeight > pHeight + 10) {
-        console.warn(`[PDF Generator] Warning: Content for page ${i + 1} is taller (${el.scrollHeight}px) than the target page height (${pHeight}px). Part of the content will be clipped. Please use the ".pdf-page" class to wrap contents into separate pages if needed.`);
-      }
+      const isExplicitPage = pages.length > 0;
+      const totalHeight = isExplicitPage ? pHeight : Math.max(pHeight, el.scrollHeight);
+      const numPages = isExplicitPage ? 1 : Math.ceil(totalHeight / pHeight);
 
       // Ensure the page element is properly sized for capture
       el.style.width = `${pWidth}px`;
-      el.style.height = `${pHeight}px`;
+      el.style.height = `${totalHeight}px`;
       el.style.overflow = "hidden";
       el.style.display = "block"; // Ensure it's not hidden
 
-      const canvas = await html2canvas(el, options);
+      const elOptions = {
+        ...options,
+        height: totalHeight,
+        windowHeight: totalHeight,
+      };
+
+      const canvas = await html2canvas(el, elOptions);
       const imgData = canvas.toDataURL("image/png", 1.0);
 
-      if (i > 0) {
-        pdf.addPage([paperSize.width, paperSize.height], orientation);
-      }
+      const imgHeightInches = totalHeight / 96;
 
-      if (withBleed) {
-        pdf.addImage(imgData, "PNG", 0, 0, paperSize.width, paperSize.height);
-      } else {
-        const margin = 0.1; // Reduced margin from 0.25 to 0.1
-        pdf.setFillColor(bgColor);
-        pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
-        pdf.addImage(
-          imgData, 
-          "PNG", 
-          margin, 
-          margin, 
-          paperSize.width - (margin * 2), 
-          paperSize.height - (margin * 2)
-        );
+      for (let p = 0; p < numPages; p++) {
+        if (i > 0 || p > 0) {
+          pdf.addPage([paperSize.width, paperSize.height], orientation);
+        }
+
+        if (withBleed) {
+          pdf.addImage(
+            imgData, 
+            "PNG", 
+            0, 
+            -(p * paperSize.height), 
+            paperSize.width, 
+            imgHeightInches
+          );
+        } else {
+          const margin = 0.1;
+          const scaleFactor = (paperSize.width - (margin * 2)) / paperSize.width;
+          const targetWidth = paperSize.width - (margin * 2);
+          const targetHeight = imgHeightInches * scaleFactor;
+          const pageContentHeight = paperSize.height - (margin * 2);
+
+          pdf.setFillColor(bgColor);
+          pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
+          pdf.addImage(
+            imgData, 
+            "PNG", 
+            margin, 
+            margin - (p * pageContentHeight), 
+            targetWidth, 
+            targetHeight
+          );
+        }
       }
     }
 

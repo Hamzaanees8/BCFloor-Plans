@@ -31,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
-import { EditOrderStatus, GetOneOrder, CancelOrder, PreviewCancelOrder } from "../orders";
+import { EditOrderStatus, GetOneOrder, CancelOrder, PreviewCancelOrder, PreviewCancelService, CancelService } from "../orders";
 import { GetServices } from "../../services/services";
 import { Services } from "../../services/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -188,6 +188,11 @@ function Page() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [cancelPreviewData, setCancelPreviewData] = useState<CancelPreviewData | null>(null);
+
+  const [showCancelServiceDialog, setShowCancelServiceDialog] = useState(false);
+  const [isCancelServiceLoading, setIsCancelServiceLoading] = useState(false);
+  const [cancelServicePreviewData, setCancelServicePreviewData] = useState<CancelPreviewData | null>(null);
+  const [cancelTargetService, setCancelTargetService] = useState<{uuid: string, name: string} | null>(null);
 
   const [origin, setOrigin] = useState("");
 
@@ -482,6 +487,46 @@ function Page() {
     }
   };
 
+  const handleCancelServiceClick = async (serviceUuid: string, serviceName: string) => {
+    const token = localStorage.getItem("token");
+    if (!token || !orderData) return;
+    
+    setIsCancelServiceLoading(true);
+    setCancelTargetService({ uuid: serviceUuid, name: serviceName });
+    
+    try {
+      const data = await PreviewCancelService(orderData.uuid, serviceUuid, token);
+      setCancelServicePreviewData(data.data);
+      setShowCancelServiceDialog(true);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to load cancellation details"
+      );
+      setCancelTargetService(null);
+    } finally {
+      setIsCancelServiceLoading(false);
+    }
+  };
+
+  const handleCancelService = async (reason?: string) => {
+    const token = localStorage.getItem("token");
+    if (!token || !orderData || !cancelTargetService) return;
+    
+    setIsCancelServiceLoading(true);
+    try {
+      await CancelService(orderData.uuid, cancelTargetService.uuid, token, reason);
+      toast.success("Service cancelled successfully");
+      setShowCancelServiceDialog(false);
+      refreshOrders();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to cancel service"
+      );
+    } finally {
+      setIsCancelServiceLoading(false);
+    }
+  };
+
   const handlePaymentClick = async () => {
     if (invoices.length > 0) {
       setShowInvoicesModal(true);
@@ -607,6 +652,18 @@ function Page() {
           onConfirm={handleCancelOrder}
         />
       )}
+      {showCancelServiceDialog && cancelTargetService && (
+        <CancelOrderDialog
+          open={showCancelServiceDialog}
+          onOpenChange={setShowCancelServiceDialog}
+          orderData={orderData!}
+          mode="service"
+          targetName={cancelTargetService.name}
+          isLoading={isCancelServiceLoading}
+          previewData={cancelServicePreviewData}
+          onConfirm={handleCancelService}
+        />
+      )}
       <div
         className="w-full h-[80px] font-alexandria  z-10 sticky top-0  flex justify-between px-[20px] items-center"
         style={{
@@ -614,67 +671,78 @@ function Page() {
           boxShadow: "0px 4px 4px #0000001F",
         }}
       >
-        <p
-          className={`text-[16px] md:text-[24px] font-[400]`}
-          style={{ color: roleSettings.pageTabColor }}
-        >
-          Orders ›{" "}
-          <span
-            className="hidden md:inline-block"
+        <div className="flex items-center gap-2">
+          <p
+            className={`text-[16px] md:text-[24px] font-[400]`}
             style={{ color: roleSettings.pageTabColor }}
           >
-            {" "}
-            {orderData?.id || ""} {`(${orderData?.property?.address || ""})`}
-          </span>
-        </p>
+            Orders ›{" "}
+            <span
+              className="hidden md:inline-block"
+              style={{ color: roleSettings.pageTabColor }}
+            >
+              {" "}
+              {orderData?.id || ""} {`(${orderData?.property?.address || ""})`}
+            </span>
+          </p>
+          {orderData?.order_status === "Cancelled" && (
+            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-md border border-red-200">
+              CANCELLED
+            </span>
+          )}
+        </div>
         {userType !== "vendor" && (
           <div className="flex gap-[18px]">
-            <Button
-              onClick={() => {
-                router.push(`/dashboard/orders/create/${orderData?.uuid}?isEdit=true`);
-              }}
-              className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
-              style={{
-                backgroundColor: roleSettings.pageBg,
-                color: roleSettings.pageTabColor,
-                borderColor: roleSettings.pageTabColor,
-              }}
-            >
-              Edit Order
-            </Button>
-            <Button
-              disabled={isLoading}
-              onClick={handleSubmit}
-              className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-90`}
-              style={{
-                backgroundColor: roleSettings.pageTabColor,
-                borderColor: roleSettings.pageTabColor,
-              }}
-            >
-              {isLoading ? (
-                <div role="status">
-                  <svg
-                    aria-hidden="true"
-                    className="w-[28px] h-[28px] text-gray-600 animate-spin fill-[#fff]"
-                    viewBox="0 0 100 101"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                      fill="currentFill"
-                    />
-                  </svg>
-                  <span className="sr-only">Loading...</span>
-                </div>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
+            {orderData?.order_status !== "Cancelled" && (
+              <Button
+                onClick={() => {
+                  router.push(`/dashboard/orders/create/${orderData?.uuid}?isEdit=true`);
+                }}
+                className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
+                style={{
+                  backgroundColor: roleSettings.pageBg,
+                  color: roleSettings.pageTabColor,
+                  borderColor: roleSettings.pageTabColor,
+                }}
+              >
+                Edit Order
+              </Button>
+            )}
+            {orderData?.order_status !== "Cancelled" && (
+              <Button
+                disabled={isLoading}
+                onClick={handleSubmit}
+                className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-90`}
+                style={{
+                  backgroundColor: roleSettings.pageTabColor,
+                  borderColor: roleSettings.pageTabColor,
+                }}
+              >
+                {isLoading ? (
+                  <div role="status">
+                    <svg
+                      aria-hidden="true"
+                      className="w-[28px] h-[28px] text-gray-600 animate-spin fill-[#fff]"
+                      viewBox="0 0 100 101"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                        fill="currentColor"
+                      />
+                      <path
+                        d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                        fill="currentFill"
+                      />
+                    </svg>
+                    <span className="sr-only">Loading...</span>
+                  </div>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1043,55 +1111,52 @@ function Page() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
-                    <label htmlFor="">Property Website</label>
-                    {orderData?.uuid ? (
-                      <div className="relative w-full">
-                        <Input
-                          value={`${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`}
-                          readOnly
-                          type="text"
-                          className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
-                          style={{ backgroundColor: fieldBg }}
-                        />
-                        <Copy
-                          onClick={() => {
-                            const url = `${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`;
-                            navigator.clipboard.writeText(url);
-                            toast.success("Tour link copied to clipboard");
-                          }}
-                          className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 h-[20px] w-[20px]"
-                          style={{ color: roleSettings.pageTabColor }}
-                          strokeWidth={1}
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <Input
-                          value={property_website}
-                          onChange={(e) => setProperty_website(e.target.value)}
-                          placeholder="Enter Property Website URL"
-                          className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                          style={{ backgroundColor: fieldBg }}
-                          type="text"
-                          readOnly
-                        />
-                        <div className="flex justify-end">
-                          <p
-                            className={`underline text-[12px] w-fit cursor-pointer`}
+                  {orderData?.order_status !== "Cancelled" && (
+                    <div className="col-span-2">
+                      <label htmlFor="">Property Website</label>
+                      {orderData?.uuid ? (
+                        <div className="relative w-full">
+                          <Input
+                            value={`${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`}
+                            readOnly
+                            type="text"
+                            className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
+                            style={{ backgroundColor: fieldBg }}
+                          />
+                          <Copy
+                            onClick={() => {
+                              const url = `${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success("Tour link copied to clipboard");
+                            }}
+                            className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 h-[20px] w-[20px]"
                             style={{ color: roleSettings.pageTabColor }}
-                          >
-                            Customize URL
-                          </p>
+                            strokeWidth={1}
+                          />
                         </div>
-                      </>
-                    )}
-                    {/* {fieldErrors.heading && (
-                                            <p className="text-red-500 text-[10px]">
-                                                {fieldErrors.heading[0]}
-                                            </p>
-                                        )} */}
-                  </div>
+                      ) : (
+                        <>
+                          <Input
+                            value={property_website}
+                            onChange={(e) => setProperty_website(e.target.value)}
+                            placeholder="Enter Property Website URL"
+                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            style={{ backgroundColor: fieldBg }}
+                            type="text"
+                            readOnly
+                          />
+                          <div className="flex justify-end">
+                            <p
+                              className={`underline text-[12px] w-fit cursor-pointer`}
+                              style={{ color: roleSettings.pageTabColor }}
+                            >
+                              Customize URL
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <label htmlFor="">
                       MLS Property <span className="text-red-500">*</span>
@@ -1144,7 +1209,7 @@ function Page() {
                       </div>
                     )}
                   </div>
-                  {userType !== "vendor" && (
+                  {userType !== "vendor" && orderData?.order_status !== "Cancelled" && (
                     <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
                       <Button
                         onClick={() => setOpenEditPopup(true)}
@@ -1261,7 +1326,7 @@ function Page() {
                       return (
                         <p
                           key={service.id}
-                          className="grid grid-cols-4 gap-[15px] items-center"
+                          className="grid grid-cols-4 gap-[15px] items-center group relative"
                         >
                           <span className="col-span-3 flex items-center gap-2">
                             {service.service?.name ||
@@ -1271,6 +1336,15 @@ function Page() {
                               <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
                                 Paid
                               </span>
+                            )}
+                            {showCancelButton && (
+                              <button
+                                onClick={() => handleCancelServiceClick(service.uuid, service.service?.name || service.optionName || "Unknown Service")}
+                                className="transition-opacity ml-2 text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 flex-shrink-0"
+                                title="Cancel this service"
+                              >
+                                Cancel Service
+                              </button>
                             )}
                           </span>
                           {userType !== "vendor" && (
@@ -1384,7 +1458,7 @@ function Page() {
                       </>
                     );
                   })()}
-                  {userType !== "vendor" && (
+                  {userType !== "vendor" && orderData?.order_status !== "Cancelled" && (
                     <div className="col-span-2 flex flex-col sm:flex-row gap-4 w-full">
                       {invoices.length > 0 ? (
                         <>

@@ -139,6 +139,7 @@ export default function TourActivityDialog({
                                         className="relative w-full aspect-square bg-[#D9D9D9]  overflow-hidden flex items-center justify-center border"
                                     >
                                         {item.thumbnail_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
                                             <img
                                                 src={item.thumbnail_url}
                                                 alt={item.name || "Tour media"}

@@ -1581,7 +1581,7 @@ const FileManager = () => {
                   style={{
                     backgroundColor: true
                       ? `var(--${userType}-page-bg, #FFFFFF)`
-                      : "#FFFFFF",
+                      : "#FFFFFF", 
                   }}
                 >
                   Property details
@@ -1606,13 +1606,26 @@ const FileManager = () => {
           </div>
         </div>
       )}
-      <div
-        className={`w-full font-alexandria px-0 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${isScrolled
-          ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
-          : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
-          }`}
-        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
-      >
+      {orderData?.order_status === "Cancelled" ? (
+        <div className="w-full flex items-center justify-center py-20 font-alexandria px-4">
+          <div className="flex flex-col items-center justify-center p-8 border border-gray-200 bg-gray-50 rounded-lg max-w-md text-center shadow-sm">
+            <span className="text-[40px] mb-4 opacity-70">🚫</span>
+            <h2 className="text-[20px] font-bold text-gray-800 mb-2">Order Cancelled</h2>
+            <p className="text-[14px] text-gray-600">
+              The file manager is unavailable because this order has been cancelled. 
+              No media can be managed for cancelled orders.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className={`w-full font-alexandria px-0 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${isScrolled
+              ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
+              : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
+              }`}
+            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+          >
         {!isListing && (
           <div className="px-[26px]">
             <div
@@ -1941,7 +1954,9 @@ const FileManager = () => {
         );
       })()}
 
-      <div className="pb-24 md:pb-0">{renderContent()}</div>
+          <div className="pb-24 md:pb-0">{renderContent()}</div>
+        </>
+      )}
 
       <HiddenMediaModal
         open={isHiddenMediaModalOpen}

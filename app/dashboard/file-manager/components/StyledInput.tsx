@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Bold, Italic, Underline, ChevronDown } from "lucide-react";
 import type { TextStyle } from "../types/featureSheetTypes";
@@ -106,6 +107,51 @@ export default function StyledInput({
   const editableRef = useRef<HTMLParagraphElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(false);
+  const defaultFontSizeRef = useRef<number | null>(null);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, transform: "translateX(-50%)" });
+
+  const updatePosition = useCallback(() => {
+    if (showMenu && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      let top = rect.bottom + window.scrollY + 4;
+      let left = rect.left + window.scrollX + (rect.width / 2);
+      let transform = "translateX(-50%)";
+
+      // If it would go off the bottom of the viewport
+      if (rect.bottom + 150 > window.innerHeight) {
+        top = rect.top + window.scrollY - 50; // Pop up above the input
+      }
+
+      // If it would go off the left side
+      if (rect.left < 150) {
+        left = rect.left + window.scrollX;
+        transform = "none";
+      } 
+      // If it would go off the right side
+      else if (rect.right + 150 > window.innerWidth) {
+        left = rect.right + window.scrollX;
+        transform = "translateX(-100%)";
+      }
+
+      setMenuCoords({ top, left, transform });
+    }
+  }, [showMenu]);
+
+  useEffect(() => {
+    updatePosition();
+    if (showMenu) {
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [showMenu, updatePosition]);
 
   // ─── Sync value from parent ───────────────────────────────────────
   useEffect(() => {
@@ -129,7 +175,12 @@ export default function StyledInput({
   useEffect(() => {
     if (className) {
       const match = className.match(/text-\[(\d+)px\]/);
-      if (match) setFontSize(`${match[1]}px`);
+      if (match) {
+        setFontSize(`${match[1]}px`);
+        if (defaultFontSizeRef.current === null) {
+          defaultFontSizeRef.current = parseInt(match[1], 10);
+        }
+      }
       if (className.includes("text-left")) setTextAlign("left");
       if (className.includes("text-right")) setTextAlign("right");
       if (className.includes("text-center")) setTextAlign("center");
@@ -314,8 +365,9 @@ export default function StyledInput({
           }}
           className={cn(
             "col-start-1 row-start-1",
-            "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none  px-2",
-            "whitespace-pre-wrap break-words",
+            "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none px-2",
+            "whitespace-pre-wrap break-words transition-all",
+            !isFocused && "hover:ring-1 hover:ring-white/30 hover:bg-black/5 cursor-text",
             className,
             isFocused && "ring-2 ring-blue-500"
           )}
@@ -327,7 +379,10 @@ export default function StyledInput({
 
         {showPlaceholder && placeholder && (
           <div
-            className="col-start-1 row-start-1 px-2 pointer-events-none break-words whitespace-pre-wrap"
+            className={cn(
+              "col-start-1 row-start-1 px-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
+              className
+            )}
             style={{
               fontSize,
               textAlign,
@@ -336,9 +391,8 @@ export default function StyledInput({
               fontFamily: getFontFamilyStyle(),
               lineHeight: "100%",
               minHeight: `calc(${fontSize} + 10px)`,
-              color: "#575a60",
               alignContent: "center",
-              backgroundColor: "#cccccc3b",
+              backgroundColor: "transparent",
             }}
           >
             {placeholder}
@@ -346,9 +400,10 @@ export default function StyledInput({
         )}
       </div>
 
-      {showMenu && (
+      {mounted && showMenu && createPortal(
         <div
-          className="absolute z-[999] top-full left-1/2 transform -translate-x-1/2 bg-white border shadow-lg rounded-md p-2 w-auto flex gap-2 mt-1"
+          className="absolute z-[99999] bg-white border shadow-lg rounded-md p-2 w-max flex gap-2"
+          style={{ top: menuCoords.top, left: menuCoords.left, transform: menuCoords.transform }}
           onMouseDown={(e) => e.preventDefault()}
         >
           {/* Weight */}
@@ -413,21 +468,32 @@ export default function StyledInput({
 
             {activeDropdown === "size" && (
               <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-28 max-h-40 overflow-auto">
-                {[8, 12, 14, 16, 18, 24, 28, 36, 40, 48].map((size) => (
-                  <button
-                    key={size}
-                    className={cn(
-                      "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
-                      fontSize === `${size}px` && "bg-gray-800 text-white"
-                    )}
-                    onClick={() => {
-                      applyStyle("fontSize", `${size}px`);
-                      setActiveDropdown(null);
-                    }}
-                  >
-                    {size}px
-                  </button>
-                ))}
+                {(() => {
+                  const ALL_SIZES = [8, 10, 12, 14, 16, 18, 20, 21, 24, 28, 32, 36, 40, 48, 60, 72];
+                  let allowedSizes = [8, 12, 14, 16, 18, 24, 28, 36, 40, 48];
+                  
+                  if (defaultFontSizeRef.current !== null) {
+                    const sorted = Array.from(new Set([...ALL_SIZES, defaultFontSizeRef.current])).sort((a, b) => a - b);
+                    const idx = sorted.indexOf(defaultFontSizeRef.current);
+                    allowedSizes = sorted.slice(Math.max(0, idx - 2), idx + 3);
+                  }
+                  
+                  return allowedSizes.map((size) => (
+                    <button
+                      key={size}
+                      className={cn(
+                        "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
+                        fontSize === `${size}px` && "bg-gray-800 text-white"
+                      )}
+                      onClick={() => {
+                        applyStyle("fontSize", `${size}px`);
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      {size}px
+                    </button>
+                  ));
+                })()}
               </div>
             )}
           </div>
@@ -510,7 +576,8 @@ export default function StyledInput({
               <Bold className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -508,13 +508,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           />
         )}
 
-        <div className="pdf-page">
-          <div className="w-full flex flex-col  justify-center gap-3 font-alexandria relative "
+        <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
+          <div className="w-full flex-1 h-full flex flex-col justify-start gap-3 font-alexandria relative"
             style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}
           >
             <div className="relative">
               <div
-                className="w-full h-[700px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
+                className="w-full h-[450px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
                 onMouseDown={(e) => handleMouseDown("image1", e)}
                 onMouseMove={(e) => handleMouseMove("image1", e)}
                 onMouseUp={() => handleMouseUp("image1")}
@@ -526,8 +526,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       unoptimized
                       src={images.image1}
                       alt="uploaded"
-                      width={200}
-                      height={300}
+                      fill={true}
                       className="w-full h-full object-cover transition-transform duration-150"
                       style={{
                         transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
@@ -658,7 +657,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       onChange={(e) => setAddressCode(e.target.value)}
                       inputStyle={fieldStyles["addressCode"]}
                       onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
-                      className="font-light text-[21px] h-[24px] w-[150px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                      className="font-light text-[18px] h-[24px] flex-1 w-full leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
                       placeholder="0000-0000"
                     />
                   </div>
@@ -699,91 +698,91 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                 </div>
               </div>
             </div>
-            <div className="flex gap-4 px-[80px] pb-[50px]">
-              <div className="w-[15%]">
-                <div className="space-y-2 text-[8px]">
+            <div className="flex gap-4 px-[40px] pb-[5px]">
+              <div className="w-[25%]">
+                <div className="space-y-0 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">BY-LAW RESTRICTIONS:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">BY-LAW RESTRICTIONS:</span>
                     <StyledInput
                       value={byLawRestrictions}
                       onChange={(e) => setByLawRestrictions(e.target.value)}
                       inputStyle={fieldStyles["byLawRestrictions"]}
                       onChangeStyle={(style) => updateFieldStyle("byLawRestrictions", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">MAINT. FEES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">MAINT. FEES:</span>
                     <StyledInput
                       value={maintFees}
                       onChange={(e) => setMaintFees(e.target.value)}
                       inputStyle={fieldStyles["maintFees"]}
                       onChangeStyle={(style) => updateFieldStyle("maintFees", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="$000.00"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">MAINT. FEES INCLUDE:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">MAINT. FEES INCLUDE:</span>
                     <StyledInput
                       value={maintFeesInclude}
                       onChange={(e) => setMaintFeesInclude(e.target.value)}
                       inputStyle={fieldStyles["maintFeesInclude"]}
                       onChangeStyle={(style) => updateFieldStyle("maintFeesInclude", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">FEATURES INCLUDED:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">FEATURES INCLUDED:</span>
                     <StyledInput
                       value={featuresIncluded}
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
                       inputStyle={fieldStyles["featuresIncluded"]}
                       onChangeStyle={(style) => updateFieldStyle("featuresIncluded", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
                     />
                   </div>
                 </div>
-                <div className="space-y-2 text-[8px]">
+                <div className="space-y-0 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">SITE INFLUENCES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">SITE INFLUENCES:</span>
                     <StyledInput
                       value={siteInfluences}
                       onChange={(e) => setSiteInfluences(e.target.value)}
                       inputStyle={fieldStyles["siteInfluences"]}
                       onChangeStyle={(style) => updateFieldStyle("siteInfluences", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">AMENITIES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">AMENITIES:</span>
                     <StyledInput
                       value={amenities}
                       onChange={(e) => setAmenities(e.target.value)}
                       inputStyle={fieldStyles["amenities"]}
                       onChangeStyle={(style) => updateFieldStyle("amenities", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">VIEW:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">VIEW:</span>
                     <StyledInput
                       value={view}
                       onChange={(e) => setView(e.target.value)}
                       inputStyle={fieldStyles["view"]}
                       onChangeStyle={(style) => updateFieldStyle("view", style)}
-                      className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="South & SW - Van Isl."
                     />
                   </div>
                 </div>
                 <div className="text-[#B3B394] ">
-                  <div className="font-bold text-[16px] flex flex-col gap-1">
+                  <div className="font-bold text-[14px] flex flex-col gap-0">
                     <span className="font-normal">CONTACT:</span>
                     <StyledInput
                       value={fullName}
@@ -832,13 +831,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   </div>
                 </div>
               </div>
-              <div className="w-[85%]">
-                <div className="relative top-[-60px]">
+              <div className="w-[75%]">
+                <div className="relative -mt-[60px]">
                   <div className="flex flex-col relative justify-center items-center">
                     <div className="grid grid-cols-2 gap-3 w-[80%]">
                       {/* Image 2 */}
                       <div
-                        className="w-full h-[270px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
                         onMouseDown={(e) => handleMouseDown("image2", e)}
                         onMouseMove={(e) => handleMouseMove("image2", e)}
                         onMouseUp={() => handleMouseUp("image2")}
@@ -850,8 +849,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               unoptimized
                               src={images.image2}
                               alt="uploaded"
-                              width={200}
-                              height={300}
+                              fill={true}
                               className="w-full h-full object-cover transition-transform duration-150"
                               style={{
                                 transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
@@ -920,7 +918,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
                       {/* Image 3 */}
                       <div
-                        className="w-full h-[270px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
                         onMouseDown={(e) => handleMouseDown("image3", e)}
                         onMouseMove={(e) => handleMouseMove("image3", e)}
                         onMouseUp={() => handleMouseUp("image3")}
@@ -932,8 +930,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               unoptimized
                               src={images.image3}
                               alt="uploaded"
-                              width={200}
-                              height={300}
+                              fill={true}
                               className="w-full h-full object-cover transition-transform duration-150"
                               style={{
                                 transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
@@ -1001,7 +998,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
                       {/* Image 4 */}
                       <div
-                        className="w-full h-[270px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
                         onMouseDown={(e) => handleMouseDown("image4", e)}
                         onMouseMove={(e) => handleMouseMove("image4", e)}
                         onMouseUp={() => handleMouseUp("image4")}
@@ -1013,8 +1010,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               unoptimized
                               src={images.image4}
                               alt="uploaded"
-                              width={200}
-                              height={300}
+                              fill={true}
                               className="w-full h-full object-cover transition-transform duration-150"
                               style={{
                                 transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
@@ -1082,7 +1078,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
                       {/* Image 5 */}
                       <div
-                        className="w-full h-[270px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
                         onMouseDown={(e) => handleMouseDown("image5", e)}
                         onMouseMove={(e) => handleMouseMove("image5", e)}
                         onMouseUp={() => handleMouseUp("image5")}
@@ -1094,8 +1090,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               unoptimized
                               src={images.image5}
                               alt="uploaded"
-                              width={200}
-                              height={300}
+                              fill={true}
                               className="w-full h-full object-cover transition-transform duration-150"
                               style={{
                                 transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
@@ -1164,7 +1159,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                     </div>
                     <div className="absolute  group z-10">
                       <div
-                        className="w-[200px] h-[130px] relative bg-white shadow-md overflow-hidden group"
+                        className="w-[150px] h-[100px] relative bg-white shadow-md overflow-hidden group"
                         onMouseDown={(e) => handleMouseDown("image6", e)}
                         onMouseMove={(e) => handleMouseMove("image6", e)}
                         onMouseUp={() => handleMouseUp("image6")}
@@ -1176,8 +1171,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               unoptimized
                               src={images.image6}
                               alt="selected"
-                              width={200}
-                              height={130}
+                              fill={true}
                               className="w-full h-full object-cover transition-transform duration-150"
                               style={{
                                 transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
@@ -1249,8 +1243,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
                     </div>
                   </div>
-                  <div className="text-[10px] justify-self-center mt-4 w-[70%] font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
-                    <h2 className="text-[22px] px-5 text-center tracking-[-1px] font-bold text-[#B3B394]">ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.</h2>
+                  <div className="text-[10px] justify-self-center mt-4 w-[90%] font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
+                    <h2 className="text-[16px] leading-tight px-5 text-center tracking-[-1px] mb-[15px] font-bold text-[#B3B394] line-clamp-2">ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.</h2>
                     <StyledInput
                       value={description}
                       rows={7}
@@ -1267,7 +1261,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   but exceptional value. Call today to set up your viewing. MLS # 000000"
                     />
                   </div>
-                  <div className="relative px-6 py-2 z-2 w-[60%]  gap-2 flex justify-self-center text-[#B3B394]">
+                  <div className="relative px-6 py-2 mt-[10px] z-2 w-[90%]  gap-2 flex justify-self-center text-[#B3B394]">
                     <span className="flex flex-col mt-1">
                       <House className="w-4 h-4" />
                       <svg
@@ -1326,23 +1320,22 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           </div>
         </div>
 
-        <div className="pdf-page">
-          <div className="w-full flex flex-col bg-[#ffffff] justify-center font-alexandria relative">
+        <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
+          <div className="w-full h-full flex flex-col bg-[#ffffff] justify-center font-alexandria relative">
             <div
-              className="w-full h-auto px-[135px] pt-[115px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
+              className="w-full flex-1 place-self-center relative overflow-hidden flex items-center justify-center group"
               onMouseDown={(e) => handleMouseDown("image7", e)}
               onMouseMove={(e) => handleMouseMove("image7", e)}
               onMouseUp={() => handleMouseUp("image7")}
               onMouseLeave={() => handleMouseLeave("image7")}
             >
               {images.image7 ? (
-                <>
+                <div className="relative w-full h-full">
                   <Image
                     unoptimized
                     src={images.image7}
                     alt="uploaded"
-                    width={200}
-                    height={300}
+                    fill={true}
                     className="w-full h-full object-cover transition-transform duration-150"
                     style={{
                       transform: `scale(${scale.image7}) translate(${position.image7.x}px, ${position.image7.y}px)`,
@@ -1393,11 +1386,11 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   >
                     <Trash className="w-4 h-4 text-red-500" />
                   </button>
-                </>
+                </div>
               ) : (
                 <div
                   onClick={() => openImageSourceModal("image7")}
-                  className="w-full h-[700px] bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
                 </div>

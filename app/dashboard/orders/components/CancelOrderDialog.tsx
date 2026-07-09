@@ -17,6 +17,7 @@ import { useAppContext } from "@/app/context/AppContext";
 
 export interface CancelPreviewData {
   order_uuid: string;
+  service_uuid?: string;
   can_cancel: boolean;
   is_free: boolean;
   cancellation_fee: number;
@@ -36,6 +37,8 @@ interface CancelOrderDialogProps {
   orderData: Order;
   isLoading: boolean;
   previewData: CancelPreviewData | null;
+  mode?: "order" | "service";
+  targetName?: string;
   onConfirm: (reason?: string) => void;
 }
 
@@ -45,6 +48,8 @@ export default function CancelOrderDialog({
   orderData,
   isLoading,
   previewData,
+  mode = "order",
+  targetName,
   onConfirm,
 }: CancelOrderDialogProps) {
   const { appliedSettings } = useWhiteLabel();
@@ -76,7 +81,7 @@ export default function CancelOrderDialog({
             className="text-[16px] font-[600] uppercase"
             style={{ color: roleSettings.pageTabColor }}
           >
-            {canCancel ? "Cancel Booking" : "Cancellation Unavailable"}
+            {canCancel ? (mode === "service" ? "Cancel Service" : "Cancel Booking") : "Cancellation Unavailable"}
           </DialogTitle>
         </DialogHeader>
 
@@ -85,7 +90,7 @@ export default function CancelOrderDialog({
             <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
               <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
               <div className="text-[13px] text-red-700 leading-relaxed">
-                <p>Cancellation is no longer available for this booking.</p>
+                <p>Cancellation is no longer available for this {mode === "service" ? "service" : "booking"}.</p>
               </div>
             </div>
           ) : (
@@ -131,8 +136,12 @@ export default function CancelOrderDialog({
 
               <p className="text-[13px]" style={{ color: roleSettings.pageText }}>
                 Are you sure you want to cancel{" "}
-                <span className="font-[600]">Order #{orderData.id}</span>? This
-                action cannot be undone.
+                {mode === "service" ? (
+                  <span className="font-[600]">{targetName || "this service"}</span>
+                ) : (
+                  <span className="font-[600]">Order #{orderData.id}</span>
+                )}
+                ? This action cannot be undone.
               </p>
             </>
           )}

@@ -110,6 +110,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     const city = tourData.orders?.property?.city || "";
     addressLine = address + (city ? ", " + city : "");
     href = `${agentDomainUrl}/tour/${slugify(address)}/${tourData.orders?.uuid}`;
+    latestOrder = tourData.orders;
   } else {
     const listingData = data as Listings;
     const files = listingData.orders?.[0]?.tours?.[0]?.files;
@@ -157,6 +158,14 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
           <p className="text-[12px] font-[500] text-[#666666]">
             No Thumbnail Available
           </p>
+        )}
+
+        {latestOrder?.order_status === "Cancelled" && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1.5px] flex items-center justify-center z-10 pointer-events-none">
+            <span className="px-3 py-1 bg-red-100 text-red-800 border border-red-200 rounded-md font-bold text-sm tracking-widest shadow-sm">
+              CANCELLED
+            </span>
+          </div>
         )}
 
         {/* Badges Overlay */}
@@ -268,27 +277,35 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
 
           <div className="w-[1px] h-4 bg-gray-200"></div>
 
-          <Link
-            href={href}
-            className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-emerald-600 hover:bg-white rounded transition-all font-medium text-center"
-            title="Manage Files / Edit"
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-            <span>Manage</span>
-          </Link>
-
-          {userType !== 'vendor' && (
+          {latestOrder?.order_status !== "Cancelled" ? (
             <>
-              <div className="w-[1px] h-4 bg-gray-200"></div>
               <Link
-                href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}?isEdit=true` : "/dashboard/orders/create"}
-                className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-indigo-600 hover:bg-white rounded transition-all font-medium text-center"
-                title={latestOrder?.uuid ? "Update Booking" : "New Booking"}
+                href={href}
+                className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-emerald-600 hover:bg-white rounded transition-all font-medium text-center"
+                title="Manage Files / Edit"
               >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Booking</span>
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>Manage</span>
               </Link>
+
+              {userType !== 'vendor' && (
+                <>
+                  <div className="w-[1px] h-4 bg-gray-200"></div>
+                  <Link
+                    href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}?isEdit=true` : "/dashboard/orders/create"}
+                    className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-indigo-600 hover:bg-white rounded transition-all font-medium text-center"
+                    title={latestOrder?.uuid ? "Update Booking" : "New Booking"}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Booking</span>
+                  </Link>
+                </>
+              )}
             </>
+          ) : (
+            <div className="flex flex-1 justify-center items-center py-1 text-gray-400 font-medium italic">
+              Actions Unavailable
+            </div>
           )}
         </div>
       )}

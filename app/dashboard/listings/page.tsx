@@ -236,7 +236,8 @@ const Page = () => {
     const matchesStatus =
       filterStatus === "all" ||
       filterStatus === "" ||
-      listing.property_status === filterStatus;
+      (filterStatus === "Cancelled" && getProjectStatus(listing.orders).label === "Cancelled") ||
+      (filterStatus !== "Cancelled" && listing.property_status === filterStatus);
 
     const matchesTour =
       filterTour === "all" ||
@@ -314,7 +315,7 @@ const Page = () => {
             )}
             <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
               <SelectTrigger className="h-9 bg-white text-xs">
-                <SelectValue placeholder="Property Status" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
@@ -323,6 +324,7 @@ const Page = () => {
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Under contract">Under contract</SelectItem>
                 <SelectItem value="Withdrawn">Withdrawn</SelectItem>
+                <SelectItem value="Cancelled">Cancelled Orders</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterTour} onValueChange={(value) => setFilterTour(value)}>
@@ -696,18 +698,18 @@ const Page = () => {
 
         <Select onValueChange={(value) => setFilterStatus(value)}>
           <SelectTrigger className="w-full h-[38px] bg-white">
-            <SelectValue placeholder="Property Status" />
+            <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Just listed">Just listed</SelectItem>
             <SelectItem value="Sold">Sold</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
             <SelectItem value="Under contract">Under contract</SelectItem>
             <SelectItem value="Withdrawn">Withdrawn</SelectItem>
+            <SelectItem value="Cancelled">Cancelled Orders</SelectItem>
           </SelectContent>
         </Select>
-
 
         <Select onValueChange={(value) => setFilterTour(value)}>
           <SelectTrigger className="h-[38px] w-full bg-white">
