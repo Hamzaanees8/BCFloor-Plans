@@ -9,6 +9,10 @@ import { Order } from "../../orders/page";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
+import CancelOrderDialog, { CancelPreviewData } from "../../orders/components/CancelOrderDialog";
+import { PreviewCancelService, CancelService } from "../../orders/orders";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export type CalendarEvent = {
     title: string;
@@ -29,10 +33,15 @@ type QuickViewCardProps = {
     agentData: Agent[]
     serviceData: Services[]
     orderData: Order[]
+    refreshOrders?: () => void
 }
 
-export default function OrderQuickViewCard({ data, onClose, vendorData, serviceData, orderData, setOpenDetails }: QuickViewCardProps) {
+export default function OrderQuickViewCard({ data, onClose, vendorData, serviceData, orderData, setOpenDetails, refreshOrders }: QuickViewCardProps) {
     const { userType } = useAppContext();
+    const [showCancelServiceDialog, setShowCancelServiceDialog] = React.useState(false);
+    const [cancelServicePreviewData, setCancelServicePreviewData] = React.useState<CancelPreviewData | null>(null);
+    const [isCancelServiceLoading, setIsCancelServiceLoading] = React.useState(false);
+    const [cancelTargetService, setCancelTargetService] = React.useState<{ uuid: string; name: string } | null>(null);
     const OrderVendor = vendorData?.find((vendor) => {
         return vendor.uuid == data.vendor_id
     })
@@ -59,6 +68,65 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
     if (CurrentService?.uuid) queryParams.append('serviceId', CurrentService.uuid);
     const queryString = queryParams.toString();
     const fileManagerHref = `/dashboard/file-manager/${CurrentOrder?.uuid}${queryString ? `?${queryString}` : ''}`;
+
+    const earliestSlotDT = CurrentOrder?.slots?.reduce<Date | null>((earliest, slot) => {
+        const dt = new Date(`${slot.date}T${slot.start_time}`);
+        return !earliest || dt < earliest ? dt : earliest;
+    }, null) ?? null;
+
+    const showCancelButton =
+        !!CurrentOrder &&
+        CurrentOrder.order_status !== "Cancelled" &&
+        (!earliestSlotDT || earliestSlotDT > new Date()) &&
+        (userType === "admin" || userType === "agent");
+
+    const handleCancelServiceClick = async () => {
+        const token = localStorage.getItem("token");
+        if (!token || !CurrentOrder || !CurrentService) return;
+        
+        if (!serviceOptions?.uuid) {
+            toast.error("Service booking not found in this order.");
+            return;
+        }
+
+        setIsCancelServiceLoading(true);
+        setCancelTargetService({ uuid: serviceOptions.uuid, name: CurrentService.name || "" });
+        
+        try {
+            const data = await PreviewCancelService(CurrentOrder.uuid, serviceOptions.uuid, token);
+            setCancelServicePreviewData(data.data);
+            setShowCancelServiceDialog(true);
+        } catch (err) {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to load cancellation details"
+            );
+            setCancelTargetService(null);
+        } finally {
+            setIsCancelServiceLoading(false);
+        }
+    };
+
+    const handleCancelService = async (reason?: string) => {
+        const token = localStorage.getItem("token");
+        if (!token || !CurrentOrder || !cancelTargetService) return;
+        
+        setIsCancelServiceLoading(true);
+        try {
+            await CancelService(CurrentOrder.uuid, cancelTargetService.uuid, token, reason);
+            toast.success("Service cancelled successfully");
+            setShowCancelServiceDialog(false);
+            onClose();
+            if (refreshOrders) {
+                refreshOrders();
+            }
+        } catch (err) {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to cancel service"
+            );
+        } finally {
+            setIsCancelServiceLoading(false);
+        }
+    };
 
     return (
         <Card
@@ -188,7 +256,7 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
             </CardContent>
 
             <CardFooter className="p-0 mt-10">
-                <div className="w-full flex justify-end gap-[10px]">
+                <div className="w-full flex flex-wrap justify-end gap-[10px]">
                     <Link
                         href={fileManagerHref}
                         className={`${userType}-bg border-[1px] text-[14px] flex justify-center items-center ${userType}-border text-[#fff] rounded-none w-[132px] h-[32px] hover:text-white hover:brightness-110`}
@@ -205,8 +273,30 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
                         Detail View
                     </Button>
 
+                    {showCancelButton && (
+                        <Button
+                            onClick={handleCancelServiceClick}
+                            disabled={isCancelServiceLoading}
+                            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border text-red-500 hover:text-white rounded-none w-auto px-4 h-[32px] hover:bg-red-500 hover:border-red-500`}
+                        >
+                            {isCancelServiceLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Cancel Service"}
+                        </Button>
+                    )}
                 </div>
             </CardFooter>
+
+            {showCancelServiceDialog && CurrentOrder && (
+                <CancelOrderDialog
+                    open={showCancelServiceDialog}
+                    onOpenChange={setShowCancelServiceDialog}
+                    orderData={CurrentOrder}
+                    isLoading={isCancelServiceLoading}
+                    previewData={cancelServicePreviewData}
+                    mode="service"
+                    targetName={cancelTargetService?.name}
+                    onConfirm={handleCancelService}
+                />
+            )}
         </Card >
     );
 }

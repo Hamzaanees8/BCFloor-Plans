@@ -138,6 +138,7 @@ type FormData = {
     border: string;
     avatar_url: string;
     AvatarfileName: string;
+    image7Rotation?: number;
 
     // Content Fields
     title: string;

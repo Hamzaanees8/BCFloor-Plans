@@ -1,5 +1,5 @@
-import { Pencil, Trash, ZoomIn, ZoomOut, House } from "lucide-react";
-import Image from "next/image";
+import { Pencil, Trash, ZoomIn, ZoomOut, House, RotateCw } from "lucide-react";
+
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
@@ -9,6 +9,63 @@ import FileManagerGallery from "./fileManagerGallery";
 import { featureSheetService } from "../file-manager";
 import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
+import Image from "next/image";
+
+
+const ImageEditor = ({
+  src,
+  scale,
+  position,
+  className = ""
+}: {
+  src: string;
+  scale: number;
+  position: { x: number; y: number };
+  className?: string;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [baseScale, setBaseScale] = useState(1);
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (!containerRef.current) return;
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    const { clientWidth, clientHeight } = containerRef.current;
+    
+    if (naturalWidth === 0 || naturalHeight === 0 || clientWidth === 0 || clientHeight === 0) return;
+    
+    const containerAR = clientWidth / clientHeight;
+    const imageAR = naturalWidth / naturalHeight;
+    
+    let drawnWidth, drawnHeight;
+    if (imageAR > containerAR) {
+      drawnWidth = clientWidth;
+      drawnHeight = clientWidth / imageAR;
+    } else {
+      drawnHeight = clientHeight;
+      drawnWidth = clientHeight * imageAR;
+    }
+    
+    const requiredScale = Math.max(clientWidth / drawnWidth, clientHeight / drawnHeight);
+    setBaseScale(requiredScale);
+  };
+
+  return (
+    <div ref={containerRef} className={`w-full h-full relative flex items-center justify-center ${className}`}>
+      <Image
+        src={src}
+        onLoad={handleLoad}
+        alt="uploaded"
+        fill
+        unoptimized
+        className="object-contain pointer-events-none"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale * baseScale})`,
+          transition: 'transform 0.1s ease-out'
+        }}
+      />
+    </div>
+  );
+};
 
 export interface BcfpStandard13Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -42,6 +99,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
     const [builtYear, setBuiltYear] = useState("");
+    const [image7Rotation, setImage7Rotation] = useState(0);
 
     // --- images States ---
     const [images, setImages] = useState({
@@ -236,6 +294,37 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
     // Initial sync from context on mount
     useEffect(() => {
+      // 1. Auto-populate data on initial sheet creation
+      if (orderData) {
+        if (orderData.property) {
+          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description) setDescription(orderData.property.description);
+          if (orderData.property.mls_number) setAddressCode(orderData.property.mls_number);
+          if (orderData.property.suite) setRoadName(orderData.property.suite);
+          
+          let cityString = "";
+          if (orderData.property.city) cityString += orderData.property.city;
+          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (cityString) setCityLine(cityString);
+        }
+        
+        if (orderData.agent) {
+          const agent = orderData.agent;
+          if (agent.first_name || agent.last_name) {
+            setFullName(`${agent.first_name || ''} ${agent.last_name || ''}`.trim());
+          }
+          if (agent.email) setEmail(agent.email);
+          if (agent.primary_phone) setNumber(agent.primary_phone);
+          if (agent.company_name) setPropertyName(agent.company_name);
+        }
+      }
+
+      // 2. Allow existing formData to override if it has truthy values
       if (formData) {
         if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
@@ -345,24 +434,36 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
       setScale((prev) => {
         const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        const bounded = Math.min(Math.max(newScale, 1), 3);
-        if (bounded <= 1) {
-          setPosition((p) => ({ ...p, [key]: { x: 0, y: 0 } }));
-        }
+        const bounded = Math.min(Math.max(newScale, 0.1), 5);
         return { ...prev, [key]: bounded };
       });
     };
 
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
-      if (scale[key] <= 1) return;
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      const dx = e.clientX - lastPosition.current[key].x;
-      const dy = e.clientY - lastPosition.current[key].y;
+      let dx = e.clientX - lastPosition.current[key].x;
+      let dy = e.clientY - lastPosition.current[key].y;
+
+      if (key === "image7") {
+        const angle = ((image7Rotation % 360) + 360) % 360;
+        if (angle === 90) {
+          const temp = dx;
+          dx = dy;
+          dy = -temp;
+        } else if (angle === 180) {
+          dx = -dx;
+          dy = -dy;
+        } else if (angle === 270) {
+          const temp = dx;
+          dx = -dy;
+          dy = temp;
+        }
+      }
 
       setPosition((prev) => ({
         ...prev,
@@ -514,28 +615,19 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           >
             <div className="relative">
               <div
-                className="w-full h-[450px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
+                className="w-full h-[450px] place-self-center border-[#fff] relative overflow-hidden flex items-center justify-center group"
                 onMouseDown={(e) => handleMouseDown("image1", e)}
                 onMouseMove={(e) => handleMouseMove("image1", e)}
                 onMouseUp={() => handleMouseUp("image1")}
                 onMouseLeave={() => handleMouseLeave("image1")}
+                style={{ cursor: dragging.image1 ? "grabbing" : "grab" }}
               >
                 {images.image1 ? (
                   <>
-                    <Image
-                      unoptimized
+                    <ImageEditor
                       src={images.image1}
-                      alt="uploaded"
-                      fill={true}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
-                        cursor: dragging.image1
-                          ? "grabbing"
-                          : scale.image1 > 1
-                            ? "grab"
-                            : "default",
-                      }}
+                      scale={scale.image1}
+                      position={position.image1}
                     />
 
                     {/* Zoom Controls */}
@@ -649,7 +741,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-1 absolute top-[40px] left-[50px] w-[150px]">
+              <div className="flex flex-col gap-1 absolute top-[40px] left-[50px] w-[160px]">
                 <div className="p-3" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}>
                   <div className="tracking-wide text-white mt-0 flex">#
                     <StyledInput
@@ -657,22 +749,22 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       onChange={(e) => setAddressCode(e.target.value)}
                       inputStyle={fieldStyles["addressCode"]}
                       onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
-                      className="font-light text-[18px] h-[24px] flex-1 w-full leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
+                      className="font-light text-[18px] h-[24px] w-[120px] flex-1 leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
                       placeholder="0000-0000"
                     />
                   </div>
-                  <div className="text-[13px] text-white font-bold leading-none mt-0 flex">
-                    Number
-                    <StyledInput
-                      value={roadName}
-                      onChange={(e) => setRoadName(e.target.value)}
-                      inputStyle={fieldStyles["roadName"]}
-                      onChangeStyle={(style) => updateFieldStyle("roadName", style)}
-                      className="font-light text-[13px] h-[24px] leading-none mt-0 bg-transparent text-[#ffffff] text-center w-[22px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                      placeholder="0"
-                    />
-                    Road
-                  </div>
+                  <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                  <span>Number</span>
+                  <StyledInput
+                    value={roadName}
+                    onChange={(e) => setRoadName(e.target.value)}
+                    inputStyle={fieldStyles["roadName"]}
+                    onChangeStyle={(style) => updateFieldStyle("roadName", style)}
+                    className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                    placeholder="0"
+                  />
+                  <span>Road</span>
+                </div>
                   <hr className="border-t-2 border-dotted border-white w-full" />
                   <div className="uppercase mt-2 flex justify-center">
                     <StyledInput
@@ -842,24 +934,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image2", e)}
                         onMouseUp={() => handleMouseUp("image2")}
                         onMouseLeave={() => handleMouseLeave("image2")}
-                      >
+                style={{ cursor: dragging.image2 ? "grabbing" : "grab" }}
+              >
                         {images.image2 ? (
                           <>
-                            <Image
-                              unoptimized
-                              src={images.image2}
-                              alt="uploaded"
-                              fill={true}
-                              className="w-full h-full object-cover transition-transform duration-150"
-                              style={{
-                                transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
-                                cursor: dragging.image2
-                                  ? "grabbing"
-                                  : scale.image2 > 1
-                                    ? "grab"
-                                    : "default",
-                              }}
-                            />
+                            <ImageEditor
+                      src={images.image2}
+                      scale={scale.image2}
+                      position={position.image2}
+                    />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -923,24 +1006,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image3", e)}
                         onMouseUp={() => handleMouseUp("image3")}
                         onMouseLeave={() => handleMouseLeave("image3")}
-                      >
+                style={{ cursor: dragging.image3 ? "grabbing" : "grab" }}
+              >
                         {images.image3 ? (
                           <>
-                            <Image
-                              unoptimized
-                              src={images.image3}
-                              alt="uploaded"
-                              fill={true}
-                              className="w-full h-full object-cover transition-transform duration-150"
-                              style={{
-                                transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
-                                cursor: dragging.image3
-                                  ? "grabbing"
-                                  : scale.image3 > 1
-                                    ? "grab"
-                                    : "default",
-                              }}
-                            />
+                            <ImageEditor
+                      src={images.image3}
+                      scale={scale.image3}
+                      position={position.image3}
+                    />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1003,24 +1077,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image4", e)}
                         onMouseUp={() => handleMouseUp("image4")}
                         onMouseLeave={() => handleMouseLeave("image4")}
-                      >
+                style={{ cursor: dragging.image4 ? "grabbing" : "grab" }}
+              >
                         {images.image4 ? (
                           <>
-                            <Image
-                              unoptimized
-                              src={images.image4}
-                              alt="uploaded"
-                              fill={true}
-                              className="w-full h-full object-cover transition-transform duration-150"
-                              style={{
-                                transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
-                                cursor: dragging.image4
-                                  ? "grabbing"
-                                  : scale.image4 > 1
-                                    ? "grab"
-                                    : "default",
-                              }}
-                            />
+                            <ImageEditor
+                      src={images.image4}
+                      scale={scale.image4}
+                      position={position.image4}
+                    />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1083,24 +1148,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image5", e)}
                         onMouseUp={() => handleMouseUp("image5")}
                         onMouseLeave={() => handleMouseLeave("image5")}
-                      >
+                style={{ cursor: dragging.image5 ? "grabbing" : "grab" }}
+              >
                         {images.image5 ? (
                           <>
-                            <Image
-                              unoptimized
-                              src={images.image5}
-                              alt="uploaded"
-                              fill={true}
-                              className="w-full h-full object-cover transition-transform duration-150"
-                              style={{
-                                transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
-                                cursor: dragging.image5
-                                  ? "grabbing"
-                                  : scale.image5 > 1
-                                    ? "grab"
-                                    : "default",
-                              }}
-                            />
+                            <ImageEditor
+                      src={images.image5}
+                      scale={scale.image5}
+                      position={position.image5}
+                    />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1164,24 +1220,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image6", e)}
                         onMouseUp={() => handleMouseUp("image6")}
                         onMouseLeave={() => handleMouseLeave("image6")}
-                      >
+                style={{ cursor: dragging.image6 ? "grabbing" : "grab" }}
+              >
                         {images.image6 ? (
                           <>
-                            <Image
-                              unoptimized
-                              src={images.image6}
-                              alt="selected"
-                              fill={true}
-                              className="w-full h-full object-cover transition-transform duration-150"
-                              style={{
-                                transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
-                                cursor: dragging.image6
-                                  ? "grabbing"
-                                  : scale.image6 > 1
-                                    ? "grab"
-                                    : "default",
-                              }}
-                            />
+                            <ImageEditor
+                      src={images.image6}
+                      scale={scale.image6}
+                      position={position.image6}
+                    />
 
                             {/* Zoom Controls */}
                             <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1328,24 +1375,26 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               onMouseMove={(e) => handleMouseMove("image7", e)}
               onMouseUp={() => handleMouseUp("image7")}
               onMouseLeave={() => handleMouseLeave("image7")}
-            >
+                style={{ cursor: dragging.image7 ? "grabbing" : "grab" }}
+              >
               {images.image7 ? (
-                <div className="relative w-full h-full">
-                  <Image
-                    unoptimized
-                    src={images.image7}
-                    alt="uploaded"
-                    fill={true}
-                    className="w-full h-full object-cover transition-transform duration-150"
+                <>
+                  <div
+                    className="absolute"
                     style={{
-                      transform: `scale(${scale.image7}) translate(${position.image7.x}px, ${position.image7.y}px)`,
-                      cursor: dragging.image7
-                        ? "grabbing"
-                        : scale.image7 > 1
-                          ? "grab"
-                          : "default",
+                      width: image7Rotation % 180 !== 0 ? '11in' : '100%',
+                      height: image7Rotation % 180 !== 0 ? '8.5in' : '100%',
+                      top: '50%',
+                      left: '50%',
+                      transform: `translate(-50%, -50%) rotate(${image7Rotation}deg)`,
                     }}
-                  />
+                  >
+                    <ImageEditor
+                      src={images.image7}
+                      scale={scale.image7}
+                      position={position.image7}
+                    />
+                  </div>
 
                   {/* Zoom Controls */}
                   <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1367,6 +1416,16 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                     </button>
                   </div>
 
+                  {/* Rotate Button */}
+                  <button
+                    type="button"
+                    onClick={() => setImage7Rotation((r) => (r + 90) % 360)}
+                    className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                    title="Rotate image"
+                  >
+                    <RotateCw className="w-4 h-4 text-gray-700" />
+                  </button>
+
                   {/* Edit Button */}
                   <button
                     type="button"
@@ -1386,7 +1445,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   >
                     <Trash className="w-4 h-4 text-red-500" />
                   </button>
-                </div>
+                </>
               ) : (
                 <div
                   onClick={() => openImageSourceModal("image7")}
@@ -1405,7 +1464,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               />
             </div>
 
-            <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[150px]">
+            <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[160px]">
               <div className="p-3 pt-[80px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}>
                 <div className="tracking-wide text-white mt-0 flex">#
                   <StyledInput
@@ -1413,21 +1472,21 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                     onChange={(e) => setAddressCode(e.target.value)}
                     inputStyle={fieldStyles["addressCode"]}
                     onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
-                    className="font-light text-[21px] h-[24px] w-[150px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                    className="font-light text-[21px] h-[24px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                     placeholder="0000-0000"
                   />
                 </div>
-                <div className="text-[13px] text-white font-bold leading-none mt-0 flex">
-                  Number
+                <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                  <span>Number</span>
                   <StyledInput
                     value={roadName}
                     onChange={(e) => setRoadName(e.target.value)}
                     inputStyle={fieldStyles["roadName"]}
                     onChangeStyle={(style) => updateFieldStyle("roadName", style)}
-                    className="font-light text-[13px] h-[24px] leading-none mt-0 bg-transparent text-[#ffffff] text-center w-[22px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                    className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                     placeholder="0"
                   />
-                  Road
+                  <span>Road</span>
                 </div>
                 <hr className="border-t-2 border-dotted border-white w-full" />
                 <div className="uppercase mt-2 flex justify-center">

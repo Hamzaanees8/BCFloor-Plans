@@ -43,21 +43,26 @@ const DownloadPdf = async (
   clone.style.maxHeight = "none";
   document.body.appendChild(clone);
 
-  // Sync inputs
-  const originalInputs = section.querySelectorAll("input, textarea");
-  const cloneInputs = clone.querySelectorAll("input, textarea");
+  // Sync inputs, excluding file inputs entirely to avoid InvalidStateError
+  const originalInputs = section.querySelectorAll("input:not([type='file']), textarea");
+  const cloneInputs = clone.querySelectorAll("input:not([type='file']), textarea");
 
   originalInputs.forEach((input, index) => {
     if (!cloneInputs[index]) return;
     const cloneInput = cloneInputs[index];
     const inputType = input.type.toLowerCase();
-    if (inputType === 'checkbox' || inputType === 'radio') {
-      cloneInput.checked = input.checked;
+    
+    if (inputType === 'file') {
+      return; // Skip setting value for file inputs as it throws InvalidStateError
+    } else if (inputType === 'checkbox' || inputType === 'radio') {
+      try { cloneInput.checked = input.checked; } catch {}
     } else if (inputType === 'textarea' || input.tagName.toLowerCase() === 'textarea') {
-      cloneInput.value = input.value;
-      cloneInput.textContent = input.value;
+      try { 
+        cloneInput.value = input.value;
+        cloneInput.textContent = input.value;
+      } catch {}
     } else {
-      cloneInput.value = input.value;
+      try { cloneInput.value = input.value; } catch {}
     }
   });
 
@@ -103,11 +108,14 @@ const DownloadPdf = async (
     const pages = clone.querySelectorAll(".pdf-page");
     const elementsToCapture = pages.length > 0 ? Array.from(pages) : [clone];
 
+    const finalPaperWidth = withBleed ? paperSize.width + 0.25 : paperSize.width;
+    const finalPaperHeight = withBleed ? paperSize.height + 0.25 : paperSize.height;
+
     const orientation = paperSize.width > paperSize.height ? "landscape" : "portrait";
     const pdf = new jsPDF({
       orientation: orientation,
       unit: "in",
-      format: [paperSize.width, paperSize.height]
+      format: [finalPaperWidth, finalPaperHeight]
     });
 
     for (let i = 0; i < elementsToCapture.length; i++) {
@@ -130,35 +138,81 @@ const DownloadPdf = async (
       };
 
       const canvas = await html2canvas(el, elOptions);
-      const imgData = canvas.toDataURL("image/png", 1.0);
 
-      const imgHeightInches = totalHeight / 96;
+      let finalImgData;
+      let finalImgHeightInches;
+
+      if (withBleed) {
+        const scale = options.scale || 3;
+        const bleedPx = 0.125 * 96 * scale; // pixels for 0.125" at this scale
+        
+        const origWidth = canvas.width;
+        const origHeight = canvas.height;
+        const extWidth = origWidth + (bleedPx * 2);
+        const extHeight = origHeight + (bleedPx * 2);
+        
+        const extCanvas = document.createElement('canvas');
+        extCanvas.width = extWidth;
+        extCanvas.height = extHeight;
+        const ctx = extCanvas.getContext('2d');
+        
+        // Fill background
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, extWidth, extHeight);
+        
+        // Draw original centered
+        ctx.drawImage(canvas, bleedPx, bleedPx);
+        
+        // Stretch Top Edge
+        ctx.drawImage(canvas, 0, 0, origWidth, 1, bleedPx, 0, origWidth, bleedPx);
+        // Stretch Bottom Edge
+        ctx.drawImage(canvas, 0, origHeight - 1, origWidth, 1, bleedPx, extHeight - bleedPx, origWidth, bleedPx);
+        // Stretch Left Edge
+        ctx.drawImage(canvas, 0, 0, 1, origHeight, 0, bleedPx, bleedPx, origHeight);
+        // Stretch Right Edge
+        ctx.drawImage(canvas, origWidth - 1, 0, 1, origHeight, extWidth - bleedPx, bleedPx, bleedPx, origHeight);
+        
+        // Corner: Top-Left
+        ctx.drawImage(canvas, 0, 0, 1, 1, 0, 0, bleedPx, bleedPx);
+        // Corner: Top-Right
+        ctx.drawImage(canvas, origWidth - 1, 0, 1, 1, extWidth - bleedPx, 0, bleedPx, bleedPx);
+        // Corner: Bottom-Left
+        ctx.drawImage(canvas, 0, origHeight - 1, 1, 1, 0, extHeight - bleedPx, bleedPx, bleedPx);
+        // Corner: Bottom-Right
+        ctx.drawImage(canvas, origWidth - 1, origHeight - 1, 1, 1, extWidth - bleedPx, extHeight - bleedPx, bleedPx, bleedPx);
+        
+        finalImgData = extCanvas.toDataURL("image/png", 1.0);
+        finalImgHeightInches = (totalHeight / 96) + 0.25;
+      } else {
+        finalImgData = canvas.toDataURL("image/png", 1.0);
+        finalImgHeightInches = totalHeight / 96;
+      }
 
       for (let p = 0; p < numPages; p++) {
         if (i > 0 || p > 0) {
-          pdf.addPage([paperSize.width, paperSize.height], orientation);
+          pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);
         }
 
         if (withBleed) {
           pdf.addImage(
-            imgData, 
+            finalImgData, 
             "PNG", 
             0, 
-            -(p * paperSize.height), 
-            paperSize.width, 
-            imgHeightInches
+            -(p * finalPaperHeight), 
+            finalPaperWidth, 
+            finalImgHeightInches
           );
         } else {
           const margin = 0.1;
           const scaleFactor = (paperSize.width - (margin * 2)) / paperSize.width;
           const targetWidth = paperSize.width - (margin * 2);
-          const targetHeight = imgHeightInches * scaleFactor;
+          const targetHeight = finalImgHeightInches * scaleFactor;
           const pageContentHeight = paperSize.height - (margin * 2);
 
           pdf.setFillColor(bgColor);
           pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
           pdf.addImage(
-            imgData, 
+            finalImgData, 
             "PNG", 
             margin, 
             margin - (p * pageContentHeight), 

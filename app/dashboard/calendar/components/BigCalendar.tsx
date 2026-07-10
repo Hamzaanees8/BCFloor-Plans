@@ -1265,7 +1265,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 <BreakQuickViewCard handleDelete={handleDeleteClick} data={selectedBreakEvent} vendorData={vendorData} onClose={() => { setSelectedBreakEvent(null) }} breakAction={() => setOpen(true)} />
             )}
             {selectedOrder && (
-                <OrderQuickViewCard setOpenDetails={setOpenDetails} data={selectedOrder} orderData={orderData} serviceData={serviceData} agentData={agentData} vendorData={vendorData} onClose={() => { setSelectedOrder(null) }} />
+                <OrderQuickViewCard setOpenDetails={setOpenDetails} data={selectedOrder} orderData={orderData} serviceData={serviceData} agentData={agentData} vendorData={vendorData} onClose={() => { setSelectedOrder(null) }} refreshOrders={refreshOrders} />
             )}
 
             <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={String(selectedOrder?.order_id) ?? 'c5527273-88cb-414f-8f23-26c2bdd852d4'} serviceId={selectedOrder?.service_id ?? 22} orderData={orderData} refreshOrders={refreshOrders} />

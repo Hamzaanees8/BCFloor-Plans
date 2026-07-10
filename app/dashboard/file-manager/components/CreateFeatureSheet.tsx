@@ -24,6 +24,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { Order } from "../../orders/page";
+import FeatureSheetThumbnail from "./FeatureSheetThumbnail";
 import { HexColorPicker } from "react-colorful";
 
 import { useFileManagerContext, initialFormData } from "../FileManagerContext";
@@ -219,6 +220,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async (withBleed: boolean) => {
+      // Force HMR reload to pull updated DownloadPdf.js logic
       setIsDownloading(true);
       try {
         const propertyAddress = orderData?.property_address || "Property";
@@ -252,7 +254,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
       { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
       { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
-      { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13" },
+      { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
       { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
       { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15" },
       { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
@@ -266,24 +268,35 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
     ];
 
-    // Helper to get thumbnail URL with fallback
-    const getThumbnailUrl = (templateKey: string) => {
+    // Helper to get thumbnail URLs with fallback
+    const getThumbnailUrls = (templateKey: string): string[] => {
       if (!templateKey || typeof templateKey !== "string") {
-        return "/featuresheetimage1.png";
+        return ["/featuresheetimage1.png"];
       }
 
       // Special case for the base template which doesn't have a BcfpStandard.png
       if (templateKey === "BCFPStandard") {
-        return "/featuresheetimage1.png";
+        return ["/featuresheetimage1.png"];
       }
 
-      const template = templateImages.find((t) => t.id === templateKey);
-      if (template?.url) {
-        return `/${template.url}.png`;
+      const template = templateImages.find((t) => t.id === templateKey) as any;
+      if (template?.pages && template.pages.length > 0) {
+        return template.pages;
       }
-      // Fallback: convert BCFPStandardX to BcfpStandardX.png
-      const normalizedKey = templateKey.replace("BCFP", "Bcfp");
-      return `/${normalizedKey}.png`;
+      
+      let fallbackUrl = "";
+      if (template?.url) {
+        fallbackUrl = `/${template.url}.png`;
+      } else {
+        // Fallback: convert BCFPStandardX to BcfpStandardX.png
+        const normalizedKey = templateKey.replace("BCFP", "Bcfp");
+        fallbackUrl = `/${normalizedKey}.png`;
+      }
+
+      if (template?.type === "listing") {
+        return [fallbackUrl, fallbackUrl];
+      }
+      return [fallbackUrl];
     };
 
     const triggerRealtorInput = () => {
@@ -924,17 +937,14 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                             }}
                             className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === sheet.template_key && selectedSheetUuid === sheet.uuid ? `${userType}-border shadow-md` : "border-gray-300 shadow-md"} relative`}
                           >
-                            <div
-                              className="w-full h-[400px] bg-center bg-no-repeat relative"
-                              style={{
-                                backgroundImage: `url(${getThumbnailUrl(sheet.template_key)})`,
-                                backgroundSize: "contain",
-                              }}
+                            <FeatureSheetThumbnail
+                              images={getThumbnailUrls(sheet.template_key)}
+                              className="w-full h-[400px]"
                             >
-                              <div className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded`}>
+                              <div className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded z-20`}>
                                 Saved
                               </div>
-                            </div>
+                            </FeatureSheetThumbnail>
                           </div>
                         </div>
                       );
@@ -994,19 +1004,16 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                             onClick={() => handleMySheetClick(sheet)}
                             className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform border-gray-300 shadow-sm hover:${userType}-border relative group`}
                           >
-                            <div
-                              className="w-full h-[300px] bg-center bg-no-repeat relative"
-                              style={{
-                                backgroundImage: `url(${getThumbnailUrl(sheet.template_key)})`,
-                                backgroundSize: "contain",
-                              }}
+                            <FeatureSheetThumbnail
+                              images={getThumbnailUrls(sheet.template_key)}
+                              className="w-full h-[300px]"
                             >
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none z-20">
                                 <span className="bg-white/90 text-black px-4 py-2 rounded-full text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
                                   Use This Style
                                 </span>
                               </div>
-                            </div>
+                            </FeatureSheetThumbnail>
                           </div>
                         </div>
                       );
@@ -1042,17 +1049,14 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                         : "border-gray-300"
                         }`}
                     >
-                      <div
-                        className="w-full h-[400px] bg-center bg-no-repeat relative"
-                        style={{
-                          backgroundImage: `url(${getThumbnailUrl(template.id)})`,
-                          backgroundSize: "contain",
-                        }}
+                      <FeatureSheetThumbnail
+                        images={getThumbnailUrls(template.id)}
+                        className="w-full h-[400px]"
                       >
-                        <div className="absolute top-2 right-2 bg-gray-500 text-white text-xs px-2 py-1 rounded opacity-80">
+                        <div className="absolute top-2 right-2 bg-gray-500 text-white text-xs px-2 py-1 rounded opacity-80 pointer-events-none z-20">
                           New
                         </div>
-                      </div>
+                      </FeatureSheetThumbnail>
                     </div>
                   </div>
                 ))}

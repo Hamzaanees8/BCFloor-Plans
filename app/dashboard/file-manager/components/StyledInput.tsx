@@ -365,7 +365,7 @@ export default function StyledInput({
           }}
           className={cn(
             "col-start-1 row-start-1",
-            "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none px-2",
+            "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none pr-1",
             "whitespace-pre-wrap break-words transition-all",
             !isFocused && "hover:ring-1 hover:ring-white/30 hover:bg-black/5 cursor-text",
             className,
@@ -380,7 +380,7 @@ export default function StyledInput({
         {showPlaceholder && placeholder && (
           <div
             className={cn(
-              "col-start-1 row-start-1 px-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
+              "col-start-1 row-start-1 pr-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
               className
             )}
             style={{
