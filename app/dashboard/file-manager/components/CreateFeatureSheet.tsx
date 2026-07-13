@@ -156,6 +156,48 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     }, []);
 
     const [numPdfPages, setNumPdfPages] = useState(1);
+    const [currentPreviewPage, setCurrentPreviewPage] = useState(1);
+    const isScrollingRef = useRef(false);
+
+    const scrollToPage = (pageNumber: number) => {
+      const pages = document.querySelectorAll('.pdf-page');
+      const targetPage = pages[pageNumber - 1] as HTMLElement;
+      if (targetPage) {
+        targetPage.scrollIntoView({ behavior: "smooth", block: "start" });
+        setCurrentPreviewPage(pageNumber);
+      }
+    };
+
+    useEffect(() => {
+      const observer = new IntersectionObserver((entries) => {
+        if (isScrollingRef.current) return;
+        
+        let mostVisiblePage = -1;
+        let maxRatio = 0;
+        entries.forEach(entry => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            const allPages = Array.from(document.querySelectorAll('.pdf-page'));
+            mostVisiblePage = allPages.indexOf(entry.target) + 1;
+          }
+        });
+        
+        if (mostVisiblePage !== -1) {
+          setCurrentPreviewPage(prev => (prev !== mostVisiblePage ? mostVisiblePage : prev));
+        }
+      }, {
+        threshold: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+      });
+
+      const intervalId = setInterval(() => {
+        document.querySelectorAll('.pdf-page').forEach(p => observer.observe(p));
+      }, 500);
+
+      return () => {
+        clearInterval(intervalId);
+        observer.disconnect();
+      };
+    }, []);
 
     // Snap pdf-section height to multiples of 11in (1056px) for full page rendering
     useEffect(() => {
@@ -256,7 +298,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
       { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
       { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
-      { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15" },
+      { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
       { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
       { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17" },
       { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18" },
@@ -733,10 +775,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     const pdfSectionStyle: React.CSSProperties = {
       width: "8.5in",
       minHeight: `${numPdfPages * 11}in`,
-      height: `${numPdfPages * 11}in`,
-      overflow: "hidden",
       position: "relative",
-      backgroundColor: "white",
+      backgroundColor: "transparent",
       fontFamily: "'Alexandria', sans-serif"
     };
 
@@ -1392,9 +1432,9 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                   </AccordionItem>
                 )}
 
-                <AccordionItem value="FeatureSheetPreview" className="border-t-[1px] border-[#BBBBBB]">
+                <AccordionItem value="FeatureSheetPreview" className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB]">
                   <AccordionTrigger
-                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
+                    className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
                   >
                     <div className="flex items-center justify-between w-full pr-4">
                       <span className="flex items-center gap-2">
@@ -1402,21 +1442,69 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       </span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="grid gap-4 !overflow-visible !max-h-full">
-                    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-8">
-                      <div className="relative shadow-xl">
-                        <div
-                          id="pdf-section"
-                          ref={pdfSectionRef}
-                          style={pdfSectionStyle}
-                        >
-                          <div 
-                            data-html2canvas-ignore="true" 
-                            className="absolute inset-0 pointer-events-none z-50"
-                            style={{
-                              backgroundImage: "repeating-linear-gradient(to bottom, transparent, transparent calc(11in - 4px), #cbd5e1 calc(11in - 4px), #cbd5e1 11in)"
+                  <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
+                    <style>{`
+                      .pdf-page {
+                        scroll-margin-top: 140px;
+                      }
+                      /* Make AccordionTrigger Header sticky */
+                      .feature-sheet-preview-item > h3 {
+                        position: sticky !important;
+                        top: 0 !important;
+                        z-index: 60 !important;
+                        border-top: 1px solid #BBBBBB;
+                        border-bottom: 1px solid #BBBBBB;
+                      }
+                      /* Override Shadcn AccordionContent overflow */
+                      .feature-sheet-preview-item > div {
+                        overflow: visible !important;
+                        clip-path: none !important;
+                      }
+                    `}</style>
+                    <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
+                      <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
+                        <div className="text-sm font-semibold text-gray-700">Preview Navigation</div>
+                        <div className="items-center gap-4 hidden md:flex" onClick={(e) => e.stopPropagation()}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPreviewPage > 1) {
+                                scrollToPage(currentPreviewPage - 1);
+                              }
                             }}
-                          />
+                            className={`px-4 py-1.5 bg-gray-100 rounded-md text-sm font-medium transition-colors cursor-pointer text-black ${currentPreviewPage <= 1 ? "opacity-50 pointer-events-none" : "hover:bg-gray-200"}`}
+                          >
+                            Previous
+                          </div>
+                          <span className="text-sm font-medium text-black min-w-[100px] text-center">
+                            Page {currentPreviewPage} of {numPdfPages}
+                          </span>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPreviewPage < numPdfPages) {
+                                scrollToPage(currentPreviewPage + 1);
+                              }
+                            }}
+                            className={`px-4 py-1.5 bg-gray-100 rounded-md text-sm font-medium transition-colors cursor-pointer text-black ${currentPreviewPage >= numPdfPages ? "opacity-50 pointer-events-none" : "hover:bg-gray-200"}`}
+                          >
+                            Next
+                          </div>
+                        </div>
+                      </div>
+                      <div 
+                        className="flex-1 flex flex-col items-center p-8 pt-12"
+                      >
+                        <div className="relative">
+                          <div
+                            id="pdf-section"
+                            ref={pdfSectionRef}
+                            style={pdfSectionStyle}
+                          >
                           {selectedTemplate === "BCFPStandard" && (
                             <BcfpStandard
                               key={selectedSheetUuid || "new-BCFPStandard"}
@@ -1594,6 +1682,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                         </div>
                       </>
                     )}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

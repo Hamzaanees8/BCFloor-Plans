@@ -149,7 +149,7 @@ export const templateImages: TemplateDefinition[] = [
   { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
   { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
   { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
-  { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15" },
+  { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
   { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
   { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17" },
   { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18" },

@@ -609,6 +609,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           />
         )}
 
+        {/* Page 1 Divider */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
         <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
           <div className="w-full flex-1 h-full flex flex-col justify-start gap-3 font-alexandria relative"
             style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}
@@ -1367,6 +1374,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           </div>
         </div>
 
+        {/* Page 2 Divider */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
         <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
           <div className="w-full h-full flex flex-col bg-[#ffffff] justify-center font-alexandria relative">
             <div
@@ -1510,6 +1524,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             </div>
           </div>
         </div>
+
       </>
     );
   });

@@ -68,11 +68,10 @@ const FeatureSheetThumbnail: React.FC<FeatureSheetThumbnailProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
     >
-      {/* Images container */}
       <div className="w-full h-full relative">
         {images.map((src, index) => (
           <div
-            key={src}
+            key={`${src}-${index}`}
             className="absolute inset-0 bg-center bg-no-repeat transition-opacity duration-500 ease-in-out"
             style={{
               backgroundImage: `url(${src})`,
