@@ -531,9 +531,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
-        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white">
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white flex flex-col font-alexandria">
           <div className="grid grid-cols-[70%_30%] w-full h-full min-h-0 min-w-0">
-            <div className="w-full h-full min-w-0 py-[30px] pl-[50px] pr-[15px] relative bg-[#229AD6] flex flex-col">
+            <div className="w-full h-full min-w-0 py-[20px] pl-[50px] pr-[15px] relative bg-[#229AD6] flex flex-col">
               <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex shrink-0">
                 <span className="text-[20px] mt-2">#</span>
                 <span className="inline">
@@ -570,7 +570,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 />
               </div>
               <div
-                className="w-full h-[220px] min-w-0 border-2 border-white relative overflow-hidden flex items-center justify-center group select-none bg-black/10 shrink-0"
+                className="w-full h-[200px] min-w-0 border-2 border-white relative overflow-hidden flex items-center justify-center group select-none bg-black/10 shrink-0"
                 onMouseMove={(e) => handleMouseMove("image1", e)}
                 onMouseUp={() => handleMouseUp("image1")}
                 onMouseLeave={() => handleMouseLeave("image1")}
@@ -663,7 +663,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     onChange={(e) => setBedroom(e.target.value)}
                     inputStyle={fieldStyles["bedroom"]}
                     onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                    className="font-semibold text-[14px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                    className="font-semibold text-[14px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="0"
                   />
                 </div>
@@ -674,7 +674,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     onChange={(e) => setBathroom(e.target.value)}
                     inputStyle={fieldStyles["bathroom"]}
                     onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                    className="font-semibold text-[14px] bg-transparent text-left w-[50px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                    className="font-semibold text-[14px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="0"
                   />
                 </div>
@@ -685,7 +685,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     onChange={(e) => setSqft(e.target.value)}
                     inputStyle={fieldStyles["sqft"]}
                     onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                    className="font-semibold text-[14px] bg-transparent text-center h-[20px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                    className="font-semibold text-[14px] bg-transparent text-center h-[20px] w-[50px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="000"
                   />
                 </div>
@@ -696,12 +696,12 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     onChange={(e) => setBuiltYear(e.target.value)}
                     inputStyle={fieldStyles["builtYear"]}
                     onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                    className="font-semibold text-[14px] bg-transparent text-left w-[60px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                    className="font-semibold text-[14px] bg-transparent text-left w-[45px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="0000"
                   />
                 </div>
               </div>
-              <div className="w-full justify-center min-h-[60px] mt-[20px] overflow-hidden max-h-[160px]">
+              <div className="w-full mt-[10px] overflow-hidden flex-1 min-h-0">
                 <StyledInput
                   value={description}
                   rows={6}
@@ -719,9 +719,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   courtyard and outdoor kids playground."
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[40px] shrink-0">
+              <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[35px] shrink-0">
                 <div
-                  className="w-full min-w-0 h-[110px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image4", e)}
                   onMouseUp={() => handleMouseUp("image4")}
                   onMouseLeave={() => handleMouseLeave("image4")}
@@ -808,7 +808,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 </div>
 
                 <div
-                  className="w-full min-w-0 h-[110px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image5", e)}
                   onMouseUp={() => handleMouseUp("image5")}
                   onMouseLeave={() => handleMouseLeave("image5")}
@@ -894,7 +894,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[110px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image6", e)}
                   onMouseUp={() => handleMouseUp("image6")}
                   onMouseLeave={() => handleMouseLeave("image6")}
@@ -980,7 +980,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[110px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image7", e)}
                   onMouseUp={() => handleMouseUp("image7")}
                   onMouseLeave={() => handleMouseLeave("image7")}
@@ -1123,9 +1123,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
               </div>
               <hr className="absolute top-0 right-[-1px] border-l-2 border-white border-dotted h-[11in] w-0 z-20" />
             </div>
-            <div className="w-full h-full min-w-0 pr-[15px] pl-[15px] py-[30px] bg-[#72C3EC] flex flex-col">
+            <div className="w-full h-full min-w-0 pr-[15px] pl-[15px] py-[20px] bg-[#72C3EC] flex flex-col">
               <div
-                className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm relative z-10 group select-none bg-black/10 shrink-0"
+                className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm relative z-10 group select-none bg-black/10 shrink-0"
                 onMouseMove={(e) => handleMouseMove("image9", e)}
                 onMouseUp={() => handleMouseUp("image9")}
                 onMouseLeave={() => handleMouseLeave("image9")}
@@ -1210,7 +1210,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 />
               </div>
 
-              <div className="flex flex-col gap-2 text-white w-full py-2">
+              <div className="flex flex-col gap-2 text-white w-full py-2 flex-1 min-h-0 overflow-hidden">
                 <div>
                   <span className="font-serif text-[13px] tracking-wide text-white/95 uppercase block leading-tight">
                     BY-LAW RESTRICTIONS:
@@ -1306,9 +1306,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
               </div>
-              <div className="group z-10 w-full shrink-0 flex flex-col mt-[20px]">
+              <div className="group z-10 w-full shrink-0 flex flex-col mt-[12px]">
                 <div
-                  className="w-full min-w-0 h-[130px] relative bg-white group select-none overflow-hidden shrink-0"
+                  className="w-full min-w-0 h-[110px] relative bg-white group select-none overflow-hidden shrink-0"
                   onMouseMove={(e) => handleMouseMove("image2", e)}
                   onMouseUp={() => handleMouseUp("image2")}
                   onMouseLeave={() => handleMouseLeave("image2")}
@@ -1412,8 +1412,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   className="text-[10px] text-white font-light uppercase tracking-wider bg-transparent text-left w-full focus:outline-none border-none placeholder-white/90"
                   placeholder="MACDONALD REALTY"
                 />
-                <div className="flex gap-1 font-bold text-[10px] text-white items-center mt-1">
-                  PHONE:
+                <div className="flex gap-1 font-bold text-[10px] text-white items-start mt-1">
+                  <span className="shrink-0 leading-[20px]">PHONE:</span>
                   <StyledInput
                     value={number}
                     onChange={(e) => setNumber(e.target.value)}
@@ -1423,8 +1423,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     placeholder="604.000.0000"
                   />
                 </div>
-                <div className="flex gap-1 font-bold text-[10px] text-white items-center">
-                  EMAIL:
+                <div className="flex gap-1 font-bold text-[10px] text-white items-start">
+                  <span className="shrink-0 leading-[20px]">EMAIL:</span>
                   <StyledInput
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -1434,8 +1434,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     placeholder="FIRST@LAST.COM"
                   />
                 </div>
-                <div className="flex gap-1 font-bold text-[10px] text-white items-center">
-                  <span className="text-nowrap">MLS #:</span>
+                <div className="flex gap-1 font-bold text-[10px] text-white items-start">
+                  <span className="text-nowrap shrink-0 leading-[20px]">MLS #:</span>
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
@@ -1446,7 +1446,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
               </div>
-              <div className="w-full flex items-end mt-[20px]">
+              <div className="w-full flex items-end mt-[12px]">
                 <StyledInput
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -1467,7 +1467,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
-        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white">
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white flex flex-col font-alexandria">
           <div className="flex flex-col w-full h-full relative">
             <div className="w-full z-20 bg-[#229AD6] pt-[54px] pb-2">
               <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex">

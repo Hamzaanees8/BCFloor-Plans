@@ -402,7 +402,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
     };
 
     return (
-      <div className="w-full items-center justify-center relative font-alexandria">
+      <>
         {showImageSourceModal && (
           <ImageSourceModal
             onClose={() => setShowImageSourceModal(false)}
@@ -421,8 +421,15 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           />
         )}
 
-        <div className="pdf-page">
-          <div className="bg-[#2B612A] relative">
+        {/* Page 1 Divider - screen only */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
+          <div className="bg-[#2B612A] relative flex-1 h-full font-alexandria">
             <div className="absolute top-10 right-3 z-20 bg-[#2B612A] p-3 pr-10 shadow-md">
               <div className="flex flex-col items-center">
                 <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center">
@@ -510,7 +517,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
               </div>
             </div>
             <div
-              className="h-[700px] w-full group border-2 border-[#fff] relative overflow-hidden"
+              className="h-[450px] w-full group border-2 border-[#fff] relative overflow-hidden"
               onMouseDown={(e) => handleMouseDown("image1", e)}
               onMouseMove={(e) => handleMouseMove("image1", e)}
               onMouseUp={() => handleMouseUp("image1")}
@@ -589,13 +596,13 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 className="hidden"
               />
             </div>
-            <div className="flex gap-4 px-[80px] pb-[50px]">
+            <div className="flex gap-4 px-[40px] pb-[20px]">
               <div className="w-[75%]">
-                <div className="relative top-[-60px]">
+                <div className="mt-[-40px] relative z-10">
                   <div className="flex flex-col relative justify-center items-center">
-                    <div className="grid grid-cols-2 gap-3 w-[80%]">
+                    <div className="grid grid-cols-2 gap-3 w-[95%]">
                       <div
-                        className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                        className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                         onMouseDown={(e) => handleMouseDown("image2", e)}
                         onMouseMove={(e) => handleMouseMove("image2", e)}
                         onMouseUp={() => handleMouseUp("image2")}
@@ -674,7 +681,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         />
                       </div>
                       <div
-                        className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                        className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                         onMouseDown={(e) => handleMouseDown("image3", e)}
                         onMouseMove={(e) => handleMouseMove("image3", e)}
                         onMouseUp={() => handleMouseUp("image3")}
@@ -753,7 +760,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         />
                       </div>
                       <div
-                        className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                        className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                         onMouseDown={(e) => handleMouseDown("image4", e)}
                         onMouseMove={(e) => handleMouseMove("image4", e)}
                         onMouseUp={() => handleMouseUp("image4")}
@@ -832,7 +839,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         />
                       </div>
                       <div
-                        className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                        className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                         onMouseDown={(e) => handleMouseDown("image5", e)}
                         onMouseMove={(e) => handleMouseMove("image5", e)}
                         onMouseUp={() => handleMouseUp("image5")}
@@ -913,7 +920,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     </div>
                     <div className="absolute  group z-10">
                       <div
-                        className="w-[200px] h-[130px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                        className="w-[160px] h-[100px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                         onMouseDown={(e) => handleMouseDown("image6", e)}
                         onMouseMove={(e) => handleMouseMove("image6", e)}
                         onMouseUp={() => handleMouseUp("image6")}
@@ -993,8 +1000,8 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                       </div>
                     </div>
                   </div>
-                  <div className="text-[10px] justify-self-center mt-4 w-[70%] font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
-                    <h2 className="text-[22px] px-5 text-center tracking-[-1px] font-bold text-[#B3B394]">
+                  <div className="text-[10px] justify-self-center mt-4 w-full font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
+                    <h2 className="text-[16px] px-0 text-center tracking-[-1px] font-bold text-[#B3B394] line-clamp-2 leading-snug">
                       ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL
                       APPOINTED CENTRO BUILDING.
                     </h2>
@@ -1004,7 +1011,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         onChange={(e) => setDescription(e.target.value)}
                         inputStyle={fieldStyles["description"]}
                         onChangeStyle={(s) => updateFieldStyle("description", s)}
-                        className="font-normal text-[16px] h-[150px]  z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
+                        className="font-normal text-[14px] w-full min-h-[110px] z-20 text-[#ffffff] leading-[1.4] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                         placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS
                     overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect
                     floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances,
@@ -1074,21 +1081,21 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 </div>
               </div>
               <div className="w-[25%]">
-                <div className="relative top-[-50px]">
+                <div className="mt-[-50px] relative z-10">
                   <div className="text-left">
                     <StyledInput
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       inputStyle={fieldStyles["amount"]}
                       onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                      className="font-bold text-[36px] h-[40px] w-[150px] leading-none mt-0 bg-transparent text-[#B3B394] text-left focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
+                      className="font-bold text-[36px] h-[40px] w-[200px] leading-none mt-0 bg-transparent text-[#B3B394] text-left focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                       placeholder="$000,000"
                     />
                   </div>
                 </div>
-                <div className="space-y-2 text-[8px]">
+                <div className="space-y-2 mt-2 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       BY-LAW RESTRICTIONS:
                     </span>
                     <StyledInput
@@ -1101,7 +1108,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       MAINT. FEES:
                     </span>
                     <StyledInput
@@ -1114,7 +1121,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       MAINT. FEES INCLUDE:
                     </span>
                     <StyledInput
@@ -1127,7 +1134,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       FEATURES INCLUDED:
                     </span>
                     <StyledInput
@@ -1142,7 +1149,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 </div>
                 <div className="space-y-2 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       SITE INFLUENCES:
                     </span>
                     <StyledInput
@@ -1155,7 +1162,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       AMENITIES:
                     </span>
                     <StyledInput
@@ -1168,7 +1175,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[16px]">
+                    <span className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap">
                       VIEW:
                     </span>
                     <StyledInput
@@ -1182,7 +1189,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   </div>
                 </div>
                 <div className="text-[#B3B394] ">
-                  <div className="font-bold text-[16px] flex flex-col gap-1">
+                  <div className="font-bold text-[10px] mb-2 flex flex-col gap-1 whitespace-nowrap">
                     <span className="font-normal">CONTACT:</span>
                     <StyledInput
                       value={fullName}
@@ -1190,7 +1197,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                       inputStyle={fieldStyles["fullName"]}
                       onChangeStyle={(s) => updateFieldStyle("fullName", s)}
                       rows={1}
-                      className=" text-[16px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
+                      className=" text-[16px] text-[#B3B394] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
                       placeholder="FIRSTNAME LASTNAME"
                     />
                   </div>
@@ -1235,8 +1242,15 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           </div>
         </div>
 
-        <div className="pdf-page">
-          <div className="relative bg-[#2B612A] w-full flex flex-col group p-20 pt-0">
+        {/* Page 2 Divider - screen only */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
+          <div className="relative bg-[#2B612A] w-full flex-1 h-full flex flex-col group p-10 font-alexandria">
             <div className="flex flex-col self-end">
               <div className="flex flex-col items-center">
                 <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center">
@@ -1278,38 +1292,32 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 </div>
               </div>
             </div>
-            <div className="relative">
+            <div className="relative flex-1 mt-6 w-[95%] self-center">
               <div
-                className="w-full h-full mt-10 overflow-hidden justify-center content-center transition-all duration-200 group"
+                className="w-full h-full overflow-hidden flex justify-center items-center transition-all duration-200 group bg-white"
+                onMouseDown={(e) => handleMouseDown("image8", e)}
                 onMouseMove={(e) => handleMouseMove("image8", e)}
                 onMouseUp={() => handleMouseUp("image8")}
                 onMouseLeave={() => handleMouseLeave("image8")}
-                style={{ alignSelf: "anchor-center", justifySelf: "anchor-center" }}
               >
                 {images.image8 ? (
                   <>
-                    <div
-                      className="w-full h-full flex items-center justify-center transition-transform duration-100 cursor-grab active:cursor-grabbing relative"
-                      onMouseDown={(e) => handleMouseDown("image8", e)}
-                      style={{
-                        transform: `scale(${scale.image8}) translate(${position.image8.x}px, ${position.image8.y}px)`,
-                        cursor: dragging.image8
-                          ? "grabbing"
-                          : scale.image8 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    >
                       <NextImage
                         unoptimized
                         src={images.image8}
                         alt="uploaded"
                         width={200}
                         height={300}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain transition-transform duration-100"
+                        style={{
+                          transform: `scale(${scale.image8}) translate(${position.image8.x}px, ${position.image8.y}px)`,
+                          cursor: dragging.image8
+                            ? "grabbing"
+                            : scale.image8 > 1
+                              ? "grab"
+                              : "default",
+                        }}
                       />
-                    </div>
-
                     {/* Zoom Controls */}
                     <div className="absolute z-[22] bottom-[30px] right-8 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                       <button
@@ -1351,9 +1359,8 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   </>
                 ) : (
                   <div
-                    // onClick={() => fileInputRef3.current?.click()}
                     onClick={() => openImageSourceModal("image8")}
-                    className="w-full relative z-10 h-[800px] text-gray-600 bg-gray-200 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    className="w-full relative z-10 h-full text-gray-600 bg-gray-200 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
                   </div>
@@ -1367,12 +1374,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 />
               </div>
             </div>
-            <div className="text-left text-white text-[16px] mt-10 flex">
+            <div className="text-left text-white text-[10px] mt-6 flex mb-2">
               DESIGNED AND PRINTED BY BC FLOOR PLANS
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 );

@@ -1432,7 +1432,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                   </AccordionItem>
                 )}
 
-                <AccordionItem value="FeatureSheetPreview" className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB]">
+                <AccordionItem value="FeatureSheetPreview" className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB] relative z-[55]">
                   <AccordionTrigger
                     className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
                   >
