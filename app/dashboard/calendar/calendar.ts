@@ -273,3 +273,38 @@ export async function sendEmailNotification(
     throw error;
   }
 }
+
+export interface UnsyncedOrder {
+  order_id: number;
+  order_uuid: string;
+  address: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  services: string;
+  type: string;
+}
+
+export interface SyncStatusResponse {
+  success: boolean;
+  connected: boolean;
+  sync_enabled: boolean;
+  unsynced_count: number;
+  unsynced_orders: UnsyncedOrder[];
+  date_range?: {
+    start: string;
+    end: string;
+  };
+}
+
+export async function GetCalendarSyncStatus(): Promise<SyncStatusResponse> {
+  const response = await api.get(`/calendar/sync-status`);
+  return response.data;
+}
+
+export async function ManualSyncCalendar(orderIds: number[]) {
+  const response = await api.post(`/calendar/sync-manual`, {
+    order_ids: orderIds,
+  });
+  return response.data;
+}

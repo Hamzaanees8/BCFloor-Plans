@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 //import ToggleButtons from '@/components/ui/toogle'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
-import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, ConnectCalendar, DisconnectCalendar, ListCalendars, SetCalendar, VerifyCalendar } from '../agents'
+import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, ConnectCalendar, DisconnectCalendar, ListCalendars, SetCalendar } from '../agents'
 import { GetOrganizations, Organization } from '../../global-settings/global-settings'
 import { GetAgentAudios, DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
@@ -114,6 +114,10 @@ type CurrentAgent = {
     calendar_connected?: boolean;
     calendar_id?: string;
     calendar_email?: string;
+    google_access_token?: string | null;
+    google_refresh_token?: string | null;
+    google_calendar_id?: string | null;
+    sync_google_calendar?: boolean | number | null;
 };
 
 type CompanyLogoState = {
@@ -140,8 +144,8 @@ const AgentForm = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const userId = params?.id as string;
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+    const googleSuccess = searchParams.get('google_calendar_success');
+    const googleError = searchParams.get('google_calendar_error');
 
     const { userType } = useAppContext();
 
@@ -235,41 +239,42 @@ const AgentForm = () => {
 
     useEffect(() => {
         const handleVerify = async () => {
-            if (code && state) {
+            if (googleSuccess || googleError) {
                 // Clear search params to avoid repeated verification
                 const url = new URL(window.location.href);
-                url.searchParams.delete('code');
-                url.searchParams.delete('state');
+                url.searchParams.delete('google_calendar_success');
+                url.searchParams.delete('google_calendar_error');
                 window.history.replaceState({}, '', url.toString());
 
-                setIsCalendarLoading(true);
-                try {
-                    const res = await VerifyCalendar(code, state);
-                    if (res.success) {
-                        toast.success("Google Calendar connected successfully!");
-                        setIsCalendarConnected(true);
-                        // Fetch calendars now
-                        const userIdToUse = userId || currentUser?.uuid;
-                        if (userIdToUse) {
+                if (googleSuccess === 'true') {
+                    toast.success("Google Calendar connected successfully!");
+                    setIsCalendarConnected(true);
+                    const userIdToUse = userId || currentUser?.uuid;
+                    if (userIdToUse) {
+                        setIsCalendarLoading(true);
+                        try {
                             const calRes = await ListCalendars(userIdToUse);
                             if (calRes.success && Array.isArray(calRes.data)) {
                                 setAvailableCalendars(calRes.data);
                             }
+                            const updatedUser = await GetOne(userIdToUse);
+                            if (updatedUser?.data) {
+                                setCurrentUser(updatedUser.data);
+                            }
+                        } catch (error) {
+                            console.error("Failed to fetch calendars:", error);
+                        } finally {
+                            setIsCalendarLoading(false);
                         }
-                    } else {
-                        toast.error(res.message || "Verification failed");
                     }
-                } catch (error) {
-                    console.error("Verification error:", error);
-                    toast.error("Failed to verify Google Calendar connection");
-                } finally {
-                    setIsCalendarLoading(false);
+                } else if (googleError) {
+                    toast.error(decodeURIComponent(googleError) || "Failed to connect Google Calendar");
                 }
             }
         };
 
         handleVerify();
-    }, [code, state, userId, currentUser?.uuid]);
+    }, [googleSuccess, googleError, userId, currentUser?.uuid]);
 
     // const [audioUploadProgress, setAudioUploadProgress] = useState(0);
 
@@ -543,12 +548,12 @@ const AgentForm = () => {
             if (currentUser.organization_id) {
                 setOrganizationId(String(currentUser.organization_id));
             }
-            setIsCalendarConnected(!!currentUser.calendar_connected);
-            setSelectedCalendarId(currentUser.calendar_id || "");
-            setCalendarEmail(currentUser.calendar_email || "");
+            setIsCalendarConnected(!!currentUser.google_access_token || !!currentUser.google_refresh_token || !!currentUser.calendar_connected);
+            setSelectedCalendarId(currentUser.google_calendar_id || currentUser.calendar_id || "");
+            setCalendarEmail(currentUser.google_calendar_id || currentUser.calendar_email || "");
 
-            if (currentUser.calendar_connected && currentUser.uuid) {
-                ListCalendars(currentUser.uuid)
+            if ((currentUser.google_access_token || currentUser.google_refresh_token || currentUser.calendar_connected) && (currentUser.uuid || userId)) {
+                ListCalendars(currentUser.uuid || userId)
                     .then(res => {
                         if (res.success && Array.isArray(res.data)) {
                             setAvailableCalendars(res.data);
@@ -1026,7 +1031,7 @@ const AgentForm = () => {
         }
         setIsCalendarLoading(true);
         try {
-            const res = await ConnectCalendar();
+            const res = await ConnectCalendar(window.location.href);
             if (res.success && res.auth_url) {
                 window.location.href = res.auth_url;
             } else {

@@ -7,11 +7,13 @@ import { Order } from '../orders/page';
 import { Services } from '../services/page';
 import dayjs from 'dayjs';
 import { Agent } from '@/lib/types';
-import { GetAgents } from './calendar';
+import { GetAgents, GetCalendarSyncStatus, UnsyncedOrder } from './calendar';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileVendorToday from '@/components/mobile/vendor/MobileVendorToday';
+import { CalendarSyncNoticeModal } from './components/CalendarSyncNoticeModal';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 
 
 type Vendor = {
@@ -114,6 +116,26 @@ const Page = () => {
         year: dayjs().format('YYYY'),
     });
 
+    // Calendar sync status state
+    const [unsyncedOrders, setUnsyncedOrders] = useState<UnsyncedOrder[]>([]);
+    const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+    const checkSyncStatus = () => {
+        if (userType === 'vendor' || userType === 'agent') {
+            GetCalendarSyncStatus()
+                .then((res) => {
+                    if (res.success && res.connected && Array.isArray(res.unsynced_orders)) {
+                        setUnsyncedOrders(res.unsynced_orders);
+                    }
+                })
+                .catch((err) => console.error("Failed to fetch calendar sync status:", err));
+        }
+    };
+
+    useEffect(() => {
+        checkSyncStatus();
+    }, [userType]);
+
 
     const Days = [
         { label: "7 Days", value: "7" },
@@ -209,6 +231,25 @@ const Page = () => {
 
     return (
         <div>
+            {unsyncedOrders.length > 0 && (
+                <div className="w-full bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between text-xs font-alexandria">
+                    <div className="flex items-center gap-2 text-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>
+                            You have <strong className="font-semibold">{unsyncedOrders.length}</strong> unsynced booking(s) between past 7 days and next 100 days not in your Google Calendar.
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsSyncModalOpen(true)}
+                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded shadow-sm transition-colors flex items-center gap-1.5 shrink-0"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Sync {unsyncedOrders.length} Booking(s) Now
+                    </button>
+                </div>
+            )}
+
             <div ref={headerRef} className={`w-full h-[80px] font-alexandria z-50 sticky top-0 grid ${userType === 'vendor' ? 'grid-cols-3' : 'grid-cols-4'} gap-[10px] grid-rows-1 justify-between px-[20px] items-center`} style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[22px] font-[400] capitalize' style={{ color: roleSettings.pageTabColor }}>Calendar › {currentMonthYear.month} {currentMonthYear.year}</p>
                 <MultiSelectDropdown
@@ -247,6 +288,16 @@ const Page = () => {
                     refreshOrders={refreshOrders}
                 />
             </div>
+
+            <CalendarSyncNoticeModal
+                open={isSyncModalOpen}
+                onOpenChange={setIsSyncModalOpen}
+                unsyncedOrders={unsyncedOrders}
+                onSynced={() => {
+                    checkSyncStatus();
+                    refreshOrders();
+                }}
+            />
         </div>
     )
 }

@@ -1,13 +1,14 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
-import NextImage from "next/image";
-import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut } from "lucide-react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
-import FileManagerGallery from "./fileManagerGallery";
 import ImageSourceModal from "./ImageSourceModal";
+import FileManagerGallery from "./fileManagerGallery";
+import ImageEditor from "./ImageEditor";
 import { featureSheetService } from "../file-manager";
 import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import { useFileManagerContext } from "../FileManagerContext";
 
 export interface BcfpStandard18Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -20,6 +21,7 @@ interface BcfpStandard18Props {
 
 const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
   ({ orderData }, ref) => {
+    // --- Text Field States ---
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [propertyName, setPropertyName] = useState("");
@@ -31,7 +33,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const [featuresIncluded, setFeaturesIncluded] = useState("");
     const [siteInfluences, setSiteInfluences] = useState("");
     const [amenities, setAmenities] = useState("");
-    // const [mlsNumber, setMlsNumber] = useState("");
+    const [mlsNumber, setMlsNumber] = useState("");
     const [view, setView] = useState("");
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
@@ -41,13 +43,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
+    const [patioSqft, setPatioSqft] = useState("");
+    const [ceilingHeight, setCeilingHeight] = useState("");
+
     const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
 
     const updateFieldStyle = (fieldName: string, style: any) => {
       setFieldStyles((prev) => ({ ...prev, [fieldName]: style }));
     };
 
-    // --- images States ---
+    // --- Image States ---
     const [images, setImages] = useState({
       image1: null as string | null,
       image2: null as string | null,
@@ -63,7 +68,6 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       image12: null as string | null,
       image13: null as string | null,
     });
-
 
     const [scale, setScale] = useState({
       image1: 1,
@@ -97,6 +101,22 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       image13: { x: 0, y: 0 },
     });
 
+    const [rotation, setRotation] = useState({
+      image1: 0,
+      image2: 0,
+      image3: 0,
+      image4: 0,
+      image5: 0,
+      image6: 0,
+      image7: 0,
+      image8: 0,
+      image9: 0,
+      image10: 0,
+      image11: 0,
+      image12: 0,
+      image13: 0,
+    });
+
     const [dragging, setDragging] = useState({
       image1: false,
       image2: false,
@@ -128,10 +148,12 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       image12: { x: 0, y: 0 },
       image13: { x: 0, y: 0 },
     });
+
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
     const [showGallery, setShowGallery] = useState(false);
-    // --- Refs ---
+
+    // --- Input Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
     const fileInputRef2 = useRef<HTMLInputElement | null>(null);
     const fileInputRef3 = useRef<HTMLInputElement | null>(null);
@@ -145,6 +167,26 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const fileInputRef11 = useRef<HTMLInputElement | null>(null);
     const fileInputRef12 = useRef<HTMLInputElement | null>(null);
     const fileInputRef13 = useRef<HTMLInputElement | null>(null);
+
+    const getFileInputRef = (key: string) => {
+      switch (key) {
+        case "image1": return fileInputRef1;
+        case "image2": return fileInputRef2;
+        case "image3": return fileInputRef3;
+        case "image4": return fileInputRef4;
+        case "image5": return fileInputRef5;
+        case "image6": return fileInputRef6;
+        case "image7": return fileInputRef7;
+        case "image8": return fileInputRef8;
+        case "image9": return fileInputRef9;
+        case "image10": return fileInputRef10;
+        case "image11": return fileInputRef11;
+        case "image12": return fileInputRef12;
+        case "image13": return fileInputRef13;
+        default: return fileInputRef1;
+      }
+    };
+
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       exportToPayload: async () => {
@@ -153,7 +195,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           templateKey: "BCFPStandard18",
           uploadedBy: "admin",
           type: "template",
-          primaryColor: "#43454B",
+          primaryColor: "#404040",
           offeredAtPrice: amount,
           realtorName: fullName,
           emailLink: email,
@@ -182,6 +224,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             number,
             addressCode,
             cityLine,
+            mlsNumber,
+            patioSqft,
+            ceilingHeight,
           },
           images,
           imageScales: scale,
@@ -219,19 +264,124 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           if (details.number) setNumber(details.number as string);
           if (details.addressCode) setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
+          if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
+          if (details.patioSqft) setPatioSqft(details.patioSqft as string);
+          if (details.ceilingHeight) setCeilingHeight(details.ceilingHeight as string);
         }
 
         if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
         if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
         if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
-        if (state.fieldStyles) {
-          setFieldStyles(state.fieldStyles as Record<string, any>);
-        }
+        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
-    console.log("orderData", orderData);
+    const { formData, updateFormData } = useFileManagerContext();
 
+    // Initial sync from orderData & context
+    useEffect(() => {
+      if (orderData) {
+        if (orderData.property) {
+          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description) setDescription(orderData.property.description);
+          if (orderData.property.mls_number) setMlsNumber(orderData.property.mls_number);
+          if (orderData.property.suite) setAddressCode(orderData.property.suite);
+          if (orderData.property.address) setRoadName(orderData.property.address);
+
+          let cityString = "";
+          if (orderData.property.city) cityString += orderData.property.city;
+          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (cityString) setCityLine(cityString);
+        }
+        if (orderData.agent) {
+          const agent = orderData.agent;
+          if (agent.first_name || agent.last_name) setFullName(`${agent.first_name || ""} ${agent.last_name || ""}`.trim());
+          if (agent.email) setEmail(agent.email);
+          if (agent.primary_phone) setNumber(agent.primary_phone);
+          if (agent.company_name) setPropertyName(agent.company_name);
+        }
+      }
+
+      if (formData) {
+        if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.maintenanceFees) setMaintenanceFees(formData.maintenanceFees);
+        if (formData.maintenanceFeesInclude) setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+        if (formData.amenities) setAmenities(formData.amenities);
+        if (formData.view) setView(formData.view);
+        if (formData.description) setDescription(formData.description);
+        if (formData.fullName) setFullName(formData.fullName);
+        if (formData.email) setEmail(formData.email);
+        if (formData.propertyName) setPropertyName(formData.propertyName);
+        if (formData.amount) setAmount(formData.amount);
+        if (formData.number) setNumber(formData.number);
+        if (formData.addressCode) setAddressCode(formData.addressCode);
+        if (formData.roadName) setRoadName(formData.roadName);
+        if (formData.cityLine) setCityLine(formData.cityLine);
+        if (formData.bedroom) setBedroom(formData.bedroom);
+        if (formData.bathroom) setBathroom(formData.bathroom);
+        if (formData.sqft) setSqft(formData.sqft);
+        if (formData.builtYear) setBuiltYear(formData.builtYear);
+        if (formData.images) setImages((prev) => ({ ...prev, ...(formData.images as typeof images) }));
+        if (formData.imageScales) setScale((prev) => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+        if (formData.imagePositions) setPosition((prev) => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Sync to context
+    useEffect(() => {
+      updateFormData({
+        byLawRestrictions,
+        maintenanceFees,
+        maintenanceFeesInclude,
+        featuresIncluded,
+        siteInfluences,
+        amenities,
+        view,
+        description,
+        fullName,
+        email,
+        propertyName,
+        amount,
+        number,
+        addressCode,
+        roadName,
+        cityLine,
+        bedroom,
+        bathroom,
+        sqft,
+        builtYear,
+      });
+    }, [
+      byLawRestrictions,
+      maintenanceFees,
+      maintenanceFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      propertyName,
+      amount,
+      number,
+      addressCode,
+      roadName,
+      cityLine,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      updateFormData,
+    ]);
 
     // --- Handlers ---
     const handleImageChange = (
@@ -252,30 +402,45 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+      setRotation((prev) => ({ ...prev, [key]: 0 }));
       if (ref.current) ref.current.value = "";
     };
 
     const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
       setScale((prev) => {
         const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        const bounded = Math.min(Math.max(newScale, 1), 3);
-        if (bounded <= 1) {
-          setPosition((p) => ({ ...p, [key]: { x: 0, y: 0 } }));
-        }
+        const bounded = Math.min(Math.max(newScale, 0.1), 5);
         return { ...prev, [key]: bounded };
       });
     };
 
+    const handleRotate = (key: keyof typeof images) => {
+      setRotation((prev) => ({ ...prev, [key]: (prev[key] + 90) % 360 }));
+    };
+
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
-      if (scale[key] <= 1) return;
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      const dx = e.clientX - lastPosition.current[key].x;
-      const dy = e.clientY - lastPosition.current[key].y;
+      let dx = e.clientX - lastPosition.current[key].x;
+      let dy = e.clientY - lastPosition.current[key].y;
+
+      const angle = ((rotation[key] % 360) + 360) % 360;
+      if (angle === 90) {
+        const temp = dx;
+        dx = dy;
+        dy = -temp;
+      } else if (angle === 180) {
+        dx = -dx;
+        dy = -dy;
+      } else if (angle === 270) {
+        const temp = dx;
+        dx = -dy;
+        dy = temp;
+      }
 
       setPosition((prev) => ({
         ...prev,
@@ -295,102 +460,17 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const handleImageSourceSelect = (source: "local" | "gallery") => {
       setShowImageSourceModal(false);
-
-      if (source === "local") {
-        switch (currentImageSlot) {
-          case "image1":
-            fileInputRef1.current?.click();
-            break;
-          case "image2":
-            fileInputRef2.current?.click();
-            break;
-          case "image3":
-            fileInputRef3.current?.click();
-            break;
-          case "image4":
-            fileInputRef4.current?.click();
-            break;
-          case "image5":
-            fileInputRef5.current?.click();
-            break;
-          case "image6":
-            fileInputRef6.current?.click();
-            break;
-          case "image7":
-            fileInputRef7.current?.click();
-            break;
-          case "image8":
-            fileInputRef8.current?.click();
-            break;
-          case "image9":
-            fileInputRef9.current?.click();
-            break;
-          case "image10":
-            fileInputRef10.current?.click();
-            break;
-          case "image11":
-            fileInputRef11.current?.click();
-            break;
-          case "image12":
-            fileInputRef12.current?.click();
-            break;
-          case "image13":
-            fileInputRef13.current?.click();
-            break;
-          default:
-            break;
-        }
+      if (source === "local" && currentImageSlot) {
+        const ref = getFileInputRef(currentImageSlot);
+        ref.current?.click();
       } else if (source === "gallery") {
         setShowGallery(true);
       }
     };
 
     const handleGalleryImageSelect = (imageUrl: string) => {
-      if (!currentImageSlot) return;
-
-
-      switch (currentImageSlot) {
-        case "image1":
-          setImages((prev) => ({ ...prev, image1: imageUrl }));
-          break;
-        case "image2":
-          setImages((prev) => ({ ...prev, image2: imageUrl }));
-          break;
-        case "image3":
-          setImages((prev) => ({ ...prev, image3: imageUrl }));
-          break;
-        case "image4":
-          setImages((prev) => ({ ...prev, image4: imageUrl }));
-          break;
-        case "image5":
-          setImages((prev) => ({ ...prev, image5: imageUrl }));
-          break;
-        case "image6":
-          setImages((prev) => ({ ...prev, image6: imageUrl }));
-          break;
-        case "image7":
-          setImages((prev) => ({ ...prev, image7: imageUrl }));
-          break;
-        case "image8":
-          setImages((prev) => ({ ...prev, image8: imageUrl }));
-          break;
-        case "image9":
-          setImages((prev) => ({ ...prev, image9: imageUrl }));
-          break;
-        case "image10":
-          setImages((prev) => ({ ...prev, image10: imageUrl }));
-          break;
-        case "image11":
-          setImages((prev) => ({ ...prev, image11: imageUrl }));
-          break;
-        case "image12":
-          setImages((prev) => ({ ...prev, image12: imageUrl }));
-          break;
-        case "image13":
-          setImages((prev) => ({ ...prev, image13: imageUrl }));
-          break;
-        default:
-          break;
+      if (currentImageSlot) {
+        setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       }
       setShowGallery(false);
       setCurrentImageSlot(null);
@@ -401,8 +481,101 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       setShowImageSourceModal(true);
     };
 
+    // Helper renderer for image slot containers
+    const renderImageSlot = (
+      key: keyof typeof images,
+      containerClassName: string,
+      placeholderText = "Select Image"
+    ) => {
+      const inputRef = getFileInputRef(key);
+      const hasImage = !!images[key];
+
+      return (
+        <div
+          className={`relative overflow-hidden group select-none ${containerClassName}`}
+          onMouseDown={(e) => handleMouseDown(key, e)}
+          onMouseMove={(e) => handleMouseMove(key, e)}
+          onMouseUp={() => handleMouseUp(key)}
+          onMouseLeave={() => handleMouseLeave(key)}
+          style={{ cursor: dragging[key] ? "grabbing" : hasImage ? "grab" : "pointer" }}
+        >
+          {hasImage ? (
+            <>
+              <ImageEditor
+                src={images[key]!}
+                scale={scale[key]}
+                position={position[key]}
+                rotation={rotation[key]}
+              />
+
+              {/* Hover Controls */}
+              <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "in"); }}
+                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "out"); }}
+                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRotate(key); }}
+                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  title="Rotate"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openImageSourceModal(key); }}
+                className="absolute top-2 right-9 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
+                title="Change Image"
+              >
+                <Pencil className="w-3.5 h-3.5 text-gray-700" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleDelete(key, inputRef); }}
+                className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
+                title="Delete Image"
+              >
+                <Trash className="w-3.5 h-3.5 text-red-500" />
+              </button>
+            </>
+          ) : (
+            <div
+              onClick={() => openImageSourceModal(key)}
+              className="w-full h-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-medium flex items-center justify-center cursor-pointer border border-dashed border-gray-300 transition-colors"
+            >
+              {placeholderText}
+            </div>
+          )}
+
+          <input
+            type="file"
+            accept="image/*"
+            ref={inputRef}
+            onChange={(e) => handleImageChange(key, e)}
+            className="hidden"
+          />
+        </div>
+      );
+    };
+
     return (
-      <div className="w-full items-center justify-center relative font-alexandria">
+      <div className="flex flex-col items-center justify-center font-sans">
         {showImageSourceModal && (
           <ImageSourceModal
             onClose={() => setShowImageSourceModal(false)}
@@ -421,1042 +594,470 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           />
         )}
 
-        <div className="pdf-page">
-          <div className="bg-[#43454B]">
-            <div className="grid grid-cols-4 pt-[35px]">
-              <div
-                className="h-[230px] w-full group border-2 border-[#fff] relative overflow-hidden"
-                onMouseDown={(e) => handleMouseDown("image1", e)}
-                onMouseMove={(e) => handleMouseMove("image1", e)}
-                onMouseUp={() => handleMouseUp("image1")}
-                onMouseLeave={() => handleMouseLeave("image1")}
-              >
-                {images.image1 ? (
-                  <>
-                    <NextImage
-                      unoptimized
-                      src={images.image1}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
-                        cursor: dragging.image1
-                          ? "grabbing"
-                          : scale.image1 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
+        {/* --- PAGE 1 DIVIDER --- */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
 
-                    <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image1", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image1", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
+        {/* --- PAGE 1 WRAPPER --- */}
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-[#404040]">
+          {/* Top 4-Photo Row (Image 1, 2, 3, 4) */}
+          <div className="w-full h-[140px] grid grid-cols-4 bg-white shrink-0">
+            {renderImageSlot("image1", "w-full h-full border-r border-white", "Photo 1")}
+            {renderImageSlot("image2", "w-full h-full border-r border-white", "Photo 2")}
+            {renderImageSlot("image3", "w-full h-full border-r border-white", "Photo 3")}
+            {renderImageSlot("image4", "w-full h-full", "Photo 4")}
+          </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image1")}
-                      className="absolute top-[10px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image1", fileInputRef1)}
-                      className="absolute top-[10px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image1")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef1}
-                  onChange={(e) => handleImageChange("image1", e)}
-                  className="hidden"
-                />
-              </div>
-              <div
-                className="h-[230px] w-full group border-2 border-[#fff] relative overflow-hidden"
-                onMouseDown={(e) => handleMouseDown("image2", e)}
-                onMouseMove={(e) => handleMouseMove("image2", e)}
-                onMouseUp={() => handleMouseUp("image2")}
-                onMouseLeave={() => handleMouseLeave("image2")}
-              >
-                {images.image2 ? (
-                  <>
-                    <NextImage
-                      unoptimized
-                      src={images.image2}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
-                        cursor: dragging.image2
-                          ? "grabbing"
-                          : scale.image2 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
-
-                    <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image2", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image2", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image2")}
-                      className="absolute top-[10px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image2", fileInputRef2)}
-                      className="absolute top-[10px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image2")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef2}
-                  onChange={(e) => handleImageChange("image2", e)}
-                  className="hidden"
-                />
-              </div>
-              <div
-                className="h-[230px] w-full group border-2 border-[#fff] relative overflow-hidden"
-                onMouseDown={(e) => handleMouseDown("image3", e)}
-                onMouseMove={(e) => handleMouseMove("image3", e)}
-                onMouseUp={() => handleMouseUp("image3")}
-                onMouseLeave={() => handleMouseLeave("image3")}
-              >
-                {images.image3 ? (
-                  <>
-                    <NextImage
-                      unoptimized
-                      src={images.image3}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
-                        cursor: dragging.image3
-                          ? "grabbing"
-                          : scale.image3 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
-
-                    <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image3", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image3", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image3")}
-                      className="absolute top-[10px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image3", fileInputRef3)}
-                      className="absolute top-[10px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image3")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef3}
-                  onChange={(e) => handleImageChange("image3", e)}
-                  className="hidden"
-                />
-              </div>
-              <div
-                className="h-[230px] w-full group border-2 border-[#fff] relative overflow-hidden"
-                onMouseDown={(e) => handleMouseDown("image4", e)}
-                onMouseMove={(e) => handleMouseMove("image4", e)}
-                onMouseUp={() => handleMouseUp("image4")}
-                onMouseLeave={() => handleMouseLeave("image4")}
-              >
-                {images.image4 ? (
-                  <>
-                    <NextImage
-                      unoptimized
-                      src={images.image4}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
-                        cursor: dragging.image4
-                          ? "grabbing"
-                          : scale.image4 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
-
-                    <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image4", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image4", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image4")}
-                      className="absolute top-[10px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image4", fileInputRef4)}
-                      className="absolute top-[10px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image4")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef4}
-                  onChange={(e) => handleImageChange("image4", e)}
-                  className="hidden"
-                />
-              </div>
+          {/* Address & Logo Header Bar */}
+          <div className="w-full bg-[#D4D0CC] py-2 px-6 flex items-center justify-between relative z-20 shrink-0 border-t border-b border-gray-300">
+            {/* Left Address Line */}
+            <div className="flex items-center gap-1 text-[16px] text-gray-800 font-normal">
+              <span>#</span>
+              <StyledInput
+                value={addressCode}
+                onChange={(e) => setAddressCode(e.target.value)}
+                inputStyle={fieldStyles["addressCode"]}
+                onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                className="font-normal text-[16px] text-gray-800 h-[22px] w-[110px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                placeholder="0000-0000"
+              />
+              <StyledInput
+                value={roadName}
+                onChange={(e) => setRoadName(e.target.value)}
+                inputStyle={fieldStyles["roadName"]}
+                onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                className="font-normal text-[16px] text-gray-800 h-[22px] w-[200px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                placeholder="Number 0 Road"
+              />
             </div>
-            <div className=" relative">
-              <div className="absolute place-self-center group z-20">
-                <div
-                  className="w-[200px] h-[130px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
-                  onMouseDown={(e) => handleMouseDown("image5", e)}
-                  onMouseMove={(e) => handleMouseMove("image5", e)}
-                  onMouseUp={() => handleMouseUp("image5")}
-                  onMouseLeave={() => handleMouseLeave("image5")}
-                >
-                  {images.image5 ? (
-                    <>
-                      <NextImage
-                        unoptimized
-                        src={images.image5}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
-                          cursor: dragging.image5
-                            ? "grabbing"
-                            : scale.image5 > 1
-                              ? "grab"
-                              : "default",
-                        }}
-                      />
 
-                      {/* Zoom Controls */}
-                      <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image5", "in")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom In"
-                        >
-                          <ZoomIn className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image5", "out")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom Out"
-                        >
-                          <ZoomOut className="w-4 h-4 text-gray-700" />
-                        </button>
-                      </div>
+            {/* Macdonald Realty Logo Overlay Box (Centered) */}
+            <div className="bg-white shadow-md border border-gray-300 px-4 py-2 rounded flex flex-col items-center justify-center w-[160px] h-[55px] z-30 shrink-0">
+              <div className="text-[14px] font-serif tracking-widest text-[#1B435E] font-bold leading-none">MACDONALD</div>
+              <div className="text-[12px] font-serif tracking-widest text-[#1B435E] font-bold leading-none mt-1">REALTY</div>
+            </div>
 
-                      <button
-                        type="button"
-                        onClick={() => openImageSourceModal("image5")}
-                        className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Edit image"
-                      >
-                        <Pencil className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete("image5", fileInputRef5)}
-                        className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Delete image"
-                      >
-                        <Trash className="w-4 h-4 text-red-500" />
-                      </button>
-                    </>
-                  ) : (
-                    <div
-                      onClick={() => openImageSourceModal("image5")}
-                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                    >
-                      Select Image
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef5}
-                    onChange={(e) => handleImageChange("image5", e)}
-                    className="hidden"
+            {/* Right City Line Subtitle */}
+            <div className="flex justify-end">
+              <StyledInput
+                value={cityLine}
+                onChange={(e) => setCityLine(e.target.value)}
+                inputStyle={fieldStyles["cityLine"]}
+                onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
+                className="font-normal text-[16px] text-gray-800 h-[22px] w-[210px] text-right bg-transparent focus:outline-none border-none placeholder-gray-600"
+                placeholder="Brighouse South, Richmond"
+              />
+            </div>
+          </div>
+
+          {/* Main Hero Photo Container (Image 5) */}
+          <div className="w-full h-[360px] relative bg-gray-100 shrink-0">
+            {renderImageSlot(
+              "image5",
+              "w-full h-full",
+              "Select Main Hero Photo (Image 5)"
+            )}
+          </div>
+
+          {/* Specs Summary Row */}
+          <div className="w-full bg-[#DCD8D4] py-1.5 px-4 flex items-center justify-center gap-3 text-[14px] font-medium text-gray-900 tracking-wide uppercase shrink-0 border-t border-b border-gray-300">
+            <div className="flex items-center gap-1">
+              <StyledInput
+                value={bedroom}
+                onChange={(e) => setBedroom(e.target.value)}
+                inputStyle={fieldStyles["bedroom"]}
+                onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
+                className="font-bold text-[14px] text-gray-900 w-[18px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                placeholder="0"
+              />
+              <span>BEDROOM</span>
+            </div>
+            <span>•</span>
+            <div className="flex items-center gap-1">
+              <StyledInput
+                value={bathroom}
+                onChange={(e) => setBathroom(e.target.value)}
+                inputStyle={fieldStyles["bathroom"]}
+                onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
+                className="font-bold text-[14px] text-gray-900 w-[18px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                placeholder="0"
+              />
+              <span>BATHROOM</span>
+            </div>
+            <span>•</span>
+            <div className="flex items-center gap-1">
+              <StyledInput
+                value={sqft}
+                onChange={(e) => setSqft(e.target.value)}
+                inputStyle={fieldStyles["sqft"]}
+                onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                className="font-bold text-[14px] text-gray-900 w-[45px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                placeholder="000"
+              />
+              <span>SQ FT</span>
+            </div>
+            <span>•</span>
+            <div className="flex items-center gap-1">
+              <span>BUILT IN</span>
+              <StyledInput
+                value={builtYear}
+                onChange={(e) => setBuiltYear(e.target.value)}
+                inputStyle={fieldStyles["builtYear"]}
+                onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
+                className="font-bold text-[14px] text-gray-900 w-[42px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
+                placeholder="0000"
+              />
+            </div>
+            <span>•</span>
+            <StyledInput
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputStyle={fieldStyles["amount"]}
+              onChangeStyle={(s) => updateFieldStyle("amount", s)}
+              className="font-bold text-[14px] text-gray-900 w-[100px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
+              placeholder="$000,000"
+            />
+          </div>
+
+          {/* Lower Content Details Section (Dark Charcoal Background) */}
+          <div className="flex-1 bg-[#404040] text-white px-8 pt-3 pb-24 flex flex-col justify-start relative z-10">
+            <div className="grid grid-cols-12 gap-5 text-white">
+              {/* Description Column (Left ~36%) */}
+              <div className="col-span-4 flex flex-col">
+                <StyledInput
+                  value={description}
+                  rows={9}
+                  onChange={(e) => setDescription(e.target.value)}
+                  inputStyle={fieldStyles["description"]}
+                  onChangeStyle={(s) => updateFieldStyle("description", s)}
+                  className="text-[10px] text-white/95 leading-tight italic text-justify bg-transparent w-full focus:outline-none border-none placeholder-white/80"
+                  placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West providing unhindered privacy..."
+                />
+              </div>
+
+              {/* Specs Column 1 (Middle ~34%) */}
+              <div className="col-span-4 flex flex-col gap-2 text-[9.5px]">
+                <div>
+                  <span className="font-bold uppercase block text-white">BY-LAW RESTRICTIONS:</span>
+                  <StyledInput
+                    value={byLawRestrictions}
+                    onChange={(e) => setByLawRestrictions(e.target.value)}
+                    inputStyle={fieldStyles["byLawRestrictions"]}
+                    onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                  />
+                </div>
+
+                <div>
+                  <span className="font-bold uppercase block text-white">MAINT. FEES:</span>
+                  <StyledInput
+                    value={maintenanceFees}
+                    onChange={(e) => setMaintenanceFees(e.target.value)}
+                    inputStyle={fieldStyles["maintenanceFees"]}
+                    onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="$000.00"
+                  />
+                </div>
+
+                <div>
+                  <span className="font-bold uppercase block text-white">MAINT. FEES INCLUDE:</span>
+                  <StyledInput
+                    value={maintenanceFeesInclude}
+                    onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
+                    inputStyle={fieldStyles["maintenanceFeesInclude"]}
+                    onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                  />
+                </div>
+
+                <div>
+                  <span className="font-bold uppercase block text-white">FEATURES INCLUDED:</span>
+                  <StyledInput
+                    value={featuresIncluded}
+                    onChange={(e) => setFeaturesIncluded(e.target.value)}
+                    inputStyle={fieldStyles["featuresIncluded"]}
+                    onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                   />
                 </div>
               </div>
-              <div className="absolute top-0 right-0 left-0 w-full px-4 flex justify-evenly gap-10 py-2 place-items-center place-self-center bg-white/75 z-10">
-                <div className="font-normal text-[13px] text-[#2C2E35] flex flex-wrap items-center gap-2 ">
-                  <div className="tracking-wide mt-0 flex items-center">
-                    #
-                    <StyledInput
-                      value={addressCode}
-                      onChange={(e) => setAddressCode(e.target.value)}
-                      inputStyle={fieldStyles["addressCode"]}
-                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                      className="font-light text-[13px] content-center h-[30px] w-[75px] leading-none mt-0 bg-transparent text-[#2C2E35] text-left focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[200]"
-                      placeholder="0000-0000"
-                    />
-                  </div>
-                  <div className="text-[13px] font-light leading-none mt-0 flex items-center">
-                    Number
-                    <StyledInput
-                      value={roadName}
-                      onChange={(e) => setRoadName(e.target.value)}
-                      inputStyle={fieldStyles["roadName"]}
-                      onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                      className="font-light text-[13px] content-center h-[30px] leading-none mt-0 bg-transparent text-[#2C2E35] text-center w-[65px] focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[200]"
-                      placeholder="0"
-                    />
-                    Road
-                  </div>
-                </div>
-                <div className="font-bold text-[14px] text-[#2C2E35] flex flex-wrap items-center gap-2">
-                  <div className=" tracking-[2px] uppercase mt-0 flex justify-center">
-                    <StyledInput
-                      value={cityLine}
-                      onChange={(e) => setCityLine(e.target.value)}
-                      inputStyle={fieldStyles["cityLine"]}
-                      onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                      className="text-[#2C2E35] text-[13px] h-[20px] bg-transparent text-center w-[300px] focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[200]"
-                      placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div
-                className="h-[700px] w-full group border-2 border-[#fff] relative overflow-hidden"
-                onMouseDown={(e) => handleMouseDown("image6", e)}
-                onMouseMove={(e) => handleMouseMove("image6", e)}
-                onMouseUp={() => handleMouseUp("image6")}
-                onMouseLeave={() => handleMouseLeave("image6")}
-              >
-                {images.image6 ? (
-                  <>
-                    <NextImage
-                      unoptimized
-                      src={images.image6}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
-                        cursor: dragging.image6
-                          ? "grabbing"
-                          : scale.image6 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
 
-                    <div className="absolute bottom-14 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image6", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image6", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image6")}
-                      className="absolute top-[150px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image6", fileInputRef6)}
-                      className="absolute top-[150px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image6")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef6}
-                  onChange={(e) => handleImageChange("image6", e)}
-                  className="hidden"
-                />
-                <div className="absolute bottom-0 right-0 left-0 w-full py-2 place-items-center place-self-center bg-white/75 z-10">
-                  <div className="font-bold text-[14px] text-[#2C2E35] flex flex-wrap items-center gap-2">
-                    <div className="inline">
-                      <StyledInput
-                        value={bedroom}
-                        onChange={(e) => setBedroom(e.target.value)}
-                        inputStyle={fieldStyles["bedroom"]}
-                        onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                        className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="0"
-                      />
-                    </div>
-                    BEDROOM •
-                    <div className="inline">
-                      <StyledInput
-                        value={bathroom}
-                        onChange={(e) => setBathroom(e.target.value)}
-                        inputStyle={fieldStyles["bathroom"]}
-                        onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                        className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="0"
-                      />
-                    </div>
-                    BATHROOM •
-                    <div className="inline">
-                      <StyledInput
-                        value={sqft}
-                        onChange={(e) => setSqft(e.target.value)}
-                        inputStyle={fieldStyles["sqft"]}
-                        onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                        className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="000"
-                      />
-                    </div>
-                    SQ FT • BUILT IN
-                    <div className="inline">
-                      <StyledInput
-                        value={builtYear}
-                        onChange={(e) => setBuiltYear(e.target.value)}
-                        inputStyle={fieldStyles["builtYear"]}
-                        onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                        className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="0000"
-                      />
-                    </div>
-                    •
-                    <div className="inline">
-                      <StyledInput
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        inputStyle={fieldStyles["amount"]}
-                        onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                        className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[full] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="$000,000"
-                      />
-                    </div>
-                  </div>
+              {/* Specs Column 2 (Right ~30%) */}
+              <div className="col-span-4 flex flex-col gap-2 text-[9.5px]">
+                <div>
+                  <span className="font-bold uppercase block text-white">SITE INFLUENCES:</span>
+                  <StyledInput
+                    value={siteInfluences}
+                    onChange={(e) => setSiteInfluences(e.target.value)}
+                    inputStyle={fieldStyles["siteInfluences"]}
+                    onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
+                  />
                 </div>
-              </div>
-              <div className="flex gap-4 px-[80px] pt-[30px]">
-                <div className="w-[55%]">
-                  <div className="text-[10px] w-full justify-self-center mt-4 font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
-                    <StyledInput
-                      value={description}
-                      rows={7}
-                      onChange={(e) => setDescription(e.target.value)}
-                      inputStyle={fieldStyles["description"]}
-                      onChangeStyle={(s) => updateFieldStyle("description", s)}
-                      className="font-normal text-[16px] z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff]"
-                      placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS
-                    overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect
-                    floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances,
-                    Gas range and a large open ‘den/nook’ area perfect for the home office. Huge private balcony, great
-                    building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground.
-                    With parking, and storage locker and balance of the the 5-10 warranty, this home provides nothing
-                    but exceptional value. Call today to set up your viewing. MLS # 000000"
-                    />
-                  </div>
+
+                <div>
+                  <span className="font-bold uppercase block text-white">AMENITIES:</span>
+                  <StyledInput
+                    value={amenities}
+                    onChange={(e) => setAmenities(e.target.value)}
+                    inputStyle={fieldStyles["amenities"]}
+                    onChangeStyle={(s) => updateFieldStyle("amenities", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                  />
                 </div>
-                <div className="w-[45%] flex">
-                  <div className="w-1/2">
-                    <div className="space-y-2 text-[8px]">
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          BY-LAW RESTRICTIONS:
-                        </span>
-                        <StyledInput
-                          value={byLawRestrictions}
-                          onChange={(e) => setByLawRestrictions(e.target.value)}
-                          inputStyle={fieldStyles["byLawRestrictions"]}
-                          onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          MAINT. FEES:
-                        </span>
-                        <StyledInput
-                          value={maintenanceFees}
-                          onChange={(e) => setMaintenanceFees(e.target.value)}
-                          inputStyle={fieldStyles["maintenanceFees"]}
-                          onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="$000.00"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          MAINT. FEES INCLUDE:
-                        </span>
-                        <StyledInput
-                          value={maintenanceFeesInclude}
-                          onChange={(e) =>
-                            setMaintenanceFeesInclude(e.target.value)
-                          }
-                          inputStyle={fieldStyles["maintenanceFeesInclude"]}
-                          onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          FEATURES INCLUDED:
-                        </span>
-                        <StyledInput
-                          value={featuresIncluded}
-                          onChange={(e) => setFeaturesIncluded(e.target.value)}
-                          inputStyle={fieldStyles["featuresIncluded"]}
-                          onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-1/2">
-                    <div className="space-y-2 text-[8px]">
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          SITE INFLUENCES:
-                        </span>
-                        <StyledInput
-                          value={siteInfluences}
-                          onChange={(e) => setSiteInfluences(e.target.value)}
-                          inputStyle={fieldStyles["siteInfluences"]}
-                          onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          AMENITIES:
-                        </span>
-                        <StyledInput
-                          value={amenities}
-                          onChange={(e) => setAmenities(e.target.value)}
-                          inputStyle={fieldStyles["amenities"]}
-                          onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#ffffff] text-[16px]">
-                          VIEW:
-                        </span>
-                        <StyledInput
-                          value={view}
-                          onChange={(e) => setView(e.target.value)}
-                          inputStyle={fieldStyles["view"]}
-                          onChangeStyle={(s) => updateFieldStyle("view", s)}
-                          className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                          placeholder="South & SW - Van Isl."
-                        />
-                      </div>
-                    </div>
-                  </div>
+
+                <div>
+                  <span className="font-bold uppercase block text-white">VIEW:</span>
+                  <StyledInput
+                    value={view}
+                    onChange={(e) => setView(e.target.value)}
+                    inputStyle={fieldStyles["view"]}
+                    onChangeStyle={(s) => updateFieldStyle("view", s)}
+                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    placeholder="South & SW - Van Isl."
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="font-bold uppercase text-white">MLS #</span>
+                  <StyledInput
+                    value={mlsNumber}
+                    onChange={(e) => setMlsNumber(e.target.value)}
+                    inputStyle={fieldStyles["mlsNumber"]}
+                    onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
+                    className="font-bold text-[9.5px] text-white bg-transparent focus:outline-none border-none placeholder-white"
+                    placeholder="0000000"
+                  />
                 </div>
               </div>
             </div>
-            <div className="relative mt-[35px]">
-              <svg
-                viewBox="163 79 631 114"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className=""
-              >
-                <g opacity={0.350006} filter="url(#filter0_d_20_1415)">
-                  <path
-                    d="M794 135C794 135 678.203 183.969 463 122C223 32 164.5 127 164.5 127V193H794V131.5"
-                    fill="black"
+          </div>
+
+          {/* Bottom Swooping White Contact Card Footer */}
+          <div className="absolute bottom-0 left-0 w-full h-[145px] z-20 pointer-events-none flex flex-col justify-end">
+            <svg
+              viewBox="0 0 816 145"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              preserveAspectRatio="none"
+            >
+              {/* Metallic Accent Line Curve */}
+              <path d="M0 60 Q 400 135 816 55 V145 H0 Z" fill="#888888" opacity="0.45" />
+              {/* White Curve Card */}
+              <path d="M0 70 Q 400 145 816 65 V145 H0 Z" fill="#FFFFFF" />
+            </svg>
+
+            {/* Contact Info Overlay on White Curve */}
+            <div className="relative z-10 px-8 pb-3 pt-10 flex justify-between items-end pointer-events-auto">
+              <div className="flex flex-col gap-0.5 text-gray-900">
+                <div className="flex items-baseline gap-1 text-[13px]">
+                  <span className="font-bold text-gray-800">CONTACT:</span>
+                  <StyledInput
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    inputStyle={fieldStyles["fullName"]}
+                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
+                    className="font-bold text-[13px] text-gray-900 h-[18px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
+                    placeholder="FIRSTNAME LASTNAME"
                   />
-                </g>
-                <path
-                  d="M793.592 138.135C793.592 138.135 655.583 191.415 440.821 116.535C226.06 41.6551 163 128.055 163 128.055V193H477.5H794L793.592 139.575"
-                  fill="white"
+                </div>
+                <StyledInput
+                  value={propertyName}
+                  onChange={(e) => setPropertyName(e.target.value)}
+                  inputStyle={fieldStyles["propertyName"]}
+                  onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
+                  className="font-normal text-[11px] text-gray-800 h-[16px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-700"
+                  placeholder="MACDONALD REALTY"
                 />
-                <path
-                  opacity={0.350006}
-                  d="M794 115.5C794 115.5 656.323 173.19 441.12 104.904C225.916 36.6177 166 124.936 166 124.936L167.5 192.5H794V117.5"
-                  fill="white"
-                />
-                <defs>
-                  <filter
-                    id="filter0_d_20_1415"
-                    x={0.5}
-                    y={0.256348}
-                    width={953.5}
-                    height={433.744}
-                    filterUnits="userSpaceOnUse"
-                    colorInterpolationFilters="sRGB"
-                  >
-                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                    <feColorMatrix
-                      in="SourceAlpha"
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                      result="hardAlpha"
-                    />
-                    <feOffset dx={-2} dy={79} />
-                    <feGaussianBlur stdDeviation={81} />
-                    <feComposite in2="hardAlpha" operator="out" />
-                    <feColorMatrix
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
-                    />
-                    <feBlend
-                      mode="normal"
-                      in2="BackgroundImageFix"
-                      result="effect1_dropShadow_20_1415"
-                    />
-                    <feBlend
-                      mode="normal"
-                      in="SourceGraphic"
-                      in2="effect1_dropShadow_20_1415"
-                      result="shape"
-                    />
-                  </filter>
-                </defs>
-              </svg>
-              <div className="text-left text-black text-[16px]  flex flex-col absolute z-10 bottom-10 left-20 w-full">
-                <div className="text-[#2C2E35] ">
-                  <div className="font-bold text-[16px] flex gap-1 w-[35%]">
-                    <span className="font-normal">CONTACT:</span>
+                <div className="flex items-center gap-3 text-[10.5px] text-gray-900">
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold">PHONE:</span>
                     <StyledInput
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      inputStyle={fieldStyles["fullName"]}
-                      onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                      rows={1}
-                      className=" text-[16px] text-[#2C2E35] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] "
-                      placeholder="FIRSTNAME LASTNAME"
+                      value={number}
+                      onChange={(e) => setNumber(e.target.value)}
+                      inputStyle={fieldStyles["number"]}
+                      onChangeStyle={(s) => updateFieldStyle("number", s)}
+                      className="font-normal text-[10.5px] text-gray-900 h-[16px] w-[110px] bg-transparent focus:outline-none border-none placeholder-gray-800"
+                      placeholder="604.000.0000"
                     />
                   </div>
-                  <div className="w-[35%]">
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold">EMAIL:</span>
                     <StyledInput
-                      value={propertyName}
-                      rows={1}
-                      onChange={(e) => setPropertyName(e.target.value)}
-                      inputStyle={fieldStyles["propertyName"]}
-                      onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                      className=" text-[12px] font-normal w-full h-[18px] font- bg-transparent text-left text-[#2C2E35] focus:outline-none border-none placeholder-[#2C2E35] "
-                      placeholder="MACDONALD  Realty"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      inputStyle={fieldStyles["email"]}
+                      onChangeStyle={(s) => updateFieldStyle("email", s)}
+                      className="font-normal text-[10.5px] text-gray-900 h-[16px] w-[200px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
+                      placeholder="FIRSTNAME@LASTNAME.COM"
                     />
-                  </div>
-                  <div className="w-[35%]">
-                    <div className="flex gap-2 text-[#2C2E35] text-[12px]">
-                      PHONE:
-                      <StyledInput
-                        value={number}
-                        onChange={(e) => setNumber(e.target.value)}
-                        inputStyle={fieldStyles["number"]}
-                        onChangeStyle={(s) => updateFieldStyle("number", s)}
-                        rows={1}
-                        className="font-thin inline text-[12px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="604.000.0000"
-                      />
-                    </div>
-                    <div className="flex gap-2 text-[#2C2E35] text-[11px]">
-                      EMAIL:
-                      <StyledInput
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        inputStyle={fieldStyles["email"]}
-                        onChangeStyle={(s) => updateFieldStyle("email", s)}
-                        rows={1}
-                        className="font-thin inline text-[11px] h-[22px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="FIRST@LAST.COM"
-                      />
-                    </div>
                   </div>
                 </div>
-                <div className="relative py-2 z-2 w-[60%] gap-1 flex justify-self-center text-[#2C2E35]">
-                  <p className="text-[10px] leading-tight">
-                    All information deemed reliable but not guaranteed and should be
-                    independently verified. All properties are subject to prior
-                    sale, change or withdrawal. Neither listing broker(s) nor BC
-                    Floor Plans shall be responsible for any typographical errors,
-                    misinformation, misprints and shall be held totally harmless.
+
+                {/* Fine Print Disclaimer */}
+                <div className="flex items-center gap-1.5 pt-1 text-[7.5px] text-gray-600 leading-tight">
+                  <House className="w-3.5 h-3.5 shrink-0 text-gray-700" />
+                  <p className="max-w-[700px]">
+                    All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.
                   </p>
-                  <span className="flex flex-col mt-1">
-                    <House className="w-4 h-4" />
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 8 8"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                        fill="#2C2E35"
-                      />
-                      <path
-                        d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                        fill="#2C2E35"
-                      />
-                    </svg>
-                  </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="pdf-page">
-          <div className="relative w-full flex flex-col group bg-[#43454B]">
-            <div className="relative px-20 pt-20">
-              <div
-                className="w-full h-full overflow-hidden justify-center content-center transition-all duration-200 group relative"
-                onMouseMove={(e) => handleMouseMove("image8", e)}
-                onMouseUp={() => handleMouseUp("image8")}
-                onMouseLeave={() => handleMouseLeave("image8")}
-                style={{ alignSelf: "anchor-center", justifySelf: "anchor-center" }}
-              >
-                {images.image8 ? (
-                  <>
-                    <div
-                      className="w-full h-full flex items-center justify-center transition-transform duration-100 cursor-grab active:cursor-grabbing relative"
-                      onMouseDown={(e) => handleMouseDown("image8", e)}
-                      style={{
-                        transform: `scale(${scale.image8}) translate(${position.image8.x}px, ${position.image8.y}px)`,
-                        cursor: dragging.image8
-                          ? "grabbing"
-                          : scale.image8 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    >
-                      <NextImage
-                        unoptimized
-                        src={images.image8}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover"
+        {/* --- PAGE 2 DIVIDER --- */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        {/* --- PAGE 2 WRAPPER --- */}
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-[#404040]">
+          {/* Background SVG graphics */}
+          <svg
+            viewBox="0 0 816 1056"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="absolute inset-0 w-full h-full pointer-events-none z-0"
+            preserveAspectRatio="none"
+          >
+            {/* Metallic Curve Bottom Background */}
+            <path d="M0 940 C0 940 400 900 816 970 V1056 H0 Z" fill="#888888" opacity="0.4" />
+            <path d="M0 960 C0 960 400 920 816 990 V1056 H0 Z" fill="#404040" />
+          </svg>
+
+          {/* PAGE 2 CONTENT (White Floor Plan Card inset on charcoal background) */}
+          <div className="relative z-10 w-full h-full flex flex-col p-8">
+            {/* Main Central White Card Container */}
+            <div className="bg-white rounded-md shadow-2xl p-6 flex-1 flex flex-col justify-between border border-gray-200">
+              {/* Header Info (Address & Totals) */}
+              <div className="flex justify-between items-start pb-4 border-b border-gray-200">
+                <div className="flex flex-col">
+                  <StyledInput
+                    value={roadName}
+                    onChange={(e) => setRoadName(e.target.value)}
+                    inputStyle={fieldStyles["roadName"]}
+                    onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                    className="font-bold text-[22px] text-gray-900 bg-transparent focus:outline-none border-none placeholder-gray-700"
+                    placeholder="000-0000 Address Avenue,"
+                  />
+                  <StyledInput
+                    value={cityLine}
+                    onChange={(e) => setCityLine(e.target.value)}
+                    inputStyle={fieldStyles["cityLine"]}
+                    onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
+                    className="font-bold text-[18px] text-gray-900 bg-transparent focus:outline-none border-none placeholder-gray-700"
+                    placeholder="Langley"
+                  />
+
+                  {/* Specs Breakdown Table */}
+                  <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
+                    <div className="font-semibold text-gray-900">Total**</div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-24 font-medium text-gray-700">Main Level:</span>
+                      <StyledInput
+                        value={sqft}
+                        onChange={(e) => setSqft(e.target.value)}
+                        inputStyle={fieldStyles["sqft"]}
+                        onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                        className="font-semibold text-[13px] text-gray-900 w-[55px] text-right bg-transparent focus:outline-none border-none placeholder-gray-500"
+                        placeholder="000"
+                      />
+                      <span>sq.ft.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-24 font-medium text-gray-700">Patio:</span>
+                      <StyledInput
+                        value={patioSqft}
+                        onChange={(e) => setPatioSqft(e.target.value)}
+                        inputStyle={fieldStyles["patioSqft"]}
+                        onChangeStyle={(s) => updateFieldStyle("patioSqft", s)}
+                        className="font-semibold text-[13px] text-gray-900 w-[55px] text-right bg-transparent focus:outline-none border-none placeholder-gray-500"
+                        placeholder="00"
+                      />
+                      <span>sq.ft.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floor Plan Slot (Image 6) */}
+              <div className="my-auto w-full h-[620px] p-2 bg-white flex items-center justify-center">
+                {renderImageSlot(
+                  "image6",
+                  "w-full h-full border border-gray-200",
+                  "Select Floor Plan Image (Image 6)"
+                )}
+              </div>
+
+              {/* Floor Plan Footer details */}
+              <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-end">
+                  {/* Room Details */}
+                  <div className="flex flex-col">
+                    <div className="font-bold text-[14px] uppercase text-gray-900">MAIN LEVEL</div>
+                    <div className="flex items-center gap-1 text-[11px] text-gray-700">
+                      <span>Floor Area:</span>
+                      <StyledInput
+                        value={sqft}
+                        onChange={(e) => setSqft(e.target.value)}
+                        inputStyle={fieldStyles["sqft"]}
+                        onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                        className="font-medium text-[11px] text-gray-900 w-[35px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                        placeholder="000"
+                      />
+                      <span>Sq. Ft.</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-gray-700">
+                      <span>Ceiling Height:</span>
+                      <StyledInput
+                        value={ceilingHeight}
+                        onChange={(e) => setCeilingHeight(e.target.value)}
+                        inputStyle={fieldStyles["ceilingHeight"]}
+                        onChangeStyle={(s) => updateFieldStyle("ceilingHeight", s)}
+                        className="font-medium text-[11px] text-gray-900 w-[45px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                        placeholder="0' 0&quot;"
                       />
                     </div>
-
-                    {/* Zoom Controls */}
-                    <div className="absolute z-[22] bottom-[30px] right-8 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image8", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image8", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    {/* Edit/Delete Buttons */}
-                    <button
-                      type="button"
-                      // onClick={() => fileInputRef3.current?.click()}
-                      onClick={() => openImageSourceModal("image8")}
-                      className="absolute z-[22] top-[50px] right-20 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image8", fileInputRef8)}
-                      className="absolute z-[22] top-[50px] right-10 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    // onClick={() => fileInputRef3.current?.click()}
-                    onClick={() => openImageSourceModal("image8")}
-                    className="w-full relative z-10 h-[800px] text-gray-600 bg-gray-200 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
                   </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef8}
-                  onChange={(e) => handleImageChange("image8", e)}
-                  className="hidden"
-                />
+
+                  {/* Compass / Scale Graphic */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-7 h-7 rounded-full border border-gray-800 flex items-center justify-center text-[10px] font-bold relative mb-1">
+                      N
+                      <div className="absolute bottom-0 w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[6px] border-b-gray-800"></div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-gray-600 border-t border-gray-800 pt-0.5 w-32 justify-between">
+                      <span>0 ft</span>
+                      <span>3 ft</span>
+                      <span>5 ft</span>
+                      <span>10 ft</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floor Plan Disclaimer */}
+                <p className="text-[7.5px] text-gray-500 leading-tight text-center mt-1">
+                  **While all reasonable attempts have been made to ensure accuracy and the square footage and room dimensions are believed to be correct to ANSI Standards, due to the possibility of human error the information cannot be guaranteed. E&O Insured for $1,000,000
+                </p>
               </div>
             </div>
 
-            <div className="relative mt-[35px]">
-              <svg
-                viewBox="163 79 631 114"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className=""
-              >
-                <g opacity={0.350006} filter="url(#filter0_d_20_1415)">
-                  <path
-                    d="M794 135C794 135 678.203 183.969 463 122C223 32 164.5 127 164.5 127V193H794V131.5"
-                    fill="black"
-                  />
-                </g>
-                <path
-                  d="M793.592 138.135C793.592 138.135 655.583 191.415 440.821 116.535C226.06 41.6551 163 128.055 163 128.055V193H477.5H794L793.592 139.575"
-                  fill="white"
-                />
-                <path
-                  opacity={0.350006}
-                  d="M794 115.5C794 115.5 656.323 173.19 441.12 104.904C225.916 36.6177 166 124.936 166 124.936L167.5 192.5H794V117.5"
-                  fill="white"
-                />
-                <defs>
-                  <filter
-                    id="filter0_d_20_1415"
-                    x={0.5}
-                    y={0.256348}
-                    width={953.5}
-                    height={433.744}
-                    filterUnits="userSpaceOnUse"
-                    colorInterpolationFilters="sRGB"
-                  >
-                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                    <feColorMatrix
-                      in="SourceAlpha"
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                      result="hardAlpha"
-                    />
-                    <feOffset dx={-2} dy={79} />
-                    <feGaussianBlur stdDeviation={81} />
-                    <feComposite in2="hardAlpha" operator="out" />
-                    <feColorMatrix
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
-                    />
-                    <feBlend
-                      mode="normal"
-                      in2="BackgroundImageFix"
-                      result="effect1_dropShadow_20_1415"
-                    />
-                    <feBlend
-                      mode="normal"
-                      in="SourceGraphic"
-                      in2="effect1_dropShadow_20_1415"
-                      result="shape"
-                    />
-                  </filter>
-                </defs>
-              </svg>
-              <div className="text-left text-black text-[16px]  flex absolute z-10 bottom-10 left-20 w-full">
-                DESIGNED AND PRINTED BY BC FLOOR PLANS
-              </div>
+            {/* Bottom Page 2 Footer Banner */}
+            <div className="w-full text-center text-white text-[11px] font-semibold tracking-wider pt-3">
+              DESIGNED AND PRINTED BY BC FLOOR PLANS
             </div>
           </div>
         </div>
