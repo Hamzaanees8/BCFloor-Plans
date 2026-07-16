@@ -90,7 +90,8 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         "booking-new.localhost",
         "teams-new.localhost",
         "vendors-new.localhost",
-        "agents-new.localhost"
+        "agents-new.localhost",
+        "localhost"
       ];
       
       if (defaultDomains.includes(domainWithoutPort)) {
@@ -108,10 +109,10 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
           applyBranding(data);
           setOrganization(data);
         } else {
-          console.error("OrganizationProvider: resolution failed with status:", res.status);
+          console.warn("OrganizationProvider: resolution failed with status:", res.status);
         }
       } catch (err) {
-        console.error("OrganizationProvider: resolution error:", err);
+        console.warn("OrganizationProvider: resolution error:", err);
       }
     };
 

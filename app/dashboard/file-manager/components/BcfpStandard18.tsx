@@ -425,22 +425,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      let dx = e.clientX - lastPosition.current[key].x;
-      let dy = e.clientY - lastPosition.current[key].y;
-
-      const angle = ((rotation[key] % 360) + 360) % 360;
-      if (angle === 90) {
-        const temp = dx;
-        dx = dy;
-        dy = -temp;
-      } else if (angle === 180) {
-        dx = -dx;
-        dy = -dy;
-      } else if (angle === 270) {
-        const temp = dx;
-        dx = -dy;
-        dy = temp;
-      }
+      const dx = e.clientX - lastPosition.current[key].x;
+      const dy = e.clientY - lastPosition.current[key].y;
 
       setPosition((prev) => ({
         ...prev,
@@ -629,15 +615,14 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 onChange={(e) => setRoadName(e.target.value)}
                 inputStyle={fieldStyles["roadName"]}
                 onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                className="font-normal text-[16px] text-gray-800 h-[22px] w-[200px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                className="font-normal text-[16px] text-gray-800 h-[40px] w-[200px] bg-transparent focus:outline-none border-none placeholder-gray-600"
                 placeholder="Number 0 Road"
               />
             </div>
 
             {/* Macdonald Realty Logo Overlay Box (Centered) */}
-            <div className="bg-white shadow-md border border-gray-300 px-4 py-2 rounded flex flex-col items-center justify-center w-[160px] h-[55px] z-30 shrink-0">
-              <div className="text-[14px] font-serif tracking-widest text-[#1B435E] font-bold leading-none">MACDONALD</div>
-              <div className="text-[12px] font-serif tracking-widest text-[#1B435E] font-bold leading-none mt-1">REALTY</div>
+            <div className="bg-white shadow-md border border-gray-300 rounded flex items-center justify-center w-[160px] h-[55px] z-30 shrink-0 relative overflow-hidden">
+              {renderImageSlot("image7", "w-full h-full", "Logo Image")}
             </div>
 
             {/* Right City Line Subtitle */}
@@ -647,14 +632,14 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 onChange={(e) => setCityLine(e.target.value)}
                 inputStyle={fieldStyles["cityLine"]}
                 onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                className="font-normal text-[16px] text-gray-800 h-[22px] w-[210px] text-right bg-transparent focus:outline-none border-none placeholder-gray-600"
+                className="font-normal text-[16px] text-gray-800 h-[40px] w-[210px] text-right bg-transparent focus:outline-none border-none placeholder-gray-600"
                 placeholder="Brighouse South, Richmond"
               />
             </div>
           </div>
 
           {/* Main Hero Photo Container (Image 5) */}
-          <div className="w-full h-[360px] relative bg-gray-100 shrink-0">
+          <div className="w-full h-[330px] relative bg-gray-100 shrink-0">
             {renderImageSlot(
               "image5",
               "w-full h-full",
@@ -663,7 +648,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           </div>
 
           {/* Specs Summary Row */}
-          <div className="w-full bg-[#DCD8D4] py-1.5 px-4 flex items-center justify-center gap-3 text-[14px] font-medium text-gray-900 tracking-wide uppercase shrink-0 border-t border-b border-gray-300">
+          <div className="w-full bg-[#DCD8D4] py-1.5 px-6 text-nowrap flex items-center justify-between text-[14px] font-medium text-gray-900 tracking-wide uppercase shrink-0 border-t border-b border-gray-300">
             <div className="flex items-center gap-1">
               <StyledInput
                 value={bedroom}
@@ -710,8 +695,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 className="font-bold text-[14px] text-gray-900 w-[42px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
                 placeholder="0000"
               />
-            </div>
-            <span>•</span>
+               <span>•</span>
             <StyledInput
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -720,121 +704,129 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               className="font-bold text-[14px] text-gray-900 w-[100px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
               placeholder="$000,000"
             />
+            </div>
+           
           </div>
 
           {/* Lower Content Details Section (Dark Charcoal Background) */}
-          <div className="flex-1 bg-[#404040] text-white px-8 pt-3 pb-24 flex flex-col justify-start relative z-10">
-            <div className="grid grid-cols-12 gap-5 text-white">
+          <div className="flex-1 bg-[#404040] text-white px-8 pt-3 pb-[240px] flex flex-col justify-start relative z-10">
+            <div className="grid grid-cols-12 gap-8 w-full h-full relative">
+              
               {/* Description Column (Left ~36%) */}
-              <div className="col-span-4 flex flex-col">
+              <div className="col-span-4 pr-2">
                 <StyledInput
                   value={description}
                   rows={9}
                   onChange={(e) => setDescription(e.target.value)}
                   inputStyle={fieldStyles["description"]}
                   onChangeStyle={(s) => updateFieldStyle("description", s)}
-                  className="text-[10px] text-white/95 leading-tight italic text-justify bg-transparent w-full focus:outline-none border-none placeholder-white/80"
-                  placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West providing unhindered privacy..."
+                  className="text-[12px] text-white/95 leading-tight italic text-justify bg-transparent w-full focus:outline-none border-none placeholder-white/80"
+                  placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts
+                   incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West
+                    providing unhindered privacy. The spacious living room and dining area feature floor-to-ceiling windows,
+                     filling the space with natural light. The gourmet kitchen is equipped with top-of-the-line stainless steel
+                      appliances, granite countertops, and custom cabinetry. Step out onto the expansive private balcony to enjoy
+                       breathtaking sunsets and panoramic city views."
                 />
               </div>
 
               {/* Specs Column 1 (Middle ~34%) */}
-              <div className="col-span-4 flex flex-col gap-2 text-[9.5px]">
+              <div className="col-span-4 flex flex-col gap-2 text-[14px]">
                 <div>
-                  <span className="font-bold uppercase block text-white">BY-LAW RESTRICTIONS:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">BY-LAW RESTRICTIONS:</span>
                   <StyledInput
                     value={byLawRestrictions}
                     onChange={(e) => setByLawRestrictions(e.target.value)}
                     inputStyle={fieldStyles["byLawRestrictions"]}
                     onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Pets Allowed w/Rest., Rentals Allowed"
                   />
                 </div>
 
                 <div>
-                  <span className="font-bold uppercase block text-white">MAINT. FEES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">MAINT. FEES:</span>
                   <StyledInput
                     value={maintenanceFees}
                     onChange={(e) => setMaintenanceFees(e.target.value)}
                     inputStyle={fieldStyles["maintenanceFees"]}
                     onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="$000.00"
                   />
                 </div>
 
                 <div>
-                  <span className="font-bold uppercase block text-white">MAINT. FEES INCLUDE:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">MAINT. FEES INCLUDE:</span>
                   <StyledInput
                     value={maintenanceFeesInclude}
                     onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
                     inputStyle={fieldStyles["maintenanceFeesInclude"]}
                     onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                   />
                 </div>
 
                 <div>
-                  <span className="font-bold uppercase block text-white">FEATURES INCLUDED:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">FEATURES INCLUDED:</span>
                   <StyledInput
                     value={featuresIncluded}
                     onChange={(e) => setFeaturesIncluded(e.target.value)}
                     inputStyle={fieldStyles["featuresIncluded"]}
                     onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                   />
                 </div>
               </div>
 
               {/* Specs Column 2 (Right ~30%) */}
-              <div className="col-span-4 flex flex-col gap-2 text-[9.5px]">
+              <div className="col-span-4 flex flex-col gap-2 text-[14px]">
                 <div>
-                  <span className="font-bold uppercase block text-white">SITE INFLUENCES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">SITE INFLUENCES:</span>
                   <StyledInput
                     value={siteInfluences}
                     onChange={(e) => setSiteInfluences(e.target.value)}
                     inputStyle={fieldStyles["siteInfluences"]}
                     onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                   />
                 </div>
 
                 <div>
-                  <span className="font-bold uppercase block text-white">AMENITIES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">AMENITIES:</span>
                   <StyledInput
                     value={amenities}
                     onChange={(e) => setAmenities(e.target.value)}
                     inputStyle={fieldStyles["amenities"]}
                     onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                   />
                 </div>
 
                 <div>
-                  <span className="font-bold uppercase block text-white">VIEW:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">VIEW:</span>
                   <StyledInput
                     value={view}
                     onChange={(e) => setView(e.target.value)}
                     inputStyle={fieldStyles["view"]}
                     onChangeStyle={(s) => updateFieldStyle("view", s)}
-                    className="text-[9.5px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="South & SW - Van Isl."
                   />
                 </div>
 
                 <div className="flex items-center gap-1 mt-1">
-                  <span className="font-bold uppercase text-white">MLS #</span>
+                  <span className="font-semibold text-[12px] text-nowrap uppercase text-white">MLS #</span>
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
                     inputStyle={fieldStyles["mlsNumber"]}
                     onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
-                    className="font-bold text-[9.5px] text-white bg-transparent focus:outline-none border-none placeholder-white"
+                    className="font-bold text-[12px] text-white bg-transparent focus:outline-none border-none placeholder-white"
                     placeholder="0000000"
                   />
                 </div>
@@ -843,22 +835,22 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           </div>
 
           {/* Bottom Swooping White Contact Card Footer */}
-          <div className="absolute bottom-0 left-0 w-full h-[145px] z-20 pointer-events-none flex flex-col justify-end">
+          <div className="absolute bottom-0 left-0 w-full h-[230px] z-20 pointer-events-none flex flex-col justify-end">
             <svg
-              viewBox="0 0 816 145"
+              viewBox="0 0 816 230"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               className="absolute inset-0 w-full h-full pointer-events-none"
               preserveAspectRatio="none"
             >
               {/* Metallic Accent Line Curve */}
-              <path d="M0 60 Q 400 135 816 55 V145 H0 Z" fill="#888888" opacity="0.45" />
+              <path d="M0 35 Q 400 100 816 25 V230 H0 Z" fill="#888888" opacity="0.45" />
               {/* White Curve Card */}
-              <path d="M0 70 Q 400 145 816 65 V145 H0 Z" fill="#FFFFFF" />
+              <path d="M0 45 Q 400 110 816 35 V230 H0 Z" fill="#FFFFFF" />
             </svg>
 
             {/* Contact Info Overlay on White Curve */}
-            <div className="relative z-10 px-8 pb-3 pt-10 flex justify-between items-end pointer-events-auto">
+            <div className="relative z-10 px-8 pb-3 pt-0 flex justify-between items-start pointer-events-auto">
               <div className="flex flex-col gap-0.5 text-gray-900">
                 <div className="flex items-baseline gap-1 text-[13px]">
                   <span className="font-bold text-gray-800">CONTACT:</span>
@@ -898,7 +890,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       onChange={(e) => setEmail(e.target.value)}
                       inputStyle={fieldStyles["email"]}
                       onChangeStyle={(s) => updateFieldStyle("email", s)}
-                      className="font-normal text-[10.5px] text-gray-900 h-[16px] w-[200px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
+                      className="font-normal text-[10px] text-gray-900 h-[16px] w-[200px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
                       placeholder="FIRSTNAME@LASTNAME.COM"
                     />
                   </div>
@@ -1056,7 +1048,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             </div>
 
             {/* Bottom Page 2 Footer Banner */}
-            <div className="w-full text-center text-white text-[11px] font-semibold tracking-wider pt-3">
+            <div className="w-full text-center text-white text-[11px] font-semibold tracking-wider pt-1">
               DESIGNED AND PRINTED BY BC FLOOR PLANS
             </div>
           </div>

@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import BigCalendar from './components/BigCalendar'
 import { MultiSelectDropdown } from './components/MultiSelectDropdown';
 import { Get, GetServices, GetVendors } from '../orders/orders';
@@ -120,7 +120,7 @@ const Page = () => {
     const [unsyncedOrders, setUnsyncedOrders] = useState<UnsyncedOrder[]>([]);
     const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
-    const checkSyncStatus = () => {
+    const checkSyncStatus = useCallback(() => {
         if (userType === 'vendor' || userType === 'agent') {
             GetCalendarSyncStatus()
                 .then((res) => {
@@ -130,11 +130,11 @@ const Page = () => {
                 })
                 .catch((err) => console.error("Failed to fetch calendar sync status:", err));
         }
-    };
+    }, [userType]);
 
     useEffect(() => {
         checkSyncStatus();
-    }, [userType]);
+    }, [checkSyncStatus]);
 
 
     const Days = [

@@ -219,6 +219,7 @@ Before marking conversion complete, verify every item:
 [ ] updateFormData sync useEffect present
 [ ] ImageSourceModal + FileManagerGallery wired for all image slots
 [ ] Each image slot has: zoom in, zoom out, drag-to-pan, edit, delete controls
+[ ] For drag-to-pan (`handleMouseMove`), DO NOT invert or rotate `dx`/`dy` based on angle (translate happens in screen-space)
 [ ] templateKey string unchanged from original (BCFPStandard{N})
 [ ] Component name unchanged (BcfpStandard{N})
 [ ] forwardRef + useImperativeHandle structure intact

@@ -632,42 +632,43 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
             {/* Header Section */}
             <div className="flex justify-between items-start pt-1 pb-3 text-white">
               {/* Logo Slot */}
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col items-center">
-                  <div className="border border-white/60 p-2 rounded text-center">
-                    <div className="text-[17px] font-serif tracking-widest leading-none">MACDONALD</div>
-                    <div className="text-[15px] font-serif tracking-widest leading-none mt-1">REALTY</div>
-                  </div>
-                </div>
+              <div className="w-[200px] h-[55px] relative mt-1">
+                {renderImageSlot(
+                  "image7",
+                  "w-full h-full",
+                  "Select Logo (Image 7)"
+                )}
               </div>
 
               {/* Address Header */}
               <div className="flex flex-col items-end text-right">
-                <div className="flex items-baseline text-white text-[25px] font-light tracking-wide uppercase">
-                  <span>#</span>
+                <div className="flex items-start text-white text-[25px] font-light tracking-wide uppercase leading-none">
+                  <span className="text-[14px] mt-[3px] mr-1">#</span>
+                  <StyledInput
+                    value={mlsNumber}
+                    onChange={(e) => setMlsNumber(e.target.value)}
+                    inputStyle={fieldStyles["mlsNumberTop"]}
+                    onChangeStyle={(s) => updateFieldStyle("mlsNumberTop", s)}
+                    className="font-light text-[25px] h-[30px] w-[150px] bg-transparent text-white text-right focus:outline-none border-none placeholder-white/90"
+                    placeholder="0000-0000"
+                  />
+                  <span className="ml-2">NUMBER</span>
                   <StyledInput
                     value={addressCode}
                     onChange={(e) => setAddressCode(e.target.value)}
                     inputStyle={fieldStyles["addressCode"]}
                     onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                    className="font-light text-[25px] h-[30px] w-[140px] bg-transparent text-white text-right focus:outline-none border-none placeholder-white/80"
-                    placeholder="0000-0000"
+                    className="font-light text-[25px] h-[30px] w-[50px] bg-transparent text-white text-center ml-1 focus:outline-none border-none placeholder-white/90 uppercase"
+                    placeholder="0"
                   />
-                  <StyledInput
-                    value={roadName}
-                    onChange={(e) => setRoadName(e.target.value)}
-                    inputStyle={fieldStyles["roadName"]}
-                    onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                    className="font-light text-[25px] h-[30px] w-[210px] bg-transparent text-white text-left ml-2 focus:outline-none border-none placeholder-white/80 uppercase"
-                    placeholder="NUMBER 0 ROAD"
-                  />
+                  <span className="ml-1">ROAD</span>
                 </div>
                 <StyledInput
                   value={cityLine}
                   onChange={(e) => setCityLine(e.target.value)}
                   inputStyle={fieldStyles["cityLine"]}
                   onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                  className="font-normal text-[11px] h-[18px] bg-transparent text-white/90 text-right w-[280px] tracking-widest focus:outline-none border-none uppercase placeholder-white/70"
+                  className="font-normal text-[16px] h-[18px] mt-1 bg-transparent text-white/90 text-right w-[280px] tracking-widest focus:outline-none border-none uppercase placeholder-white/70"
                   placeholder="BRIGHOUSE SOUTH, RICHMOND"
                 />
               </div>
@@ -693,7 +694,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     inputStyle={fieldStyles["description"]}
                     onChangeStyle={(s) => updateFieldStyle("description", s)}
                     className="text-[10px] text-gray-700 leading-tight text-justify bg-transparent w-full focus:outline-none border-none placeholder-gray-500"
-                    placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West providing unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms..."
+                    placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West providing unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. The spacious living room and dining area feature floor-to-ceiling windows, filling the space with natural light. The gourmet kitchen is equipped with top-of-the-line stainless steel appliances, granite countertops, and custom cabinetry. Step out onto the expansive private balcony to enjoy breathtaking sunsets and panoramic city views. Building amenities include a fully equipped fitness center, sauna, rooftop garden, and 24-hour concierge service. Conveniently located just steps away from world-class shopping, dining, and transit. This is an unparalleled opportunity to experience luxury living at its finest!"
                   />
                 </div>
 
@@ -706,7 +707,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setByLawRestrictions(e.target.value)}
                       inputStyle={fieldStyles["byLawRestrictions"]}
                       onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
                   </div>
@@ -718,7 +719,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setMaintenanceFees(e.target.value)}
                       inputStyle={fieldStyles["maintenanceFees"]}
                       onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="$000.00"
                     />
                   </div>
@@ -730,7 +731,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
                       inputStyle={fieldStyles["maintenanceFeesInclude"]}
                       onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other"
                     />
                   </div>
@@ -742,7 +743,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
                       inputStyle={fieldStyles["featuresIncluded"]}
                       onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                     />
                   </div>
@@ -754,7 +755,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setSiteInfluences(e.target.value)}
                       inputStyle={fieldStyles["siteInfluences"]}
                       onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                     />
                   </div>
@@ -766,7 +767,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setAmenities(e.target.value)}
                       inputStyle={fieldStyles["amenities"]}
                       onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                     />
                   </div>
@@ -778,7 +779,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       onChange={(e) => setView(e.target.value)}
                       inputStyle={fieldStyles["view"]}
                       onChangeStyle={(s) => updateFieldStyle("view", s)}
-                      className="text-[9.5px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
+                      className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="South & SW - Van Isl."
                     />
                   </div>
@@ -819,51 +820,51 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 </div>
 
                 {/* Specs Summary Row */}
-                <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-gray-800 uppercase text-center bg-gray-50/80 py-1 px-3 border border-gray-200/60 rounded">
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between w-full text-[9.5px] font-medium text-gray-800 uppercase text-center bg-gray-50/80 py-1 px-1.5 border border-gray-200/60 rounded">
+                  <div className="flex items-center gap-0.5">
                     <StyledInput
                       value={bedroom}
                       onChange={(e) => setBedroom(e.target.value)}
                       inputStyle={fieldStyles["bedroom"]}
                       onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                      className="font-semibold text-[12px] text-[#1B435E] w-[18px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                      className="font-semibold text-[9.5px] text-[#1B435E] w-[14px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
                       placeholder="0"
                     />
-                    <span>BEDROOM</span>
+                    <span className="text-nowrap">BEDROOM</span>
                   </div>
                   <span className="text-gray-400">|</span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <StyledInput
                       value={bathroom}
                       onChange={(e) => setBathroom(e.target.value)}
                       inputStyle={fieldStyles["bathroom"]}
                       onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                      className="font-semibold text-[12px] text-[#1B435E] w-[18px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                      className="font-semibold text-[9.5px] text-[#1B435E] w-[14px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
                       placeholder="0"
                     />
-                    <span>BATHROOM</span>
+                    <span className="text-nowrap">BATHROOM</span>
                   </div>
                   <span className="text-gray-400">|</span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <StyledInput
                       value={sqft}
                       onChange={(e) => setSqft(e.target.value)}
                       inputStyle={fieldStyles["sqft"]}
                       onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                      className="font-semibold text-[12px] text-[#1B435E] w-[45px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
+                      className="font-semibold text-[9.5px] text-[#1B435E] w-[50px] text-right bg-transparent focus:outline-none border-none placeholder-gray-700"
                       placeholder="000"
                     />
-                    <span>SQ FT</span>
                   </div>
+                  <div className="flex items-center gap-0.5">
+                    <span className="text-nowrap">SQ FT</span>
                   <span className="text-gray-400">|</span>
-                  <div className="flex items-center gap-1">
-                    <span>BUILT IN</span>
+                    <span className="text-nowrap">BUILT IN</span>
                     <StyledInput
                       value={builtYear}
                       onChange={(e) => setBuiltYear(e.target.value)}
                       inputStyle={fieldStyles["builtYear"]}
                       onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                      className="font-semibold text-[12px] text-[#1B435E] w-[42px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
+                      className="font-semibold text-[10px] text-[#1B435E] w-[80px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
                       placeholder="0000"
                     />
                   </div>
@@ -996,15 +997,15 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
                 {/* Specs Table */}
                 <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
-                  <div className="font-semibold text-gray-900">Total**</div>
+                  <div className="font-semibold text-gray-100">Total**</div>
                   <div className="flex items-center gap-2">
-                    <span className="w-24 font-medium text-gray-700">Main Level:</span>
+                    <span className="w-24 font-medium text-gray-700 text-nowrap">Main Level:</span>
                     <StyledInput
                       value={sqft}
                       onChange={(e) => setSqft(e.target.value)}
                       inputStyle={fieldStyles["sqft"]}
                       onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                      className="font-semibold text-[13px] text-gray-900 w-[55px] text-right bg-transparent focus:outline-none border-none placeholder-gray-500"
+                      className="font-semibold text-[13px] text-gray-100 w-[55px] text-right bg-transparent focus:outline-none border-none placeholder-gray-500"
                       placeholder="000"
                     />
                     <span>sq.ft.</span>
@@ -1040,7 +1041,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 {/* Room Info */}
                 <div className="flex flex-col">
                   <div className="font-bold text-[14px] uppercase text-gray-900">MAIN LEVEL</div>
-                  <div className="flex items-center gap-1 text-[11px] text-gray-700">
+                  <div className="flex items-center gap-1 text-nowrap text-[11px] text-gray-700">
                     <span>Floor Area:</span>
                     <StyledInput
                       value={sqft}
@@ -1050,9 +1051,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       className="font-medium text-[11px] text-gray-900 w-[35px] bg-transparent focus:outline-none border-none placeholder-gray-600"
                       placeholder="000"
                     />
-                    <span>Sq. Ft.</span>
+                    <span className="text-nowrap">Sq. Ft.</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-gray-700">
+                  <div className="flex items-center gap-1 text-nowrap text-[11px] text-gray-700">
                     <span>Ceiling Height:</span>
                     <StyledInput
                       value={ceilingHeight}

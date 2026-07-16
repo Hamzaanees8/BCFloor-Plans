@@ -168,6 +168,7 @@ type FormData = {
     bathroom: string;
     sqft: string;
     builtYear: string;
+    suite?: string;
 
     // Legacy/Internal mappings
     offeredAtPrice: string;
@@ -194,6 +195,7 @@ type FormData = {
     images: { [key: string]: string | null };
     imageScales: { [key: string]: number };
     imagePositions: { [key: string]: { x: number; y: number } };
+    imageRotations?: { [key: string]: number };
 
     // Featured Images (Legacy)
     featuredImage1Preview: string | null;
@@ -332,6 +334,7 @@ export const initialFormData: FormData = {
     bathroom: "",
     sqft: "",
     builtYear: "",
+    suite: "",
 
     // Legacy/Internal mappings
     offeredAtPrice: "",
@@ -375,6 +378,12 @@ export const initialFormData: FormData = {
         image10: { x: 0, y: 0 }, image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 },
         image13: { x: 0, y: 0 }, image14: { x: 0, y: 0 }, image15: { x: 0, y: 0 },
         image16: { x: 0, y: 0 }, image17: { x: 0, y: 0 }, image18: { x: 0, y: 0 }
+    },
+    imageRotations: {
+        image1: 0, image2: 0, image3: 0, image4: 0, image5: 0,
+        image6: 0, image7: 0, image8: 0, image9: 0, image10: 0,
+        image11: 0, image12: 0, image13: 0, image14: 0, image15: 0,
+        image16: 0, image17: 0, image18: 0
     },
 
     // Featured Images (Legacy)

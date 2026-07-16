@@ -1617,6 +1617,7 @@ export class FeatureSheetService {
     images: { [key: string]: string | null };
     imageScales: { [key: string]: number };
     imagePositions: { [key: string]: ImagePosition };
+    imageRotations?: { [key: string]: number };
 
     // Logo and realtor image files
     logoFile?: File | string | null;
@@ -1803,6 +1804,7 @@ export class FeatureSheetService {
           meta: {
             position: params.imagePositions[imageKey] || { x: 0, y: 0 },
             scale: params.imageScales[imageKey] || 1,
+            rotation: params.imageRotations ? params.imageRotations[imageKey] || 0 : 0,
             objectFit: "cover",
           },
         };
@@ -2474,6 +2476,30 @@ export class FeatureSheetService {
         if (galleryMeta) {
           for (const [slot, meta] of Object.entries(galleryMeta)) {
             acc[slot] = meta.position ?? { x: 0, y: 0 };
+          }
+        }
+        return acc;
+      })(),
+
+      imageRotations: (() => {
+        const acc: { [key: string]: number } = {};
+        // From DB image records
+        for (const img of payload.images) {
+          let slot = img.slot;
+          if (slot === 'property') {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
+          if (slot) acc[slot] = img.meta?.rotation || 0;
+        }
+        // Overlay from gallery meta stored in content
+        const galleryMeta = (payload.content as Record<string, unknown>)
+          ?.galleryImagesMeta as Record<string, { rotation: number }> | undefined;
+        if (galleryMeta) {
+          for (const [slot, meta] of Object.entries(galleryMeta)) {
+            acc[slot] = meta.rotation ?? 0;
           }
         }
         return acc;

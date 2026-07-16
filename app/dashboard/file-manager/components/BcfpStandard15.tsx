@@ -719,9 +719,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   courtyard and outdoor kids playground."
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[35px] shrink-0">
+              <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[15px] shrink-0">
                 <div
-                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image4", e)}
                   onMouseUp={() => handleMouseUp("image4")}
                   onMouseLeave={() => handleMouseLeave("image4")}
@@ -808,7 +808,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 </div>
 
                 <div
-                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image5", e)}
                   onMouseUp={() => handleMouseUp("image5")}
                   onMouseLeave={() => handleMouseLeave("image5")}
@@ -894,7 +894,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image6", e)}
                   onMouseUp={() => handleMouseUp("image6")}
                   onMouseLeave={() => handleMouseLeave("image6")}
@@ -980,7 +980,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image7", e)}
                   onMouseUp={() => handleMouseUp("image7")}
                   onMouseLeave={() => handleMouseLeave("image7")}

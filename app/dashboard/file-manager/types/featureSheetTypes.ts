@@ -17,6 +17,7 @@ export interface ImagePosition {
 export interface ImageStyle {
     position: ImagePosition;
     scale: number;
+    rotation?: number;
     width?: string;
     height?: string;
     borderRadius?: string;
@@ -151,12 +152,12 @@ export const templateImages: TemplateDefinition[] = [
   { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
   { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
   { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
-  { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17" },
-  { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18" },
+  { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17", pages: ["/listing_flyer_17_page_1.png", "/listing_flyer_17_page_2.png"] },
+  { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18", pages: ["/listing_flyer_18_page_1.png", "/listing_flyer_18_page_2.png"] },
   { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19" },
-  { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20" },
-  { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21" },
-  { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22" },
+  { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
+  { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
+  { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },
   { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
   { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
 ];
@@ -265,6 +266,7 @@ export interface FeatureSheetState {
     hiddenImages: { [key: string]: boolean };
     imageScales: { [key: string]: number };
     imagePositions: { [key: string]: ImagePosition };
+    imageRotations: { [key: string]: number };
     fieldStyles?: Record<string, any>;
 }
 
