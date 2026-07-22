@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Copy, File, Loader2, AlertTriangle } from "lucide-react";
+import { Copy, File, Loader2 } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 //import Link from 'next/link';
 import {
@@ -35,7 +35,7 @@ import { Info } from "lucide-react";
 import { EditOrderStatus, GetOneOrder, CancelOrder, PreviewCancelOrder, PreviewCancelService, CancelService } from "../orders";
 import { GetServices } from "../../services/services";
 import { Services } from "../../services/page";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
@@ -55,8 +55,6 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import { useOrganization } from "@/app/context/OrganizationContext";
-import { useIsMobile } from "@/hooks/use-mobile";
-import MobileSquareFootage from "@/components/mobile/vendor/MobileSquareFootage";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -185,7 +183,6 @@ function Page() {
   const [isChecked, setIsChecked] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-  const [paymentConfirm, setPaymentConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [cancelPreviewData, setCancelPreviewData] = useState<CancelPreviewData | null>(null);
@@ -242,9 +239,7 @@ function Page() {
 
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const orderId = params?.id as string;
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     setCountries(Country.getAllCountries());
@@ -453,6 +448,18 @@ function Page() {
   const handleCancelOrder = async (reason?: string) => {
     const token = localStorage.getItem("token");
     if (!token || !orderData) return;
+    const statusUpper = (orderData.payment_status || "").toUpperCase().trim();
+    const paidAmt = parseFloat(String(orderData.paid_amount || "0"));
+    if (
+      statusUpper === "PAID" ||
+      statusUpper === "PARTIALLY_PAID" ||
+      statusUpper === "PARTIAL" ||
+      statusUpper === "PARTIALLY PAID" ||
+      (!isNaN(paidAmt) && paidAmt > 0)
+    ) {
+      toast.error("You cannot cancel a paid order. You can only refund the order.");
+      return;
+    }
     setIsCancelLoading(true);
     try {
       await CancelOrder(orderData.uuid, token, reason);
@@ -534,6 +541,18 @@ function Page() {
   const handleCancelService = async (reason?: string) => {
     const token = localStorage.getItem("token");
     if (!token || !orderData || !cancelTargetService) return;
+    const statusUpper = (orderData.payment_status || "").toUpperCase().trim();
+    const paidAmt = parseFloat(String(orderData.paid_amount || "0"));
+    if (
+      statusUpper === "PAID" ||
+      statusUpper === "PARTIALLY_PAID" ||
+      statusUpper === "PARTIAL" ||
+      statusUpper === "PARTIALLY PAID" ||
+      (!isNaN(paidAmt) && paidAmt > 0)
+    ) {
+      toast.error("You cannot cancel a paid order. You can only refund the order.");
+      return;
+    }
     
     setIsCancelServiceLoading(true);
     try {
@@ -1426,6 +1445,20 @@ function Page() {
                       </>
                     );
                   })()}
+                  {userType !== "vendor" && orderData?.order_status === "Cancelled" && (
+                    <div className="col-span-2 flex flex-col gap-3 w-full">
+                      <Button
+                        disabled
+                        className="w-full rounded-[3px] h-[36px] border-[1px] text-[14px] font-[600] flex gap-[5px] justify-center items-center font-raleway bg-gray-300 text-gray-600 border-gray-300 cursor-not-allowed"
+                      >
+                        Cancelled
+                      </Button>
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-[4px] text-red-700 text-[13px] flex items-center gap-2">
+                        <span className="font-semibold">Notice:</span>
+                        <span>This order has been cancelled. No further payment or edit actions can be taken.</span>
+                      </div>
+                    </div>
+                  )}
                   {userType !== "vendor" && orderData?.order_status !== "Cancelled" && (
                     <div className="col-span-2 flex flex-col sm:flex-row gap-4 w-full">
                       {invoices.length > 0 ? (
@@ -1484,7 +1517,7 @@ function Page() {
                           )}
                         </>
                       ) : (
-                        (orderData?.payment_status !== "PAID" || paymentConfirm) && (
+                        orderData?.payment_status !== "PAID" && (
                           <Button
                             onClick={handlePaymentClick}
                             disabled={isPaymentLoading}

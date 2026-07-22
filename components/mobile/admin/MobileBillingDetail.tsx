@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { getBillings, type BillingItem } from '@/app/dashboard/billing/billing'
+import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, type BillingItem } from '@/app/dashboard/billing/billing'
 import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from '@/app/dashboard/invoice/invoice_api'
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
 import InvoicePdfDocument from '@/app/dashboard/invoice/components/InvoicePdfDocument'
@@ -239,6 +239,9 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
     switch (status?.toLowerCase()) {
       case 'paid':
         return 'bg-green-100 text-green-700 border-green-200'
+      case 'refunded':
+      case 'refund':
+        return 'bg-amber-100 text-amber-700 border-amber-200'
       case 'unpaid':
         return 'bg-rose-100 text-rose-700 border-rose-200'
       case 'void':
@@ -453,7 +456,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
 
                     {/* Action buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                      {invoice.status !== 'paid' && invoice.status !== 'void' && (
+                      {!isPaidOrSucceeded(invoice.status) && !isVoidOrCancelled(invoice.status) && !isRefunded(invoice.status) && (
                         <>
                           {role === 'agent' ? (
                             <Button
@@ -482,7 +485,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                         </>
                       )}
 
-                      {invoice.status === 'paid' && role === 'admin' && (
+                      {isPaidOrSucceeded(invoice.status) && role === 'admin' && !isRefunded(invoice.status) && (
                         <Button
                           variant="outline"
                           className="col-span-2 h-10 text-xs font-semibold rounded-lg text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
@@ -490,6 +493,17 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                         >
                           <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                           Refund Invoice
+                        </Button>
+                      )}
+
+                      {isRefunded(invoice.status) && (
+                        <Button
+                          disabled
+                          variant="outline"
+                          className="col-span-2 h-10 text-xs font-semibold rounded-lg text-amber-700 border-amber-200 bg-amber-50 cursor-not-allowed"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                          Refunded
                         </Button>
                       )}
 

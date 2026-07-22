@@ -5,6 +5,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 import { toast } from "sonner";
+import { GetTourSettings } from "@/app/dashboard/global-settings/global-settings";
 
 export default function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
   const { userType } = useAppContext();
@@ -83,6 +84,22 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
           setIsAllowed(false);
           return;
         }
+
+        GetTourSettings()
+          .then((res) => {
+            const settings = res.data?.portal_settings || res.portal_settings;
+            if (settings && !settings.allow_print_request) {
+              toast.error("Print requests are disabled for this organization");
+              router.replace("/dashboard/global-settings");
+              setIsAllowed(false);
+            } else {
+              setIsAllowed(true);
+            }
+          })
+          .catch(() => {
+            setIsAllowed(true);
+          });
+        return;
       }
 
       if (pathname.startsWith("/dashboard/notifications")) {

@@ -88,7 +88,7 @@ const TabloidPdfGenerator = async (
     }
     const parts = matrixMatch[1].split(',').map(v => parseFloat(v.trim()));
     // [a, b, c, d, tx, ty]
-    const [a, b, c, d, tx, ty] = parts;
+    const [a, b, , , tx, ty] = parts;
     // Extract scale magnitude and rotation from matrix
     const liveScale = Math.sqrt(a * a + b * b);
     const liveAngleDeg = Math.round(Math.atan2(b, a) * 180 / Math.PI);

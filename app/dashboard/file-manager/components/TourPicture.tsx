@@ -19,7 +19,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -582,18 +584,66 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Audio</SelectItem>
-                        {agentAudios.map((audio) => (
-                          <SelectItem key={audio.uuid} value={audio.audio_url || audio.file_url || ""}>
-                            {audio.name}
-                          </SelectItem>
-                        ))}
+
+                        {/* Agent's own private uploads */}
+                        {agentAudios.filter(a => a.source === 'agent').length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-[#999] px-2 py-1.5">
+                              Your Uploads
+                            </SelectLabel>
+                            {agentAudios
+                              .filter(a => a.source === 'agent')
+                              .map((audio) => (
+                                <SelectItem key={audio.uuid} value={audio.audio_url || audio.file_url || ""}>
+                                  {audio.name}
+                                </SelectItem>
+                              ))}
+                          </SelectGroup>
+                        )}
+
+                        {/* Organization shared audio */}
+                        {agentAudios.filter(a => a.source === 'organization').length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-[#999] px-2 py-1.5">
+                              Organization Shared
+                            </SelectLabel>
+                            {agentAudios
+                              .filter(a => a.source === 'organization')
+                              .map((audio) => (
+                                <SelectItem key={audio.uuid} value={audio.audio_url || audio.file_url || ""}>
+                                  {audio.name}
+                                </SelectItem>
+                              ))}
+                          </SelectGroup>
+                        )}
+
+                        {/* Default / global audio */}
+                        {agentAudios.filter(a => a.source === 'default').length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-[#999] px-2 py-1.5">
+                              Default Library
+                            </SelectLabel>
+                            {agentAudios
+                              .filter(a => a.source === 'default')
+                              .map((audio) => (
+                                <SelectItem key={audio.uuid} value={audio.audio_url || audio.file_url || ""}>
+                                  {audio.name}
+                                </SelectItem>
+                              ))}
+                          </SelectGroup>
+                        )}
+
+                        {/* Fallback legacy built-in tracks when no audios loaded */}
                         {agentAudios.length === 0 && !loadingAudios && (
-                          <>
-                            <SelectItem value="tell-me-what">Tell-me-what (Default)</SelectItem>
-                            <SelectItem value="embrace">Embrace (Default)</SelectItem>
-                            <SelectItem value="sandbreaker">Sandbreaker (Default)</SelectItem>
-                            <SelectItem value="showreel">Showreel (Default)</SelectItem>
-                          </>
+                          <SelectGroup>
+                            <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-[#999] px-2 py-1.5">
+                              Default Library
+                            </SelectLabel>
+                            <SelectItem value="tell-me-what">Tell-me-what</SelectItem>
+                            <SelectItem value="embrace">Embrace</SelectItem>
+                            <SelectItem value="sandbreaker">Sandbreaker</SelectItem>
+                            <SelectItem value="showreel">Showreel</SelectItem>
+                          </SelectGroup>
                         )}
                       </SelectContent>
                     </Select>

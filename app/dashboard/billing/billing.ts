@@ -122,3 +122,74 @@ export async function createQuickBilling(
     alert("Something went wrong while creating payment. Please try again.");
   }
 }
+
+export const isVoidOrCancelled = (status?: string) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === "void" || s === "cancelled" || s === "canceled";
+};
+
+export const isPaidOrSucceeded = (status?: string) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === "paid" || s === "succeeded";
+};
+
+export const isRefunded = (status?: string) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === "refunded" || s === "refund" || s === "partially_refunded";
+};
+
+export function getBestTargetInvoice(invoicesList: any[], serviceUuid?: string) {
+  if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
+    return null;
+  }
+
+  // 1. If serviceUuid is provided: filter invoices containing this service
+  if (serviceUuid) {
+    const serviceInvoices = invoicesList.filter((inv: any) =>
+      inv.items?.some((i: any) => {
+        const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+        const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+        return sUuid === serviceUuid || sId?.toString() === serviceUuid;
+      })
+    );
+
+    if (serviceInvoices.length > 0) {
+      const activeServiceInvoices = serviceInvoices.filter((inv: any) => !isVoidOrCancelled(inv.status));
+      if (activeServiceInvoices.length > 0) {
+        // Prefer individual service invoice over consolidated invoice for service-level view
+        const individual = activeServiceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated"));
+        if (individual) return individual;
+        return activeServiceInvoices[0];
+      }
+    }
+  }
+
+  // 2. Order-level (main order invoice): filter out void/cancelled invoices
+  const activeInvoices = invoicesList.filter((inv: any) => !isVoidOrCancelled(inv.status));
+
+  if (activeInvoices.length > 0) {
+    // Priority 1: Consolidated invoice (the main full-order invoice)
+    const consolidated = activeInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated"));
+    if (consolidated) return consolidated;
+
+    // Priority 2: Cancellation fee invoice
+    const cancellation = activeInvoices.find((inv: any) => 
+      inv.notes?.toLowerCase().includes("cancellation fee") || 
+      inv.items?.some((i: any) => i.description?.toLowerCase().includes("cancellation fee"))
+    );
+    if (cancellation) return cancellation;
+
+    // Priority 3: Primary agent invoice
+    const primary = activeInvoices.find((inv: any) => inv.agent_type === "primary" || !inv.split_details);
+    if (primary) return primary;
+
+    // Fallback: first active invoice
+    return activeInvoices[0];
+  }
+
+  return null;
+}
+

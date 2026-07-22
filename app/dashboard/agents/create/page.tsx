@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, ConnectCalendar, DisconnectCalendar, ListCalendars, SetCalendar } from '../agents'
 import { GetOrganizations, Organization } from '../../global-settings/global-settings'
-import { GetAgentAudios, DeleteAgentAudio, AgentAudio } from '../agent-audio'
+import { DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Pencil, Plus, X } from 'lucide-react'
@@ -97,6 +97,7 @@ type CurrentAgent = {
     co_agents: CoAgent[];
     notes?: string;
     certifications: string[];
+    audio_files?: AgentAudio[];
     created_at: string;
     updated_at: string;
     properties: Listings[];
@@ -285,29 +286,25 @@ const AgentForm = () => {
 
     const [availableMp3s, setAvailableMp3s] = useState<{ id: string; name: string; url: string }[]>([]);
 
-    // Fetch agent audios when editing an existing agent
+    // Fetch agent audios from currentUser profile data (only files uploaded by agent)
     useEffect(() => {
-        if (currentUser?.uuid) {
-            GetAgentAudios(currentUser.uuid)
-                .then(data => {
-                    if (data.data && Array.isArray(data.data)) {
-                        setAgentAudios(data.data);
-                        // Add custom audios to the dropdown
-                        const customAudios = data.data.map((audio: AgentAudio) => ({
-                            id: audio.uuid,
-                            name: audio.name,
-                            url: audio.file_url
-                        }));
-                        setAvailableMp3s(prev => {
-                            // Filter out old custom audios and add new ones
-                            const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('custom-') && !prev.find(p => p.id === mp3.id && data.data.find((a: AgentAudio) => a.uuid === p.id)));
-                            return [...defaultAudios, ...customAudios];
-                        });
-                    }
-                })
-                .catch(err => console.log('Failed to fetch agent audios:', err.message));
+        if (currentUser?.audio_files && Array.isArray(currentUser.audio_files)) {
+            // Filter only active files or show all files present in the audio_files relation
+            const customFiles = currentUser.audio_files.filter(a => a.is_active !== false);
+            setAgentAudios(customFiles);
+            // Add custom audios to the dropdown list
+            const customAudios = customFiles.map((audio: AgentAudio) => ({
+                id: audio.uuid,
+                name: audio.name,
+                url: audio.audio_url || audio.file_url || ""
+            }));
+            setAvailableMp3s(prev => {
+                // Filter out previous custom/pending items and rebuild list
+                const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('pending-') && !customAudios.some(c => c.id === mp3.id));
+                return [...defaultAudios, ...customAudios];
+            });
         }
-    }, [currentUser?.uuid]);
+    }, [currentUser?.audio_files]);
 
     const handleMp3Upload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -897,21 +894,19 @@ const AgentForm = () => {
                         const updatedData = await GetOne(agentUuid);
                         setCurrentUser(updatedData.data);
 
-                        // Refresh audios
-                        const audioData = await GetAgentAudios(agentUuid);
-                        if (audioData.data && Array.isArray(audioData.data)) {
-                            setAgentAudios(audioData.data);
-                            // Update availableMp3s with fresh custom audios
-                            const customAudios = audioData.data.map((audio: AgentAudio) => ({
-                                id: audio.uuid,
-                                name: audio.name,
-                                url: audio.file_url
-                            }));
-                            setAvailableMp3s(prev => {
-                                const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('custom-') && !mp3.id.startsWith('pending-'));
-                                return [...defaultAudios, ...customAudios];
-                            });
-                        }
+                        // Refresh audios directly from updated user profile response
+                        const audioFiles = (updatedData.data?.audio_files || []).filter((a: any) => a.is_active !== false);
+                        setAgentAudios(audioFiles);
+                        // Update availableMp3s with fresh custom audios
+                        const customAudios = audioFiles.map((audio: AgentAudio) => ({
+                            id: audio.uuid,
+                            name: audio.name,
+                            url: audio.audio_url || audio.file_url || ""
+                        }));
+                        setAvailableMp3s(prev => {
+                            const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('pending-'));
+                            return [...defaultAudios, ...customAudios];
+                        });
                     } catch (refreshError) {
                         console.error('Failed to refresh agent data:', refreshError);
                     }
@@ -1647,6 +1642,7 @@ const AgentForm = () => {
                                                         }}
                                                         onUploadClick={() => mp3FileInputRef.current?.click()}
                                                         userType={userType}
+                                                        maxFiles={5}
                                                     />
 
                                                     <input

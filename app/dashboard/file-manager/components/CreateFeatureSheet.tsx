@@ -68,6 +68,7 @@ import CopyStylePopup from "./CopyStylePopup";
 import PrintRequestModal from "./PrintRequestModal";
 import { Printer } from "lucide-react";
 import InvoicePaymentDialog from "./invoicePaymentDialog";
+import { usePortalSettings } from "@/app/hooks/usePortalSettings";
 
 interface FeatureSheetComponentRef {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -103,6 +104,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       setFilesData,
     } = useFileManagerContext();
     const { userType } = useAppContext();
+    const { allowPrintRequest } = usePortalSettings();
     const [userInfo, setUserInfo] = useState<any>(null);
 
     useEffect(() => {
@@ -840,7 +842,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                   </button>
                 )}
 
-                {(userType === 'agent' || userType === 'admin') && selectedTemplate && selectedSheetUuid && (
+                {allowPrintRequest && (userType === 'agent' || userType === 'admin') && selectedTemplate && selectedSheetUuid && (
                   <button
                     type="button"
                     onClick={() => setIsPrintModalOpen(true)}
@@ -956,15 +958,17 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                               >
                                 Edit Feature Sheet
                               </p>
-                              <p
-                                className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
-                                onClick={() => {
-                                  setSelectedSheetUuid(sheet.uuid);
-                                  setIsPrintModalOpen(true);
-                                }}
-                              >
-                                Print
-                              </p>
+                              {allowPrintRequest && (
+                                <p
+                                  className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
+                                  onClick={() => {
+                                    setSelectedSheetUuid(sheet.uuid);
+                                    setIsPrintModalOpen(true);
+                                  }}
+                                >
+                                  Print
+                                </p>
+                              )}
                               <p
                                 className="text-[15px] text-red-500 hover:underline cursor-pointer"
                                 onClick={(e) => {

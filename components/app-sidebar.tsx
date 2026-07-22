@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useOrganization } from "@/app/context/OrganizationContext";
+import { usePortalSettings } from "@/app/hooks/usePortalSettings";
 
 // This is sample data.
 const data = {
@@ -149,6 +150,7 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { userType, unreadNotificationCount } = useAppContext();
   const { organization } = useOrganization();
+  const { allowPrintRequest } = usePortalSettings();
   const pathname = usePathname();
   const router = useRouter();
   const pathSegments = pathname.split("/").filter(Boolean);
@@ -252,10 +254,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
           }
 
-          // Print Requests (Admin only)
+          // Print Requests (Admin only, requires allow_print_request)
           if (
             item.url === "/dashboard/admin/print-requests" &&
-            userType !== "admin"
+            (userType !== "admin" || !allowPrintRequest)
           ) {
             return false;
           }

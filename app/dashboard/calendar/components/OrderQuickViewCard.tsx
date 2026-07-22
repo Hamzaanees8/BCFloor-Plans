@@ -117,6 +117,18 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
     const handleCancelService = async (reason?: string) => {
         const token = localStorage.getItem("token");
         if (!token || !CurrentOrder || !cancelTargetService) return;
+        const statusUpper = (CurrentOrder.payment_status || "").toUpperCase().trim();
+        const paidAmt = parseFloat(String(CurrentOrder.paid_amount || "0"));
+        if (
+            statusUpper === "PAID" ||
+            statusUpper === "PARTIALLY_PAID" ||
+            statusUpper === "PARTIAL" ||
+            statusUpper === "PARTIALLY PAID" ||
+            (!isNaN(paidAmt) && paidAmt > 0)
+        ) {
+            toast.error("You cannot cancel a paid order. You can only refund the order.");
+            return;
+        }
         
         setIsCancelServiceLoading(true);
         try {

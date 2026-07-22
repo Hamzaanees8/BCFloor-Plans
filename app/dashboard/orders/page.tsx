@@ -432,6 +432,18 @@ const Page = () => {
     const handleCancelFromList = async () => {
         if (!orderToCancel) return;
         const token = localStorage.getItem('token') || '';
+        const statusUpper = (orderToCancel.payment_status || "").toUpperCase().trim();
+        const paidAmt = parseFloat(String(orderToCancel.paid_amount || "0"));
+        if (
+            statusUpper === "PAID" ||
+            statusUpper === "PARTIALLY_PAID" ||
+            statusUpper === "PARTIAL" ||
+            statusUpper === "PARTIALLY PAID" ||
+            (!isNaN(paidAmt) && paidAmt > 0)
+        ) {
+            toast.error("You cannot cancel a paid order. You can only refund the order.");
+            return;
+        }
         setIsCancelLoading(true);
         try {
             await CancelOrder(orderToCancel.uuid, token);

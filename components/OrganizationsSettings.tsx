@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Loader2, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, Edit2, Trash2, AlertCircle, Music } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
@@ -17,6 +17,11 @@ import {
     GetOrganizationBranding,
     UpdateOrganizationBranding,
 } from "@/app/dashboard/global-settings/global-settings";
+import {
+    AgentAudio,
+    GetOrganizationAudios,
+    DeleteOrganizationAudio,
+} from "@/app/dashboard/agents/agent-audio";
 import CreateOrganizationDialog from "./CreateOrganizationDialog";
 import { DateTime } from "luxon";
 import { usePermissions } from "@/app/hooks/usePermissions";
@@ -31,6 +36,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     isDefaultDomain,
     isDomainMatchingSubdomain,
     extractBaseDomain,
@@ -38,6 +49,7 @@ import {
     getSubdomainMismatchWarning,
     getDefaultDomains,
 } from "@/lib/config/domains";
+import { AudioLibrary } from "@/app/dashboard/agents/components/AudioLibrary";
 
 const OrganizationsSettings = React.forwardRef<
     { save: () => Promise<void> },
@@ -58,6 +70,20 @@ const OrganizationsSettings = React.forwardRef<
     const [openDialog, setOpenDialog] = useState(false);
     const [editTarget, setEditTarget] = useState<Organization | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // ── Organization Audio Modal state (super admin table view) ──────────────
+    const [audioModalOrg, setAudioModalOrg] = useState<Organization | null>(null);
+    const [audioModalOpen, setAudioModalOpen] = useState(false);
+    const [modalAudios, setModalAudios] = useState<AgentAudio[]>([]);
+    const [modalAudioLoading, setModalAudioLoading] = useState(false);
+    const [modalUploading, setModalUploading] = useState(false);
+    const audioModalInputRef = useRef<HTMLInputElement>(null);
+
+    // ── Own-org audio state (regular admin form view) ─────────────────────────
+    const [ownOrgAudios, setOwnOrgAudios] = useState<AgentAudio[]>([]);
+    const [ownOrgAudioLoading, setOwnOrgAudioLoading] = useState(false);
+    const [ownOrgUploading, setOwnOrgUploading] = useState(false);
+    const ownOrgAudioInputRef = useRef<HTMLInputElement>(null);
 
     // Non-super-admin own organization state
     const [ownOrg, setOwnOrg] = useState<Organization | null>(null);
@@ -177,6 +203,121 @@ const OrganizationsSettings = React.forwardRef<
         }
     }, [fetchOrganizations, isSuperAdmin]);
 
+    // ── Audio modal helpers (super admin) ────────────────────────────────────
+    const fetchModalAudios = useCallback(async (orgUuid: string) => {
+        setModalAudioLoading(true);
+        try {
+            const res = await GetOrganizationAudios(orgUuid);
+            setModalAudios(Array.isArray(res.data) ? res.data : []);
+        } catch {
+            toast.error("Failed to load audio files");
+        } finally {
+            setModalAudioLoading(false);
+        }
+    }, []);
+
+    const handleOpenAudioModal = useCallback((org: Organization) => {
+        setAudioModalOrg(org);
+        setModalAudios([]);
+        setAudioModalOpen(true);
+        fetchModalAudios(org.uuid);
+    }, [fetchModalAudios]);
+
+    const handleModalUpload = async (file: File) => {
+        if (!audioModalOrg) return;
+        setModalUploading(true);
+        const toastId = toast.loading(`Uploading audio: ${file.name} (0%)`);
+        try {
+            const { uploadAudioFile } = await import("@/lib/upload/audio-upload");
+            const result = await uploadAudioFile({
+                entityType: "organization-audio",
+                entityId: audioModalOrg.uuid,
+                file: file,
+                onProgress: (progress) => {
+                    toast.loading(`Uploading audio: ${file.name} (${progress}%)`, { id: toastId });
+                }
+            });
+
+            if (!result.success) {
+                throw new Error(result.error || "Failed to upload to S3");
+            }
+
+            toast.success(`Audio ${file.name} uploaded successfully`, { id: toastId });
+            fetchModalAudios(audioModalOrg.uuid);
+        } catch (err) {
+            const e = err as Error;
+            toast.error(e.message || "Failed to upload audio", { id: toastId });
+        } finally {
+            setModalUploading(false);
+            if (audioModalInputRef.current) audioModalInputRef.current.value = "";
+        }
+    };
+
+    const handleModalDelete = async (uuid: string) => {
+        try {
+            await DeleteOrganizationAudio(uuid);
+            setModalAudios(prev => prev.filter(a => a.uuid !== uuid));
+            toast.success("Audio removed");
+        } catch (err) {
+            const e = err as Error;
+            toast.error(e.message || "Failed to delete audio");
+        }
+    };
+
+    // ── Own-org audio helpers (regular admin form) ───────────────────────────
+    const fetchOwnOrgAudios = useCallback(async (orgUuid: string) => {
+        setOwnOrgAudioLoading(true);
+        try {
+            const res = await GetOrganizationAudios(orgUuid);
+            setOwnOrgAudios(Array.isArray(res.data) ? res.data : []);
+        } catch {
+            // silent — org may have no audio yet
+        } finally {
+            setOwnOrgAudioLoading(false);
+        }
+    }, []);
+
+    const handleOwnOrgUpload = async (file: File) => {
+        if (!ownOrg) return;
+        setOwnOrgUploading(true);
+        const toastId = toast.loading(`Uploading audio: ${file.name} (0%)`);
+        try {
+            const { uploadAudioFile } = await import("@/lib/upload/audio-upload");
+            const result = await uploadAudioFile({
+                entityType: "organization-audio",
+                entityId: ownOrg.uuid,
+                file: file,
+                onProgress: (progress) => {
+                    toast.loading(`Uploading audio: ${file.name} (${progress}%)`, { id: toastId });
+                }
+            });
+
+            if (!result.success) {
+                throw new Error(result.error || "Failed to upload to S3");
+            }
+
+            toast.success(`Audio ${file.name} uploaded successfully`, { id: toastId });
+            fetchOwnOrgAudios(ownOrg.uuid);
+        } catch (err) {
+            const e = err as Error;
+            toast.error(e.message || "Failed to upload audio", { id: toastId });
+        } finally {
+            setOwnOrgUploading(false);
+            if (ownOrgAudioInputRef.current) ownOrgAudioInputRef.current.value = "";
+        }
+    };
+
+    const handleOwnOrgDeleteAudio = async (uuid: string) => {
+        try {
+            await DeleteOrganizationAudio(uuid);
+            setOwnOrgAudios(prev => prev.filter(a => a.uuid !== uuid));
+            toast.success("Audio removed");
+        } catch (err) {
+            const e = err as Error;
+            toast.error(e.message || "Failed to delete audio");
+        }
+    };
+
     // Fetch own organization for regular admin on mount
     useEffect(() => {
         if (isSuperAdmin) return;
@@ -229,6 +370,13 @@ const OrganizationsSettings = React.forwardRef<
             .catch(() => toast.error("Failed to load your organization"))
             .finally(() => setOwnOrgLoading(false));
     }, [isSuperAdmin]);
+
+    // Fetch own-org audios once ownOrg is loaded
+    useEffect(() => {
+        if (!isSuperAdmin && ownOrg?.uuid) {
+            fetchOwnOrgAudios(ownOrg.uuid);
+        }
+    }, [isSuperAdmin, ownOrg?.uuid, fetchOwnOrgAudios]);
 
     const handleSaveOwnOrg = async () => {
         if (!ownOrg) return;
@@ -491,6 +639,10 @@ const OrganizationsSettings = React.forwardRef<
                                         setEditTarget(row.original);
                                         setOpenDialog(true);
                                     },
+                                },
+                                {
+                                    label: "Upload Audio",
+                                    onClick: () => handleOpenAudioModal(row.original),
                                 },
                                 {
                                     label: "Delete",
@@ -916,6 +1068,45 @@ const OrganizationsSettings = React.forwardRef<
                                         </div>
                                     </div>
 
+                                    {/* Organization Audio Section */}
+                                    <div className="col-span-1 md:col-span-2 mt-6 border-t border-slate-200 pt-5">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-[#999] flex items-center gap-2 mb-4">
+                                            <Music className="w-4 h-4" />
+                                            Organization Audio
+                                        </p>
+                                        <input
+                                            id="own-org-audio-input"
+                                            ref={ownOrgAudioInputRef}
+                                            type="file"
+                                            accept="audio/mpeg,audio/wav,audio/mp3"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleOwnOrgUpload(file);
+                                            }}
+                                        />
+
+                                        {ownOrgAudioLoading ? (
+                                            <div className="flex justify-center py-8">
+                                                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                                            </div>
+                                        ) : (
+                                            <AudioLibrary
+                                                audios={ownOrgAudios}
+                                                selectedAudioId=""
+                                                onSelect={() => {}}
+                                                onDelete={handleOwnOrgDeleteAudio}
+                                                onUploadClick={() => {
+                                                    if (!ownOrgUploading) {
+                                                        ownOrgAudioInputRef.current?.click();
+                                                    }
+                                                }}
+                                                userType={userType}
+                                                maxFiles={15}
+                                            />
+                                        )}
+                                    </div>
+
                                     {/* DevOps Checklist Box */}
                                     <div className="col-span-1 md:col-span-2 mt-6 border-t border-slate-200 pt-5">
                                         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
@@ -994,7 +1185,7 @@ const OrganizationsSettings = React.forwardRef<
                 />
             </div>
 
-            {/* Dialog */}
+            {/* Create / Edit Dialog */}
             <CreateOrganizationDialog
                 open={openDialog}
                 setOpen={(open) => {
@@ -1004,6 +1195,52 @@ const OrganizationsSettings = React.forwardRef<
                 onSuccess={fetchOrganizations}
                 initialData={editTarget}
             />
+
+            {/* Organization Audio Modal (super admin) */}
+            <Dialog open={audioModalOpen} onOpenChange={(open) => { setAudioModalOpen(open); if (!open) setAudioModalOrg(null); }}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-[#444] mb-2">
+                            <Music className="w-5 h-5" style={{ color: accentColor }} />
+                            {audioModalOrg?.name} — Audio Files
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <input
+                        id="modal-audio-input"
+                        ref={audioModalInputRef}
+                        type="file"
+                        accept="audio/mpeg,audio/wav,audio/mp3"
+                        className="hidden"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleModalUpload(file);
+                        }}
+                    />
+
+                    <div className="max-h-[500px] overflow-y-auto pr-1">
+                        {modalAudioLoading ? (
+                            <div className="flex justify-center py-12">
+                                <Loader2 className="w-8 h-8 animate-spin text-slate-400" style={{ color: accentColor }} />
+                            </div>
+                        ) : (
+                            <AudioLibrary
+                                audios={modalAudios}
+                                selectedAudioId=""
+                                onSelect={() => {}}
+                                onDelete={handleModalDelete}
+                                onUploadClick={() => {
+                                    if (!modalUploading) {
+                                        audioModalInputRef.current?.click();
+                                    }
+                                }}
+                                userType={userType}
+                                maxFiles={15}
+                            />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 });

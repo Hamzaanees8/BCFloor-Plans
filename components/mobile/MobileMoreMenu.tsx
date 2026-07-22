@@ -23,6 +23,7 @@ import { Logout } from '@/app/(auth)/logout';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import type { Role } from '@/app/context/whiteLabelConfig';
+import { usePortalSettings } from '@/app/hooks/usePortalSettings';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -82,7 +83,7 @@ const allNavGroups: NavGroup[] = [
 /*  Filtering logic (matches app-sidebar.tsx exactly)                         */
 /* -------------------------------------------------------------------------- */
 
-function getFilteredNav(userType: string): NavGroup[] {
+function getFilteredNav(userType: string, allowPrintRequest: boolean): NavGroup[] {
   return allNavGroups
     .filter((group) => {
       // Hide entire PEOPLE group for non-admin roles
@@ -117,8 +118,11 @@ function getFilteredNav(userType: string): NavGroup[] {
           )
             return false;
 
-          // Print Requests: admin only
-          if (item.url === '/dashboard/admin/print-requests' && userType !== 'admin')
+          // Print Requests: admin only + requires allow_print_request
+          if (
+            item.url === '/dashboard/admin/print-requests' &&
+            (userType !== 'admin' || !allowPrintRequest)
+          )
             return false;
 
           // Agent restrictions
@@ -185,7 +189,12 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
     .filter(Boolean)
     .join(' ') || 'User';
 
-  const filteredNav = useMemo(() => getFilteredNav(role), [role]);
+  const { allowPrintRequest } = usePortalSettings();
+
+  const filteredNav = useMemo(
+    () => getFilteredNav(role, allowPrintRequest),
+    [role, allowPrintRequest]
+  );
 
   const handleLogout = useCallback(async () => {
     const token = localStorage.getItem('token');

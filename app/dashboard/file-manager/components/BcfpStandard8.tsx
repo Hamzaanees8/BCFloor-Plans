@@ -1,5 +1,4 @@
 import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
-import Image from "next/image";
 import ImageEditor from "./ImageEditor";
 import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
@@ -540,7 +539,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
           style={{ zoom: 0.55, margin: "0 auto" }}
         >
           <span>PAGE 1 (FRONT / OUTSIDE)</span>
-          <span className="text-slate-400">17" x 11" Tabloid</span>
+          <span className="text-slate-400">17&quot; x 11&quot; Tabloid</span>
         </div>
 
         {/* pdf-page 1 */}
@@ -1067,7 +1066,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
           style={{ zoom: 0.55, margin: "0 auto" }}
         >
           <span>PAGE 2 (INSIDE / BACK)</span>
-          <span className="text-slate-400">17" x 11" Tabloid</span>
+          <span className="text-slate-400">17&quot; x 11&quot; Tabloid</span>
         </div>
 
         {/* pdf-page 2 */}

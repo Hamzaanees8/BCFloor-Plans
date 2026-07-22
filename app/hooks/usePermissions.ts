@@ -96,7 +96,7 @@ export function usePermissions() {
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
                 const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
-                if (orgId === null || orgId === undefined || orgId === "") {
+                if (orgId === null || orgId === undefined || orgId === "" || orgId === 0) {
                     return true;
                 }
             }
@@ -124,7 +124,7 @@ export function usePermissions() {
                     const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
 
                     if (isMounted) {
-                        if (orgId === null || orgId === undefined || orgId === "") {
+                        if (orgId === null || orgId === undefined || orgId === "" || orgId === 0) {
                             setIsSuperAdmin(true);
                         } else {
                             setIsSuperAdmin(false);
@@ -157,8 +157,8 @@ export function usePermissions() {
                         const userPermissions = userData.permissions || [];
                         setPermissions(userPermissions);
                         
-                        const fetchedOrgId = userData.organization_id;
-                        if (fetchedOrgId === null || fetchedOrgId === undefined || fetchedOrgId === "") {
+                        const fetchedOrgId = (userData as any)?.organization_id ?? (userData as any)?.data?.organization_id;
+                        if (fetchedOrgId === null || fetchedOrgId === undefined || fetchedOrgId === "" || fetchedOrgId === 0) {
                             setIsSuperAdmin(true);
                         } else {
                             setIsSuperAdmin(false);

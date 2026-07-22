@@ -18,10 +18,14 @@ import {
 import { Printer } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobilePrintRequestsList from "@/components/mobile/admin/MobilePrintRequestsList";
+import { usePortalSettings } from "@/app/hooks/usePortalSettings";
+import { useRouter } from "next/navigation";
 
 const Page = () => {
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
+  const { allowPrintRequest, isLoading: isSettingsLoading } = usePortalSettings();
+  const router = useRouter();
   const role = (userType as string) || "admin";
   const roleSettings =
     appliedSettings[role as keyof typeof appliedSettings] ||
@@ -34,8 +38,13 @@ const Page = () => {
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (!isSettingsLoading && !allowPrintRequest) {
+      toast.error("Print requests are disabled for this organization");
+      router.replace("/dashboard");
+      return;
+    }
     fetchRequests();
-  }, []);
+  }, [isSettingsLoading, allowPrintRequest, router]);
 
   const fetchRequests = async () => {
     setLoading(true);

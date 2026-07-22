@@ -109,7 +109,24 @@ export default function CancelOrderDialog({
   const isPast = isPastBooking(orderData, previewData.booking_datetime);
   const hasMedia = hasMediaState || hasOrderMedia(orderData, previewData);
   const isAdmin = role === "admin";
-  const canCancel = isAdmin ? true : (!isPast && previewData.can_cancel);
+
+  const paymentStatusUpper = (orderData?.payment_status || "").toUpperCase().trim();
+  const paidAmountNum = parseFloat(String(orderData?.paid_amount || "0"));
+  const totalPaidNum = typeof previewData?.total_paid === "number" ? previewData.total_paid : 0;
+
+  const isPaidOrPartiallyPaid =
+    paymentStatusUpper === "PAID" ||
+    paymentStatusUpper === "PARTIALLY_PAID" ||
+    paymentStatusUpper === "PARTIAL" ||
+    paymentStatusUpper === "PARTIALLY PAID" ||
+    (!isNaN(paidAmountNum) && paidAmountNum > 0) ||
+    totalPaidNum > 0;
+
+  const canCancel = isPaidOrPartiallyPaid
+    ? false
+    : isAdmin
+    ? true
+    : (!isPast && previewData.can_cancel);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,7 +153,12 @@ export default function CancelOrderDialog({
             <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
               <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
               <div className="text-[13px] text-red-700 leading-relaxed">
-                {isPast ? (
+                {isPaidOrPartiallyPaid ? (
+                  <>
+                    <p className="font-[600]">Cancellation Unavailable</p>
+                    <p>You cannot cancel a paid order. You can only refund the order.</p>
+                  </>
+                ) : isPast ? (
                   <>
                     <p className="font-[600]">Cancellation Unavailable</p>
                     <p>This booking is in the past. Agents cannot cancel past bookings. Please contact an administrator if you need to cancel this order.</p>

@@ -16,6 +16,8 @@ export interface AgentAudio {
     file_url?: string;
     mime_type?: string;
     size?: number;
+    is_active?: boolean;
+    source?: 'agent' | 'organization' | string;
     created_at: string;
     updated_at: string;
 }
@@ -101,10 +103,10 @@ export async function DeleteAgentAudio(uuid: string) {
 // Organization Audio
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** GET /api/agent-audio?organization_id=uuid */
+/** GET /api/organization-audio?organization_id=uuid */
 export async function GetOrganizationAudios(organization_id: string) {
     try {
-        const response = await api.get(`/agent-audio`, {
+        const response = await api.get(`/organization-audio`, {
             params: { organization_id }
         });
 
@@ -123,7 +125,7 @@ export async function GetOrganizationAudios(organization_id: string) {
     }
 }
 
-/** POST /api/agent-audio (multipart) — upload for an organization */
+/** POST /api/organization-audio (multipart) — upload for an organization */
 export async function UploadOrganizationAudio(payload: UploadOrganizationAudioPayload) {
     const formData = new FormData();
     formData.append("organization_id", String(payload.organization_id));
@@ -132,7 +134,7 @@ export async function UploadOrganizationAudio(payload: UploadOrganizationAudioPa
         formData.append("name", payload.name);
     }
 
-    const response = await api.post(`/agent-audio`, formData);
+    const response = await api.post(`/organization-audio`, formData);
     const data = response.data;
 
     if (data.status !== true) {
@@ -144,5 +146,14 @@ export async function UploadOrganizationAudio(payload: UploadOrganizationAudioPa
     return data;
 }
 
-/** DELETE /api/agent-audio/{uuid} — works for both agent and org audio */
-export const DeleteOrganizationAudio = DeleteAgentAudio;
+/** DELETE /api/organization-audio/{uuid} — dedicated org audio delete */
+export async function DeleteOrganizationAudio(uuid: string) {
+    const response = await api.delete(`/organization-audio/${uuid}`);
+    const data = response.data;
+
+    if (data.status !== true) {
+        throw new Error(data.message || "Failed to delete audio");
+    }
+
+    return data;
+}

@@ -272,8 +272,15 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                 <div className="space-y-2">
                                     <Label className="text-[#666666] font-semibold">Default Audio</Label>
                                     <Select
-                                        value={tourDefaults.default_audio_uuid || ""}
-                                        onValueChange={(val) => handleTourDefaultChange('default_audio_uuid', val)}
+                                        value={tourDefaults.default_audio_uuid || tourDefaults.default_song || ""}
+                                        onValueChange={(val) => {
+                                            const selectedAudio = orgAudios.find(a => a.uuid === val);
+                                            setTourDefaults(prev => ({
+                                                ...prev,
+                                                default_audio_uuid: val,
+                                                default_song: selectedAudio ? selectedAudio.name : val
+                                            }));
+                                        }}
                                     >
                                         <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
                                             <SelectValue placeholder={orgAudios.length > 0 ? "Select Audio" : "No audio files uploaded"} />

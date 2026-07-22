@@ -1,4 +1,4 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";

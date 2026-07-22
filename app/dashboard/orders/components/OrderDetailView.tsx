@@ -8,7 +8,7 @@ import {
     DialogFooter,
     DialogDescription
 } from "@/components/ui/dialog";
-import { X, Loader2, AlertTriangle } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";

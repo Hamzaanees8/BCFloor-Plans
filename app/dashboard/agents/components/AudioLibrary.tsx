@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Play, Pause, Trash2, Music, Check, UploadCloud, Volume2 } from 'lucide-react';
 import { AgentAudio } from '../agent-audio';
+import { toast } from 'sonner';
 
 interface AudioLibraryProps {
     audios: AgentAudio[];
@@ -11,6 +12,7 @@ interface AudioLibraryProps {
     onDelete: (id: string) => void;
     onUploadClick: () => void;
     userType?: string;
+    maxFiles?: number;
 }
 
 const AudioItem = ({
@@ -122,21 +124,40 @@ export function AudioLibrary({
     onSelect,
     onDelete,
     onUploadClick,
-    userType = 'agent'
+    userType = 'agent',
+    maxFiles = 5
 }: AudioLibraryProps) {
+    const isLimitReached = audios.length >= maxFiles;
+
     return (
         <div className="w-full space-y-6">
             {/* Upload Area */}
             <div
-                onClick={onUploadClick}
-                className="group relative w-full h-40 border-2 border-dashed border-[#BBBBBB] rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-300 hover:border-[#6BAE41] hover:bg-[#6BAE41]/5"
+                onClick={() => {
+                    if (isLimitReached) {
+                        toast.error(`You have reached the upload limit of ${maxFiles} files.`);
+                        return;
+                    }
+                    onUploadClick();
+                }}
+                className={`group relative w-full h-40 border-2 border-dashed border-[#BBBBBB] rounded-2xl flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
+                    isLimitReached 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' 
+                        : 'cursor-pointer hover:border-[#6BAE41] hover:bg-[#6BAE41]/5'
+                }`}
             >
-                <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 transition-colors group-hover:bg-[#6BAE41]/20 group-hover:text-[#6BAE41]">
+                <div className={`w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 transition-colors ${
+                    isLimitReached ? '' : 'group-hover:bg-[#6BAE41]/20 group-hover:text-[#6BAE41]'
+                }`}>
                     <UploadCloud size={32} />
                 </div>
                 <div className="text-center">
-                    <p className="font-semibold text-[#424242] group-hover:text-[#6BAE41]">Click to upload audio</p>
-                    <p className="text-xs text-[#7D7D7D]">Supports MP3, WAV up to 10MB</p>
+                    <p className={`font-semibold text-[#424242] ${isLimitReached ? '' : 'group-hover:text-[#6BAE41]'}`}>
+                        {isLimitReached ? "Upload limit reached" : "Click to upload audio"}
+                    </p>
+                    <p className="text-xs text-[#7D7D7D]">
+                        Supports MP3, WAV up to 10MB · Max {maxFiles} files
+                    </p>
                 </div>
             </div>
 
