@@ -154,6 +154,7 @@ type FormData = {
     siteInfluences: string;
     grossTaxes: string;
     featuresIncluded: string;
+    outdoorAreas?: string;
     byLawRestrictions: string;
     maintenanceFees: string;
     maintenanceFeesInclude: string;
@@ -320,6 +321,7 @@ export const initialFormData: FormData = {
     siteInfluences: "",
     grossTaxes: "",
     featuresIncluded: "",
+    outdoorAreas: "",
     byLawRestrictions: "",
     maintenanceFees: "",
     maintenanceFeesInclude: "",

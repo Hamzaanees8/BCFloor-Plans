@@ -207,9 +207,11 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
                     <span>
                       {serviceAmount <= 0
                         ? "Chosen service is inactive"
+                        : currentBookedService?.payment_status === "REFUNDED" || orderData?.payment_status === "REFUNDED"
+                        ? `Service Invoice Refunded - ${serviceName}`
                         : currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"
-                          ? `Service Invoice Paid - ${serviceName}`
-                          : `Pay Service Invoice - ${serviceName}`}
+                        ? `Service Invoice Paid - ${serviceName}`
+                        : `Pay Service Invoice - ${serviceName}`}
                     </span>
                     <span className="font-semibold">
                       ${serviceAmount.toFixed(2)}
@@ -217,7 +219,9 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
                   </div>
                   {!isServicePaymentAvailable && serviceAmount > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"
+                      {currentBookedService?.payment_status === "REFUNDED" || orderData?.payment_status === "REFUNDED"
+                        ? "This service payment has been refunded"
+                        : currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"
                         ? "This service has already been paid"
                         : "Service payment not available"}
                     </p>
@@ -233,14 +237,22 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
                 />
                 <Label htmlFor="full" className="flex-1">
                   <div className="flex justify-between items-center py-4 cursor-pointer">
-                    <span>{orderData?.payment_status === "PAID" ? "Full Invoice Paid" : "Pay Full Invoice"}</span>
+                    <span>
+                      {orderData?.payment_status === "REFUNDED"
+                        ? "Full Invoice Refunded"
+                        : orderData?.payment_status === "PAID"
+                        ? "Full Invoice Paid"
+                        : "Pay Full Invoice"}
+                    </span>
                     <span className="font-semibold">
                       ${fullAmount.toFixed(2)}
                     </span>
                   </div>
                   {!isFullPaymentAvailable && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {orderData?.payment_status === "PAID"
+                      {orderData?.payment_status === "REFUNDED"
+                        ? "This order payment has been refunded"
+                        : orderData?.payment_status === "PAID"
                         ? "This order has already been paid in full"
                         : "Full invoice will be available once all services have been completed"}
                     </p>

@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Copy, File, Loader2 } from "lucide-react";
+import { Copy, File, Loader2, AlertTriangle } from "lucide-react";
+import { isPastBooking } from "@/lib/bookingUtils";
 //import Link from 'next/link';
 import {
   Tooltip,
@@ -477,13 +478,24 @@ function Page() {
     try {
       const data = await PreviewCancelOrder(orderData.uuid, token);
       setCancelPreviewData(data.data);
-      setShowCancelDialog(true);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to load cancellation details"
-      );
+    } catch {
+      setCancelPreviewData({
+        order_uuid: orderData.uuid,
+        can_cancel: true,
+        is_free: false,
+        cancellation_fee: 0,
+        total_paid: parseFloat(orderData.paid_amount || "0"),
+        expected_refund: 0,
+        threshold_hours: 0,
+        fee_percentage: 0,
+        booking_datetime: orderData.slots?.[0]?.date || new Date().toISOString(),
+        deadline: "",
+        timezone: "",
+        message: "Cancellation for past booking",
+      });
     } finally {
       setIsCancelLoading(false);
+      setShowCancelDialog(true);
     }
   };
 
@@ -497,14 +509,25 @@ function Page() {
     try {
       const data = await PreviewCancelService(orderData.uuid, serviceUuid, token);
       setCancelServicePreviewData(data.data);
-      setShowCancelServiceDialog(true);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to load cancellation details"
-      );
-      setCancelTargetService(null);
+    } catch {
+      setCancelServicePreviewData({
+        order_uuid: orderData.uuid,
+        service_uuid: serviceUuid,
+        can_cancel: true,
+        is_free: false,
+        cancellation_fee: 0,
+        total_paid: parseFloat(orderData.paid_amount || "0"),
+        expected_refund: 0,
+        threshold_hours: 0,
+        fee_percentage: 0,
+        booking_datetime: orderData.slots?.[0]?.date || new Date().toISOString(),
+        deadline: "",
+        timezone: "",
+        message: "Cancellation for past service",
+      });
     } finally {
       setIsCancelServiceLoading(false);
+      setShowCancelServiceDialog(true);
     }
   };
 
@@ -546,13 +569,11 @@ function Page() {
 
     setIsPaymentLoading(true);
     try {
-      // Get the current page URL for the redirect
       const currentUrl =
         typeof window !== "undefined"
           ? window.location.href
           : "";
 
-      // Call createPayment function which will redirect to Stripe
       await createPayment(orderData, token, currentUrl, {
         paymentType: "full",
         amount: calculatedBalanceDue.toFixed(2),
@@ -565,66 +586,13 @@ function Page() {
     }
   };
 
-  useEffect(() => {
-    const sessionId = searchParams.get("session_id");
-    if (!sessionId) return; // no payment session to process
-
-    const processStripePayment = async () => {
-      toast.info("Processing your payment, please wait...");
-
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/stripe/session?session_id=${sessionId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-            },
-          },
-        );
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(
-            result.message || result.error || "Payment processing failed",
-          );
-        }
-        setPaymentConfirm(true);
-        toast.success("Payment processed successfully! ");
-
-        // remove session_id from URL
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete("session_id");
-        router.replace(`?${params.toString()}`);
-      } catch (error) {
-        console.error("Stripe session error:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message || "Unable to verify payment session."
-            : "Unable to verify payment session.",
-        );
-      }
-    };
-
-    processStripePayment();
-  }, [searchParams, router]);
-
-  if (isMobile && searchParams.get("mobile_sqft") === "1") {
-    return <MobileSquareFootage orderId={orderId} />;
-  }
+  const isPast = isPastBooking(orderData);
 
   // --- Cancel Order visibility logic ---
-  const earliestSlotDT = orderData?.slots?.reduce<Date | null>((earliest, slot) => {
-    const dt = new Date(`${slot.date}T${slot.start_time}`);
-    return !earliest || dt < earliest ? dt : earliest;
-  }, null) ?? null;
-
   const showCancelButton =
     !!orderData &&
     orderData.order_status !== "Cancelled" &&
-    (!earliestSlotDT || earliestSlotDT > new Date()) &&
-    (userType === "admin" || userType === "agent");
+    (userType === "admin" || (userType === "agent" && !isPast));
 
   return (
     <div

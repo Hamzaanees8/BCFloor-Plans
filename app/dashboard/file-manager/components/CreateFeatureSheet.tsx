@@ -32,6 +32,7 @@ import BcfpStandard from "./BcfpStandard";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 import DownloadPdf from "./DownloadPdf";
+import TabloidPdfGenerator from "./TabloidPdfGenerator";
 // import BcfpStandard1 from "./BcfpStandard1";
 import BcfpStandard2 from "./BcfpStandard2";
 import BcfpStandard3 from "./BcfpStandard3";
@@ -269,14 +270,24 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
         const sheetName = selectedTemplate.replace(/\.pdf$/i, "");
         const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${sheetName}.pdf`;
 
-        const paperSize = { width: 8.5, height: 11 }; // Default Letter
+        const currentTemplate = templateImages.find(t => t.id === selectedTemplate);
+        const isTabloid = currentTemplate?.type === "tabloid";
 
-        await DownloadPdf(
-          "pdf-section",
-          fileName,
-          withBleed,
-          paperSize
-        );
+        if (isTabloid) {
+          await TabloidPdfGenerator(
+            "pdf-section",
+            fileName,
+            withBleed
+          );
+        } else {
+          const paperSize = { width: 8.5, height: 11 }; // Default Letter
+          await DownloadPdf(
+            "pdf-section",
+            fileName,
+            withBleed,
+            paperSize
+          );
+        }
       } catch (error) {
         console.error("Download failed:", error);
         toast.error("Failed to generate PDF. Please try again.");

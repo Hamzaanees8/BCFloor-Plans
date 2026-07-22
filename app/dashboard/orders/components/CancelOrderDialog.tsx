@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,12 +8,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { isPastBooking, hasOrderMedia } from "@/lib/bookingUtils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { Order } from "../page";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useAppContext } from "@/app/context/AppContext";
+import { GetFilesData } from "@/app/dashboard/file-manager/file-manager";
 
 export interface CancelPreviewData {
   order_uuid: string;
@@ -60,10 +62,54 @@ export default function CancelOrderDialog({
     appliedSettings["admin"];
 
   const [reason, setReason] = useState("");
+  const [hasMediaState, setHasMediaState] = useState<boolean>(() =>
+    hasOrderMedia(orderData, previewData)
+  );
+
+  useEffect(() => {
+    const syncCheck = hasOrderMedia(orderData, previewData);
+    if (syncCheck) {
+      setHasMediaState(true);
+      return;
+    }
+
+    if (!open || !orderData?.uuid) return;
+
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+
+    GetFilesData(token, orderData.uuid)
+      .then((res) => {
+        if (!res) return;
+        const toursList = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [res];
+
+        const containsFiles = toursList.some(
+          (t: any) =>
+            (Array.isArray(t?.files) && t.files.length > 0) ||
+            (Array.isArray(t?.snapshots) && t.snapshots.length > 0) ||
+            Boolean(t?.id || t?.uuid)
+        );
+
+        if (containsFiles) {
+          setHasMediaState(true);
+        }
+      })
+      .catch((err) => {
+        console.log("Error checking media files in CancelOrderDialog:", err);
+      });
+  }, [open, orderData, previewData]);
 
   if (!previewData) return null;
 
-  const canCancel = previewData.can_cancel;
+  const isPast = isPastBooking(orderData, previewData.booking_datetime);
+  const hasMedia = hasMediaState || hasOrderMedia(orderData, previewData);
+  const isAdmin = role === "admin";
+  const canCancel = isAdmin ? true : (!isPast && previewData.can_cancel);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,28 +136,65 @@ export default function CancelOrderDialog({
             <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
               <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
               <div className="text-[13px] text-red-700 leading-relaxed">
-                <p>Cancellation is no longer available for this {mode === "service" ? "service" : "booking"}.</p>
+                {isPast ? (
+                  <>
+                    <p className="font-[600]">Cancellation Unavailable</p>
+                    <p>This booking is in the past. Agents cannot cancel past bookings. Please contact an administrator if you need to cancel this order.</p>
+                  </>
+                ) : (
+                  <p>Cancellation is no longer available for this {mode === "service" ? "service" : "booking"}.</p>
+                )}
               </div>
             </div>
           ) : (
             <>
-              {previewData.is_free ? (
-                <div className="flex gap-3 items-start bg-green-50 border border-green-200 rounded-[8px] px-4 py-3">
-                  <CheckCircle className="text-green-600 mt-0.5 shrink-0" size={18} />
-                  <div className="text-[13px] text-green-700 leading-relaxed">
-                    <p>{previewData.message}</p>
+              {isPast ? (
+                <div className="space-y-3">
+                  <div className="flex gap-3 items-start bg-amber-50 border border-amber-300 rounded-[8px] px-4 py-3 text-amber-900">
+                    <AlertTriangle className="text-amber-600 mt-0.5 shrink-0" size={18} />
+                    <div className="text-[13px] leading-relaxed">
+                      <p className="font-[600]">This booking is in the past. Are you sure you want to cancel it?</p>
+                    </div>
                   </div>
+
+                  {hasMedia && (
+                    <div className="flex gap-3 items-start bg-red-50 border border-red-300 rounded-[8px] px-4 py-3 text-red-900">
+                      <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={18} />
+                      <div className="text-[13px] leading-relaxed">
+                        <p className="font-[600]">🚨 Warning: Media Files Included</p>
+                        <p className="text-red-800 text-[13px] mt-0.5">
+                          This booking contains uploaded media files (photos/videos). If you cancel this booking, all associated media will be lost.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
-                  <AlertTriangle className="text-red-500 mt-0.5 shrink-0" size={18} />
-                  <div className="text-[13px] text-red-700 leading-relaxed">
-                    <p>{previewData.message}</p>
+                previewData.is_free ? (
+                  <div className="flex gap-3 items-start bg-green-50 border border-green-200 rounded-[8px] px-4 py-3">
+                    <CheckCircle className="text-green-600 mt-0.5 shrink-0" size={18} />
+                    <div className="text-[13px] text-green-700 leading-relaxed">
+                      <p>{previewData.message}</p>
+                    </div>
                   </div>
-                </div>
+                ) : isAdmin ? (
+                  <div className="flex gap-3 items-start bg-blue-50 border border-blue-200 rounded-[8px] px-4 py-3 text-blue-900">
+                    <AlertTriangle className="text-blue-500 mt-0.5 shrink-0" size={18} />
+                    <div className="text-[13px] text-blue-800 leading-relaxed">
+                      <p>This booking is within the {previewData.threshold_hours || 24}-hour cancellation window. The applicable cancellation fee will be charged to the assigned agent.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
+                    <AlertTriangle className="text-red-500 mt-0.5 shrink-0" size={18} />
+                    <div className="text-[13px] text-red-700 leading-relaxed">
+                      <p>{previewData.message}</p>
+                    </div>
+                  </div>
+                )
               )}
 
-              {previewData.total_paid > 0 && (
+              {!isAdmin && previewData.total_paid > 0 && (
                 <p className="text-[14px] font-[600]" style={{ color: roleSettings.pageText }}>
                   Expected Refund: ${previewData.expected_refund.toFixed(2)}
                 </p>

@@ -1,5 +1,5 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
-import Image from "next/image";
+import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import ImageEditor from "./ImageEditor";
 import React, { useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
@@ -131,6 +131,17 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
     image17: false,
     image18: false,
   });
+
+  const [rotation, setRotation] = useState({
+    image1: 0, image2: 0, image3: 0, image4: 0, image5: 0, image6: 0,
+    image7: 0, image8: 0, image9: 0, image10: 0, image11: 0, image12: 0,
+    image13: 0, image14: 0, image15: 0, image16: 0, image17: 0, image18: 0,
+  });
+
+  const handleRotate = (key: keyof typeof images) => {
+    setRotation((prev) => ({ ...prev, [key]: (prev[key] + 90) % 360 }));
+  };
+
 
   const lastPosition = useRef({
     image1: { x: 0, y: 0 },
@@ -275,16 +286,12 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
   const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
     setScale((prev) => {
       const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-      const bounded = Math.min(Math.max(newScale, 1), 3);
-      if (bounded <= 1) {
-        setPosition((p) => ({ ...p, [key]: { x: 0, y: 0 } }));
-      }
+      const bounded = Math.min(Math.max(newScale, 0.1), 5);
       return { ...prev, [key]: bounded };
     });
   };
 
   const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
-    if (scale[key] <= 1) return;
     setDragging((prev) => ({ ...prev, [key]: true }));
     lastPosition.current[key] = { x: e.clientX, y: e.clientY };
   };
@@ -572,7 +579,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       )}
       <div className="w-full items-center justify-center font-alexandria">
 
-        <div className="flex items-stretch pdf-page ">
+        <div className="flex items-stretch pdf-page bg-white shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden" style={{ width: "17in", height: "11in", zoom: 0.55, margin: "0 auto", marginBottom: "40px" }}>
           <div
             className="w-1/2 flex flex-col relative overflow-hidden items-center justify-center group p-[50px]"
             style={{
@@ -583,30 +590,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
             <div className="min-h-[400px] w-full relative overflow-hidden group">
               {/* image1 */}
               <div
-                className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                onMouseDown={(e) => handleMouseDown("image1", e)}
-                onMouseMove={(e) => handleMouseMove("image1", e)}
-                onMouseUp={() => handleMouseUp("image1")}
-                onMouseLeave={() => handleMouseLeave("image1")}
-              >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image1", e)}
+    onMouseMove={(e) => handleMouseMove("image1", e)}
+    onMouseUp={() => handleMouseUp("image1")}
+    onMouseLeave={() => handleMouseLeave("image1")}
+    style={{ cursor: dragging.image1 ? "grabbing" : "grab" }}
+  >
                 {images.image1 ? (
                   <>
-                    <Image
-                      unoptimized
-                      src={images.image1}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
-                        cursor: dragging.image1
-                          ? "grabbing"
-                          : scale.image1 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
+                    <ImageEditor
+    src={images.image1}
+    scale={scale.image1}
+    position={position.image1}
+    rotation={rotation.image1}
+  />
 
                     {/* Zoom Controls */}
                     <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -628,7 +626,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                       </button>
                     </div>
 
-                    {/* Edit Button */}
+                    
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image1")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                     <button
                       type="button"
                       onClick={() => openImageSourceModal("image1")}
@@ -668,30 +677,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
             <div className="my-3 flex-none w-[180px] h-[100] relative overflow-hidden group">
               {/* image2 */}
               <div
-                className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                onMouseDown={(e) => handleMouseDown("image2", e)}
-                onMouseMove={(e) => handleMouseMove("image2", e)}
-                onMouseUp={() => handleMouseUp("image2")}
-                onMouseLeave={() => handleMouseLeave("image2")}
-              >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image2", e)}
+    onMouseMove={(e) => handleMouseMove("image2", e)}
+    onMouseUp={() => handleMouseUp("image2")}
+    onMouseLeave={() => handleMouseLeave("image2")}
+    style={{ cursor: dragging.image2 ? "grabbing" : "grab" }}
+  >
                 {images.image2 ? (
                   <>
-                    <Image
-                      unoptimized
-                      src={images.image2}
-                      alt="selected"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover rounded transition-transform duration-150"
-                      style={{
-                        transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
-                        cursor: dragging.image2
-                          ? "grabbing"
-                          : scale.image2 > 1
-                            ? "grab"
-                            : "default",
-                      }}
-                    />
+                    <ImageEditor
+    src={images.image2}
+    scale={scale.image2}
+    position={position.image2}
+    rotation={rotation.image2}
+  />
 
                     {/* Zoom Controls */}
                     <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -713,7 +713,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                       </button>
                     </div>
 
-                    {/* Edit Button */}
+                    
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image2")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                     <button
                       type="button"
                       onClick={() => openImageSourceModal("image2")}
@@ -886,30 +897,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               <div className="my-3 w-[200px] h-[100] relative overflow-hidden group">
                 {/* image3 */}
                 <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseDown={(e) => handleMouseDown("image3", e)}
-                  onMouseMove={(e) => handleMouseMove("image3", e)}
-                  onMouseUp={() => handleMouseUp("image3")}
-                  onMouseLeave={() => handleMouseLeave("image3")}
-                >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image3", e)}
+    onMouseMove={(e) => handleMouseMove("image3", e)}
+    onMouseUp={() => handleMouseUp("image3")}
+    onMouseLeave={() => handleMouseLeave("image3")}
+    style={{ cursor: dragging.image3 ? "grabbing" : "grab" }}
+  >
                   {images.image3 ? (
                     <>
-                      <Image
-                        unoptimized
-                        src={images.image3}
-                        alt="selected"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover rounded transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
-                          cursor: dragging.image3
-                            ? "grabbing"
-                            : scale.image3 > 1
-                              ? "grab"
-                              : "default",
-                        }}
-                      />
+                      <ImageEditor
+    src={images.image3}
+    scale={scale.image3}
+    position={position.image3}
+    rotation={rotation.image3}
+  />
 
                       {/* Zoom Controls */}
                       <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -931,7 +933,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                         </button>
                       </div>
 
-                      {/* Edit Button */}
+                      
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image3")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                       <button
                         type="button"
                         onClick={() => openImageSourceModal("image3")}
@@ -1034,30 +1047,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
 
             {/* image4 */}
             <div
-              className="w-full h-full relative overflow-hidden flex items-center justify-center group"
-              onMouseDown={(e) => handleMouseDown("image4", e)}
-              onMouseMove={(e) => handleMouseMove("image4", e)}
-              onMouseUp={() => handleMouseUp("image4")}
-              onMouseLeave={() => handleMouseLeave("image4")}
-            >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center group"
+    onMouseDown={(e) => handleMouseDown("image4", e)}
+    onMouseMove={(e) => handleMouseMove("image4", e)}
+    onMouseUp={() => handleMouseUp("image4")}
+    onMouseLeave={() => handleMouseLeave("image4")}
+    style={{ cursor: dragging.image4 ? "grabbing" : "grab" }}
+  >
               {images.image4 ? (
                 <>
-                  <Image
-                    unoptimized
-                    src={images.image4}
-                    alt="uploaded"
-                    width={200}
-                    height={300}
-                    className="w-full h-full object-cover transition-transform duration-150"
-                    style={{
-                      transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
-                      cursor: dragging.image4
-                        ? "grabbing"
-                        : scale.image4 > 1
-                          ? "grab"
-                          : "default",
-                    }}
-                  />
+                  <ImageEditor
+    src={images.image4}
+    scale={scale.image4}
+    position={position.image4}
+    rotation={rotation.image4}
+  />
 
                   {/* Zoom Controls */}
                   <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1079,7 +1083,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                     </button>
                   </div>
 
-                  {/* Edit Button */}
+                  
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image4")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                   <button
                     type="button"
                     onClick={() => openImageSourceModal("image4")}
@@ -1171,7 +1186,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
           </div>
         </div>
 
-        <div className="flex items-stretch  min-h-[990px] relative pdf-page">
+        <div className="flex items-stretch pdf-page bg-white shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden" style={{ width: "17in", height: "11in", zoom: 0.55, margin: "0 auto", marginBottom: "40px" }}>
           <div className="w-1/2 relative ">
             <svg
               width="400px"
@@ -1285,30 +1300,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
 
               <div className="h-[445px] border-2 border-[#fff] relative overflow-hidden group">
                 <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseDown={(e) => handleMouseDown("image13", e)}
-                  onMouseMove={(e) => handleMouseMove("image13", e)}
-                  onMouseUp={() => handleMouseUp("image13")}
-                  onMouseLeave={() => handleMouseLeave("image13")}
-                >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image13", e)}
+    onMouseMove={(e) => handleMouseMove("image13", e)}
+    onMouseUp={() => handleMouseUp("image13")}
+    onMouseLeave={() => handleMouseLeave("image13")}
+    style={{ cursor: dragging.image13 ? "grabbing" : "grab" }}
+  >
                   {images.image13 ? (
                     <>
-                      <Image
-                        unoptimized
-                        src={images.image13}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image13}) translate(${position.image13.x}px, ${position.image13.y}px)`,
-                          cursor: dragging.image13
-                            ? "grabbing"
-                            : scale.image13 > 1
-                              ? "grab"
-                              : "default",
-                        }}
-                      />
+                      <ImageEditor
+    src={images.image13}
+    scale={scale.image13}
+    position={position.image13}
+    rotation={rotation.image13}
+  />
 
                       {/* Zoom Controls */}
                       <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1330,7 +1336,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                         </button>
                       </div>
 
-                      {/* Edit Button */}
+                      
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image13")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                       <button
                         type="button"
                         onClick={() => openImageSourceModal("image13")}
@@ -1370,30 +1387,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               <div className="flex gap-8 ">
                 <div className="w-[400px] border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseDown={(e) => handleMouseDown("image5", e)}
-                    onMouseMove={(e) => handleMouseMove("image5", e)}
-                    onMouseUp={() => handleMouseUp("image5")}
-                    onMouseLeave={() => handleMouseLeave("image5")}
-                  >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image5", e)}
+    onMouseMove={(e) => handleMouseMove("image5", e)}
+    onMouseUp={() => handleMouseUp("image5")}
+    onMouseLeave={() => handleMouseLeave("image5")}
+    style={{ cursor: dragging.image5 ? "grabbing" : "grab" }}
+  >
                     {images.image5 ? (
                       <>
-                        <Image
-                          unoptimized
-                          src={images.image5}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
-                            cursor: dragging.image5
-                              ? "grabbing"
-                              : scale.image5 > 1
-                                ? "grab"
-                                : "default",
-                          }}
-                        />
+                        <ImageEditor
+    src={images.image5}
+    scale={scale.image5}
+    position={position.image5}
+    rotation={rotation.image5}
+  />
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1415,7 +1423,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                           </button>
                         </div>
 
-                        {/* Edit Button */}
+                        
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image5")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openImageSourceModal("image5")}
@@ -1453,7 +1472,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                   </div>
                 </div>
                 <div className="w-fit flex flex-col gap-2">
-                  <div className="font-bold text-[14px] text-[#226292] flex flex-wrap gap-2 items-center">
+                  <div className="font-bold text-[12px] text-[#226292] flex flex-nowrap gap-1 items-center">
                     <div className="inline">
                       <StyledInput
                         value={bedroom}
@@ -1519,30 +1538,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               <div className="flex gap-4">
                 <div className="w-1/2 h-[200px] border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseDown={(e) => handleMouseDown("image6", e)}
-                    onMouseMove={(e) => handleMouseMove("image6", e)}
-                    onMouseUp={() => handleMouseUp("image6")}
-                    onMouseLeave={() => handleMouseLeave("image6")}
-                  >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image6", e)}
+    onMouseMove={(e) => handleMouseMove("image6", e)}
+    onMouseUp={() => handleMouseUp("image6")}
+    onMouseLeave={() => handleMouseLeave("image6")}
+    style={{ cursor: dragging.image6 ? "grabbing" : "grab" }}
+  >
                     {images.image6 ? (
                       <>
-                        <Image
-                          unoptimized
-                          src={images.image6}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
-                            cursor: dragging.image6
-                              ? "grabbing"
-                              : scale.image6 > 1
-                                ? "grab"
-                                : "default",
-                          }}
-                        />
+                        <ImageEditor
+    src={images.image6}
+    scale={scale.image6}
+    position={position.image6}
+    rotation={rotation.image6}
+  />
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1564,7 +1574,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                           </button>
                         </div>
 
-                        {/* Edit Button */}
+                        
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image6")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openImageSourceModal("image6")}
@@ -1603,30 +1624,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                 </div>
                 <div className="w-1/2 h-[200px] border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseDown={(e) => handleMouseDown("image7", e)}
-                    onMouseMove={(e) => handleMouseMove("image7", e)}
-                    onMouseUp={() => handleMouseUp("image7")}
-                    onMouseLeave={() => handleMouseLeave("image7")}
-                  >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image7", e)}
+    onMouseMove={(e) => handleMouseMove("image7", e)}
+    onMouseUp={() => handleMouseUp("image7")}
+    onMouseLeave={() => handleMouseLeave("image7")}
+    style={{ cursor: dragging.image7 ? "grabbing" : "grab" }}
+  >
                     {images.image7 ? (
                       <>
-                        <Image
-                          unoptimized
-                          src={images.image7}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image7}) translate(${position.image7.x}px, ${position.image7.y}px)`,
-                            cursor: dragging.image7
-                              ? "grabbing"
-                              : scale.image7 > 1
-                                ? "grab"
-                                : "default",
-                          }}
-                        />
+                        <ImageEditor
+    src={images.image7}
+    scale={scale.image7}
+    position={position.image7}
+    rotation={rotation.image7}
+  />
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1648,7 +1660,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                           </button>
                         </div>
 
-                        {/* Edit Button */}
+                        
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image7")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openImageSourceModal("image7")}
@@ -1769,30 +1792,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
 
               <div className="w-1/2 h-[230px] border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                 <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseDown={(e) => handleMouseDown("image8", e)}
-                  onMouseMove={(e) => handleMouseMove("image8", e)}
-                  onMouseUp={() => handleMouseUp("image8")}
-                  onMouseLeave={() => handleMouseLeave("image8")}
-                >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image8", e)}
+    onMouseMove={(e) => handleMouseMove("image8", e)}
+    onMouseUp={() => handleMouseUp("image8")}
+    onMouseLeave={() => handleMouseLeave("image8")}
+    style={{ cursor: dragging.image8 ? "grabbing" : "grab" }}
+  >
                   {images.image8 ? (
                     <>
-                      <Image
-                        unoptimized
-                        src={images.image8}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image8}) translate(${position.image8.x}px, ${position.image8.y}px)`,
-                          cursor: dragging.image8
-                            ? "grabbing"
-                            : scale.image8 > 1
-                              ? "grab"
-                              : "default",
-                        }}
-                      />
+                      <ImageEditor
+    src={images.image8}
+    scale={scale.image8}
+    position={position.image8}
+    rotation={rotation.image8}
+  />
 
                       {/* Zoom Controls */}
                       <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1814,7 +1828,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                         </button>
                       </div>
 
-                      {/* Edit Button */}
+                      
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image8")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                       <button
                         type="button"
                         onClick={() => openImageSourceModal("image8")}
@@ -1854,30 +1879,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               <div className="flex gap-3">
                 <div className="w-1/2 h-[212px] border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseDown={(e) => handleMouseDown("image9", e)}
-                    onMouseMove={(e) => handleMouseMove("image9", e)}
-                    onMouseUp={() => handleMouseUp("image9")}
-                    onMouseLeave={() => handleMouseLeave("image9")}
-                  >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image9", e)}
+    onMouseMove={(e) => handleMouseMove("image9", e)}
+    onMouseUp={() => handleMouseUp("image9")}
+    onMouseLeave={() => handleMouseLeave("image9")}
+    style={{ cursor: dragging.image9 ? "grabbing" : "grab" }}
+  >
                     {images.image9 ? (
                       <>
-                        <Image
-                          unoptimized
-                          src={images.image9}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image9}) translate(${position.image9.x}px, ${position.image9.y}px)`,
-                            cursor: dragging.image9
-                              ? "grabbing"
-                              : scale.image9 > 1
-                                ? "grab"
-                                : "default",
-                          }}
-                        />
+                        <ImageEditor
+    src={images.image9}
+    scale={scale.image9}
+    position={position.image9}
+    rotation={rotation.image9}
+  />
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1899,7 +1915,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                           </button>
                         </div>
 
-                        {/* Edit Button */}
+                        
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image9")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openImageSourceModal("image9")}
@@ -1939,30 +1966,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                 <div className="flex flex-col gap-3">
                   <div className="w-[150px] h-1/2 border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseDown={(e) => handleMouseDown("image10", e)}
-                      onMouseMove={(e) => handleMouseMove("image10", e)}
-                      onMouseUp={() => handleMouseUp("image10")}
-                      onMouseLeave={() => handleMouseLeave("image10")}
-                    >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image10", e)}
+    onMouseMove={(e) => handleMouseMove("image10", e)}
+    onMouseUp={() => handleMouseUp("image10")}
+    onMouseLeave={() => handleMouseLeave("image10")}
+    style={{ cursor: dragging.image10 ? "grabbing" : "grab" }}
+  >
                       {images.image10 ? (
                         <>
-                          <Image
-                            unoptimized
-                            src={images.image10}
-                            alt="uploaded"
-                            width={200}
-                            height={300}
-                            className="w-full h-full object-cover transition-transform duration-150"
-                            style={{
-                              transform: `scale(${scale.image10}) translate(${position.image10.x}px, ${position.image10.y}px)`,
-                              cursor: dragging.image10
-                                ? "grabbing"
-                                : scale.image10 > 1
-                                  ? "grab"
-                                  : "default",
-                            }}
-                          />
+                          <ImageEditor
+    src={images.image10}
+    scale={scale.image10}
+    position={position.image10}
+    rotation={rotation.image10}
+  />
 
                           {/* Zoom Controls */}
                           <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1984,7 +2002,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                             </button>
                           </div>
 
-                          {/* Edit Button */}
+                          
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image10")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                           <button
                             type="button"
                             onClick={() => openImageSourceModal("image10")}
@@ -2025,30 +2054,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                   </div>
                   <div className="w-[150px] h-1/2 border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseDown={(e) => handleMouseDown("image11", e)}
-                      onMouseMove={(e) => handleMouseMove("image11", e)}
-                      onMouseUp={() => handleMouseUp("image11")}
-                      onMouseLeave={() => handleMouseLeave("image11")}
-                    >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image11", e)}
+    onMouseMove={(e) => handleMouseMove("image11", e)}
+    onMouseUp={() => handleMouseUp("image11")}
+    onMouseLeave={() => handleMouseLeave("image11")}
+    style={{ cursor: dragging.image11 ? "grabbing" : "grab" }}
+  >
                       {images.image11 ? (
                         <>
-                          <Image
-                            unoptimized
-                            src={images.image11}
-                            alt="uploaded"
-                            width={200}
-                            height={300}
-                            className="w-full h-full object-cover transition-transform duration-150"
-                            style={{
-                              transform: `scale(${scale.image11}) translate(${position.image11.x}px, ${position.image11.y}px)`,
-                              cursor: dragging.image11
-                                ? "grabbing"
-                                : scale.image11 > 1
-                                  ? "grab"
-                                  : "default",
-                            }}
-                          />
+                          <ImageEditor
+    src={images.image11}
+    scale={scale.image11}
+    position={position.image11}
+    rotation={rotation.image11}
+  />
 
                           {/* Zoom Controls */}
                           <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2070,7 +2090,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                             </button>
                           </div>
 
-                          {/* Edit Button */}
+                          
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image11")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                           <button
                             type="button"
                             onClick={() => openImageSourceModal("image11")}
@@ -2113,30 +2144,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                 <div className="flex flex-col gap-3 justify-end">
                   <div className="w-[150px] h-1/2 border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseDown={(e) => handleMouseDown("image12", e)}
-                      onMouseMove={(e) => handleMouseMove("image12", e)}
-                      onMouseUp={() => handleMouseUp("image12")}
-                      onMouseLeave={() => handleMouseLeave("image12")}
-                    >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image12", e)}
+    onMouseMove={(e) => handleMouseMove("image12", e)}
+    onMouseUp={() => handleMouseUp("image12")}
+    onMouseLeave={() => handleMouseLeave("image12")}
+    style={{ cursor: dragging.image12 ? "grabbing" : "grab" }}
+  >
                       {images.image12 ? (
                         <>
-                          <Image
-                            unoptimized
-                            src={images.image12}
-                            alt="uploaded"
-                            width={200}
-                            height={300}
-                            className="w-full h-full object-cover transition-transform duration-150"
-                            style={{
-                              transform: `scale(${scale.image12}) translate(${position.image12.x}px, ${position.image12.y}px)`,
-                              cursor: dragging.image12
-                                ? "grabbing"
-                                : scale.image12 > 1
-                                  ? "grab"
-                                  : "default",
-                            }}
-                          />
+                          <ImageEditor
+    src={images.image12}
+    scale={scale.image12}
+    position={position.image12}
+    rotation={rotation.image12}
+  />
 
                           {/* Zoom Controls */}
                           <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2158,7 +2180,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                             </button>
                           </div>
 
-                          {/* Edit Button */}
+                          
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image12")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                           <button
                             type="button"
                             onClick={() => openImageSourceModal("image12")}
@@ -2201,30 +2234,21 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               </div>
               <div className="h-[500px] border-2 border-[#fff] relative overflow-hidden group">
                 <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseDown={(e) => handleMouseDown("image14", e)}
-                  onMouseMove={(e) => handleMouseMove("image14", e)}
-                  onMouseUp={() => handleMouseUp("image14")}
-                  onMouseLeave={() => handleMouseLeave("image14")}
-                >
+    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+    onMouseDown={(e) => handleMouseDown("image14", e)}
+    onMouseMove={(e) => handleMouseMove("image14", e)}
+    onMouseUp={() => handleMouseUp("image14")}
+    onMouseLeave={() => handleMouseLeave("image14")}
+    style={{ cursor: dragging.image14 ? "grabbing" : "grab" }}
+  >
                   {images.image14 ? (
                     <>
-                      <Image
-                        unoptimized
-                        src={images.image14}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image14}) translate(${position.image14.x}px, ${position.image14.y}px)`,
-                          cursor: dragging.image14
-                            ? "grabbing"
-                            : scale.image14 > 1
-                              ? "grab"
-                              : "default",
-                        }}
-                      />
+                      <ImageEditor
+    src={images.image14}
+    scale={scale.image14}
+    position={position.image14}
+    rotation={rotation.image14}
+  />
 
                       {/* Zoom Controls */}
                       <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2246,7 +2270,18 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                         </button>
                       </div>
 
-                      {/* Edit Button */}
+                      
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRotate("image14")}
+                      className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                      title="Rotate image"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
+  
+{/* Edit Button */}
                       <button
                         type="button"
                         onClick={() => openImageSourceModal("image14")}

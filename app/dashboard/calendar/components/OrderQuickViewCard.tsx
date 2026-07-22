@@ -13,6 +13,7 @@ import CancelOrderDialog, { CancelPreviewData } from "../../orders/components/Ca
 import { PreviewCancelService, CancelService } from "../../orders/orders";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { isPastBooking } from "@/lib/bookingUtils";
 
 export type CalendarEvent = {
     title: string;
@@ -69,16 +70,12 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
     const queryString = queryParams.toString();
     const fileManagerHref = `/dashboard/file-manager/${CurrentOrder?.uuid}${queryString ? `?${queryString}` : ''}`;
 
-    const earliestSlotDT = CurrentOrder?.slots?.reduce<Date | null>((earliest, slot) => {
-        const dt = new Date(`${slot.date}T${slot.start_time}`);
-        return !earliest || dt < earliest ? dt : earliest;
-    }, null) ?? null;
+    const isPast = isPastBooking(CurrentOrder);
 
     const showCancelButton =
         !!CurrentOrder &&
         CurrentOrder.order_status !== "Cancelled" &&
-        (!earliestSlotDT || earliestSlotDT > new Date()) &&
-        (userType === "admin" || userType === "agent");
+        (userType === "admin" || (userType === "agent" && !isPast));
 
     const handleCancelServiceClick = async () => {
         const token = localStorage.getItem("token");
@@ -95,14 +92,25 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
         try {
             const data = await PreviewCancelService(CurrentOrder.uuid, serviceOptions.uuid, token);
             setCancelServicePreviewData(data.data);
-            setShowCancelServiceDialog(true);
-        } catch (err) {
-            toast.error(
-                err instanceof Error ? err.message : "Failed to load cancellation details"
-            );
-            setCancelTargetService(null);
+        } catch {
+            setCancelServicePreviewData({
+                order_uuid: CurrentOrder.uuid,
+                service_uuid: serviceOptions.uuid,
+                can_cancel: true,
+                is_free: false,
+                cancellation_fee: 0,
+                total_paid: parseFloat(CurrentOrder.paid_amount || "0"),
+                expected_refund: 0,
+                threshold_hours: 0,
+                fee_percentage: 0,
+                booking_datetime: CurrentOrder.slots?.[0]?.date || new Date().toISOString(),
+                deadline: "",
+                timezone: "",
+                message: "Cancellation for past service",
+            });
         } finally {
             setIsCancelServiceLoading(false);
+            setShowCancelServiceDialog(true);
         }
     };
 

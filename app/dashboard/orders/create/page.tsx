@@ -1,7 +1,8 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { isPastBooking } from '@/lib/bookingUtils';
 import { GetOne } from '../orders';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Property from '@/app/dashboard/orders/components/Property';
@@ -520,6 +521,8 @@ const OrderForm = () => {
     const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
     const fieldBorder = `color-mix(in srgb, ${roleSettings.pageBg} 80%, black)`;
 
+    const isPast = isPastBooking(currentUser);
+
     return (
         // <OrderProvider>
         <div className='font-alexandria' style={{ backgroundColor: roleSettings.pageBg }}>
@@ -546,11 +549,11 @@ const OrderForm = () => {
                     {active !== "order" ? (
                         <Button
                             onClick={handleNext}
-                            disabled={!isValid()}
+                            disabled={!isValid() || (isPast && role !== 'admin')}
                             className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                             style={{
-                                backgroundColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB',
-                                borderColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB'
+                                backgroundColor: (isValid() && !(isPast && role !== 'admin')) ? roleSettings.pageTabColor : '#BBBBBB',
+                                borderColor: (isValid() && !(isPast && role !== 'admin')) ? roleSettings.pageTabColor : '#BBBBBB'
                             }}
                         >
                             Next
@@ -565,19 +568,18 @@ const OrderForm = () => {
                         </Button>
                     ) : (
                         <Button
-                            disabled={isLoading}
+                            disabled={isLoading || (isPast && role !== 'admin')}
                             onClick={async (e) => {
                                 await confirmationRef.current?.handleSubmitOrder(e);
                                 setIsSubmitted(true);
                             }}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                             style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                         >
                             {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
                         </Button>
                     )}
                 </div>
-
 
             </div>
             <div className={`sticky ${isBookNowMode ? 'top-[184px]' : 'top-[80px]'} z-40 flex justify-center items-center gap-x-2.5 px-0 sm:px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm`} style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >

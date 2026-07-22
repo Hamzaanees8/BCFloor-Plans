@@ -603,6 +603,7 @@ export interface PortalSettingsPayload {
   show_org_details_on_empty_schedule: boolean;
   disable_next_day_booking: boolean;
   booking_cutoff_time: string;
+  allow_print_request: boolean;
 }
 
 export async function SavePortalSettings(payload: PortalSettingsPayload) {
@@ -665,6 +666,7 @@ export interface Organization {
   disable_next_day_booking?: boolean;
   booking_cutoff_time?: string;
   show_org_details_on_empty_schedule?: boolean;
+  allow_print_request?: boolean;
 }
 
 export interface OrganizationPayload {
@@ -696,6 +698,7 @@ export interface OrganizationPayload {
   disable_next_day_booking?: boolean;
   booking_cutoff_time?: string;
   show_org_details_on_empty_schedule?: boolean;
+  allow_print_request?: boolean;
 }
 
 export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {

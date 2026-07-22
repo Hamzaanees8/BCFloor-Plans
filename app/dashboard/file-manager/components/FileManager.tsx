@@ -1779,6 +1779,9 @@ const FileManager = () => {
                 day: "numeric",
                 year: "numeric",
               });
+              const isRefunded =
+                booking.payment_status === "REFUNDED" ||
+                orderData?.payment_status === "REFUNDED";
               const isPaid =
                 orderData?.payment_status === "PAID" ||
                 booking.payment_status === "PAID";
@@ -1810,7 +1813,17 @@ const FileManager = () => {
                   {/* Status Badge */}
                   {userType !== "vendor" && (
                     <div className="flex items-center gap-2">
-                      {isPaid ? (
+                      {isRefunded ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenInvoice(booking.service?.name);
+                          }}
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#D0021B] text-white hover:bg-[#b00217] transition-colors"
+                        >
+                          REFUNDED
+                        </button>
+                      ) : isPaid ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

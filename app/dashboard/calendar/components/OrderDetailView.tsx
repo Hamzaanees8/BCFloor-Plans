@@ -6,7 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, AlertTriangle } from "lucide-react";
+import { isPastBooking } from "@/lib/bookingUtils";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
 import AppointmentTab from "./AppointmentTab";
@@ -376,9 +377,16 @@ export default function OrderDetailView({
     });
   }, [area, isEdit, servicesData, setOrderServices, setCalendarServices]);
 
+  const isPast = isPastBooking(currentOrder);
+
   const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (isLoading) return;
+
+    if (isPast && userType !== 'admin') {
+      toast.error("This booking is in the past. Agents cannot update past bookings.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -591,14 +599,14 @@ export default function OrderDetailView({
                   Close
                 </Button>
                 <Button
-                  disabled={isLoading}
+                  disabled={isLoading || (isPast && userType !== 'admin')}
                   onClick={async (e) => {
                     const success = await handleSubmitOrder(e);
                     if (success) {
                       setShowConfirmation(true);
                     }
                   }}
-                  className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50`}
+                  className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
                 </Button>

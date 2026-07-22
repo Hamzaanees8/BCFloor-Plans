@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Delete, Get, CancelOrder } from './orders';
+import { Delete, Get, CancelOrder, PreviewCancelOrder } from './orders';
+import { isPastBooking } from '@/lib/bookingUtils';
 import { Address } from '@/lib/types';
 import { useOrderContext } from './context/OrderContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
@@ -321,7 +322,7 @@ const Page = () => {
     const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [isCancelLoading, setIsCancelLoading] = useState(false);
-    const [cancelPreviewData] = useState<any | null>(null);
+    const [cancelPreviewData, setCancelPreviewData] = useState<any | null>(null);
 
     // const [selectedData, setSelectedData] = useState<VendorData | null>(null); // Unused
     const [selectedData1, setSelectedData1] = useState<AgentData | null>(null);
@@ -422,15 +423,10 @@ const Page = () => {
     };
 
     const canShowCancel = (order: Order): boolean => {
-        const earliest = order.slots?.reduce<Date | null>((min, slot) => {
-            const dt = new Date(`${slot.date}T${slot.start_time}`);
-            return !min || dt < min ? dt : min;
-        }, null);
-        return (
-            order.order_status !== 'Cancelled' &&
-            (userType === 'admin' || userType === 'agent') &&
-            (!earliest || earliest > new Date())
-        );
+        if (order.order_status === 'Cancelled') return false;
+        if (userType === 'admin') return true;
+        if (userType === 'agent') return !isPastBooking(order);
+        return false;
     };
 
     const handleCancelFromList = async () => {
@@ -645,9 +641,33 @@ const Page = () => {
                     },
                     ...(canShowCancel(row.original) ? [{
                         label: "Cancel",
-                        onClick: () => {
-                            setOrderToCancel(row.original);
-                            setShowCancelDialog(true);
+                        onClick: async () => {
+                            const order = row.original;
+                            const token = localStorage.getItem('token') || '';
+                            setOrderToCancel(order);
+                            setIsCancelLoading(true);
+                            try {
+                                const res = await PreviewCancelOrder(order.uuid, token);
+                                setCancelPreviewData(res.data);
+                            } catch {
+                                setCancelPreviewData({
+                                    order_uuid: order.uuid,
+                                    can_cancel: true,
+                                    is_free: false,
+                                    cancellation_fee: 0,
+                                    total_paid: parseFloat(order.paid_amount || "0"),
+                                    expected_refund: 0,
+                                    threshold_hours: 0,
+                                    fee_percentage: 0,
+                                    booking_datetime: order.slots?.[0]?.date || new Date().toISOString(),
+                                    deadline: "",
+                                    timezone: "",
+                                    message: "Cancellation for past booking",
+                                });
+                            } finally {
+                                setIsCancelLoading(false);
+                                setShowCancelDialog(true);
+                            }
                         },
                     }] : []),
                     {

@@ -32,10 +32,12 @@ const PortalSettings = React.forwardRef<
         disable_next_day_booking: boolean;
         booking_cutoff_time: string;
         show_org_details_on_empty_schedule: boolean;
+        allow_print_request: boolean;
     }>({
         disable_next_day_booking: false,
         booking_cutoff_time: "17:00",
         show_org_details_on_empty_schedule: false,
+        allow_print_request: false,
     });
 
     // Area states
@@ -59,6 +61,7 @@ const PortalSettings = React.forwardRef<
                         disable_next_day_booking: settings.disable_next_day_booking ?? false,
                         booking_cutoff_time: settings.booking_cutoff_time || "17:00",
                         show_org_details_on_empty_schedule: settings.show_org_details_on_empty_schedule ?? false,
+                        allow_print_request: settings.allow_print_request ?? false,
                     });
                 }
                 if (res.data?.tour_settings) {
@@ -87,6 +90,7 @@ const PortalSettings = React.forwardRef<
                 disable_next_day_booking: formState.disable_next_day_booking,
                 booking_cutoff_time: formState.booking_cutoff_time,
                 show_org_details_on_empty_schedule: formState.show_org_details_on_empty_schedule,
+                allow_print_request: formState.allow_print_request,
             });
 
             toast.success("Portal settings updated successfully");
@@ -281,6 +285,19 @@ const PortalSettings = React.forwardRef<
                                     />
                                     <Label htmlFor="org-show-details" className="cursor-pointer font-medium text-sm">
                                         Show Organization Contact Details (If no vendor is found)
+                                    </Label>
+                                </div>
+
+                                {/* Allow Print Request */}
+                                <div className="col-span-1 md:col-span-2 flex items-center gap-3">
+                                    <Switch
+                                        id="allow-print-request"
+                                        checked={formState.allow_print_request}
+                                        onCheckedChange={(val) => setFormState(prev => ({ ...prev, allow_print_request: val }))}
+                                        className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
+                                    />
+                                    <Label htmlFor="allow-print-request" className="cursor-pointer font-medium text-sm">
+                                        Allow Print Request
                                     </Label>
                                 </div>
 

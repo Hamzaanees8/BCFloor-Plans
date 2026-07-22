@@ -1402,7 +1402,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         {userType === 'admin' && (
                             <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
-                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                                    <p className={`text-[13px] md:text-[18px] ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED' ? 'text-[#D0021B]' : (paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]')} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
                                     <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
@@ -1413,12 +1413,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
-                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
+                                        ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED'
+                                            ? "bg-[#D0021B] hover:bg-[#b00217]"
+                                            : paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
-                                    {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
+                                    {bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED'
+                                        ? 'REFUNDED'
+                                        : (bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID')}
                                 </Button>
                             </div>
                         )}
@@ -1431,7 +1435,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
-                                    <p className={`text-[13px] md:text-[18px] ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]'} leading-none mb-1`}>
+                                    <p className={`text-[13px] md:text-[18px] ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED' ? 'text-[#D0021B]' : (paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]')} leading-none mb-1`}>
                                         ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                     </p>
                                     <p className='text-[#7D7D7D] text-[9px] md:text-[10px] leading-none'>
@@ -1442,12 +1446,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
                                     }}
-                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4
-                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
+                                        ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED'
+                                            ? "bg-[#D0021B] hover:bg-[#b00217]"
+                                            : paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
-                                    {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                    {bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED'
+                                        ? 'Refunded'
+                                        : (bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid')}
                                 </Button>
                             </div>
                         )}

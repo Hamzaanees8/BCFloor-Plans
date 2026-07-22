@@ -8,7 +8,8 @@ import {
     DialogFooter,
     DialogDescription
 } from "@/components/ui/dialog";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, AlertTriangle } from "lucide-react";
+import { isPastBooking } from "@/lib/bookingUtils";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
 import { Agent } from "@/lib/types";
@@ -333,9 +334,17 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             return changed ? updated : prev;
         });
     }, [area, contextServicesData, setOrderServices, setCalendarServices]);
+    const isPast = isPastBooking(currentOrder);
+
     const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
         setIsLoading(true);
-        e.preventDefault()
+        e.preventDefault();
+
+        if (isPast && userType !== 'admin') {
+            toast.error("This booking is in the past. Agents cannot update past bookings.");
+            setIsLoading(false);
+            return false;
+        }
 
         const finishedTotal = area
             .filter((a) => a.category === "Finished" || a.type === "Finished")
@@ -647,13 +656,14 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         Close
                     </Button>
                     <Button
+                        disabled={isLoading || (isPast && userType !== 'admin')}
                         onClick={async (e) => {
                             const success = await handleSubmitOrder(e);
                             if (success) {
                                 setShowConfirmation(true);
                             }
                         }}
-                        className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
+                        className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save Changes"}
                     </Button>

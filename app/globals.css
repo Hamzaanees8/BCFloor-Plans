@@ -863,3 +863,37 @@ textarea::placeholder {
 }
 @media print { @page { margin: 0; } }
 
+
+/* Tabloid Preview */
+/* .tabloid-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+  padding: 40px;
+}
+
+.tabloid-preview-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 40px;
+}
+
+.preview-page {
+  position: relative;
+  width: 8.5in;
+  height: 11in;
+  overflow: hidden;
+  background: white;
+  flex-shrink: 0;
+  box-shadow: 0 8px 25px rgba(0,0,0,.15);
+}
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: 8.5in 8.5in;
+    gap: 40px;
+    transform: scale(0.75);
+    transform-origin: top center;
+} */
