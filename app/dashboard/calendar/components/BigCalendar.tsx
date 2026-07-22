@@ -234,6 +234,12 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     }
 
     useEffect(() => {
+        // Do not render external vendor Google events for agents on their main calendar
+        if (userType === 'agent') {
+            setVendorEvents([]);
+            return;
+        }
+
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
         const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
         const vendorsToProcess = userType === 'vendor' && userUuid
