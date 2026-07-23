@@ -493,6 +493,22 @@ export const VerifyGoogleCalendar = async (body: {
   }
 };
 
+export async function disconnectVendorCalendar(vendorUuid?: string) {
+  try {
+    const response = await api.post(`/vendor/calendar/disconnect`, {
+      vendor_uuid: vendorUuid,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to disconnect vendor calendar:", error);
+    return {
+      success: false,
+      message: error?.response?.data?.message || error?.message || "Failed to disconnect calendar",
+    };
+  }
+}
+
+
 export async function GetVendorEarnings(vendorId: string, params?: { period?: string, start_date?: string, end_date?: string }) {
   const response = await api.get(`/admin/vendors/${vendorId}/earnings`, { params });
   return response.data;

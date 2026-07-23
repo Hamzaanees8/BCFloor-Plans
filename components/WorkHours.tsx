@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   connectGoogleCalendar,
+  disconnectVendorCalendar,
   //   connectStripe,
 } from "@/app/dashboard/vendors/vendors";
 import {
@@ -371,8 +372,18 @@ const VendorWorkHours = ({
     [key: string]: string;
   }>({});
   const [timeZoneOptions, setTimeZoneOptions] = useState<TimeZoneOption[]>([]);
-  //   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isCalendarConnected, setIsCalendarConnected] = useState(
+    !!currentUser?.google_access_token || !!currentUser?.google_refresh_token
+  );
+
+  useEffect(() => {
+    if (currentUser) {
+      setIsCalendarConnected(
+        !!currentUser.google_access_token || !!currentUser.google_refresh_token
+      );
+    }
+  }, [currentUser]);
   useEffect(() => {
     const zones = Intl.supportedValuesOf("timeZone");
 
@@ -537,6 +548,37 @@ const VendorWorkHours = ({
       toast.error(data.error || "Failed to connect Google Calendar");
     }
     setIsCalendarLoading(false);
+  };
+
+  const handleCalendarDisconnect = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
+    setIsCalendarLoading(true);
+    try {
+      const vendorUuid = (currentUser?.uuid || currentUser?.company?.vendor_id?.toString()) as string;
+      const res = await disconnectVendorCalendar(vendorUuid);
+      if (
+        res?.success ||
+        res?.status === "success" ||
+        res?.message?.toLowerCase().includes("disconnected") ||
+        (!res?.error && res?.success !== false)
+      ) {
+        setIsCalendarConnected(false);
+        if (currentUser) {
+          currentUser.google_access_token = undefined;
+          currentUser.google_refresh_token = undefined;
+        }
+        handleChange("googleSyncEnabled", false);
+        toast.success("Calendar disconnected successfully");
+      } else {
+        toast.error(res?.message || res?.error || "Failed to disconnect calendar");
+      }
+    } catch (error: any) {
+      console.error("Calendar disconnect error:", error);
+      toast.error("Failed to disconnect calendar");
+    } finally {
+      setIsCalendarLoading(false);
+    }
   };
 
   const handleAddService = (id?: string) => {
@@ -1234,52 +1276,59 @@ const VendorWorkHours = ({
                           Sync to Google
                         </Label>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          handleConnectCalendar(e);
-                        }}
-                        disabled={
-                          isCalendarLoading ||
-                          !!currentUser?.google_access_token ||
-                          !!currentUser?.google_refresh_token
-                        }
-                        className={`px-6 py-3 w-auto ${currentUser?.google_access_token ||
-                          currentUser?.google_refresh_token
-                          ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
-                          : `${userType}-bg hover-${userType}-bg`
-                          } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-                      >
-                        {isCalendarLoading ? (
-                          <>
-                            <svg
-                              className="animate-spin h-5 w-5 text-white"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            Connecting...
-                          </>
-                        ) : currentUser?.google_access_token ||
-                          currentUser?.google_refresh_token ? (
-                          "Calendar Connected"
-                        ) : (
-                          "Connect with Calendar"
-                        )}
-                      </button>
+                      {isCalendarConnected ? (
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-green-700 bg-green-50 px-3 py-1.5 border border-green-200 rounded-md flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            Connected
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isCalendarLoading}
+                            onClick={handleCalendarDisconnect}
+                            className="px-4 py-2 text-sm text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {isCalendarLoading ? "Disconnecting..." : "Disconnect"}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            handleConnectCalendar(e);
+                          }}
+                          disabled={isCalendarLoading}
+                          className={`px-6 py-3 w-auto ${userType}-bg hover-${userType}-bg text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                        >
+                          {isCalendarLoading ? (
+                            <>
+                              <svg
+                                className="animate-spin h-5 w-5 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Connecting...
+                            </>
+                          ) : (
+                            "Connect with Calendar"
+                          )}
+                        </button>
+                      )}
                       {/* <div className="w-1/2">
                         <Select
                           value={syncEmailType}
