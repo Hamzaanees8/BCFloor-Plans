@@ -1,11 +1,13 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { applySafeZoneToClone } from "../utils/safeZoneUtils";
 
 const DownloadPdf = async (
   elementId,
   fileName = "section.pdf",
   withBleed = false,
-  paperSize = { width: 8.5, height: 11 }
+  paperSize = { width: 8.5, height: 11 },
+  withSafeZone = false
 ) => {
   const section = document.getElementById(elementId);
 
@@ -42,6 +44,10 @@ const DownloadPdf = async (
   clone.style.overflow = "hidden";
   clone.style.maxHeight = "none";
   document.body.appendChild(clone);
+
+  if (withSafeZone) {
+    applySafeZoneToClone(clone, false);
+  }
 
   // Sync inputs, excluding file inputs entirely to avoid InvalidStateError
   const originalInputs = section.querySelectorAll("input:not([type='file']), textarea");
@@ -203,21 +209,13 @@ const DownloadPdf = async (
             finalImgHeightInches
           );
         } else {
-          const margin = 0.1;
-          const scaleFactor = (paperSize.width - (margin * 2)) / paperSize.width;
-          const targetWidth = paperSize.width - (margin * 2);
-          const targetHeight = finalImgHeightInches * scaleFactor;
-          const pageContentHeight = paperSize.height - (margin * 2);
-
-          pdf.setFillColor(bgColor);
-          pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
           pdf.addImage(
             finalImgData, 
             "PNG", 
-            margin, 
-            margin - (p * pageContentHeight), 
-            targetWidth, 
-            targetHeight
+            0, 
+            -(p * paperSize.height), 
+            paperSize.width, 
+            finalImgHeightInches
           );
         }
       }

@@ -1,10 +1,12 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { applySafeZoneToClone } from "../utils/safeZoneUtils";
 
 const TabloidPdfGenerator = async (
   elementId,
   fileName = "sheet.pdf",
-  withBleed = false
+  withBleed = false,
+  withSafeZone = false
 ) => {
   const paperSize = { width: 17, height: 11 }; // Enforce Tabloid size
   const section = document.getElementById(elementId);
@@ -68,6 +70,10 @@ const TabloidPdfGenerator = async (
   });
 
   document.body.appendChild(clone);
+
+  if (withSafeZone) {
+    applySafeZoneToClone(clone, true);
+  }
 
   // ─── Re-apply corrected image transforms in the clone ──────────────────────
   // The clone is now at full 17x11in resolution. We need to recalculate
@@ -317,21 +323,13 @@ const TabloidPdfGenerator = async (
             finalImgHeightInches
           );
         } else {
-          const margin = 0.1;
-          const scaleFactor = (paperSize.width - (margin * 2)) / paperSize.width;
-          const targetWidth = paperSize.width - (margin * 2);
-          const targetHeight = finalImgHeightInches * scaleFactor;
-          const pageContentHeight = paperSize.height - (margin * 2);
-
-          pdf.setFillColor(bgColor);
-          pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
           pdf.addImage(
             finalImgData, 
             "PNG", 
-            margin, 
-            margin - (p * pageContentHeight), 
-            targetWidth, 
-            targetHeight
+            0, 
+            -(p * paperSize.height), 
+            paperSize.width, 
+            finalImgHeightInches
           );
         }
       }

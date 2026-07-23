@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2 } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -263,8 +263,9 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     };
 
     const [isDownloading, setIsDownloading] = useState(false);
+    const [safeZone, setSafeZone] = useState<boolean>(false);
 
-    const handleDownload = async (withBleed: boolean) => {
+    const handleDownload = async (withBleed: boolean, useSafeZone: boolean = safeZone) => {
       // Force HMR reload to pull updated DownloadPdf.js logic
       setIsDownloading(true);
       try {
@@ -279,7 +280,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
           await TabloidPdfGenerator(
             "pdf-section",
             fileName,
-            withBleed
+            withBleed,
+            useSafeZone
           );
         } else {
           const paperSize = { width: 8.5, height: 11 }; // Default Letter
@@ -287,7 +289,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
             "pdf-section",
             fileName,
             withBleed,
-            paperSize
+            paperSize,
+            useSafeZone
           );
         }
       } catch (error) {
@@ -815,21 +818,48 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[180px]">
+                  <DropdownMenuContent align="start" className="w-[220px]">
                     <DropdownMenuItem
-                      onClick={() => handleDownload(false)}
+                      onClick={() => handleDownload(false, false)}
                       className="cursor-pointer"
                     >
                       Download (No Bleed)
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => handleDownload(true)}
+                      onClick={() => handleDownload(true, false)}
                       className="cursor-pointer"
                     >
                       Download (With Bleed)
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(false, true)}
+                      className="cursor-pointer font-medium text-emerald-700"
+                    >
+                      Download (Safe Zone)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(true, true)}
+                      className="cursor-pointer font-medium text-emerald-700"
+                    >
+                      Download (Bleed + Safe Zone)
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* Safe Zone Toggle Toolbar Button */}
+                <button
+                  type="button"
+                  onClick={() => setSafeZone(!safeZone)}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] h-[32px] transition-colors border-2 rounded-[6px] font-[500] ${
+                    safeZone
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Toggle 0.25-inch safe zone for PDF export"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  Safe Zone: <span className="font-bold">{safeZone ? "ON" : "OFF"}</span>
+                </button>
 
                 {/* Copy Style button — only visible when a template is open */}
                 {selectedTemplate && (
