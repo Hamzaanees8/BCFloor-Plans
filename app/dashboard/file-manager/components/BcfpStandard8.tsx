@@ -186,13 +186,13 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
         if (prop.mls_number) setMlsNumber(prop.mls_number);
 
         if (prop.suite) setAddressCode(prop.suite.toString());
-        if (prop.address) setAddress(prop.address);
+        if (prop.address) setAddress(prop.suite??'');
 
         let city = "";
         if (prop.city) city += prop.city;
         if (prop.province) city += (city ? ", " : "") + prop.province;
         if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-        if (city) setCityLine(city);
+        if (city) setCityLine(prop.address||city);
       }
 
       if (agent) {
@@ -532,14 +532,18 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
       )}
 
       <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
-        {/* PAGE 1 BANNER */}
+        {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
         <div
           data-html2canvas-ignore="true"
-          className="w-[17in] flex items-center justify-between bg-slate-800 text-white px-4 py-2 rounded-t-md font-sans text-xs font-semibold uppercase tracking-wider mb-0"
-          style={{ zoom: 0.55, margin: "0 auto" }}
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "0 auto 32px auto" }}
         >
-          <span>PAGE 1 (FRONT / OUTSIDE)</span>
-          <span className="text-slate-400">17&quot; x 11&quot; Tabloid</span>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 4
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 1
+          </div>
         </div>
 
         {/* pdf-page 1 */}
@@ -1059,14 +1063,18 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
           </div>
         </div>
 
-        {/* PAGE 2 BANNER */}
+        {/* BOTTOM SHEET BANNERS (PAGE 2 | PAGE 3) */}
         <div
           data-html2canvas-ignore="true"
-          className="w-[17in] flex items-center justify-between bg-slate-800 text-white px-4 py-2 rounded-t-md font-sans text-xs font-semibold uppercase tracking-wider mb-0"
-          style={{ zoom: 0.55, margin: "0 auto" }}
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "48px auto 32px auto" }}
         >
-          <span>PAGE 2 (INSIDE / BACK)</span>
-          <span className="text-slate-400">17&quot; x 11&quot; Tabloid</span>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 2
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 3
+          </div>
         </div>
 
         {/* pdf-page 2 */}

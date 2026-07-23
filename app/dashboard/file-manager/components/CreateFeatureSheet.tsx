@@ -299,7 +299,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     };
 
     const templateImages = [
-      { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
+      // { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
       { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
       { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
       { id: "BCFPStandard6", type: "tabloid", url: "BcfpStandard6" },
@@ -308,7 +308,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard9", type: "tabloid", url: "BcfpStandard9" },
       { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
       { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
-      { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
+      // { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
       { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
       { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
       { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
@@ -319,8 +319,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
       { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
       { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },
-      { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
-      { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
+      // { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
+      // { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
     ];
 
     // Helper to get thumbnail URLs with fallback
@@ -760,7 +760,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     const templateOptions = [
       "BCFPStandard",
       // "BCFPStandard1",
-      "BCFPStandard2",
+      // "BCFPStandard2",
       "BCFPStandard3",
       "BCFPStandard4",
       "BCFPStandard6",
@@ -769,7 +769,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       "BCFPStandard9",
       "BCFPStandard10",
       "BCFPStandard11",
-      "BCFPStandard12",
+      // "BCFPStandard12",
       "BCFPStandard13",
       "BCFPStandard14",
       "BCFPStandard15",
@@ -780,8 +780,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       "BCFPStandard20",
       "BCFPStandard21",
       "BCFPStandard22",
-      "BCFPStandard23",
-      "BCFPStandard24",
+      // "BCFPStandard23",
+      // "BCFPStandard24",
       ...uploadedPdfs.map((pdf) => pdf.name),
     ];
 

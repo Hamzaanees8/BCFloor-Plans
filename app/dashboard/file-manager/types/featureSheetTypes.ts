@@ -138,7 +138,7 @@ export interface TemplateDefinition {
 }
 
 export const templateImages: TemplateDefinition[] = [
-  { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
+  // { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
   { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
   { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
   { id: "BCFPStandard6", type: "tabloid", url: "BcfpStandard6" },
@@ -147,7 +147,7 @@ export const templateImages: TemplateDefinition[] = [
   { id: "BCFPStandard9", type: "tabloid", url: "BcfpStandard9" },
   { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
   { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
-  { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
+  // { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
   { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
   { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
   { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
@@ -158,8 +158,8 @@ export const templateImages: TemplateDefinition[] = [
   { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
   { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
   { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },
-  { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
-  { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
+  // { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
+  // { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
 ];
 
 export type UploadedBy = "admin" | "agent" | "vendor";

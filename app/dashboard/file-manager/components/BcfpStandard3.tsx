@@ -28,6 +28,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [propertyName, setPropertyName] = useState("");
+  const [roadName, setRoadName] = useState("");
   const [amount, setAmount] = useState("");
   const [byLawRestrictions, setByLawRestrictions] = useState("");
   const [maintenanceFees, setMaintenanceFees] = useState("");
@@ -189,8 +190,37 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
 
   const { formData, updateFormData } = useFileManagerContext();
 
-  // Initial sync from context on mount
+  // Auto-populate from orderData & sync from context on mount / orderData change
   useEffect(() => {
+    if (orderData) {
+      const prop = orderData.property;
+      const agent = orderData.agent;
+
+      if (prop) {
+        if (prop.listing_price) setAmount(prop.listing_price.toString());
+        if (prop.bedrooms) setBedroom(prop.bedrooms.toString());
+        if (prop.bathrooms) setBathroom(prop.bathrooms.toString());
+        if (prop.square_footage) setSqft(prop.square_footage.toString());
+        if (prop.year_constructed) setBuiltYear(prop.year_constructed.toString());
+        if (prop.description) setDescription(prop.description);
+        if (prop.mls_number) setMlsNumber(prop.mls_number);
+
+        if (prop.suite) setRoadName(prop.suite.toString());
+
+        let fullAddr = prop.address || "";
+        if (prop.city) fullAddr += (fullAddr ? ", " : "") + prop.city;
+        if (prop.province) fullAddr += (fullAddr ? ", " : "") + prop.province;
+        if (fullAddr) setPropertyName(fullAddr);
+      }
+
+      if (agent) {
+        if (agent.first_name || agent.last_name)
+          setFullName(`${agent.first_name || ""} ${agent.last_name || ""}`.trim());
+        if (agent.email) setEmail(agent.email);
+        if (agent.company_name) setPropertyName((prev) => prev || agent.company_name || "");
+      }
+    }
+
     if (formData) {
       const s = (val: any) => (typeof val === 'string' ? val : (val?.value || ''));
 
@@ -199,6 +229,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       if (formData.fullName) setFullName(s(formData.fullName));
       if (formData.email) setEmail(s(formData.email));
       if (formData.propertyName) setPropertyName(s(formData.propertyName));
+      if (formData.roadName) setRoadName(s(formData.roadName));
       if (formData.amount) setAmount(s(formData.amount));
       if (formData.byLawRestrictions) setByLawRestrictions(s(formData.byLawRestrictions));
       if (formData.maintenanceFees) setMaintenanceFees(s(formData.maintenanceFees));
@@ -224,9 +255,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
         setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
       }
     }
-    // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orderData]);
 
   // Update context when local state changes
   useEffect(() => {
@@ -236,6 +266,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       fullName,
       email,
       propertyName,
+      roadName,
       amount,
       byLawRestrictions,
       maintenanceFees,
@@ -255,7 +286,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       imagePositions: position
     });
   }, [
-    title, subtitle, fullName, email, propertyName, amount, byLawRestrictions,
+    title, subtitle, fullName, email, propertyName, roadName, amount, byLawRestrictions,
     maintenanceFees, maintenanceFeesInclude, featuresIncluded, siteInfluences,
     amenities, mlsNumber, view, bedroom, bathroom, sqft, builtYear, description,
     images, scale, position, updateFormData
@@ -487,6 +518,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
           sqft: { value: sqft, style: fieldStyles.sqft || {} as TextStyle },
           builtYear: { value: builtYear, style: fieldStyles.builtYear || {} as TextStyle },
           mlsNumber: { value: mlsNumber, style: fieldStyles.mlsNumber || {} as TextStyle },
+          roadName: { value: roadName, style: fieldStyles.roadName || {} as TextStyle },
           amount: { value: amount, style: fieldStyles.amount || {} as TextStyle },
           featuresIncluded: { value: featuresIncluded, style: fieldStyles.featuresIncluded || {} as TextStyle },
           siteInfluences: { value: siteInfluences, style: fieldStyles.siteInfluences || {} as TextStyle },
@@ -520,6 +552,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
         if (others.sqft) setSqft(others.sqft.value || others.sqft);
         if (others.builtYear) setBuiltYear(others.builtYear.value || others.builtYear);
         if (others.mlsNumber) setMlsNumber(others.mlsNumber.value || others.mlsNumber);
+        if (others.roadName) setRoadName(others.roadName.value || others.roadName);
         if (others.amount) setAmount(others.amount.value || others.amount);
       }
 
@@ -577,7 +610,20 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
           onImageSelect={handleGalleryImageSelect}
         />
       )}
-      <div className="w-full items-center justify-center font-alexandria">
+      <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
+        {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
+        <div
+          data-html2canvas-ignore="true"
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "0 auto 32px auto" }}
+        >
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 4
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 1
+          </div>
+        </div>
 
         <div className="flex items-stretch pdf-page bg-white shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden" style={{ width: "17in", height: "11in", zoom: 0.55, margin: "0 auto", marginBottom: "40px" }}>
           <div
@@ -761,44 +807,51 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
                 />
               </div>
             </div>
-            <div className=" text-white leading-none text-center px-12 w-10/12">
-              <div>
-                <div className="font-semibold text-[20px] flex gap-3">
-                  <StyledInput
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                    inputStyle={fieldStyles.fullName}
-                    className=" text-[28px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                    placeholder="Enter full name"
-                  />
-                  <StyledInput
-                    value={propertyName}
-                    onChange={(e) => setPropertyName(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                    inputStyle={fieldStyles.propertyName}
-                    className=" text-[16px] h-[16px] mt-2 font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                    placeholder="MACDONALD  Realty"
-                  />
-                </div>
-                <div className="font-semibold text-[20px] flex gap-3">
-                  <StyledInput
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                    inputStyle={fieldStyles.amount}
-                    className="font-semibold text-[16px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                    placeholder="Enter amount"
-                  />
-                  <StyledInput
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("email", s)}
-                    inputStyle={fieldStyles.email}
-                    className="font-thin text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                    placeholder="Enter email here"
-                  />
-                </div>
+            <div className="text-white text-[12px] space-y-2 mt-5 text-start w-full">
+              <div className="flex gap-2">
+                <span className="font-semibold text-white">REALTOR:</span>
+                <StyledInput
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("fullName", s)}
+                  inputStyle={fieldStyles.fullName}
+                  className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="FIRSTNAME LASTNAME"
+                />
+              </div>
+              <div className="flex gap-2">
+                <span className="font-semibold text-white">PROPERTY:</span>
+                <StyledInput
+                  value={propertyName}
+                  onChange={(e) => setPropertyName(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
+                  inputStyle={fieldStyles.propertyName}
+                  className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="MACDONALD REALTY"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <span className="font-semibold text-white">PRICE:</span>
+                <StyledInput
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                  inputStyle={fieldStyles.amount}
+                  className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="$000,000"
+                />
+              </div>
+              <div className="flex gap-2">
+                <span className="font-semibold text-white">EMAIL:</span>
+                <StyledInput
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("email", s)}
+                  inputStyle={fieldStyles.email}
+                  className="font-normal text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="FIRST@LAST.COM"
+                />
               </div>
               <div className="w-full text-right">
                 <StyledInput
@@ -874,24 +927,39 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
             </div>
           </div>
           <div className="w-1/2 bg-gray-200 relative overflow-hidden flex items-center justify-center group">
-            <div className="flex justify-center content-center absolute top-0 left-0 right-0 px-12 z-10">
-              <div className="w-full text-start content-center">
-                <StyledInput
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("title", s)}
-                  inputStyle={fieldStyles.title}
-                  className="font-extrabold text-[58px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                  placeholder="Enter Title"
-                />
-                <StyledInput
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("subtitle", s)}
-                  inputStyle={fieldStyles.subtitle}
-                  className="font-semibold text-[38px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                  placeholder="Enter Subtitle"
-                />
+            <div className="flex justify-between items-start absolute top-0 left-0 right-0 px-10 py-8 z-20">
+              <div className="flex flex-col text-white">
+                <div className="flex items-baseline font-light text-[30px] leading-none gap-1">
+                  <span className="font-extrabold text-[24px] text-white">#</span>
+                  <StyledInput
+                    value={mlsNumber}
+                    onChange={(e) => setMlsNumber(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
+                    inputStyle={fieldStyles.mlsNumber}
+                    className="font-light text-[30px] h-[35px] w-[160px] leading-none bg-transparent text-white text-left focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                    placeholder="0000-000"
+                  />
+                  <span className="font-light text-[30px] text-white uppercase ml-1">NUMBER</span>
+                  <StyledInput
+                    value={roadName}
+                    onChange={(e) => setRoadName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                    inputStyle={fieldStyles.roadName}
+                    className="font-light text-[30px] h-[35px] leading-none bg-transparent text-white text-center w-[50px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                    placeholder="0"
+                  />
+                  <span className="font-light text-[30px] text-white uppercase ml-1">ROAD</span>
+                </div>
+                <div className="mt-1">
+                  <StyledInput
+                    value={propertyName}
+                    onChange={(e) => setPropertyName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
+                    inputStyle={fieldStyles.propertyName}
+                    className="font-light text-[15px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[200] tracking-[1.5px] uppercase"
+                    placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                  />
+                </div>
               </div>
               {/* image3 */}
               <div className="my-3 w-[200px] h-[100] relative overflow-hidden group">
@@ -989,7 +1057,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               viewBox="0 0 632 418"
               fill="none"
               preserveAspectRatio="none"
-              className="absolute top-0 right-0 left-0 w-full"
+              className="absolute top-0 right-0 left-0 w-full z-10 pointer-events-none"
             >
               {/* Wavy path (using the original fixed coordinates) */}
               <path
@@ -1137,7 +1205,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
               viewBox="0 0 634 319"
               fill="none"
               preserveAspectRatio="none"
-              className="absolute bottom-0 -right-1 left-0 w-full"
+              className="absolute bottom-0 -right-1 left-0 w-full z-10 pointer-events-none"
             >
               <path
                 d="M633.05 280.308L4.3773 293L0.0778809 -2.80029e-06C0.0778809 -2.80029e-06 43.2047 299.058 633.078 215.36L633.05 280.308Z"
@@ -1186,10 +1254,24 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
           </div>
         </div>
 
+        {/* BOTTOM SHEET BANNERS (PAGE 2 | PAGE 3) */}
+        <div
+          data-html2canvas-ignore="true"
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "48px auto 32px auto" }}
+        >
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 2
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 3
+          </div>
+        </div>
+
         <div className="flex items-stretch pdf-page bg-white shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden" style={{ width: "17in", height: "11in", zoom: 0.55, margin: "0 auto", marginBottom: "40px" }}>
           <div className="w-1/2 relative ">
             <svg
-              width="400px"
+              width="100%"
               height="100%"
               viewBox="0 0 569 828"
               fill="none"

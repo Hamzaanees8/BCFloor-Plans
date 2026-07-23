@@ -144,13 +144,13 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
         if (prop.description) setDescription(prop.description);
 
         if (prop.suite) setNumber(prop.suite.toString());
-        if (prop.address) setRoadName(prop.address);
+        if (prop.address) setRoadName(prop.suite??'');
 
         let city = "";
         if (prop.city) city += prop.city;
         if (prop.province) city += (city ? ", " : "") + prop.province;
         if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-        if (city) setCityLine(city);
+        if (city) setCityLine(prop.address||city);
       }
 
       if (agent) {
@@ -453,16 +453,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
       )}
 
       <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
-        {/* PAGE 1 banner */}
+        {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
         <div
-          className="w-full flex items-center justify-center my-8"
           data-html2canvas-ignore="true"
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "0 auto 32px auto" }}
         >
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4 select-none">
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 4
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
             PAGE 1
-          </span>
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          </div>
         </div>
 
         {/* pdf-page 1 */}
@@ -1322,16 +1324,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
           </div>
         </div>
 
-        {/* PAGE 2 banner */}
+        {/* BOTTOM SHEET BANNERS (PAGE 2 | PAGE 3) */}
         <div
-          className="w-full flex items-center justify-center my-8"
           data-html2canvas-ignore="true"
+          className="w-[17in] flex items-center justify-between gap-6 select-none"
+          style={{ zoom: 0.55, margin: "48px auto 32px auto" }}
         >
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4 select-none">
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
             PAGE 2
-          </span>
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          </div>
+          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+            PAGE 3
+          </div>
         </div>
 
         {/* pdf-page 2 */}
