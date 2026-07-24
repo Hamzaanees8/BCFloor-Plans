@@ -1,5 +1,11 @@
 import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut } from "lucide-react";
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
@@ -7,7 +13,10 @@ import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import ImageEditor from "./ImageEditor";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import {
+  FeatureSheetPayload,
+  FeatureSheetResponse,
+} from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
 
 export interface BcfpStandard18Ref {
@@ -150,7 +159,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     });
 
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
 
     // --- Input Refs ---
@@ -170,20 +181,34 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const getFileInputRef = (key: string) => {
       switch (key) {
-        case "image1": return fileInputRef1;
-        case "image2": return fileInputRef2;
-        case "image3": return fileInputRef3;
-        case "image4": return fileInputRef4;
-        case "image5": return fileInputRef5;
-        case "image6": return fileInputRef6;
-        case "image7": return fileInputRef7;
-        case "image8": return fileInputRef8;
-        case "image9": return fileInputRef9;
-        case "image10": return fileInputRef10;
-        case "image11": return fileInputRef11;
-        case "image12": return fileInputRef12;
-        case "image13": return fileInputRef13;
-        default: return fileInputRef1;
+        case "image1":
+          return fileInputRef1;
+        case "image2":
+          return fileInputRef2;
+        case "image3":
+          return fileInputRef3;
+        case "image4":
+          return fileInputRef4;
+        case "image5":
+          return fileInputRef5;
+        case "image6":
+          return fileInputRef6;
+        case "image7":
+          return fileInputRef7;
+        case "image8":
+          return fileInputRef8;
+        case "image9":
+          return fileInputRef9;
+        case "image10":
+          return fileInputRef10;
+        case "image11":
+          return fileInputRef11;
+        case "image12":
+          return fileInputRef12;
+        case "image13":
+          return fileInputRef13;
+        default:
+          return fileInputRef1;
       }
     };
 
@@ -211,7 +236,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
           otherDetails: {
             maintenanceFees,
             maintenanceFeesInclude,
@@ -241,20 +268,29 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-        if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description) setMaintenanceFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description) setMaintenanceFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintenanceFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintenanceFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-        if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
-          if (details.maintenanceFees) setMaintenanceFees(details.maintenanceFees as string);
-          if (details.maintenanceFeesInclude) setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
+          if (details.maintenanceFees)
+            setMaintenanceFees(details.maintenanceFees as string);
+          if (details.maintenanceFeesInclude)
+            setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
@@ -262,17 +298,33 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
-          if (details.addressCode) setAddressCode(details.addressCode as string);
+          if (details.number) setNumber(details.number as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
           if (details.patioSqft) setPatioSqft(details.patioSqft as string);
-          if (details.ceilingHeight) setCeilingHeight(details.ceilingHeight as string);
+          if (details.ceilingHeight)
+            setCeilingHeight(details.ceilingHeight as string);
         }
 
-        if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
-        if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
-        if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
-        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
+        if (state.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof images),
+          }));
+        if (state.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof scale),
+          }));
+        if (state.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.fieldStyles)
+          setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
@@ -282,25 +334,41 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     useEffect(() => {
       if (orderData) {
         if (orderData.property) {
-          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
-          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
-          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
-          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
-          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
-          if (orderData.property.description) setDescription(orderData.property.description);
-          if (orderData.property.mls_number) setMlsNumber(orderData.property.mls_number);
-          if (orderData.property.suite) setAddressCode(orderData.property.suite);
-          if (orderData.property.address) setRoadName(orderData.property.address);
+          if (orderData.property.listing_price)
+            setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms)
+            setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms)
+            setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage)
+            setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed)
+            setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description)
+            setDescription(orderData.property.description);
+          if (orderData.property.mls_number)
+            setMlsNumber(orderData.property.mls_number);
+          if (orderData.property.suite)
+            setAddressCode(orderData.property.suite);
+          if (orderData.property.address)
+            setRoadName(orderData.property.address);
 
           let cityString = "";
           if (orderData.property.city) cityString += orderData.property.city;
-          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
-          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (orderData.property.province)
+            cityString +=
+              (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code)
+            cityString +=
+              (cityString ? " " : "") + orderData.property.postal_code;
           if (cityString) setCityLine(cityString);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
-          if (agent.first_name || agent.last_name) setFullName(`${agent.first_name || ""} ${agent.last_name || ""}`.trim());
+          if (agent.first_name || agent.last_name)
+            setFullName(
+              `${agent.first_name || ""} ${agent.last_name || ""}`.trim(),
+            );
           if (agent.email) setEmail(agent.email);
           if (agent.primary_phone) setNumber(agent.primary_phone);
           if (agent.company_name) setPropertyName(agent.company_name);
@@ -308,10 +376,14 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       }
 
       if (formData) {
-        if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
-        if (formData.maintenanceFees) setMaintenanceFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude) setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.byLawRestrictions)
+          setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.maintenanceFees)
+          setMaintenanceFees(formData.maintenanceFees);
+        if (formData.maintenanceFeesInclude)
+          setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded)
+          setFeaturesIncluded(formData.featuresIncluded);
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
@@ -328,9 +400,21 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         if (formData.bathroom) setBathroom(formData.bathroom);
         if (formData.sqft) setSqft(formData.sqft);
         if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if (formData.images) setImages((prev) => ({ ...prev, ...(formData.images as typeof images) }));
-        if (formData.imageScales) setScale((prev) => ({ ...prev, ...(formData.imageScales as typeof scale) }));
-        if (formData.imagePositions) setPosition((prev) => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+        if (formData.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(formData.images as typeof images),
+          }));
+        if (formData.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(formData.imageScales as typeof scale),
+          }));
+        if (formData.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(formData.imagePositions as typeof position),
+          }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -386,7 +470,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -397,7 +481,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -471,7 +555,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const renderImageSlot = (
       key: keyof typeof images,
       containerClassName: string,
-      placeholderText = "Select Image"
+      placeholderText = "Select Image",
     ) => {
       const inputRef = getFileInputRef(key);
       const hasImage = !!images[key];
@@ -483,7 +567,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           onMouseMove={(e) => handleMouseMove(key, e)}
           onMouseUp={() => handleMouseUp(key)}
           onMouseLeave={() => handleMouseLeave(key)}
-          style={{ cursor: dragging[key] ? "grabbing" : hasImage ? "grab" : "pointer" }}
+          style={{
+            cursor: dragging[key] ? "grabbing" : hasImage ? "grab" : "pointer",
+          }}
         >
           {hasImage ? (
             <>
@@ -498,7 +584,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "in"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleZoom(key, "in");
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Zoom In"
                 >
@@ -506,7 +595,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "out"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleZoom(key, "out");
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Zoom Out"
                 >
@@ -514,7 +606,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleRotate(key); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRotate(key);
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Rotate"
                 >
@@ -524,7 +619,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); openImageSourceModal(key); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openImageSourceModal(key);
+                }}
                 className="absolute top-2 right-9 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
                 title="Change Image"
               >
@@ -533,7 +631,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleDelete(key, inputRef); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(key, inputRef);
+                }}
                 className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
                 title="Delete Image"
               >
@@ -583,7 +684,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         {/* --- PAGE 1 DIVIDER --- */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 1
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
@@ -591,48 +694,67 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-[#404040]">
           {/* Top 4-Photo Row (Image 1, 2, 3, 4) */}
           <div className="w-full h-[140px] grid grid-cols-4 bg-white shrink-0">
-            {renderImageSlot("image1", "w-full h-full border-r border-white", "Photo 1")}
-            {renderImageSlot("image2", "w-full h-full border-r border-white", "Photo 2")}
-            {renderImageSlot("image3", "w-full h-full border-r border-white", "Photo 3")}
+            {renderImageSlot(
+              "image1",
+              "w-full h-full border-r border-white",
+              "Photo 1",
+            )}
+            {renderImageSlot(
+              "image2",
+              "w-full h-full border-r border-white",
+              "Photo 2",
+            )}
+            {renderImageSlot(
+              "image3",
+              "w-full h-full border-r border-white",
+              "Photo 3",
+            )}
             {renderImageSlot("image4", "w-full h-full", "Photo 4")}
           </div>
 
           {/* Address & Logo Header Bar */}
-          <div className="w-full bg-[#D4D0CC] py-2 px-6 flex items-center justify-between relative z-20 shrink-0 border-t border-b border-gray-300">
-            {/* Left Address Line */}
-            <div className="flex items-center gap-1 text-[16px] text-gray-800 font-normal">
-              <span>#</span>
+          <div className="w-full bg-[#DDD9D6] h-[54px] px-6 flex items-center justify-between relative z-20 shrink-0 border-t border-b border-gray-300/80 font-sans">
+            {/* Left Address Line with #, Suite/Code, Number, NUMBER text, Road, ROAD text */}
+            <div className="flex items-center gap-1.5 text-[18px] text-[#333333] font-normal z-20">
+              <span className="text-[#333333] font-normal leading-none">#</span>
               <StyledInput
                 value={addressCode}
                 onChange={(e) => setAddressCode(e.target.value)}
                 inputStyle={fieldStyles["addressCode"]}
                 onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                className="font-normal text-[16px] text-gray-800 h-[22px] w-[110px] bg-transparent focus:outline-none border-none placeholder-gray-600"
+                className="font-normal text-[18px] text-[#333333] h-[26px] w-[95px] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none"
                 placeholder="0000-0000"
               />
+
+              <span className="font-normal text-[16px] text-[#333333] uppercase leading-none">
+                NUMBER
+              </span>
+              <StyledInput
+                value={addressCode}
+                onChange={(e) => setRoadName(e.target.value)}
+                inputStyle={fieldStyles["roadName"]}
+                onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                className="font-normal text-[18px] text-[#333333] h-[26px] w-[50px] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none"
+                placeholder="Suite"
+              />
+              <span className="font-normal text-[16px] text-[#333333] uppercase leading-none">
+                ROAD
+              </span>
+            </div>
+
+            {/* Macdonald Realty Logo Overlay Box (Centered vertically & horizontally over the bar) */}
+            <div className="flex items-center justify-center w-[170px] h-[100px] z-30 shrink-0 overflow-hidden">
+              {renderImageSlot("image7", "w-full h-full", "Logo Image")}
+            </div>
+
+            {/* Right City Line Subtitle */}
+            <div className="flex justify-end z-20">
               <StyledInput
                 value={roadName}
                 onChange={(e) => setRoadName(e.target.value)}
                 inputStyle={fieldStyles["roadName"]}
                 onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                className="font-normal text-[16px] text-gray-800 h-[40px] w-[200px] bg-transparent focus:outline-none border-none placeholder-gray-600"
-                placeholder="Number 0 Road"
-              />
-            </div>
-
-            {/* Macdonald Realty Logo Overlay Box (Centered) */}
-            <div className="bg-white shadow-md border border-gray-300 rounded flex items-center justify-center w-[160px] h-[55px] z-30 shrink-0 relative overflow-hidden">
-              {renderImageSlot("image7", "w-full h-full", "Logo Image")}
-            </div>
-
-            {/* Right City Line Subtitle */}
-            <div className="flex justify-end">
-              <StyledInput
-                value={cityLine}
-                onChange={(e) => setCityLine(e.target.value)}
-                inputStyle={fieldStyles["cityLine"]}
-                onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                className="font-normal text-[16px] text-gray-800 h-[40px] w-[210px] text-right bg-transparent focus:outline-none border-none placeholder-gray-600"
+                className="font-normal text-[18px] text-[#333333]  w-[300px] text-right bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none"
                 placeholder="Brighouse South, Richmond"
               />
             </div>
@@ -643,7 +765,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             {renderImageSlot(
               "image5",
               "w-full h-full",
-              "Select Main Hero Photo (Image 5)"
+              "Select Main Hero Photo (Image 5)",
             )}
           </div>
 
@@ -695,23 +817,21 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 className="font-bold text-[14px] text-gray-900 w-[42px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
                 placeholder="0000"
               />
-               <span>•</span>
-            <StyledInput
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputStyle={fieldStyles["amount"]}
-              onChangeStyle={(s) => updateFieldStyle("amount", s)}
-              className="font-bold text-[14px] text-gray-900 w-[100px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
-              placeholder="$000,000"
-            />
+              <span>•</span>
+              <StyledInput
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                inputStyle={fieldStyles["amount"]}
+                onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                className="font-bold text-[14px] text-gray-900 w-[100px] text-left bg-transparent focus:outline-none border-none placeholder-gray-700"
+                placeholder="$000,000"
+              />
             </div>
-           
           </div>
 
           {/* Lower Content Details Section (Dark Charcoal Background) */}
           <div className="flex-1 bg-[#404040] text-white px-8 pt-3 pb-[240px] flex flex-col justify-start relative z-10">
             <div className="grid grid-cols-12 gap-8 w-full h-full relative">
-              
               {/* Description Column (Left ~36%) */}
               <div className="col-span-4 pr-2">
                 <StyledInput
@@ -720,7 +840,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   onChange={(e) => setDescription(e.target.value)}
                   inputStyle={fieldStyles["description"]}
                   onChangeStyle={(s) => updateFieldStyle("description", s)}
-                  className="text-[12px] text-white/95 leading-tight italic text-justify bg-transparent w-full focus:outline-none border-none placeholder-white/80"
+                  className="text-[12px] text-left text-white/95 leading-tight italic bg-transparent w-full focus:outline-none border-none placeholder-white/80"
                   placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts
                    incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South West
                     providing unhindered privacy. The spacious living room and dining area feature floor-to-ceiling windows,
@@ -733,49 +853,65 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               {/* Specs Column 1 (Middle ~34%) */}
               <div className="col-span-4 flex flex-col gap-2 text-[14px]">
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">BY-LAW RESTRICTIONS:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    BY-LAW RESTRICTIONS:
+                  </span>
                   <StyledInput
                     value={byLawRestrictions}
                     onChange={(e) => setByLawRestrictions(e.target.value)}
                     inputStyle={fieldStyles["byLawRestrictions"]}
-                    onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("byLawRestrictions", s)
+                    }
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Pets Allowed w/Rest., Rentals Allowed"
                   />
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">MAINT. FEES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    MAINT. FEES:
+                  </span>
                   <StyledInput
                     value={maintenanceFees}
                     onChange={(e) => setMaintenanceFees(e.target.value)}
                     inputStyle={fieldStyles["maintenanceFees"]}
-                    onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("maintenanceFees", s)
+                    }
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="$000.00"
                   />
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">MAINT. FEES INCLUDE:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    MAINT. FEES INCLUDE:
+                  </span>
                   <StyledInput
                     value={maintenanceFeesInclude}
                     onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
                     inputStyle={fieldStyles["maintenanceFeesInclude"]}
-                    onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("maintenanceFeesInclude", s)
+                    }
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                   />
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">FEATURES INCLUDED:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    FEATURES INCLUDED:
+                  </span>
                   <StyledInput
                     value={featuresIncluded}
                     onChange={(e) => setFeaturesIncluded(e.target.value)}
                     inputStyle={fieldStyles["featuresIncluded"]}
-                    onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("featuresIncluded", s)
+                    }
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                   />
                 </div>
@@ -784,49 +920,57 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               {/* Specs Column 2 (Right ~30%) */}
               <div className="col-span-4 flex flex-col gap-2 text-[14px]">
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">SITE INFLUENCES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    SITE INFLUENCES:
+                  </span>
                   <StyledInput
                     value={siteInfluences}
                     onChange={(e) => setSiteInfluences(e.target.value)}
                     inputStyle={fieldStyles["siteInfluences"]}
                     onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                   />
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">AMENITIES:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    AMENITIES:
+                  </span>
                   <StyledInput
                     value={amenities}
                     onChange={(e) => setAmenities(e.target.value)}
                     inputStyle={fieldStyles["amenities"]}
                     onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                   />
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[12px] uppercase block text-white">VIEW:</span>
+                  <span className="font-semibold text-[12px] uppercase block text-white">
+                    VIEW:
+                  </span>
                   <StyledInput
                     value={view}
                     onChange={(e) => setView(e.target.value)}
                     inputStyle={fieldStyles["view"]}
                     onChangeStyle={(s) => updateFieldStyle("view", s)}
-                    className="text-[12px] text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                    className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                     placeholder="South & SW - Van Isl."
                   />
                 </div>
 
                 <div className="flex items-center gap-1 mt-1">
-                  <span className="font-semibold text-[12px] text-nowrap uppercase text-white">MLS #</span>
+                  <span className="font-semibold text-[12px] text-nowrap uppercase text-white">
+                    MLS #
+                  </span>
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
                     inputStyle={fieldStyles["mlsNumber"]}
                     onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
-                    className="font-bold text-[12px] text-white bg-transparent focus:outline-none border-none placeholder-white"
+                    className="font-bold text-left text-[12px] text-white bg-transparent focus:outline-none border-none placeholder-white"
                     placeholder="0000000"
                   />
                 </div>
@@ -844,13 +988,17 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               preserveAspectRatio="none"
             >
               {/* Metallic Accent Line Curve */}
-              <path d="M0 35 Q 400 100 816 25 V230 H0 Z" fill="#888888" opacity="0.45" />
+              <path
+                d="M0 35 Q 400 100 816 25 V230 H0 Z"
+                fill="#888888"
+                opacity="0.45"
+              />
               {/* White Curve Card */}
               <path d="M0 45 Q 400 110 816 35 V230 H0 Z" fill="#FFFFFF" />
             </svg>
 
             {/* Contact Info Overlay on White Curve */}
-            <div className="relative z-10 px-8 pb-3 pt-0 flex justify-between items-start pointer-events-auto">
+            <div className="relative z-10 px-8 pb-3 h-[150px] pt-0 flex justify-between items-start pointer-events-auto">
               <div className="flex flex-col gap-0.5 text-gray-900">
                 <div className="flex items-baseline gap-1 text-[13px]">
                   <span className="font-bold text-gray-800">CONTACT:</span>
@@ -859,7 +1007,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                     onChange={(e) => setFullName(e.target.value)}
                     inputStyle={fieldStyles["fullName"]}
                     onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                    className="font-bold text-[13px] text-gray-900 h-[18px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
+                    className="font-bold text-left text-[13px] text-gray-900 h-[18px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
                     placeholder="FIRSTNAME LASTNAME"
                   />
                 </div>
@@ -868,7 +1016,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   onChange={(e) => setPropertyName(e.target.value)}
                   inputStyle={fieldStyles["propertyName"]}
                   onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                  className="font-normal text-[11px] text-gray-800 h-[16px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-700"
+                  className="font-normal text-left text-[11px] text-gray-800 h-[16px] w-[260px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-700"
                   placeholder="MACDONALD REALTY"
                 />
                 <div className="flex items-center gap-3 text-[10.5px] text-gray-900">
@@ -879,7 +1027,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       onChange={(e) => setNumber(e.target.value)}
                       inputStyle={fieldStyles["number"]}
                       onChangeStyle={(s) => updateFieldStyle("number", s)}
-                      className="font-normal text-[10.5px] text-gray-900 h-[16px] w-[110px] bg-transparent focus:outline-none border-none placeholder-gray-800"
+                      className="font-normal text-left text-[11px] text-gray-900 h-[16px] w-[110px] bg-transparent focus:outline-none border-none placeholder-gray-800"
                       placeholder="604.000.0000"
                     />
                   </div>
@@ -890,7 +1038,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       onChange={(e) => setEmail(e.target.value)}
                       inputStyle={fieldStyles["email"]}
                       onChangeStyle={(s) => updateFieldStyle("email", s)}
-                      className="font-normal text-[10px] text-gray-900 h-[16px] w-[200px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
+                      className="font-normal text-left text-[10px] text-gray-900 h-[16px] w-[200px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800"
                       placeholder="FIRSTNAME@LASTNAME.COM"
                     />
                   </div>
@@ -900,7 +1048,12 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 <div className="flex items-center gap-1.5 pt-1 text-[7.5px] text-gray-600 leading-tight">
                   <House className="w-3.5 h-3.5 shrink-0 text-gray-700" />
                   <p className="max-w-[700px]">
-                    All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.
+                    All information deemed reliable but not guaranteed and
+                    should be independently verified. All properties are subject
+                    to prior sale, change or withdrawal. Neither listing
+                    broker(s) nor BC Floor Plans shall be responsible for any
+                    typographical errors, misinformation, misprints and shall be
+                    held totally harmless.
                   </p>
                 </div>
               </div>
@@ -911,7 +1064,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         {/* --- PAGE 2 DIVIDER --- */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
@@ -926,7 +1081,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             preserveAspectRatio="none"
           >
             {/* Metallic Curve Bottom Background */}
-            <path d="M0 940 C0 940 400 900 816 970 V1056 H0 Z" fill="#888888" opacity="0.4" />
+            <path
+              d="M0 940 C0 940 400 900 816 970 V1056 H0 Z"
+              fill="#888888"
+              opacity="0.4"
+            />
             <path d="M0 960 C0 960 400 920 816 990 V1056 H0 Z" fill="#404040" />
           </svg>
 
@@ -958,7 +1117,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
                     <div className="font-semibold text-gray-900">Total**</div>
                     <div className="flex items-center gap-2">
-                      <span className="w-24 font-medium text-gray-700">Main Level:</span>
+                      <span className="w-24 font-medium text-gray-700">
+                        Main Level:
+                      </span>
                       <StyledInput
                         value={sqft}
                         onChange={(e) => setSqft(e.target.value)}
@@ -970,7 +1131,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       <span>sq.ft.</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-24 font-medium text-gray-700">Patio:</span>
+                      <span className="w-24 font-medium text-gray-700">
+                        Patio:
+                      </span>
                       <StyledInput
                         value={patioSqft}
                         onChange={(e) => setPatioSqft(e.target.value)}
@@ -990,7 +1153,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 {renderImageSlot(
                   "image6",
                   "w-full h-full border border-gray-200",
-                  "Select Floor Plan Image (Image 6)"
+                  "Select Floor Plan Image (Image 6)",
                 )}
               </div>
 
@@ -999,7 +1162,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 <div className="flex justify-between items-end">
                   {/* Room Details */}
                   <div className="flex flex-col">
-                    <div className="font-bold text-[14px] uppercase text-gray-900">MAIN LEVEL</div>
+                    <div className="font-bold text-[14px] uppercase text-gray-900">
+                      MAIN LEVEL
+                    </div>
                     <div className="flex items-center gap-1 text-[11px] text-gray-700">
                       <span>Floor Area:</span>
                       <StyledInput
@@ -1018,7 +1183,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                         value={ceilingHeight}
                         onChange={(e) => setCeilingHeight(e.target.value)}
                         inputStyle={fieldStyles["ceilingHeight"]}
-                        onChangeStyle={(s) => updateFieldStyle("ceilingHeight", s)}
+                        onChangeStyle={(s) =>
+                          updateFieldStyle("ceilingHeight", s)
+                        }
                         className="font-medium text-[11px] text-gray-900 w-[45px] bg-transparent focus:outline-none border-none placeholder-gray-600"
                         placeholder="0' 0&quot;"
                       />
@@ -1042,7 +1209,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
                 {/* Floor Plan Disclaimer */}
                 <p className="text-[7.5px] text-gray-500 leading-tight text-center mt-1">
-                  **While all reasonable attempts have been made to ensure accuracy and the square footage and room dimensions are believed to be correct to ANSI Standards, due to the possibility of human error the information cannot be guaranteed. E&O Insured for $1,000,000
+                  **While all reasonable attempts have been made to ensure
+                  accuracy and the square footage and room dimensions are
+                  believed to be correct to ANSI Standards, due to the
+                  possibility of human error the information cannot be
+                  guaranteed. E&O Insured for $1,000,000
                 </p>
               </div>
             </div>
@@ -1055,7 +1226,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 BcfpStandard18.displayName = "BcfpStandard18";

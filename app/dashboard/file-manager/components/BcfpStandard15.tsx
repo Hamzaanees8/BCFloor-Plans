@@ -1,13 +1,22 @@
 import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import {
+  FeatureSheetPayload,
+  FeatureSheetResponse,
+} from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
 import ImageEditor from "./ImageEditor";
 
@@ -65,7 +74,6 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       image12: null as string | null,
       image13: null as string | null,
     });
-
 
     const [scale, setScale] = useState({
       image1: 1,
@@ -147,7 +155,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       image13: { x: 0, y: 0 },
     });
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
@@ -187,7 +197,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
           otherDetails: {
             amenities,
             view,
@@ -213,15 +225,22 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-        if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description) setMaintFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description) setMaintFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-        if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
@@ -232,15 +251,29 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
-          if (details.addressCode) setAddressCode(details.addressCode as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
         }
 
-        if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
-        if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
-        if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
-        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
+        if (state.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof images),
+          }));
+        if (state.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof scale),
+          }));
+        if (state.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.fieldStyles)
+          setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
@@ -250,23 +283,37 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
     useEffect(() => {
       if (orderData) {
         if (orderData.property) {
-          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
-          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
-          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
-          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
-          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
-          if (orderData.property.description) setDescription(orderData.property.description);
-          if (orderData.property.mls_number) setAddressCode(orderData.property.mls_number);
+          if (orderData.property.listing_price)
+            setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms)
+            setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms)
+            setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage)
+            setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed)
+            setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description)
+            setDescription(orderData.property.description);
+          if (orderData.property.mls_number)
+            setAddressCode(orderData.property.mls_number);
           if (orderData.property.suite) setRoadName(orderData.property.suite);
           let cityString = "";
           if (orderData.property.city) cityString += orderData.property.city;
-          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
-          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (orderData.property.province)
+            cityString +=
+              (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code)
+            cityString +=
+              (cityString ? " " : "") + orderData.property.postal_code;
           if (cityString) setCityLine(cityString);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
-          if (agent.first_name || agent.last_name) setFullName(`${agent.first_name || ''} ${agent.last_name || ''}`.trim());
+          if (agent.first_name || agent.last_name)
+            setFullName(
+              `${agent.first_name || ""} ${agent.last_name || ""}`.trim(),
+            );
           if (agent.email) setEmail(agent.email);
           if (agent.primary_phone) setNumber(agent.primary_phone);
           if (agent.company_name) setPropertyName(agent.company_name);
@@ -279,10 +326,13 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         }
       }
       if (formData) {
-        if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.byLawRestrictions)
+          setByLawRestrictions(formData.byLawRestrictions);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude) setMaintFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.maintenanceFeesInclude)
+          setMaintFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded)
+          setFeaturesIncluded(formData.featuresIncluded);
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
@@ -299,9 +349,21 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         if (formData.bathroom) setBathroom(formData.bathroom);
         if (formData.sqft) setSqft(formData.sqft);
         if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if (formData.images) setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
-        if (formData.imageScales) setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
-        if (formData.imagePositions) setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+        if (formData.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(formData.images as typeof images),
+          }));
+        if (formData.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(formData.imageScales as typeof scale),
+          }));
+        if (formData.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(formData.imagePositions as typeof position),
+          }));
         if (formData.avatar_url && !formData.images?.image2) {
           setImages((prev) => ({
             ...prev,
@@ -333,14 +395,36 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         bedroom,
         bathroom,
         sqft,
-        builtYear
+        builtYear,
       });
-    }, [byLawRestrictions, maintFees, maintFeesInclude, featuresIncluded, siteInfluences, amenities, view, description, fullName, email, propertyName, amount, number, addressCode, roadName, cityLine, bedroom, bathroom, sqft, builtYear, updateFormData]);
+    }, [
+      byLawRestrictions,
+      maintFees,
+      maintFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      propertyName,
+      amount,
+      number,
+      addressCode,
+      roadName,
+      cityLine,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      updateFormData,
+    ]);
 
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -351,7 +435,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -378,10 +462,10 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      
+
       const dx = e.clientX - lastPosition.current[key].x;
       const dy = e.clientY - lastPosition.current[key].y;
-      
+
       setPosition((prev) => ({
         ...prev,
         [key]: { x: prev[key].x + dx, y: prev[key].y + dy },
@@ -452,7 +536,6 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-
 
       switch (currentImageSlot) {
         case "image1":
@@ -528,12 +611,14 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         {/* Page 1 Divider */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 1
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white flex flex-col font-alexandria">
           <div className="grid grid-cols-[70%_30%] w-full h-full min-h-0 min-w-0">
-            <div className="w-full h-full min-w-0 py-[20px] pl-[50px] pr-[15px] relative bg-[#229AD6] flex flex-col">
+            <div className="w-full h-full min-w-0 py-[40px] pl-[50px] pr-[15px] relative bg-[#229AD6] flex flex-col">
               <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex shrink-0">
                 <span className="text-[20px] mt-2">#</span>
                 <span className="inline">
@@ -570,7 +655,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 />
               </div>
               <div
-                className="w-full h-[200px] min-w-0 border-2 border-white relative overflow-hidden flex items-center justify-center group select-none bg-black/10 shrink-0"
+                className="w-full h-[300px] min-w-0 border-2 border-white relative overflow-hidden flex items-center justify-center group select-none bg-black/10 shrink-0"
                 onMouseMove={(e) => handleMouseMove("image1", e)}
                 onMouseUp={() => handleMouseUp("image1")}
                 onMouseLeave={() => handleMouseLeave("image1")}
@@ -701,7 +786,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
               </div>
-              <div className="w-full mt-[10px] overflow-hidden flex-1 min-h-0">
+              <div className="w-full mt-[10px] overflow-hidden min-h-0">
                 <StyledInput
                   value={description}
                   rows={6}
@@ -721,7 +806,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
               </div>
               <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[15px] shrink-0">
                 <div
-                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image4", e)}
                   onMouseUp={() => handleMouseUp("image4")}
                   onMouseLeave={() => handleMouseLeave("image4")}
@@ -808,7 +893,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 </div>
 
                 <div
-                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image5", e)}
                   onMouseUp={() => handleMouseUp("image5")}
                   onMouseLeave={() => handleMouseLeave("image5")}
@@ -894,7 +979,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image6", e)}
                   onMouseUp={() => handleMouseUp("image6")}
                   onMouseLeave={() => handleMouseLeave("image6")}
@@ -980,7 +1065,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   />
                 </div>
                 <div
-                  className="w-full min-w-0 h-[120px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
+                  className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10"
                   onMouseMove={(e) => handleMouseMove("image7", e)}
                   onMouseUp={() => handleMouseUp("image7")}
                   onMouseLeave={() => handleMouseLeave("image7")}
@@ -1020,7 +1105,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                       </div>
 
                       {/* Edit & Delete */}
-                                            <button
+                      <button
                         type="button"
                         onClick={() => handleRotate("image7")}
                         className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1029,7 +1114,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                         <RotateCw className="w-4 h-4 text-gray-700" />
                       </button>
 
-<button
+                      <button
                         type="button"
                         onClick={() => openImageSourceModal("image7")}
                         className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1114,16 +1199,16 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   </svg>
                 </span>
                 <p className="text-[8px] font-light leading-tight text-white/90 shrink">
-                  All information deemed reliable but not guaranteed and should be
-                  independently verified. All properties are subject to prior sale,
-                  change or withdrawal. Neither listing broker(s) nor BC Floor Plans
-                  shall be responsible for any typographical errors, misinformation,
-                  misprints and shall be held totally harmless.
+                  All information deemed reliable but not guaranteed and should
+                  be independently verified. All properties are subject to prior
+                  sale, change or withdrawal. Neither listing broker(s) nor BC
+                  Floor Plans shall be responsible for any typographical errors,
+                  misinformation, misprints and shall be held totally harmless.
                 </p>
               </div>
               <hr className="absolute top-0 right-[-1px] border-l-2 border-white border-dotted h-[11in] w-0 z-20" />
             </div>
-            <div className="w-full h-full min-w-0 pr-[15px] pl-[15px] py-[20px] bg-[#72C3EC] flex flex-col">
+            <div className="w-full h-full min-w-0 pr-[15px] pl-[15px] py-[40px] bg-[#72C3EC] flex flex-col">
               <div
                 className="w-full min-w-0 h-[100px] border-[2px] border-white shadow-sm relative z-10 group select-none bg-black/10 shrink-0"
                 onMouseMove={(e) => handleMouseMove("image9", e)}
@@ -1165,7 +1250,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     </div>
 
                     {/* Edit & Delete */}
-                                        <button
+                    <button
                       type="button"
                       onClick={() => handleRotate("image9")}
                       className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1174,7 +1259,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                       <RotateCw className="w-4 h-4 text-gray-700" />
                     </button>
 
-<button
+                    <button
                       type="button"
                       onClick={() => openImageSourceModal("image9")}
                       className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1210,7 +1295,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 />
               </div>
 
-              <div className="flex flex-col gap-2 text-white w-full py-2 flex-1 min-h-0 overflow-hidden">
+              <div className="flex flex-col gap-4 text-white w-full py-2 flex-1 min-h-0 overflow-hidden">
                 <div>
                   <span className="font-serif text-[13px] tracking-wide text-white/95 uppercase block leading-tight">
                     BY-LAW RESTRICTIONS:
@@ -1220,7 +1305,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     rows={1}
                     onChange={(e) => setByLawRestrictions(e.target.value)}
                     inputStyle={fieldStyles["byLawRestrictions"]}
-                    onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("byLawRestrictions", s)
+                    }
                     className="font-light text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white/80 leading-tight mt-0.5"
                     placeholder="Pets Allowed w/Rest., Rentals Allowed"
                   />
@@ -1247,7 +1334,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     value={maintFeesInclude}
                     onChange={(e) => setMaintFeesInclude(e.target.value)}
                     inputStyle={fieldStyles["maintFeesInclude"]}
-                    onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("maintFeesInclude", s)
+                    }
                     className="font-light text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white/80 leading-tight mt-0.5"
                     placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                   />
@@ -1260,7 +1349,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     value={featuresIncluded}
                     onChange={(e) => setFeaturesIncluded(e.target.value)}
                     inputStyle={fieldStyles["featuresIncluded"]}
-                    onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                    onChangeStyle={(s) =>
+                      updateFieldStyle("featuresIncluded", s)
+                    }
                     className="font-light text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white/80 leading-tight mt-0.5"
                     placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
                   />
@@ -1348,7 +1439,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                       </div>
 
                       {/* Edit & Delete */}
-                                            <button
+                      <button
                         type="button"
                         onClick={() => handleRotate("image2")}
                         className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1357,7 +1448,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                         <RotateCw className="w-4 h-4 text-gray-700" />
                       </button>
 
-<button
+                      <button
                         type="button"
                         onClick={() => openImageSourceModal("image2")}
                         className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -1395,7 +1486,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 <hr className="w-[90%] border-t-[1.5px] border-white mt-4" />
               </div>
               <div className="flex flex-col shrink-0 gap-[6px] py-2">
-                <span className="text-[14px] text-white font-serif tracking-widest uppercase mb-1">CONTACT:</span>
+                <span className="text-[14px] text-white font-serif tracking-widest uppercase mb-1">
+                  CONTACT:
+                </span>
                 <StyledInput
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -1412,7 +1505,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   className="text-[10px] text-white font-light uppercase tracking-wider bg-transparent text-left w-full focus:outline-none border-none placeholder-white/90"
                   placeholder="MACDONALD REALTY"
                 />
-                <div className="flex gap-1 font-bold text-[10px] text-white items-start mt-1">
+                <div className="flex items-center gap-1 font-bold text-[10px] text-white  mt-1">
                   <span className="shrink-0 leading-[20px]">PHONE:</span>
                   <StyledInput
                     value={number}
@@ -1423,7 +1516,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     placeholder="604.000.0000"
                   />
                 </div>
-                <div className="flex gap-1 font-bold text-[10px] text-white items-start">
+                <div className="flex gap-1 font-bold text-[10px] text-white items-center">
                   <span className="shrink-0 leading-[20px]">EMAIL:</span>
                   <StyledInput
                     value={email}
@@ -1434,8 +1527,10 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     placeholder="FIRST@LAST.COM"
                   />
                 </div>
-                <div className="flex gap-1 font-bold text-[10px] text-white items-start">
-                  <span className="text-nowrap shrink-0 leading-[20px]">MLS #:</span>
+                <div className="flex gap-1 font-bold text-[10px] text-white items-center">
+                  <span className="text-nowrap shrink-0 leading-[20px]">
+                    MLS #:
+                  </span>
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
@@ -1463,14 +1558,16 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         {/* Page 2 Divider */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden bg-white flex flex-col font-alexandria">
           <div className="flex flex-col w-full h-full relative">
             <div className="w-full z-20 bg-[#229AD6] pt-[54px] pb-2">
-              <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex">
+              <div className="text-[28px] justify-center pb-2 items-center font-light leading-none mt-0 text-[#ffffff] flex">
                 <span className="text-[16px]">#</span>
                 <span className="inline">
                   <StyledInput
@@ -1500,94 +1597,93 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             <div
               className="w-full flex-1 relative bg-white group select-none overflow-hidden z-10"
               onMouseMove={(e) => handleMouseMove("image8", e)}
-                onMouseUp={() => handleMouseUp("image8")}
-                onMouseLeave={() => handleMouseLeave("image8")}
-              >
-                {images.image8 ? (
-                  <>
-                    <div
-                      className="w-full h-full cursor-grab active:cursor-grabbing"
-                      onMouseDown={(e) => handleMouseDown("image8", e)}
-                    >
-                      <ImageEditor
-                        src={images.image8}
-                        scale={scale.image8}
-                        position={position.image8}
-                        rotation={rotation.image8}
-                      />
-                    </div>
+              onMouseUp={() => handleMouseUp("image8")}
+              onMouseLeave={() => handleMouseLeave("image8")}
+            >
+              {images.image8 ? (
+                <>
+                  <div
+                    className="w-full h-full cursor-grab active:cursor-grabbing"
+                    onMouseDown={(e) => handleMouseDown("image8", e)}
+                  >
+                    <ImageEditor
+                      src={images.image8}
+                      scale={scale.image8}
+                      position={position.image8}
+                      rotation={rotation.image8}
+                    />
+                  </div>
 
-                    {/* Zoom Controls */}
-                    <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image8", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image8", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    {/* Edit & Delete */}
-                                        <button
-                      type="button"
-                      onClick={() => handleRotate("image8")}
-                      className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Rotate image"
-                    >
-                      <RotateCw className="w-4 h-4 text-gray-700" />
-                    </button>
-
-<button
-                      type="button"
-                      onClick={() => openImageSourceModal("image8")}
-                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                     <button
                       type="button"
-                      onClick={() => handleDelete("image8", fileInputRef8)}
-                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
+                      onClick={() => handleZoom("image8", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
                     >
-                      <Trash className="w-4 h-4 text-red-500" />
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
                     </button>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => openImageSourceModal("image8")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                  >
-                    Select Image
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image8", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
                   </div>
-                )}
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef8}
-                  onChange={(e) => handleImageChange("image8", e)}
-                  className="hidden"
-                />
-              </div>
+                  {/* Edit & Delete */}
+                  <button
+                    type="button"
+                    onClick={() => handleRotate("image8")}
+                    className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Rotate image"
+                  >
+                    <RotateCw className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => openImageSourceModal("image8")}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete("image8", fileInputRef8)}
+                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              ) : (
+                <div
+                  onClick={() => openImageSourceModal("image8")}
+                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                >
+                  Select Image
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef8}
+                onChange={(e) => handleImageChange("image8", e)}
+                className="hidden"
+              />
+            </div>
           </div>
         </div>
-
       </>
     );
-  }
+  },
 );
 
 BcfpStandard15.displayName = "BcfpStandard15";

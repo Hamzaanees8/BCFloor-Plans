@@ -1,22 +1,30 @@
 import { Pencil, Trash, ZoomIn, ZoomOut, House, RotateCw } from "lucide-react";
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import {
+  FeatureSheetPayload,
+  FeatureSheetResponse,
+} from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
 import Image from "next/image";
-
 
 const ImageEditor = ({
   src,
   scale,
   position,
-  className = ""
+  className = "",
 }: {
   src: string;
   scale: number;
@@ -30,12 +38,18 @@ const ImageEditor = ({
     if (!containerRef.current) return;
     const { naturalWidth, naturalHeight } = e.currentTarget;
     const { clientWidth, clientHeight } = containerRef.current;
-    
-    if (naturalWidth === 0 || naturalHeight === 0 || clientWidth === 0 || clientHeight === 0) return;
-    
+
+    if (
+      naturalWidth === 0 ||
+      naturalHeight === 0 ||
+      clientWidth === 0 ||
+      clientHeight === 0
+    )
+      return;
+
     const containerAR = clientWidth / clientHeight;
     const imageAR = naturalWidth / naturalHeight;
-    
+
     let drawnWidth, drawnHeight;
     if (imageAR > containerAR) {
       drawnWidth = clientWidth;
@@ -44,13 +58,19 @@ const ImageEditor = ({
       drawnHeight = clientHeight;
       drawnWidth = clientHeight * imageAR;
     }
-    
-    const requiredScale = Math.max(clientWidth / drawnWidth, clientHeight / drawnHeight);
+
+    const requiredScale = Math.max(
+      clientWidth / drawnWidth,
+      clientHeight / drawnHeight,
+    );
     setBaseScale(requiredScale);
   };
 
   return (
-    <div ref={containerRef} className={`w-full h-full relative flex items-center justify-center ${className}`}>
+    <div
+      ref={containerRef}
+      className={`w-full h-full relative flex items-center justify-center ${className}`}
+    >
       <Image
         src={src}
         onLoad={handleLoad}
@@ -60,7 +80,7 @@ const ImageEditor = ({
         className="object-contain pointer-events-none"
         style={{
           transform: `translate(${position.x}px, ${position.y}px) scale(${scale * baseScale})`,
-          transition: 'transform 0.1s ease-out'
+          transition: "transform 0.1s ease-out",
         }}
       />
     </div>
@@ -117,7 +137,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image12: null as string | null,
       image13: null as string | null,
     });
-
 
     const [scale, setScale] = useState({
       image1: 1,
@@ -192,7 +211,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image13: { x: 0, y: 0 },
     });
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
@@ -233,7 +254,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
           otherDetails: {
             amenities,
             view,
@@ -258,15 +281,22 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-        if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description) setMaintFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description) setMaintFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-        if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
@@ -277,14 +307,28 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
-          if (details.addressCode) setAddressCode(details.addressCode as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
         }
 
-        if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
-        if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
-        if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
-        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
+        if (state.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof images),
+          }));
+        if (state.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof scale),
+          }));
+        if (state.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.fieldStyles)
+          setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
@@ -297,26 +341,39 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       // 1. Auto-populate data on initial sheet creation
       if (orderData) {
         if (orderData.property) {
-          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
-          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
-          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
-          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
-          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
-          if (orderData.property.description) setDescription(orderData.property.description);
-          if (orderData.property.mls_number) setAddressCode(orderData.property.mls_number);
+          if (orderData.property.listing_price)
+            setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms)
+            setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms)
+            setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage)
+            setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed)
+            setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description)
+            setDescription(orderData.property.description);
+          if (orderData.property.mls_number)
+            setAddressCode(orderData.property.mls_number);
           if (orderData.property.suite) setRoadName(orderData.property.suite);
-          
+
           let cityString = "";
           if (orderData.property.city) cityString += orderData.property.city;
-          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
-          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (orderData.property.province)
+            cityString +=
+              (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code)
+            cityString +=
+              (cityString ? " " : "") + orderData.property.postal_code;
           if (cityString) setCityLine(cityString);
         }
-        
+
         if (orderData.agent) {
           const agent = orderData.agent;
           if (agent.first_name || agent.last_name) {
-            setFullName(`${agent.first_name || ''} ${agent.last_name || ''}`.trim());
+            setFullName(
+              `${agent.first_name || ""} ${agent.last_name || ""}`.trim(),
+            );
           }
           if (agent.email) setEmail(agent.email);
           if (agent.primary_phone) setNumber(agent.primary_phone);
@@ -326,10 +383,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
       // 2. Allow existing formData to override if it has truthy values
       if (formData) {
-        if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.byLawRestrictions)
+          setByLawRestrictions(formData.byLawRestrictions);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude) setMaintFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.maintenanceFeesInclude)
+          setMaintFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded)
+          setFeaturesIncluded(formData.featuresIncluded);
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
@@ -348,13 +408,22 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (formData.builtYear) setBuiltYear(formData.builtYear);
 
         if (formData.images) {
-          setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+          setImages((prev) => ({
+            ...prev,
+            ...(formData.images as typeof images),
+          }));
         }
         if (formData.imageScales) {
-          setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+          setScale((prev) => ({
+            ...prev,
+            ...(formData.imageScales as typeof scale),
+          }));
         }
         if (formData.imagePositions) {
-          setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+          setPosition((prev) => ({
+            ...prev,
+            ...(formData.imagePositions as typeof position),
+          }));
         }
       }
       // Only run on mount
@@ -382,7 +451,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         bedroom,
         bathroom,
         sqft,
-        builtYear
+        builtYear,
       });
     }, [
       byLawRestrictions,
@@ -405,14 +474,13 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       bathroom,
       sqft,
       builtYear,
-      updateFormData
+      updateFormData,
     ]);
-
 
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -423,7 +491,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -536,7 +604,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
 
-
       switch (currentImageSlot) {
         case "image1":
           setImages((prev) => ({ ...prev, image1: imageUrl }));
@@ -612,13 +679,19 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         {/* Page 1 Divider */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 1
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
         <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
-          <div className="w-full flex-1 h-full flex flex-col justify-start gap-3 font-alexandria relative"
-            style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}
+          <div
+            className="w-full flex-1 h-full flex flex-col justify-start gap-3 font-alexandria relative"
+            style={{
+              background:
+                "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+            }}
           >
             <div className="relative">
               <div
@@ -696,17 +769,43 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               </div>
 
               <div className="flex gap-2 absolute bottom-[64px] right-[20px]">
-                <div className="opacity-[25%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-                <div className="opacity-[50%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-                <div className="opacity-[75%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-                <div className="flex px-5 pr-[64px] py-1" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}>
+                <div
+                  className="opacity-[25%] w-[35px]"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                  }}
+                ></div>
+                <div
+                  className="opacity-[50%] w-[35px]"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                  }}
+                ></div>
+                <div
+                  className="opacity-[75%] w-[35px]"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                  }}
+                ></div>
+                <div
+                  className="flex px-5 pr-[64px] py-1"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                  }}
+                >
                   <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-wrap gap-2">
                     <div className="inline">
                       <StyledInput
                         value={bedroom}
                         onChange={(e) => setBedroom(e.target.value)}
                         inputStyle={fieldStyles["bedroom"]}
-                        onChangeStyle={(style) => updateFieldStyle("bedroom", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("bedroom", style)
+                        }
                         className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -717,7 +816,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         value={bathroom}
                         onChange={(e) => setBathroom(e.target.value)}
                         inputStyle={fieldStyles["bathroom"]}
-                        onChangeStyle={(style) => updateFieldStyle("bathroom", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("bathroom", style)
+                        }
                         className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -728,7 +829,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         value={sqft}
                         onChange={(e) => setSqft(e.target.value)}
                         inputStyle={fieldStyles["sqft"]}
-                        onChangeStyle={(style) => updateFieldStyle("sqft", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("sqft", style)
+                        }
                         className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="000"
                       />
@@ -739,39 +842,51 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         value={builtYear}
                         onChange={(e) => setBuiltYear(e.target.value)}
                         inputStyle={fieldStyles["builtYear"]}
-                        onChangeStyle={(style) => updateFieldStyle("builtYear", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("builtYear", style)
+                        }
                         className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0000"
                       />
                     </div>
-
                   </div>
                 </div>
               </div>
               <div className="flex flex-col gap-1 absolute top-[40px] left-[50px] w-[160px]">
-                <div className="p-3" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}>
-                  <div className="tracking-wide text-white mt-0 flex">#
+                <div
+                  className="p-3"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                  }}
+                >
+                  <div className="tracking-wide text-white mt-0 flex">
+                    #
                     <StyledInput
                       value={addressCode}
                       onChange={(e) => setAddressCode(e.target.value)}
                       inputStyle={fieldStyles["addressCode"]}
-                      onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("addressCode", style)
+                      }
                       className="font-light text-[18px] h-[24px] w-[120px] flex-1 leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
                       placeholder="0000-0000"
                     />
                   </div>
-                  <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
-                  <span>Number</span>
-                  <StyledInput
-                    value={roadName}
-                    onChange={(e) => setRoadName(e.target.value)}
-                    inputStyle={fieldStyles["roadName"]}
-                    onChangeStyle={(style) => updateFieldStyle("roadName", style)}
-                    className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                    placeholder="0"
-                  />
-                  <span>Road</span>
-                </div>
+                  <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                    <span>Number</span>
+                    <StyledInput
+                      value={roadName}
+                      onChange={(e) => setRoadName(e.target.value)}
+                      inputStyle={fieldStyles["roadName"]}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("roadName", style)
+                      }
+                      className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                      placeholder="0"
+                    />
+                    <span>Road</span>
+                  </div>
                   <hr className="border-t-2 border-dotted border-white w-full" />
                   <div className="uppercase mt-2 flex justify-center">
                     <StyledInput
@@ -779,20 +894,41 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       rows={2}
                       onChange={(e) => setCityLine(e.target.value)}
                       inputStyle={fieldStyles["cityLine"]}
-                      onChangeStyle={(style) => updateFieldStyle("cityLine", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("cityLine", style)
+                      }
                       className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                       placeholder="BRIGHOUSE SOUTH, RICHMOND"
                     />
                   </div>
                 </div>
-                <div className="text-[30px] font-light mt-0" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)", opacity: 0.7 }}>
-                  <StyledInput
+                <div
+                  className="h-[40px]"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    opacity: 0.7,
+                  }}
+                >
+                  <input
+                    type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    inputStyle={fieldStyles["amount"]}
-                    onChangeStyle={(style) => updateFieldStyle("amount", style)}
-                    className="font-semibold content-center text-center text-[#ffffff] text-[30px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                     placeholder="$000,000"
+                    className="
+      text-center
+      text-[#ffffff]
+      text-[28px]
+      h-full
+      w-full
+      bg-transparent
+      border-none
+      focus:outline-none
+      outline-none
+      placeholder-[#ffffff]
+      placeholder:font-[500]
+      px-2
+    "
                   />
                 </div>
               </div>
@@ -801,45 +937,61 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               <div className="w-[25%]">
                 <div className="space-y-0 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">BY-LAW RESTRICTIONS:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      BY-LAW RESTRICTIONS:
+                    </span>
                     <StyledInput
                       value={byLawRestrictions}
                       onChange={(e) => setByLawRestrictions(e.target.value)}
                       inputStyle={fieldStyles["byLawRestrictions"]}
-                      onChangeStyle={(style) => updateFieldStyle("byLawRestrictions", style)}
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("byLawRestrictions", style)
+                      }
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">MAINT. FEES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      MAINT. FEES:
+                    </span>
                     <StyledInput
                       value={maintFees}
                       onChange={(e) => setMaintFees(e.target.value)}
                       inputStyle={fieldStyles["maintFees"]}
-                      onChangeStyle={(style) => updateFieldStyle("maintFees", style)}
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("maintFees", style)
+                      }
+                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="$000.00"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">MAINT. FEES INCLUDE:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      MAINT. FEES INCLUDE:
+                    </span>
                     <StyledInput
                       value={maintFeesInclude}
                       onChange={(e) => setMaintFeesInclude(e.target.value)}
                       inputStyle={fieldStyles["maintFeesInclude"]}
-                      onChangeStyle={(style) => updateFieldStyle("maintFeesInclude", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("maintFeesInclude", style)
+                      }
                       className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">FEATURES INCLUDED:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      FEATURES INCLUDED:
+                    </span>
                     <StyledInput
                       value={featuresIncluded}
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
                       inputStyle={fieldStyles["featuresIncluded"]}
-                      onChangeStyle={(style) => updateFieldStyle("featuresIncluded", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("featuresIncluded", style)
+                      }
                       className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
                     />
@@ -847,29 +999,39 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                 </div>
                 <div className="space-y-0 text-[8px]">
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">SITE INFLUENCES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      SITE INFLUENCES:
+                    </span>
                     <StyledInput
                       value={siteInfluences}
                       onChange={(e) => setSiteInfluences(e.target.value)}
                       inputStyle={fieldStyles["siteInfluences"]}
-                      onChangeStyle={(style) => updateFieldStyle("siteInfluences", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("siteInfluences", style)
+                      }
                       className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">AMENITIES:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      AMENITIES:
+                    </span>
                     <StyledInput
                       value={amenities}
                       onChange={(e) => setAmenities(e.target.value)}
                       inputStyle={fieldStyles["amenities"]}
-                      onChangeStyle={(style) => updateFieldStyle("amenities", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("amenities", style)
+                      }
                       className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                       placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                     />
                   </div>
                   <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">VIEW:</span>
+                    <span className="font-bold text-[#B3B394] text-[12px]">
+                      VIEW:
+                    </span>
                     <StyledInput
                       value={view}
                       onChange={(e) => setView(e.target.value)}
@@ -888,7 +1050,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       onChange={(e) => setFullName(e.target.value)}
                       rows={1}
                       inputStyle={fieldStyles["fullName"]}
-                      onChangeStyle={(style) => updateFieldStyle("fullName", style)}
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("fullName", style)
+                      }
                       className=" text-[16px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
                       placeholder="FIRSTNAME LASTNAME"
                     />
@@ -898,7 +1062,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                     rows={1}
                     onChange={(e) => setPropertyName(e.target.value)}
                     inputStyle={fieldStyles["propertyName"]}
-                    onChangeStyle={(style) => updateFieldStyle("propertyName", style)}
+                    onChangeStyle={(style) =>
+                      updateFieldStyle("propertyName", style)
+                    }
                     className=" text-[12px] font-thin h-[18px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
                     placeholder="MACDONALD  Realty"
                   />
@@ -910,7 +1076,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onChange={(e) => setNumber(e.target.value)}
                         rows={1}
                         inputStyle={fieldStyles["number"]}
-                        onChangeStyle={(style) => updateFieldStyle("number", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("number", style)
+                        }
                         className="font-thin inline text-[12px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
                         placeholder="604.000.0000"
                       />
@@ -922,7 +1090,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onChange={(e) => setEmail(e.target.value)}
                         rows={1}
                         inputStyle={fieldStyles["email"]}
-                        onChangeStyle={(style) => updateFieldStyle("email", style)}
+                        onChangeStyle={(style) =>
+                          updateFieldStyle("email", style)
+                        }
                         className="font-thin inline text-[11px] h-[22px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                         placeholder="FIRST@LAST.COM"
                       />
@@ -941,15 +1111,17 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image2", e)}
                         onMouseUp={() => handleMouseUp("image2")}
                         onMouseLeave={() => handleMouseLeave("image2")}
-                style={{ cursor: dragging.image2 ? "grabbing" : "grab" }}
-              >
+                        style={{
+                          cursor: dragging.image2 ? "grabbing" : "grab",
+                        }}
+                      >
                         {images.image2 ? (
                           <>
                             <ImageEditor
-                      src={images.image2}
-                      scale={scale.image2}
-                      position={position.image2}
-                    />
+                              src={images.image2}
+                              scale={scale.image2}
+                              position={position.image2}
+                            />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -982,7 +1154,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete("image2", fileInputRef2)}
+                              onClick={() =>
+                                handleDelete("image2", fileInputRef2)
+                              }
                               className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -1013,15 +1187,17 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image3", e)}
                         onMouseUp={() => handleMouseUp("image3")}
                         onMouseLeave={() => handleMouseLeave("image3")}
-                style={{ cursor: dragging.image3 ? "grabbing" : "grab" }}
-              >
+                        style={{
+                          cursor: dragging.image3 ? "grabbing" : "grab",
+                        }}
+                      >
                         {images.image3 ? (
                           <>
                             <ImageEditor
-                      src={images.image3}
-                      scale={scale.image3}
-                      position={position.image3}
-                    />
+                              src={images.image3}
+                              scale={scale.image3}
+                              position={position.image3}
+                            />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1053,7 +1229,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete("image3", fileInputRef3)}
+                              onClick={() =>
+                                handleDelete("image3", fileInputRef3)
+                              }
                               className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -1084,15 +1262,17 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image4", e)}
                         onMouseUp={() => handleMouseUp("image4")}
                         onMouseLeave={() => handleMouseLeave("image4")}
-                style={{ cursor: dragging.image4 ? "grabbing" : "grab" }}
-              >
+                        style={{
+                          cursor: dragging.image4 ? "grabbing" : "grab",
+                        }}
+                      >
                         {images.image4 ? (
                           <>
                             <ImageEditor
-                      src={images.image4}
-                      scale={scale.image4}
-                      position={position.image4}
-                    />
+                              src={images.image4}
+                              scale={scale.image4}
+                              position={position.image4}
+                            />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1124,7 +1304,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete("image4", fileInputRef4)}
+                              onClick={() =>
+                                handleDelete("image4", fileInputRef4)
+                              }
                               className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -1155,15 +1337,17 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image5", e)}
                         onMouseUp={() => handleMouseUp("image5")}
                         onMouseLeave={() => handleMouseLeave("image5")}
-                style={{ cursor: dragging.image5 ? "grabbing" : "grab" }}
-              >
+                        style={{
+                          cursor: dragging.image5 ? "grabbing" : "grab",
+                        }}
+                      >
                         {images.image5 ? (
                           <>
                             <ImageEditor
-                      src={images.image5}
-                      scale={scale.image5}
-                      position={position.image5}
-                    />
+                              src={images.image5}
+                              scale={scale.image5}
+                              position={position.image5}
+                            />
 
                             {/* Zoom Buttons */}
                             <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1195,7 +1379,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete("image5", fileInputRef5)}
+                              onClick={() =>
+                                handleDelete("image5", fileInputRef5)
+                              }
                               className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -1218,7 +1404,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           className="hidden"
                         />
                       </div>
-
                     </div>
                     <div className="absolute  group z-10">
                       <div
@@ -1227,15 +1412,17 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         onMouseMove={(e) => handleMouseMove("image6", e)}
                         onMouseUp={() => handleMouseUp("image6")}
                         onMouseLeave={() => handleMouseLeave("image6")}
-                style={{ cursor: dragging.image6 ? "grabbing" : "grab" }}
-              >
+                        style={{
+                          cursor: dragging.image6 ? "grabbing" : "grab",
+                        }}
+                      >
                         {images.image6 ? (
                           <>
                             <ImageEditor
-                      src={images.image6}
-                      scale={scale.image6}
-                      position={position.image6}
-                    />
+                              src={images.image6}
+                              scale={scale.image6}
+                              position={position.image6}
+                            />
 
                             {/* Zoom Controls */}
                             <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1270,7 +1457,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             {/* Delete Button */}
                             <button
                               type="button"
-                              onClick={() => handleDelete("image6", fileInputRef6)}
+                              onClick={() =>
+                                handleDelete("image6", fileInputRef6)
+                              }
                               className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -1294,18 +1483,22 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           className="hidden"
                         />
                       </div>
-
                     </div>
                   </div>
                   <div className="text-[10px] justify-self-center mt-4 w-[90%] font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
-                    <h2 className="text-[16px] leading-tight px-5 text-center tracking-[-1px] mb-[15px] font-bold text-[#B3B394] line-clamp-2">ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.</h2>
+                    <h2 className="text-[16px] leading-relaxed px-5 text-center tracking-[-1px] mb-[15px] font-bold text-[#B3B394] line-clamp-2">
+                      ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL
+                      APPOINTED CENTRO BUILDING.
+                    </h2>
                     <StyledInput
                       value={description}
                       rows={7}
                       onChange={(e) => setDescription(e.target.value)}
                       inputStyle={fieldStyles["description"]}
-                      onChangeStyle={(style) => updateFieldStyle("description", style)}
-                      className="font-normal text-[16px] max-h-[300px] z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
+                      onChangeStyle={(style) =>
+                        updateFieldStyle("description", style)
+                      }
+                      className="font-normal text-[12px] max-h-[300px] z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                       placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS
                   overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect
                   floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances,
@@ -1364,8 +1557,12 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       </svg>
                     </span>
                     <p className="text-[10px] leading-tight">
-                      All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal.
-                      Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.
+                      All information deemed reliable but not guaranteed and
+                      should be independently verified. All properties are
+                      subject to prior sale, change or withdrawal. Neither
+                      listing broker(s) nor BC Floor Plans shall be responsible
+                      for any typographical errors, misinformation, misprints
+                      and shall be held totally harmless.
                     </p>
                   </div>
                 </div>
@@ -1375,31 +1572,39 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         </div>
 
         {/* Page 2 Divider */}
-        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+        <div className="w-[8.5in] mt-1 flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
         <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
-          <div className="w-full h-full flex flex-col bg-[#ffffff] justify-center font-alexandria relative">
+          <div
+            className="w-full h-full flex flex-col justify-center font-alexandria relative"
+            style={{
+              background:
+                "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+            }}
+          >
             <div
               className="w-full flex-1 place-self-center relative overflow-hidden flex items-center justify-center group"
               onMouseDown={(e) => handleMouseDown("image7", e)}
               onMouseMove={(e) => handleMouseMove("image7", e)}
               onMouseUp={() => handleMouseUp("image7")}
               onMouseLeave={() => handleMouseLeave("image7")}
-                style={{ cursor: dragging.image7 ? "grabbing" : "grab" }}
-              >
+              style={{ cursor: dragging.image7 ? "grabbing" : "grab" }}
+            >
               {images.image7 ? (
                 <>
                   <div
                     className="absolute"
                     style={{
-                      width: image7Rotation % 180 !== 0 ? '11in' : '100%',
-                      height: image7Rotation % 180 !== 0 ? '8.5in' : '100%',
-                      top: '50%',
-                      left: '50%',
+                      width: image7Rotation % 180 !== 0 ? "11in" : "100%",
+                      height: image7Rotation % 180 !== 0 ? "8.5in" : "100%",
+                      top: "50%",
+                      left: "50%",
                       transform: `translate(-50%, -50%) rotate(${image7Rotation}deg)`,
                     }}
                   >
@@ -1479,24 +1684,35 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             </div>
 
             <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[160px]">
-              <div className="p-3 pt-[80px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}>
-                <div className="tracking-wide text-white mt-0 flex">#
+              <div
+                className="p-3 pt-[80px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                }}
+              >
+                <div className="tracking-wide text-white mt-0 mb-2 flex">
+                  #
                   <StyledInput
                     value={addressCode}
                     onChange={(e) => setAddressCode(e.target.value)}
                     inputStyle={fieldStyles["addressCode"]}
-                    onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
-                    className="font-light text-[21px] h-[24px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                    onChangeStyle={(style) =>
+                      updateFieldStyle("addressCode", style)
+                    }
+                    className="font-light text-[21px] h-[42px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                     placeholder="0000-0000"
                   />
                 </div>
-                <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full mb-3">
                   <span>Number</span>
                   <StyledInput
                     value={roadName}
                     onChange={(e) => setRoadName(e.target.value)}
                     inputStyle={fieldStyles["roadName"]}
-                    onChangeStyle={(style) => updateFieldStyle("roadName", style)}
+                    onChangeStyle={(style) =>
+                      updateFieldStyle("roadName", style)
+                    }
                     className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                     placeholder="0"
                   />
@@ -1509,7 +1725,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                     rows={2}
                     onChange={(e) => setCityLine(e.target.value)}
                     inputStyle={fieldStyles["cityLine"]}
-                    onChangeStyle={(style) => updateFieldStyle("cityLine", style)}
+                    onChangeStyle={(style) =>
+                      updateFieldStyle("cityLine", style)
+                    }
                     className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                     placeholder="BRIGHOUSE SOUTH, RICHMOND"
                   />
@@ -1517,17 +1735,41 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               </div>
             </div>
             <div className="flex gap-2 absolute bottom-[60px] right-0 h-[30px]">
-              <div className="opacity-[25%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-              <div className="opacity-[50%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-              <div className="opacity-[75%] w-[35px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
-              <div className="flex w-[500px]" style={{ background: "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)" }}></div>
+              <div
+                className="opacity-[25%] w-[35px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                }}
+              ></div>
+              <div
+                className="opacity-[50%] w-[35px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                }}
+              ></div>
+              <div
+                className="opacity-[75%] w-[35px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                }}
+              ></div>
+              <div
+                className="flex w-[500px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                }}
+              ></div>
             </div>
           </div>
         </div>
-
       </>
     );
-  });
+  },
+);
 
 BcfpStandard13.displayName = "BcfpStandard13";
 export default BcfpStandard13;

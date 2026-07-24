@@ -2,6 +2,42 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { applySafeZoneToClone } from "../utils/safeZoneUtils";
 
+const copyComputedStyles = (sourceNode, targetNode) => {
+  if (!sourceNode || !targetNode || sourceNode.nodeType !== 1 || targetNode.nodeType !== 1) return;
+
+  const computed = window.getComputedStyle(sourceNode);
+
+  const styleProperties = [
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "lineHeight",
+    "letterSpacing", "wordSpacing", "whiteSpace", "wordBreak", "overflowWrap",
+    "textAlign", "textTransform", "verticalAlign",
+    "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
+    "margin", "marginTop", "marginRight", "marginBottom", "marginLeft",
+    "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "boxSizing", "display", "position", "top", "right", "bottom", "left",
+    "flex", "flexDirection", "flexWrap", "justifyContent", "alignItems", "alignContent",
+    "gridTemplateColumns", "gridTemplateRows", "gap", "rowGap", "columnGap",
+    "overflow", "overflowX", "overflowY"
+  ];
+
+  for (let prop of styleProperties) {
+    const val = computed[prop];
+    if (val && val !== "auto" && val !== "normal") {
+      try {
+        targetNode.style[prop] = val;
+      } catch {}
+    }
+  }
+
+  const sourceChildren = Array.from(sourceNode.children);
+  const targetChildren = Array.from(targetNode.children);
+  const count = Math.min(sourceChildren.length, targetChildren.length);
+
+  for (let i = 0; i < count; i++) {
+    copyComputedStyles(sourceChildren[i], targetChildren[i]);
+  }
+};
+
 const DownloadPdf = async (
   elementId,
   fileName = "section.pdf",
@@ -14,6 +50,11 @@ const DownloadPdf = async (
   if (!section) {
     console.error(`Element with ID "${elementId}" not found.`);
     return;
+  }
+
+  // Ensure fonts are ready before layout measurement and cloning
+  if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
   }
 
   // Detect background color
@@ -30,20 +71,27 @@ const DownloadPdf = async (
 
   const bgColor = getBackgroundColor(section);
 
-  // Reference width for consistent layout rendering
-  // We use 96 DPI as base browser reference (1 inch = 96px)
-  const renderWidth = paperSize.width * 96;
-  const renderHeight = paperSize.height * 96;
+  const sectionRect = section.getBoundingClientRect();
+  const renderWidth = sectionRect.width || paperSize.width * 96;
+  const renderHeight = sectionRect.height || paperSize.height * 96;
 
   const clone = section.cloneNode(true);
   clone.style.position = "absolute";
   clone.style.top = "-9999px";
   clone.style.left = "-9999px";
   clone.style.width = `${renderWidth}px`;
-  clone.style.height = `${renderHeight}px`; // Force exact height for aspect ratio
+  clone.style.height = `${renderHeight}px`;
   clone.style.overflow = "hidden";
   clone.style.maxHeight = "none";
+  clone.style.margin = "0";
+  clone.style.padding = "0";
+  clone.style.boxShadow = "none";
+  clone.style.borderRadius = "0";
+  clone.style.border = "none";
   document.body.appendChild(clone);
+
+  // Copy exact computed styles from live rendered DOM to clone to prevent reflow
+  copyComputedStyles(section, clone);
 
   if (withSafeZone) {
     applySafeZoneToClone(clone, false);
@@ -93,7 +141,29 @@ const DownloadPdf = async (
     }
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Strip UI shadows, outer margins, rounded corners, and borders from cloned pdf-pages before capture
+  const clonePages = clone.querySelectorAll(".pdf-page");
+  clonePages.forEach((page) => {
+    page.style.boxShadow = "none";
+    page.style.margin = "0";
+    page.style.borderRadius = "0";
+    page.style.border = "none";
+    page.style.outline = "none";
+  });
+
+  // Deterministically wait for fonts & layout settling without arbitrary setTimeout timeouts
+  if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
+  }
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  // Verify dimensions match between original section and clone
+  const cloneRect = clone.getBoundingClientRect();
+  if (Math.abs(sectionRect.height - cloneRect.height) > 1 || Math.abs(sectionRect.width - cloneRect.width) > 1) {
+    console.warn(
+      `[DownloadPdf] Dimension mismatch detected! Section: ${sectionRect.width}x${sectionRect.height}px, Clone: ${cloneRect.width}x${cloneRect.height}px`
+    );
+  }
 
   try {
     const pWidth = paperSize.width * 96;
@@ -104,18 +174,28 @@ const DownloadPdf = async (
       useCORS: true,
       logging: false,
       allowTaint: true,
-      backgroundColor: bgColor,
+      backgroundColor: bgColor === "rgba(0, 0, 0, 0)" || bgColor === "transparent" ? null : bgColor,
       width: pWidth,
       height: pHeight,
       windowWidth: pWidth,
       windowHeight: pHeight,
+      x: 0,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0,
     };
 
     const pages = clone.querySelectorAll(".pdf-page");
     const elementsToCapture = pages.length > 0 ? Array.from(pages) : [clone];
 
-    const finalPaperWidth = withBleed ? paperSize.width + 0.25 : paperSize.width;
-    const finalPaperHeight = withBleed ? paperSize.height + 0.25 : paperSize.height;
+    // Standard print bleed: 3 mm on each side (top, bottom, left, right)
+    // 3 mm = 3 / 25.4 inches = ~0.11811 inches per side
+    // Total addition = (3 / 25.4) * 2 = 6 / 25.4 = ~0.23622 inches
+    const BLEED_INCHES = 3 / 25.4;
+    const TOTAL_BLEED_ADDITION = BLEED_INCHES * 2;
+
+    const finalPaperWidth = withBleed ? paperSize.width + TOTAL_BLEED_ADDITION : paperSize.width;
+    const finalPaperHeight = withBleed ? paperSize.height + TOTAL_BLEED_ADDITION : paperSize.height;
 
     const orientation = paperSize.width > paperSize.height ? "landscape" : "portrait";
     const pdf = new jsPDF({
@@ -131,11 +211,15 @@ const DownloadPdf = async (
       const totalHeight = isExplicitPage ? pHeight : Math.max(pHeight, el.scrollHeight);
       const numPages = isExplicitPage ? 1 : Math.ceil(totalHeight / pHeight);
 
-      // Ensure the page element is properly sized for capture
+      // Ensure the page element is properly sized for native capture with no shadow or margin
       el.style.width = `${pWidth}px`;
       el.style.height = `${totalHeight}px`;
       el.style.overflow = "hidden";
       el.style.display = "block"; // Ensure it's not hidden
+      el.style.boxShadow = "none";
+      el.style.margin = "0";
+      el.style.borderRadius = "0";
+      el.style.border = "none";
 
       const elOptions = {
         ...options,
@@ -150,12 +234,12 @@ const DownloadPdf = async (
 
       if (withBleed) {
         const scale = options.scale || 3;
-        const bleedPx = 0.125 * 96 * scale; // pixels for 0.125" at this scale
+        const bleedPx = BLEED_INCHES * 96 * scale; // 3 mm at scale 3
         
         const origWidth = canvas.width;
         const origHeight = canvas.height;
-        const extWidth = origWidth + (bleedPx * 2);
-        const extHeight = origHeight + (bleedPx * 2);
+        const extWidth = Math.round(origWidth + (bleedPx * 2));
+        const extHeight = Math.round(origHeight + (bleedPx * 2));
         
         const extCanvas = document.createElement('canvas');
         extCanvas.width = extWidth;
@@ -166,29 +250,30 @@ const DownloadPdf = async (
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, extWidth, extHeight);
         
-        // Draw original centered
+        // Draw original sheet at offset 3 mm (bleedPx, bleedPx)
         ctx.drawImage(canvas, bleedPx, bleedPx);
         
-        // Stretch Top Edge
+        // Extend Top Edge into top 3 mm bleed margin
         ctx.drawImage(canvas, 0, 0, origWidth, 1, bleedPx, 0, origWidth, bleedPx);
-        // Stretch Bottom Edge
+        // Extend Bottom Edge into bottom 3 mm bleed margin
         ctx.drawImage(canvas, 0, origHeight - 1, origWidth, 1, bleedPx, extHeight - bleedPx, origWidth, bleedPx);
-        // Stretch Left Edge
+        // Extend Left Edge into left 3 mm bleed margin
         ctx.drawImage(canvas, 0, 0, 1, origHeight, 0, bleedPx, bleedPx, origHeight);
-        // Stretch Right Edge
+        // Stretch Right Edge into right 3 mm bleed margin
         ctx.drawImage(canvas, origWidth - 1, 0, 1, origHeight, extWidth - bleedPx, bleedPx, bleedPx, origHeight);
         
-        // Corner: Top-Left
+        // Extend 4 Corners into bleed corners
+        // Top-Left Corner
         ctx.drawImage(canvas, 0, 0, 1, 1, 0, 0, bleedPx, bleedPx);
-        // Corner: Top-Right
+        // Top-Right Corner
         ctx.drawImage(canvas, origWidth - 1, 0, 1, 1, extWidth - bleedPx, 0, bleedPx, bleedPx);
-        // Corner: Bottom-Left
+        // Bottom-Left Corner
         ctx.drawImage(canvas, 0, origHeight - 1, 1, 1, 0, extHeight - bleedPx, bleedPx, bleedPx);
-        // Corner: Bottom-Right
+        // Bottom-Right Corner
         ctx.drawImage(canvas, origWidth - 1, origHeight - 1, 1, 1, extWidth - bleedPx, extHeight - bleedPx, bleedPx, bleedPx);
         
         finalImgData = extCanvas.toDataURL("image/png", 1.0);
-        finalImgHeightInches = (totalHeight / 96) + 0.25;
+        finalImgHeightInches = (totalHeight / 96) + TOTAL_BLEED_ADDITION;
       } else {
         finalImgData = canvas.toDataURL("image/png", 1.0);
         finalImgHeightInches = totalHeight / 96;

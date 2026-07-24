@@ -1,5 +1,11 @@
 import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut } from "lucide-react";
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
@@ -7,7 +13,10 @@ import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import ImageEditor from "./ImageEditor";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import {
+  FeatureSheetPayload,
+  FeatureSheetResponse,
+} from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
 
 export interface BcfpStandard21Ref {
@@ -151,7 +160,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
     });
 
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
 
     // --- Input Refs ---
@@ -171,20 +182,34 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
     const getFileInputRef = (key: string) => {
       switch (key) {
-        case "image1": return fileInputRef1;
-        case "image2": return fileInputRef2;
-        case "image3": return fileInputRef3;
-        case "image4": return fileInputRef4;
-        case "image5": return fileInputRef5;
-        case "image6": return fileInputRef6;
-        case "image7": return fileInputRef7;
-        case "image8": return fileInputRef8;
-        case "image9": return fileInputRef9;
-        case "image10": return fileInputRef10;
-        case "image11": return fileInputRef11;
-        case "image12": return fileInputRef12;
-        case "image13": return fileInputRef13;
-        default: return fileInputRef1;
+        case "image1":
+          return fileInputRef1;
+        case "image2":
+          return fileInputRef2;
+        case "image3":
+          return fileInputRef3;
+        case "image4":
+          return fileInputRef4;
+        case "image5":
+          return fileInputRef5;
+        case "image6":
+          return fileInputRef6;
+        case "image7":
+          return fileInputRef7;
+        case "image8":
+          return fileInputRef8;
+        case "image9":
+          return fileInputRef9;
+        case "image10":
+          return fileInputRef10;
+        case "image11":
+          return fileInputRef11;
+        case "image12":
+          return fileInputRef12;
+        case "image13":
+          return fileInputRef13;
+        default:
+          return fileInputRef1;
       }
     };
 
@@ -212,7 +237,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
           otherDetails: {
             maintenanceFees,
             maintenanceFeesInclude,
@@ -243,20 +270,29 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-        if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description) setMaintenanceFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description) setMaintenanceFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintenanceFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintenanceFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-        if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
-          if (details.maintenanceFees) setMaintenanceFees(details.maintenanceFees as string);
-          if (details.maintenanceFeesInclude) setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
+          if (details.maintenanceFees)
+            setMaintenanceFees(details.maintenanceFees as string);
+          if (details.maintenanceFeesInclude)
+            setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
@@ -264,18 +300,33 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
-          if (details.addressCode) setAddressCode(details.addressCode as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
           if (details.headline) setHeadline(details.headline as string);
           if (details.patioSqft) setPatioSqft(details.patioSqft as string);
-          if (details.ceilingHeight) setCeilingHeight(details.ceilingHeight as string);
+          if (details.ceilingHeight)
+            setCeilingHeight(details.ceilingHeight as string);
         }
 
-        if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
-        if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
-        if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
-        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
+        if (state.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof images),
+          }));
+        if (state.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof scale),
+          }));
+        if (state.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.fieldStyles)
+          setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
@@ -285,25 +336,41 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
     useEffect(() => {
       if (orderData) {
         if (orderData.property) {
-          if (orderData.property.listing_price) setAmount(orderData.property.listing_price.toString());
-          if (orderData.property.bedrooms) setBedroom(orderData.property.bedrooms.toString());
-          if (orderData.property.bathrooms) setBathroom(orderData.property.bathrooms.toString());
-          if (orderData.property.square_footage) setSqft(orderData.property.square_footage.toString());
-          if (orderData.property.year_constructed) setBuiltYear(orderData.property.year_constructed.toString());
-          if (orderData.property.description) setDescription(orderData.property.description);
-          if (orderData.property.mls_number) setMlsNumber(orderData.property.mls_number);
-          if (orderData.property.suite) setAddressCode(orderData.property.suite);
-          if (orderData.property.address) setRoadName(orderData.property.address);
+          if (orderData.property.listing_price)
+            setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms)
+            setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms)
+            setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage)
+            setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed)
+            setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description)
+            setDescription(orderData.property.description);
+          if (orderData.property.mls_number)
+            setMlsNumber(orderData.property.mls_number);
+          if (orderData.property.suite)
+            setAddressCode(orderData.property.suite);
+          if (orderData.property.address)
+            setRoadName(orderData.property.address);
 
           let cityString = "";
           if (orderData.property.city) cityString += orderData.property.city;
-          if (orderData.property.province) cityString += (cityString ? ", " : "") + orderData.property.province;
-          if (orderData.property.postal_code) cityString += (cityString ? " " : "") + orderData.property.postal_code;
+          if (orderData.property.province)
+            cityString +=
+              (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code)
+            cityString +=
+              (cityString ? " " : "") + orderData.property.postal_code;
           if (cityString) setCityLine(cityString);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
-          if (agent.first_name || agent.last_name) setFullName(`${agent.first_name || ""} ${agent.last_name || ""}`.trim());
+          if (agent.first_name || agent.last_name)
+            setFullName(
+              `${agent.first_name || ""} ${agent.last_name || ""}`.trim(),
+            );
           if (agent.email) setEmail(agent.email);
           if (agent.primary_phone) setNumber(agent.primary_phone);
           if (agent.company_name) setPropertyName(agent.company_name);
@@ -311,10 +378,14 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
       }
 
       if (formData) {
-        if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
-        if (formData.maintenanceFees) setMaintenanceFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude) setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.byLawRestrictions)
+          setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.maintenanceFees)
+          setMaintenanceFees(formData.maintenanceFees);
+        if (formData.maintenanceFeesInclude)
+          setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded)
+          setFeaturesIncluded(formData.featuresIncluded);
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
@@ -331,9 +402,21 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         if (formData.bathroom) setBathroom(formData.bathroom);
         if (formData.sqft) setSqft(formData.sqft);
         if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if (formData.images) setImages((prev) => ({ ...prev, ...(formData.images as typeof images) }));
-        if (formData.imageScales) setScale((prev) => ({ ...prev, ...(formData.imageScales as typeof scale) }));
-        if (formData.imagePositions) setPosition((prev) => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+        if (formData.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(formData.images as typeof images),
+          }));
+        if (formData.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(formData.imageScales as typeof scale),
+          }));
+        if (formData.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(formData.imagePositions as typeof position),
+          }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -389,7 +472,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -400,7 +483,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -488,7 +571,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
     const renderImageSlot = (
       key: keyof typeof images,
       containerClassName: string,
-      placeholderText = "Select Image"
+      placeholderText = "Select Image",
     ) => {
       const inputRef = getFileInputRef(key);
       const hasImage = !!images[key];
@@ -500,7 +583,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
           onMouseMove={(e) => handleMouseMove(key, e)}
           onMouseUp={() => handleMouseUp(key)}
           onMouseLeave={() => handleMouseLeave(key)}
-          style={{ cursor: dragging[key] ? "grabbing" : hasImage ? "grab" : "pointer" }}
+          style={{
+            cursor: dragging[key] ? "grabbing" : hasImage ? "grab" : "pointer",
+          }}
         >
           {hasImage ? (
             <>
@@ -515,7 +600,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
               <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "in"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleZoom(key, "in");
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Zoom In"
                 >
@@ -523,7 +611,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleZoom(key, "out"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleZoom(key, "out");
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Zoom Out"
                 >
@@ -531,7 +622,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleRotate(key); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRotate(key);
+                  }}
                   className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
                   title="Rotate"
                 >
@@ -541,7 +635,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); openImageSourceModal(key); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openImageSourceModal(key);
+                }}
                 className="absolute top-2 right-9 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
                 title="Change Image"
               >
@@ -550,7 +647,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleDelete(key, inputRef); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(key, inputRef);
+                }}
                 className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
                 title="Delete Image"
               >
@@ -600,7 +700,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         {/* --- PAGE 1 DIVIDER --- */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 1</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 1
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
@@ -618,17 +720,28 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
             <path d="M0 0 H816 V150 C816 150 550 155 0 140 Z" fill="#1B435E" />
 
             {/* Right Taupe Curve Background */}
-            <path d="M816 135 C816 135 710 260 720 490 C730 710 816 780 816 780 Z" fill="#C2BB98" opacity="0.65" />
+            <path
+              d="M816 135 C816 135 710 260 720 490 C730 710 816 780 816 780 Z"
+              fill="#C2BB98"
+              opacity="0.65"
+            />
 
             {/* Bottom Taupe Sweep Curve */}
-            <path d="M0 970 Q 420 900 816 750 V1056 H0 Z" fill="#C2BB98" opacity="0.75" />
+            <path
+              d="M0 970 Q 420 900 816 750 V1056 H0 Z"
+              fill="#C2BB98"
+              opacity="0.75"
+            />
 
             {/* Bottom Navy Footer & Contact Swoop */}
-            <path d="M0 1056 H816 V780 C816 780 730 990 0 1015 V1056 Z" fill="#1B435E" />
+            <path
+              d="M0 1056 H816 V780 C816 780 730 990 0 1015 V1056 Z"
+              fill="#1B435E"
+            />
           </svg>
 
           {/* PAGE 1 CONTENT */}
-          <div className="relative z-10 w-full h-full flex flex-col justify-between px-7 py-5">
+          <div className="relative z-10 w-full h-full flex flex-col justify-between px-10 py-5">
             {/* Header Section */}
             <div className="flex justify-between items-start pt-1 pb-3 text-white">
               {/* Logo Slot */}
@@ -636,7 +749,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 {renderImageSlot(
                   "image7",
                   "w-full h-full",
-                  "Select Logo (Image 7)"
+                  "Select Logo (Image 7)",
                 )}
               </div>
 
@@ -682,7 +795,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 {renderImageSlot(
                   "image1",
                   "w-full h-[145px] p-1 bg-white shadow-sm border border-gray-200",
-                  "Select Image 1"
+                  "Select Image 1",
                 )}
 
                 {/* Description */}
@@ -701,67 +814,91 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 {/* Property Feature Specs */}
                 <div className="flex flex-col gap-1 text-[9.5px] leading-tight text-gray-800 font-sans">
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">BY-LAW RESTRICTIONS:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      BY-LAW RESTRICTIONS:
+                    </span>
                     <StyledInput
                       value={byLawRestrictions}
                       onChange={(e) => setByLawRestrictions(e.target.value)}
                       inputStyle={fieldStyles["byLawRestrictions"]}
-                      onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("byLawRestrictions", s)
+                      }
                       className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">MAINT. FEES:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      MAINT. FEES:
+                    </span>
                     <StyledInput
                       value={maintenanceFees}
                       onChange={(e) => setMaintenanceFees(e.target.value)}
                       inputStyle={fieldStyles["maintenanceFees"]}
-                      onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("maintenanceFees", s)
+                      }
                       className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="$000.00"
                     />
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">MAINT. FEES INCLUDE:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      MAINT. FEES INCLUDE:
+                    </span>
                     <StyledInput
                       value={maintenanceFeesInclude}
-                      onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
+                      onChange={(e) =>
+                        setMaintenanceFeesInclude(e.target.value)
+                      }
                       inputStyle={fieldStyles["maintenanceFeesInclude"]}
-                      onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("maintenanceFeesInclude", s)
+                      }
                       className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other"
                     />
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">FEATURES INCLUDED:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      FEATURES INCLUDED:
+                    </span>
                     <StyledInput
                       value={featuresIncluded}
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
                       inputStyle={fieldStyles["featuresIncluded"]}
-                      onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("featuresIncluded", s)
+                      }
                       className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                     />
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">SITE INFLUENCES:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      SITE INFLUENCES:
+                    </span>
                     <StyledInput
                       value={siteInfluences}
                       onChange={(e) => setSiteInfluences(e.target.value)}
                       inputStyle={fieldStyles["siteInfluences"]}
-                      onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("siteInfluences", s)
+                      }
                       className="text-[12px] text-gray-700 bg-transparent w-full focus:outline-none border-none placeholder-gray-400"
                       placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                     />
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">AMENITIES:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      AMENITIES:
+                    </span>
                     <StyledInput
                       value={amenities}
                       onChange={(e) => setAmenities(e.target.value)}
@@ -773,7 +910,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                   </div>
 
                   <div>
-                    <span className="font-bold text-[#1B435E] uppercase block">VIEW:</span>
+                    <span className="font-bold text-[#1B435E] uppercase block">
+                      VIEW:
+                    </span>
                     <StyledInput
                       value={view}
                       onChange={(e) => setView(e.target.value)}
@@ -804,7 +943,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 {renderImageSlot(
                   "image2",
                   "w-full h-[270px] p-1.5 bg-white shadow-md border border-gray-200",
-                  "Select Main Photo (Image 2)"
+                  "Select Main Photo (Image 2)",
                 )}
 
                 {/* Headline Text */}
@@ -857,7 +996,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                   </div>
                   <div className="flex items-center gap-0.5">
                     <span className="text-nowrap">SQ FT</span>
-                  <span className="text-gray-400">|</span>
+                    <span className="text-gray-400">|</span>
                     <span className="text-nowrap">BUILT IN</span>
                     <StyledInput
                       value={builtYear}
@@ -872,10 +1011,26 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
                 {/* 2x2 Photo Grid */}
                 <div className="grid grid-cols-2 gap-2 flex-1 mt-1">
-                  {renderImageSlot("image3", "w-full h-[155px] p-1 bg-white shadow-sm border border-gray-200", "Image 3")}
-                  {renderImageSlot("image4", "w-full h-[155px] p-1 bg-white shadow-sm border border-gray-200", "Image 4")}
-                  {renderImageSlot("image5", "w-full h-[155px] p-1 bg-white shadow-sm border border-gray-200", "Image 5")}
-                  {renderImageSlot("image6", "w-full h-[155px] p-1 bg-white shadow-sm border border-gray-200", "Image 6")}
+                  {renderImageSlot(
+                    "image3",
+                    "w-full h-[150px] p-1 bg-white shadow-sm border border-gray-200",
+                    "Image 3",
+                  )}
+                  {renderImageSlot(
+                    "image4",
+                    "w-full h-[150px] p-1 bg-white shadow-sm border border-gray-200",
+                    "Image 4",
+                  )}
+                  {renderImageSlot(
+                    "image5",
+                    "w-full h-[150px] p-1 bg-white shadow-sm border border-gray-200",
+                    "Image 5",
+                  )}
+                  {renderImageSlot(
+                    "image6",
+                    "w-full h-[150px] p-1 bg-white shadow-sm border border-gray-200",
+                    "Image 6",
+                  )}
                 </div>
               </div>
             </div>
@@ -884,7 +1039,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
             <div className="relative mt-2 flex flex-col">
               {/* Contact Box overlay on bottom right */}
               <div className="self-end flex flex-col text-right text-white pr-2 pb-2">
-                <span className="text-[11px] font-bold tracking-wider uppercase text-white/90">CONTACT:</span>
+                <span className="text-[11px] font-bold tracking-wider uppercase text-white/90">
+                  CONTACT:
+                </span>
                 <StyledInput
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -940,7 +1097,11 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
               <div className="flex items-center gap-2 pt-2 border-t border-white/20 text-white/90 text-[8px] leading-tight">
                 <House className="w-4 h-4 shrink-0" />
                 <p className="flex-1">
-                  All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.
+                  All information deemed reliable but not guaranteed and should
+                  be independently verified. All properties are subject to prior
+                  sale, change or withdrawal. Neither listing broker(s) nor BC
+                  Floor Plans shall be responsible for any typographical errors,
+                  misinformation, misprints and shall be held totally harmless.
                 </p>
               </div>
             </div>
@@ -950,7 +1111,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         {/* --- PAGE 2 DIVIDER --- */}
         <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
           <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">PAGE 2</span>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
@@ -965,11 +1128,19 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
             preserveAspectRatio="none"
           >
             {/* Top Taupe & Navy Background Swoop */}
-            <path d="M0 0 H816 V110 C816 110 500 150 0 90 Z" fill="#C2BB98" opacity="0.75" />
+            <path
+              d="M0 0 H816 V110 C816 110 500 150 0 90 Z"
+              fill="#C2BB98"
+              opacity="0.75"
+            />
             <path d="M0 0 H816 V75 C816 75 520 130 0 60 Z" fill="#1B435E" />
 
             {/* Bottom Taupe Accent & Dark Navy Footer Banner */}
-            <path d="M0 970 C0 970 450 930 816 990 V1056 H0 Z" fill="#C2BB98" opacity="0.6" />
+            <path
+              d="M0 970 C0 970 450 930 816 990 V1056 H0 Z"
+              fill="#C2BB98"
+              opacity="0.6"
+            />
             <path d="M0 1010 H816 V1056 H0 Z" fill="#1B435E" />
           </svg>
 
@@ -999,7 +1170,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
                   <div className="font-semibold text-gray-100">Total**</div>
                   <div className="flex items-center gap-2">
-                    <span className="w-24 font-medium text-gray-700 text-nowrap">Main Level:</span>
+                    <span className="w-24 font-medium text-gray-700 text-nowrap">
+                      Main Level:
+                    </span>
                     <StyledInput
                       value={sqft}
                       onChange={(e) => setSqft(e.target.value)}
@@ -1011,7 +1184,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     <span>sq.ft.</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-24 font-medium text-gray-700">Patio:</span>
+                    <span className="w-24 font-medium text-gray-700">
+                      Patio:
+                    </span>
                     <StyledInput
                       value={patioSqft}
                       onChange={(e) => setPatioSqft(e.target.value)}
@@ -1031,7 +1206,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
               {renderImageSlot(
                 "image7",
                 "w-full h-full border border-gray-200",
-                "Select Floor Plan Image (Image 7)"
+                "Select Floor Plan Image (Image 7)",
               )}
             </div>
 
@@ -1040,7 +1215,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
               <div className="flex justify-between items-end">
                 {/* Room Info */}
                 <div className="flex flex-col">
-                  <div className="font-bold text-[14px] uppercase text-gray-900">MAIN LEVEL</div>
+                  <div className="font-bold text-[14px] uppercase text-gray-900">
+                    MAIN LEVEL
+                  </div>
                   <div className="flex items-center gap-1 text-nowrap text-[11px] text-gray-700">
                     <span>Floor Area:</span>
                     <StyledInput
@@ -1059,7 +1236,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       value={ceilingHeight}
                       onChange={(e) => setCeilingHeight(e.target.value)}
                       inputStyle={fieldStyles["ceilingHeight"]}
-                      onChangeStyle={(s) => updateFieldStyle("ceilingHeight", s)}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("ceilingHeight", s)
+                      }
                       className="font-medium text-[11px] text-gray-900 w-[45px] bg-transparent focus:outline-none border-none placeholder-gray-600"
                       placeholder="0' 0&quot;"
                     />
@@ -1083,7 +1262,11 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
               {/* Disclaimer text */}
               <p className="text-[7.5px] text-gray-500 leading-tight text-center mt-1">
-                **While all reasonable attempts have been made to ensure accuracy and the square footage and room dimensions are believed to be correct to ANSI Standards, due to the possibility of human error the information cannot be guaranteed. E&O Insured for $1,000,000
+                **While all reasonable attempts have been made to ensure
+                accuracy and the square footage and room dimensions are believed
+                to be correct to ANSI Standards, due to the possibility of human
+                error the information cannot be guaranteed. E&O Insured for
+                $1,000,000
               </p>
             </div>
 
@@ -1095,7 +1278,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 BcfpStandard21.displayName = "BcfpStandard21";
