@@ -1,6 +1,6 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { applySafeZoneToClone } from "../utils/safeZoneUtils";
+
 
 const TabloidPdfGenerator = async (
   elementId,
@@ -70,10 +70,6 @@ const TabloidPdfGenerator = async (
   });
 
   document.body.appendChild(clone);
-
-  if (withSafeZone) {
-    applySafeZoneToClone(clone, true);
-  }
 
   // ─── Re-apply corrected image transforms in the clone ──────────────────────
   // The clone is now at full 17x11in resolution. We need to recalculate
@@ -321,6 +317,21 @@ const TabloidPdfGenerator = async (
             -(p * finalPaperHeight), 
             finalPaperWidth, 
             finalImgHeightInches
+          );
+        } else if (withSafeZone) {
+          // Safe zone: place the full captured image inset by 0.25" on all 4 sides.
+          // PDF page stays at standard 17"x11". The image is drawn at (0.25", 0.25")
+          // with size 16.5"×10.5" — leaving a clean 0.25" margin on every edge.
+          const safeMargin = 0.25;
+          const safeImgWidth = paperSize.width - safeMargin * 2;   // 16.5"
+          const safeImgHeight = paperSize.height - safeMargin * 2; // 10.5"
+          pdf.addImage(
+            finalImgData,
+            "PNG",
+            safeMargin,                              // x: 0.25" from left
+            safeMargin - (p * paperSize.height),     // y: 0.25" from top
+            safeImgWidth,                            // width: 16.5"
+            safeImgHeight                            // height: 10.5"
           );
         } else {
           pdf.addImage(

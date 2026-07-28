@@ -10,6 +10,7 @@ import React, {
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
+import { Input } from "@/components/ui/input";
 import FileManagerGallery from "./fileManagerGallery";
 import ImageSourceModal from "./ImageSourceModal";
 import { featureSheetService } from "../file-manager";
@@ -772,13 +773,11 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
         >
           <div className="flex w-full">
             <div className="w-full flex flex-col bg-[#ffffff] justify-center font-alexandria relative">
-              {renderImageSlot(
-                "image1",
-                fileInputRef1,
-                "w-full h-[700px] place-self-center border-2 border-[#fff]",
-              )}
+              <div className="absolute top-0 left-0 z-10 bg-black w-full h-[700px]">
+                {renderImageSlot("image1", fileInputRef1, "w-full h-full")}
+              </div>
 
-              <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[150px] z-20">
+              <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[170px] z-20">
                 <div
                   className="p-3 pt-[70px]"
                   style={{
@@ -807,7 +806,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                     className=" text-[11px] font-bold h-[18px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
                     placeholder="Macdonald Realty"
                   />
-                  <hr className="border-t-2 border-dotted border-white w-full" />
+                  <hr className="border-t-2 my-2 border-dotted border-white w-full" />
                   <div className="flex flex-col ">
                     <div className="flex gap-2 text-white text-[9px]">
                       PHONE:
@@ -836,99 +835,103 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 absolute bottom-[70px] right-0 h-[30px]">
-                <div
-                  className="opacity-[25%] w-[35px]"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                  }}
-                ></div>
-                <div
-                  className="opacity-[50%] w-[35px]"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                  }}
-                ></div>
-                <div
-                  className="opacity-[75%] w-[35px]"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                  }}
-                ></div>
-                <div
-                  className="flex w-[350px]"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                  }}
-                ></div>
-              </div>
-              <div className="absolute bottom-0 right-0 px-6 py-2 z-2 w-[68%] gap-2 flex justify-self-center text-[#B3B394]">
-                <span className="flex flex-col mt-1">
-                  <House className="w-4 h-4" />
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 8 8"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                      fill="#B3B394"
-                    />
-                    <path
-                      d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9776 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                      fill="#B3B394"
-                    />
-                  </svg>
-                </span>
-                <p className="text-[10px] leading-tight">
-                  All information deemed reliable but not guaranteed and should
-                  be independently verified. All properties are subject to prior
-                  sale, change or withdrawal. Neither listing broker(s) nor BC
-                  Floor Plans shall be responsible for any typographical errors,
-                  misinformation, misprints and shall be held totally harmless.
-                </p>
-              </div>
-              <div className="absolute left-[50px] bottom-[18px] group z-20">
-                {renderImageSlot(
-                  "image2",
-                  fileInputRef2,
-                  "w-[180px] h-[105px] bg-white shadow-md",
-                  "bottom-2 right-2",
-                )}
+              {/* page 4 */}
+              <div className="absolute bottom-0 w-full">
+                <div className="flex gap-2 absolute bottom-[70px] right-0 h-[30px]">
+                  <div
+                    className="opacity-[25%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                  <div
+                    className="opacity-[50%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                  <div
+                    className="opacity-[75%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                  <div
+                    className="flex w-[350px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                </div>
+                <div className="absolute bottom-0 right-0 px-6 py-2 z-2 w-[68%] gap-2 flex justify-self-center text-[#B3B394]">
+                  <span className="flex flex-col mt-1">
+                    <House className="w-4 h-4" />
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 8 8"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
+                        fill="#B3B394"
+                      />
+                      <path
+                        d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9776 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
+                        fill="#B3B394"
+                      />
+                    </svg>
+                  </span>
+                  <p className="text-[10px] leading-tight">
+                    All information deemed reliable but not guaranteed and
+                    should be independently verified. All properties are subject
+                    to prior sale, change or withdrawal. Neither listing
+                    broker(s) nor BC Floor Plans shall be responsible for any
+                    typographical errors, misinformation, misprints and shall be
+                    held totally harmless.
+                  </p>
+                </div>
+                <div className="absolute left-[50px] bottom-[18px] group z-20">
+                  {renderImageSlot(
+                    "image2",
+                    fileInputRef2,
+                    "w-[180px] h-[105px] bg-white shadow-md",
+                    "bottom-2 right-2",
+                  )}
+                </div>
               </div>
             </div>
             <div
@@ -942,7 +945,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                 {renderImageSlot(
                   "image3",
                   fileInputRef3,
-                  "w-full h-[500px] place-self-center border-2 border-[#fff]",
+                  "w-full h-[500px] place-self-center]",
                 )}
 
                 <div className="flex gap-2 absolute bottom-[64px] right-0 z-20">
@@ -1056,7 +1059,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       />
                       Road
                     </div>
-                    <hr className="border-t-2 border-dotted border-white w-full" />
+                    <hr className="border-t-2 mt-2 border-dotted border-white w-full" />
                     <div className="uppercase mt-2 flex justify-center">
                       <StyledInput
                         value={cityLine}
@@ -1070,20 +1073,19 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                     </div>
                   </div>
                   <div
-                    className="text-[30px] font-light mt-0"
+                    className="flex items-center justify-center text-[30px] font-light mt-0 px-2"
                     style={{
                       background:
                         "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                       opacity: 0.7,
                     }}
                   >
-                    <StyledInput
+                    <Input
                       value={amount}
+                      type="text"
                       onChange={(e) => setAmount(e.target.value)}
-                      inputStyle={fieldStyles["amount"]}
-                      onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                      className="font-semibold content-center text-center text-[#ffffff] text-[30px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
-                      placeholder="$000,000"
+                      className="font-semibold text-center text-[#ffffff] !text-[36px] !h-[40px] bg-transparent w-full focus:outline-none border-none shadow-none placeholder-[#ffffff] placeholder:font-[500] focus-visible:ring-0 focus-visible:ring-offset-0"
+                      placeholder="000,000"
                     />
                   </div>
                 </div>

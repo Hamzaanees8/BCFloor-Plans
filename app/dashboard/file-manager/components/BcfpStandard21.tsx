@@ -572,9 +572,12 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
       key: keyof typeof images,
       containerClassName: string,
       placeholderText = "Select Image",
+      controlsPosition?: "default" | "below-top-svg",
     ) => {
       const inputRef = getFileInputRef(key);
       const hasImage = !!images[key];
+
+      const isBelowTopSvg = controlsPosition === "below-top-svg";
 
       return (
         <div
@@ -596,18 +599,22 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                 rotation={rotation[key]}
               />
 
-              {/* Hover Controls */}
-              <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+              {/* Hover Controls - Zoom Buttons (Bottom Left) */}
+              <div
+                className={`absolute ${
+                  isBelowTopSvg ? "bottom-[240px] left-6" : "bottom-2 left-2"
+                } flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-30`}
+              >
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleZoom(key, "in");
                   }}
-                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 border border-gray-200"
                   title="Zoom In"
                 >
-                  <ZoomIn className="w-3.5 h-3.5 text-gray-700" />
+                  <ZoomIn className="w-4 h-4 text-gray-700" />
                 </button>
                 <button
                   type="button"
@@ -615,10 +622,29 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     e.stopPropagation();
                     handleZoom(key, "out");
                   }}
-                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 border border-gray-200"
                   title="Zoom Out"
                 >
-                  <ZoomOut className="w-3.5 h-3.5 text-gray-700" />
+                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                </button>
+              </div>
+
+              {/* Hover Controls - Edit, Rotate, Delete (Top Right) */}
+              <div
+                className={`absolute ${
+                  isBelowTopSvg ? "top-[220px] right-6" : "top-2 right-2"
+                } flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-30`}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openImageSourceModal(key);
+                  }}
+                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 border border-gray-200"
+                  title="Change Image"
+                >
+                  <Pencil className="w-4 h-4 text-gray-700" />
                 </button>
                 <button
                   type="button"
@@ -626,36 +652,23 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     e.stopPropagation();
                     handleRotate(key);
                   }}
-                  className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 border border-gray-200"
                   title="Rotate"
                 >
-                  <RotateCw className="w-3.5 h-3.5 text-gray-700" />
+                  <RotateCw className="w-4 h-4 text-gray-700" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(key, inputRef);
+                  }}
+                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 border border-gray-200"
+                  title="Delete Image"
+                >
+                  <Trash className="w-4 h-4 text-red-500" />
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openImageSourceModal(key);
-                }}
-                className="absolute top-2 right-9 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
-                title="Change Image"
-              >
-                <Pencil className="w-3.5 h-3.5 text-gray-700" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(key, inputRef);
-                }}
-                className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20"
-                title="Delete Image"
-              >
-                <Trash className="w-3.5 h-3.5 text-red-500" />
-              </button>
             </>
           ) : (
             <div
@@ -710,34 +723,46 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
           {/* Background SVG graphics */}
           <svg
-            viewBox="0 0 816 1056"
+            viewBox="0 0 1296 1656"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             className="absolute inset-0 w-full h-full pointer-events-none z-0"
             preserveAspectRatio="none"
           >
-            {/* Top Navy Banner Header */}
-            <path d="M0 0 H816 V150 C816 150 550 155 0 140 Z" fill="#1B435E" />
-
-            {/* Right Taupe Curve Background */}
-            <path
-              d="M816 135 C816 135 710 260 720 490 C730 710 816 780 816 780 Z"
-              fill="#C2BB98"
-              opacity="0.65"
-            />
-
-            {/* Bottom Taupe Sweep Curve */}
-            <path
-              d="M0 970 Q 420 900 816 750 V1056 H0 Z"
-              fill="#C2BB98"
-              opacity="0.75"
-            />
-
-            {/* Bottom Navy Footer & Contact Swoop */}
-            <path
-              d="M0 1056 H816 V780 C816 780 730 990 0 1015 V1056 Z"
-              fill="#1B435E"
-            />
+            <mask
+              id="mask0_14_129"
+              style={{ maskType: "luminance" }}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="1296"
+              height="1656"
+            >
+              <path d="M0 0H1296V1656H0V0Z" fill="white" />
+            </mask>
+            <g mask="url(#mask0_14_129)">
+              <path d="M0 1638H1296V18H0V1638Z" fill="#B3B394" />
+              <g opacity="0.5">
+                <path
+                  d="M1344.92 245.667L-2 216.781L1.13427 828C1.13427 828 92.5039 172.531 1345 357.441L1344.92 245.667Z"
+                  fill="white"
+                />
+              </g>
+              <path
+                d="M1310 0H0V792C0 792 83.9471 125.304 1308.34 287.463L1310 0Z"
+                fill="#184260"
+              />
+              <g opacity="0.5">
+                <path
+                  d="M-3.90001 1573.28L1288.86 1601.75L1297.49 952.11C1297.49 952.11 1209.02 1615.16 -4.01001 1429.28L-3.90001 1573.28Z"
+                  fill="white"
+                />
+              </g>
+              <path
+                d="M0 1656H1300L1298.35 948C1298.35 948 1215.06 1643.97 0 1476.21V1656Z"
+                fill="#184260"
+              />
+            </g>
           </svg>
 
           {/* PAGE 1 CONTENT */}
@@ -1081,7 +1106,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                   />
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[11px] text-white">
-                  <span className="font-bold">MLS #</span>
+                  <span className="font-bold text-nowrap">MLS #</span>
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
@@ -1119,37 +1144,105 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
         {/* --- PAGE 2 WRAPPER --- */}
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
-          {/* Background SVG graphics */}
-          <svg
-            viewBox="0 0 816 1056"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="absolute inset-0 w-full h-full pointer-events-none z-0"
-            preserveAspectRatio="none"
+          {/* Background Image (under background SVG) */}
+          <div
+            className="absolute inset-0 w-full h-full z-0"
+            data-background="true"
           >
-            {/* Top Taupe & Navy Background Swoop */}
-            <path
-              d="M0 0 H816 V110 C816 110 500 150 0 90 Z"
-              fill="#C2BB98"
-              opacity="0.75"
-            />
-            <path d="M0 0 H816 V75 C816 75 520 130 0 60 Z" fill="#1B435E" />
+            {renderImageSlot(
+              "image2",
+              "w-full h-full",
+              "Select Background Image (Image 2)",
+              "below-top-svg",
+            )}
+          </div>
 
-            {/* Bottom Taupe Accent & Dark Navy Footer Banner */}
-            <path
-              d="M0 970 C0 970 450 930 816 990 V1056 H0 Z"
-              fill="#C2BB98"
-              opacity="0.6"
-            />
-            <path d="M0 1010 H816 V1056 H0 Z" fill="#1B435E" />
-          </svg>
+          {/* Background SVG graphics (Top & Bottom) */}
+          <div
+            className="absolute inset-0 w-full h-full pointer-events-none z-10 flex flex-col justify-between"
+            data-background="true"
+            data-decorative="true"
+          >
+            {/* Top SVG */}
+            <svg
+              viewBox="0 0 1291 548"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-full h-auto"
+              preserveAspectRatio="none"
+            >
+              <mask
+                id="mask0_16_581_top"
+                style={{ maskType: "luminance" }}
+                maskUnits="userSpaceOnUse"
+                x="0"
+                y="0"
+                width="1291"
+                height="548"
+              >
+                <path d="M0 0H1291V548H0V0Z" fill="white" />
+              </mask>
+              <g mask="url(#mask0_16_581_top)">
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M1309 1471.02C85.232 1603.33 0.952255 1163.48 0.952255 1163.48L4.87283 1595L1307.83 1566.69L1309 1471.02ZM-7 185.26C1213.91 23.5255 1300.77 582.619 1300.77 582.619L1305.83 61L-6.55659 89.8818L-7 185.26Z"
+                  fill="#B3B394"
+                />
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M1304 1526.79C77.7255 1642.12 -6.33974 1163.64 -6.33974 1163.64L-8 1653H1304V1526.79ZM-6.33974 127.638C1219.92 -13.8149 1304 567.77 1304 567.77V0H-8L-6.33974 127.638Z"
+                  fill="#184260"
+                />
+              </g>
+            </svg>
+
+            {/* Bottom SVG (Exact SVG provided for Page 2 bottom) */}
+            <svg
+              viewBox="0 0 1293 553"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-full h-auto"
+              preserveAspectRatio="none"
+            >
+              <mask
+                id="mask0_16_581_bottom"
+                style={{ maskType: "luminance" }}
+                maskUnits="userSpaceOnUse"
+                x="0"
+                y="0"
+                width="1294"
+                height="553"
+              >
+                <path
+                  d="M1290.99 552.733L-8.70824e-05 547.996L2.01045 0.000115885L1293 4.73662L1290.99 552.733Z"
+                  fill="white"
+                />
+              </mask>
+              <g mask="url(#mask0_16_581_bottom)">
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M-12.6031 -923.079C1211.64 -1050.9 1294.31 -610.742 1294.31 -610.742L1291.97 -1042.27L-11.0829 -1018.74L-12.6031 -923.079ZM1298.67 367.5C77.1799 524.754 -7.62802 -34.6547 -7.62802 -34.6547L-14.6014 486.942L1297.88 462.876L1298.67 367.5Z"
+                  fill="#B3B394"
+                />
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M-7.39862 -978.83C1219.29 -1089.66 1301.6 -610.874 1301.6 -610.874L1305.06 -1100.23L-6.93557 -1105.04L-7.39862 -978.83ZM1297.8 425.119C71.0238 562.072 -10.9171 -19.817 -10.9171 -19.817L-13.0002 547.949L1298.99 552.762L1297.8 425.119Z"
+                  fill="#184260"
+                />
+              </g>
+            </svg>
+          </div>
 
           {/* PAGE 2 CONTENT */}
-          <div className="relative z-10 w-full h-full flex flex-col justify-between p-8">
+          <div className="relative z-20 w-full h-full flex flex-col justify-between p-8 pointer-events-none">
             {/* Header info area (Address & Totals) */}
-            <div className="flex justify-between items-start pt-2">
+            <div className="flex justify-between items-start pt-2 pointer-events-auto">
               <div className="flex flex-col">
-                <StyledInput
+                {/* <StyledInput
                   value={roadName}
                   onChange={(e) => setRoadName(e.target.value)}
                   inputStyle={fieldStyles["roadName"]}
@@ -1164,10 +1257,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                   onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
                   className="font-bold text-[18px] text-gray-900 bg-transparent focus:outline-none border-none placeholder-gray-700"
                   placeholder="Langley"
-                />
+                /> */}
 
                 {/* Specs Table */}
-                <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
+                {/* <div className="mt-3 flex flex-col gap-1 text-[13px] text-gray-800">
                   <div className="font-semibold text-gray-100">Total**</div>
                   <div className="flex items-center gap-2">
                     <span className="w-24 font-medium text-gray-700 text-nowrap">
@@ -1197,24 +1290,18 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     />
                     <span>sq.ft.</span>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
-            {/* Floor Plan Main Container (Image 7) */}
-            <div className="my-auto w-full h-[620px] flex items-center justify-center p-2 bg-white/90 rounded shadow-sm border border-gray-200">
-              {renderImageSlot(
-                "image7",
-                "w-full h-full border border-gray-200",
-                "Select Floor Plan Image (Image 7)",
-              )}
-            </div>
+            {/* Page 2 space filler */}
+            <div className="my-auto w-full flex-1 pointer-events-none" />
 
             {/* Floor Plan Specs & Disclaimer Footer */}
-            <div className="flex flex-col gap-2 pb-6">
+            <div className="flex flex-col gap-2 pb-6 pointer-events-auto">
               <div className="flex justify-between items-end">
                 {/* Room Info */}
-                <div className="flex flex-col">
+                {/* <div className="flex flex-col">
                   <div className="font-bold text-[14px] uppercase text-gray-900">
                     MAIN LEVEL
                   </div>
@@ -1243,10 +1330,10 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                       placeholder="0' 0&quot;"
                     />
                   </div>
-                </div>
+                </div> */}
 
                 {/* Compass & Scale Graphic */}
-                <div className="flex flex-col items-center">
+                {/* <div className="flex flex-col items-center">
                   <div className="w-7 h-7 rounded-full border border-gray-800 flex items-center justify-center text-[10px] font-bold relative mb-1">
                     N
                     <div className="absolute bottom-0 w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[6px] border-b-gray-800"></div>
@@ -1257,21 +1344,21 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
                     <span>5 ft</span>
                     <span>10 ft</span>
                   </div>
-                </div>
+                </div> */}
               </div>
 
               {/* Disclaimer text */}
-              <p className="text-[7.5px] text-gray-500 leading-tight text-center mt-1">
+              {/* <p className="text-[7.5px] text-gray-500 leading-tight text-center mt-1">
                 **While all reasonable attempts have been made to ensure
                 accuracy and the square footage and room dimensions are believed
                 to be correct to ANSI Standards, due to the possibility of human
                 error the information cannot be guaranteed. E&O Insured for
                 $1,000,000
-              </p>
+              </p> */}
             </div>
 
             {/* Bottom Page 2 Footer Banner */}
-            <div className="absolute bottom-2 left-0 w-full text-center text-white text-[11px] font-semibold tracking-wider">
+            <div className="absolute bottom-2 mb-[20px] left-0 w-full text-center text-white text-[11px] font-semibold tracking-wider">
               DESIGNED AND PRINTED BY BC FLOOR PLANS
             </div>
           </div>

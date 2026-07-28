@@ -538,7 +538,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
     );
 
     const renderHeader = () => (
-      <div className="w-full bg-black/85 px-[50px] py-[15px] shadow-sm relative flex items-center justify-between border-y-3 border-white">
+      <div className="w-full bg-black/80 h-[120px] px-[50px] pt-[0.25in] pb-[15px] shadow-sm relative flex items-center justify-between border-y-3 border-white">
         {/* Left Side: Address & Price */}
         <div className="relative z-10 flex flex-col justify-center gap-2 w-full max-w-[60%]">
           {/* Top Line */}
@@ -917,13 +917,13 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
 
         {/* Page 2 */}
         <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-[#fbfbfb] shadow-xl font-serif">
-          <div className="absolute top-0 left-0 w-full h-full z-0">
+          <div className="absolute top-0 left-0 w-full h-full z-10">
             <BackgroundSVG />
           </div>
           <div className="relative z-10 flex-1 flex flex-col">
             {renderHeader()}
             <div className="flex-1 w-full flex flex-col relative">
-              <div className="w-full flex-1 bg-[#e2e8f0] relative">
+              <div className="w-full flex-1 bg-transparent relative">
                 {renderImageSlot("image7", "Floor Plan")}
               </div>
               {/* <div className="absolute bottom-4 left-[50px] z-20 flex gap-2 items-center bg-white/80 px-3 py-1.5 rounded-lg backdrop-blur-sm shadow-sm text-[10px] text-black">

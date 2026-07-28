@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, X, Search, Copy } from "lucide-react";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetResponse } from "../types/featureSheetTypes";
+import { FeatureSheetResponse, getTemplateLabel } from "../types/featureSheetTypes";
 import { useAppContext } from "@/app/context/AppContext";
 
 interface CopyStylePopupProps {
@@ -230,7 +230,7 @@ export default function CopyStylePopup({
                       ) : (
                         <div className="w-full h-[160px] bg-[#E4E4E4] flex items-center justify-center">
                           <span className="text-xs text-[#7D7D7D]">
-                            {sheet.template_key}
+                            {getTemplateLabel(sheet.template_key)}
                           </span>
                         </div>
                       )}
@@ -259,7 +259,7 @@ export default function CopyStylePopup({
                     {/* Info */}
                     <div className="px-0.5">
                       <p className="text-[13px] font-medium text-[#444444] truncate">
-                        {sheet.template_key}
+                        {getTemplateLabel(sheet.template_key)}
                       </p>
                       <p className="text-[11px] text-[#888888]">
                         {new Date(sheet.updated_at).toLocaleDateString(

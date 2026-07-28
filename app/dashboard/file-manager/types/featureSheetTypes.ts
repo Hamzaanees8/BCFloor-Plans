@@ -132,35 +132,43 @@ export type TemplateType = "listing" | "tabloid";
 
 export interface TemplateDefinition {
   id: string;
+  label?: string;
   type: TemplateType;
   url: string;
   pages?: string[];
 }
 
 export const templateImages: TemplateDefinition[] = [
-  // { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
-  { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
-  { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
-  { id: "BCFPStandard6", type: "tabloid", url: "BcfpStandard6" },
-  { id: "BCFPStandard7", type: "tabloid", url: "BcfpStandard7" },
-  { id: "BCFPStandard8", type: "tabloid", url: "BcfpStandard8" },
-  { id: "BCFPStandard9", type: "tabloid", url: "BcfpStandard9" },
-  { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
-  { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
+  // { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2", label: "Tabloid Sheet 1" },
+  { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3", label: "Tabloid Sheet 1" },
+  { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4", label: "Tabloid Sheet 2" },
+  { id: "BCFPStandard6", type: "tabloid", url: "BcfpStandard6", label: "Tabloid Sheet 3" },
+  { id: "BCFPStandard7", type: "tabloid", url: "BcfpStandard7", label: "Tabloid Sheet 4" },
+  { id: "BCFPStandard8", type: "tabloid", url: "BcfpStandard8", label: "Tabloid Sheet 5" },
+  { id: "BCFPStandard9", type: "tabloid", url: "BcfpStandard9", label: "Tabloid Sheet 6" },
+  { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10", label: "Tabloid Sheet 7" },
+  { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11", label: "Tabloid Sheet 8" },
   // { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
-  { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
-  { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
-  { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
-  { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
-  { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17", pages: ["/listing_flyer_17_page_1.png", "/listing_flyer_17_page_2.png"] },
-  { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18", pages: ["/listing_flyer_18_page_1.png", "/listing_flyer_18_page_2.png"] },
-  { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19" },
-  { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
-  { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
-  { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },
+  { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", label: "Flyer 1", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
+  { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14", label: "Tabloid Sheet 9" },
+  { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", label: "Flyer 2", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
+  { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16", label: "Flyer 3" },
+  { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17", label: "Flyer 4", pages: ["/listing_flyer_17_page_1.png", "/listing_flyer_17_page_2.png"] },
+  { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18", label: "Flyer 5", pages: ["/listing_flyer_18_page_1.png", "/listing_flyer_18_page_2.png"] },
+  { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19", label: "Flyer 6" },
+  { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", label: "Flyer 7", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
+  { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", label: "Flyer 8", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
+  { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", label: "Flyer 9", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },
   // { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
   // { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
 ];
+
+export const getTemplateLabel = (templateKey: string): string => {
+  if (!templateKey) return "";
+  const found = templateImages.find((t) => t.id === templateKey || t.url === templateKey);
+  if (found?.label) return found.label;
+  return templateKey;
+};
 
 export type UploadedBy = "admin" | "agent" | "vendor";
 export type FeatureSheetType = "template" | "custom" | "pdf";

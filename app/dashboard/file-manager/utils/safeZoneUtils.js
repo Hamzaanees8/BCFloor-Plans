@@ -69,10 +69,13 @@ export function applySafeZoneToClone(clone, isTabloid = false) {
 function processUnitSafeZone(unit) {
   if (unit.querySelector(".pdf-safe-zone-wrapper")) return;
 
-  // Mark all SVGs inside unit as decorative background layers so they are never shifted
+  // Mark all SVGs and their parent wrapper containers as decorative background layers so they are never shifted
   const svgs = Array.from(unit.querySelectorAll("svg"));
   svgs.forEach((svg) => {
     svg.setAttribute("data-decorative", "true");
+    if (svg.parentElement) {
+      svg.parentElement.setAttribute("data-decorative", "true");
+    }
   });
 
   // Identify container for content elements
@@ -85,7 +88,7 @@ function processUnitSafeZone(unit) {
   const contentChildren = [];
 
   children.forEach((child) => {
-    if (isBackgroundOrDecorative(child)) {
+    if (isBackgroundOrDecorative(child) || child.querySelector("svg")) {
       // Background SVGs and background layers stay full-bleed at native positions
       child.style.position = child.style.position || "absolute";
     } else {
