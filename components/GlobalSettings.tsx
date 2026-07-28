@@ -34,6 +34,9 @@ import {
     GetPaymentMethod,
     GetQuickBookStatus,
     QuickBookConnection,
+    DisconnectQuickBook,
+    GetQuickBookSyncQueue,
+    RetryQuickBookSync,
 } from "@/app/dashboard/global-settings/global-settings";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
@@ -286,6 +289,9 @@ const GlobalSettings = () => {
     const [secondaryEmail, setSecondaryEmail] = useState("");
     const [notificationEmail, setNotificationEmail] = useState("");
     const [quickBookStatus, setQuickBookStatus] = useState(false);
+    const [qbQueueInfo, setQbQueueInfo] = useState<{ pending_syncs?: number; synced_count?: number } | null>(null);
+    const [isQbSyncing, setIsQbSyncing] = useState(false);
+    const [isQbDisconnecting, setIsQbDisconnecting] = useState(false);
     const [adminRoles, setAdminRoles] = useState<number[]>([]);
     const [adminPermissions, setAdminPermissions] = useState<number[]>([]);
 
@@ -943,16 +949,40 @@ const GlobalSettings = () => {
     useEffect(() => {
         let isMounted = true;
 
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("qb_success") === "1") {
+            toast.success("QuickBooks connected successfully!");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setQuickBookStatus(true);
+        } else if (urlParams.get("qb_error")) {
+            toast.error(`QuickBooks error: ${urlParams.get("qb_error")}`);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         const fetchQuickBookStatus = async () => {
             try {
                 const response = await GetQuickBookStatus();
                 if (isMounted) {
                     setQuickBookStatus(response.connected);
+                    if (response.connected) {
+                        fetchQbSyncQueue();
+                    }
                 }
             } catch (error) {
                 if (isMounted) {
                     console.error("Error fetching QuickBook status:", error);
                 }
+            }
+        };
+
+        const fetchQbSyncQueue = async () => {
+            try {
+                const response = await GetQuickBookSyncQueue();
+                if (isMounted && response.success) {
+                    setQbQueueInfo(response.data);
+                }
+            } catch (error) {
+                console.error("Error fetching QB sync queue:", error);
             }
         };
 
@@ -965,11 +995,53 @@ const GlobalSettings = () => {
 
     async function handleQuickBookStatus() {
         setLoading(true);
-        const response = await QuickBookConnection();
-        if (response.success) {
-            window.location.href = response.auth_url;
+        try {
+            const redirectUrl = window.location.origin + window.location.pathname;
+            const response = await QuickBookConnection(redirectUrl);
+            if (response.success && response.auth_url) {
+                window.location.href = response.auth_url;
+            } else {
+                toast.error(response.error || "Failed to get QuickBooks connection URL");
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.error || "Failed to initiate QuickBooks connection");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
+    }
+
+    async function handleDisconnectQB() {
+        setIsQbDisconnecting(true);
+        try {
+            await DisconnectQuickBook();
+            setQuickBookStatus(false);
+            setQbQueueInfo(null);
+            toast.success("QuickBooks disconnected successfully");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.error || "Failed to disconnect QuickBooks");
+        } finally {
+            setIsQbDisconnecting(false);
+        }
+    }
+
+    async function handleRetryQbSync() {
+        setIsQbSyncing(true);
+        try {
+            const response = await RetryQuickBookSync();
+            if (response.success) {
+                toast.success(`Sync retry completed: ${response.data?.success || 0} succeeded, ${response.data?.failed || 0} failed.`);
+                const queueResp = await GetQuickBookSyncQueue();
+                if (queueResp.success) {
+                    setQbQueueInfo(queueResp.data);
+                }
+            } else {
+                toast.error(response.error || "Failed to retry QuickBooks sync");
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.error || "Failed to retry QuickBooks sync");
+        } finally {
+            setIsQbSyncing(false);
+        }
     }
 
     const handleDeleteDiscount = async (uuid: string) => {
@@ -1242,6 +1314,7 @@ const GlobalSettings = () => {
                         "order",
                         "payment",
                         "account",
+                        "quickbooks",
                     ]}
                     className="w-full space-y-4 "
                 >
@@ -1626,6 +1699,73 @@ const GlobalSettings = () => {
                                             </div>
                                         </div>
                                     </AccordionContent>
+
+                                    <AccordionItem value="quickbooks" className="border-none mt-4">
+                                        <AccordionTrigger
+                                            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                            style={{
+                                                backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                                            }}
+                                        >
+                                            QUICKBOOKS INTEGRATION
+                                        </AccordionTrigger>
+                                        <AccordionContent className="grid gap-4">
+                                            <div className="w-full flex flex-col items-center">
+                                                <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                                                    {!quickBookStatus ? (
+                                                        <Button
+                                                            onClick={handleQuickBookStatus}
+                                                            type="button"
+                                                            className={`${userType}-bg hover-${userType}-bg`}
+                                                        >
+                                                            {isLoading ? "Connecting..." : "Connect Quick Book"}
+                                                        </Button>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50/50">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                    <span className="font-medium text-gray-900 text-sm">QuickBooks Connected</span>
+                                                                </div>
+                                                                <Button
+                                                                    onClick={handleDisconnectQB}
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    disabled={isQbDisconnecting}
+                                                                    className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                                                >
+                                                                    {isQbDisconnecting ? "Disconnecting..." : "Disconnect"}
+                                                                </Button>
+                                                            </div>
+
+                                                            {qbQueueInfo && (
+                                                                <div className="text-xs text-gray-600 flex flex-col gap-1 border-t pt-3">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Total Invoices Synced:</span>
+                                                                        <span className="font-semibold text-gray-800">{qbQueueInfo.synced_count ?? 0}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Pending / Unsynced:</span>
+                                                                        <span className="font-semibold text-amber-600">{qbQueueInfo.pending_syncs ?? 0}</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <Button
+                                                                onClick={handleRetryQbSync}
+                                                                type="button"
+                                                                disabled={isQbSyncing}
+                                                                variant="outline"
+                                                                className="text-xs h-9 mt-1 border-gray-300"
+                                                            >
+                                                                {isQbSyncing ? "Syncing..." : "Sync Pending Invoices"}
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 </AccordionItem>
                             )}
 
@@ -2734,23 +2874,55 @@ const GlobalSettings = () => {
                                             </div>
                                         </div>
                                         <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                                            {!quickBookStatus && (
+                                            {!quickBookStatus ? (
                                                 <Button
                                                     onClick={handleQuickBookStatus}
                                                     type="button"
                                                     className={`${userType}-bg hover-${userType}-bg`}
                                                 >
-                                                    {isLoading ? "Connecting..." : "  Connect Quick Book"}
+                                                    {isLoading ? "Connecting..." : "Connect Quick Book"}
                                                 </Button>
-                                            )}
-                                            {quickBookStatus && (
-                                                <Button
-                                                    type="button"
-                                                    disabled
-                                                    className={`${userType}-bg hover-${userType}-bg justify-self-start`}
-                                                >
-                                                    Connected
-                                                </Button>
+                                            ) : (
+                                                <div className="flex flex-col gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50/50">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            <span className="font-medium text-gray-900 text-sm">QuickBooks Connected</span>
+                                                        </div>
+                                                        <Button
+                                                            onClick={handleDisconnectQB}
+                                                            type="button"
+                                                            variant="outline"
+                                                            disabled={isQbDisconnecting}
+                                                            className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                                        >
+                                                            {isQbDisconnecting ? "Disconnecting..." : "Disconnect"}
+                                                        </Button>
+                                                    </div>
+
+                                                    {qbQueueInfo && (
+                                                        <div className="text-xs text-gray-600 flex flex-col gap-1 border-t pt-3">
+                                                            <div className="flex justify-between">
+                                                                <span>Total Invoices Synced:</span>
+                                                                <span className="font-semibold text-gray-800">{qbQueueInfo.synced_count ?? 0}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span>Pending / Unsynced:</span>
+                                                                <span className="font-semibold text-amber-600">{qbQueueInfo.pending_syncs ?? 0}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <Button
+                                                        onClick={handleRetryQbSync}
+                                                        type="button"
+                                                        disabled={isQbSyncing}
+                                                        variant="outline"
+                                                        className="text-xs h-9 mt-1 border-gray-300"
+                                                    >
+                                                        {isQbSyncing ? "Syncing..." : "Sync Pending Invoices"}
+                                                    </Button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

@@ -402,32 +402,54 @@ export async function GetPaymentMethod() {
 }
 
 export async function GetQuickBookStatus() {
-
   try {
     const response = await api.get(`/quickbooks/status`);
-
-    const paymentMethod = await response.data;
-
-    return paymentMethod;
+    return response.data;
   } catch (error) {
-    console.error("Failed to fetch Payment Method:", error);
+    console.error("Failed to fetch QuickBook status:", error);
     throw error;
   }
 }
-export async function QuickBookConnection() {
 
+export async function QuickBookConnection(redirectBackUrl?: string) {
   try {
-    const response = await api.get(`/quickbooks/connect`);
+    const response = await api.get(`/quickbooks/connect`, {
+      params: redirectBackUrl ? { redirect_back_url: redirectBackUrl } : {}
+    });
 
-    const paymentMethod = await response.data;
-
-    if (paymentMethod.status !== true) {
-      throw new Error(paymentMethod.message || "Failed to fetch payment method");
-    }
-
-    return paymentMethod;
+    return response.data;
   } catch (error) {
-    console.error("Failed to fetch Payment Method:", error);
+    console.error("Failed to connect QuickBook:", error);
+    throw error;
+  }
+}
+
+export async function DisconnectQuickBook() {
+  try {
+    const response = await api.post(`/quickbooks/disconnect`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to disconnect QuickBook:", error);
+    throw error;
+  }
+}
+
+export async function GetQuickBookSyncQueue() {
+  try {
+    const response = await api.get(`/quickbooks/sync/queue`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch QuickBook sync queue:", error);
+    throw error;
+  }
+}
+
+export async function RetryQuickBookSync() {
+  try {
+    const response = await api.post(`/quickbooks/sync/retry`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to retry QuickBook sync:", error);
     throw error;
   }
 }
