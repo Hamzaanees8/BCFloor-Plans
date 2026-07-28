@@ -1,7 +1,8 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
-import NextImage from "next/image";
+import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut } from "lucide-react";
+import Image from "next/image";
 import React, {
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -16,6 +17,65 @@ import {
   FeatureSheetPayload,
   FeatureSheetResponse,
 } from "../types/featureSheetTypes";
+import { useFileManagerContext } from "../FileManagerContext";
+
+const ImageEditor = ({
+  src,
+  scale,
+  position,
+  rotation = 0,
+  className = "",
+}: {
+  src: string;
+  scale: number;
+  position: { x: number; y: number };
+  rotation?: number;
+  className?: string;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [baseScale, setBaseScale] = useState(1);
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (!containerRef.current) return;
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    const { clientWidth, clientHeight } = containerRef.current;
+    if (!naturalWidth || !naturalHeight || !clientWidth || !clientHeight)
+      return;
+    const containerAR = clientWidth / clientHeight;
+    const imageAR = naturalWidth / naturalHeight;
+    let drawnWidth, drawnHeight;
+    if (imageAR > containerAR) {
+      drawnWidth = clientWidth;
+      drawnHeight = clientWidth / imageAR;
+    } else {
+      drawnHeight = clientHeight;
+      drawnWidth = clientHeight * imageAR;
+    }
+    setBaseScale(
+      Math.max(clientWidth / drawnWidth, clientHeight / drawnHeight),
+    );
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`w-full h-full relative flex items-center justify-center ${className}`}
+    >
+      <Image
+        src={src}
+        onLoad={handleLoad}
+        alt="uploaded"
+        fill
+        unoptimized
+        className="object-contain pointer-events-none"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${scale * baseScale})`,
+          transition: "transform 0.1s ease-out",
+        }}
+      />
+    </div>
+  );
+};
 
 export interface BcfpStandard16Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -34,12 +94,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
     const [number, setNumber] = useState("");
     const [amount, setAmount] = useState("");
     const [byLawRestrictions, setByLawRestrictions] = useState("");
-    const [maintenanceFees, setMaintenanceFees] = useState("");
-    const [maintenanceFeesInclude, setMaintenanceFeesInclude] = useState("");
+    const [maintFees, setMaintFees] = useState("");
+    const [maintFeesInclude, setMaintFeesInclude] = useState("");
     const [featuresIncluded, setFeaturesIncluded] = useState("");
     const [siteInfluences, setSiteInfluences] = useState("");
     const [amenities, setAmenities] = useState("");
-    const [mlsNumber, setMlsNumber] = useState("");
     const [view, setView] = useState("");
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
@@ -49,6 +108,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
+    const [image1Rotation, setImage1Rotation] = useState(0);
+    const [image2Rotation, setImage2Rotation] = useState(0);
+    const [image3Rotation, setImage3Rotation] = useState(0);
+    const [image4Rotation, setImage4Rotation] = useState(0);
+    const [image5Rotation, setImage5Rotation] = useState(0);
+    const [image6Rotation, setImage6Rotation] = useState(0);
+    const [image7Rotation, setImage7Rotation] = useState(0);
+    const [image8Rotation, setImage8Rotation] = useState(0);
     const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
 
     const updateFieldStyle = (fieldName: string, style: any) => {
@@ -172,9 +239,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           expandedDetail1Title: "By-law Restrictions",
           expandedDetail1Description: byLawRestrictions,
           expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: maintenanceFees,
+          expandedDetail2Description: maintFees,
           expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: maintenanceFeesInclude,
+          expandedDetail3Description: maintFeesInclude,
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
@@ -182,8 +249,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             ? siteInfluences.split("\n").filter(Boolean)
             : [],
           otherDetails: {
-            maintenanceFees,
-            maintenanceFeesInclude,
+            maintFees,
+            maintFeesInclude,
             amenities,
             view,
             bedroom,
@@ -193,7 +260,6 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             number,
             addressCode,
             cityLine,
-            mlsNumber,
           },
           images,
           imageScales: scale,
@@ -216,9 +282,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         if (state.expandedDetail1Description)
           setByLawRestrictions(state.expandedDetail1Description as string);
         if (state.expandedDetail2Description)
-          setMaintenanceFees(state.expandedDetail2Description as string);
+          setMaintFees(state.expandedDetail2Description as string);
         if (state.expandedDetail3Description)
-          setMaintenanceFeesInclude(state.expandedDetail3Description as string);
+          setMaintFeesInclude(state.expandedDetail3Description as string);
         if (state.expandedDetail4Description)
           setFeaturesIncluded(state.expandedDetail4Description as string);
 
@@ -227,10 +293,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
-          if (details.maintenanceFees)
-            setMaintenanceFees(details.maintenanceFees as string);
-          if (details.maintenanceFeesInclude)
-            setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
+          if (details.maintFees) setMaintFees(details.maintFees as string);
+          if (details.maintFeesInclude)
+            setMaintFeesInclude(details.maintFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
@@ -241,7 +306,6 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           if (details.addressCode)
             setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
-          if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
         }
 
         if (state.images) {
@@ -270,6 +334,138 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
     console.log("orderData", orderData);
 
+    const { formData, updateFormData } = useFileManagerContext();
+
+    // Initial sync from context on mount
+    useEffect(() => {
+      if (orderData) {
+        if (orderData.property) {
+          if (orderData.property.listing_price)
+            setAmount(orderData.property.listing_price.toString());
+          if (orderData.property.bedrooms)
+            setBedroom(orderData.property.bedrooms.toString());
+          if (orderData.property.bathrooms)
+            setBathroom(orderData.property.bathrooms.toString());
+          if (orderData.property.square_footage)
+            setSqft(orderData.property.square_footage.toString());
+          if (orderData.property.year_constructed)
+            setBuiltYear(orderData.property.year_constructed.toString());
+          if (orderData.property.description)
+            setDescription(orderData.property.description);
+          if (orderData.property.mls_number)
+            setAddressCode(orderData.property.mls_number);
+          if (orderData.property.suite) setRoadName(orderData.property.suite);
+          let cityString = "";
+          if (orderData.property.city) cityString += orderData.property.city;
+          if (orderData.property.province)
+            cityString +=
+              (cityString ? ", " : "") + orderData.property.province;
+          if (orderData.property.postal_code)
+            cityString +=
+              (cityString ? " " : "") + orderData.property.postal_code;
+          if (cityString) setCityLine(cityString);
+        }
+        if (orderData.agent) {
+          const agent = orderData.agent;
+          if (agent.first_name || agent.last_name)
+            setFullName(
+              `${agent.first_name || ""} ${agent.last_name || ""}`.trim(),
+            );
+          if (agent.email) setEmail(agent.email);
+          if (agent.primary_phone) setNumber(agent.primary_phone);
+          if (agent.company_name) setPropertyName(agent.company_name);
+        }
+      }
+      if (formData) {
+        if (formData.byLawRestrictions)
+          setByLawRestrictions(formData.byLawRestrictions);
+        if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
+        if (formData.maintenanceFeesInclude)
+          setMaintFeesInclude(formData.maintenanceFeesInclude);
+        if (formData.featuresIncluded)
+          setFeaturesIncluded(formData.featuresIncluded);
+        if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+        if (formData.amenities) setAmenities(formData.amenities);
+        if (formData.view) setView(formData.view);
+        if (formData.description) setDescription(formData.description);
+        if (formData.fullName) setFullName(formData.fullName);
+        if (formData.email) setEmail(formData.email);
+        if (formData.propertyName) setPropertyName(formData.propertyName);
+        if (formData.amount) setAmount(formData.amount);
+        if (formData.number) setNumber(formData.number);
+        if (formData.addressCode) setAddressCode(formData.addressCode);
+        if (formData.roadName) setRoadName(formData.roadName);
+        if (formData.cityLine) setCityLine(formData.cityLine);
+        if (formData.bedroom) setBedroom(formData.bedroom);
+        if (formData.bathroom) setBathroom(formData.bathroom);
+        if (formData.sqft) setSqft(formData.sqft);
+        if (formData.builtYear) setBuiltYear(formData.builtYear);
+        if (formData.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(formData.images as typeof images),
+          }));
+        if (formData.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(formData.imageScales as typeof scale),
+          }));
+        if (formData.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(formData.imagePositions as typeof position),
+          }));
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+      updateFormData({
+        byLawRestrictions,
+        maintenanceFees: maintFees,
+        maintenanceFeesInclude: maintFeesInclude,
+        featuresIncluded,
+        siteInfluences,
+        amenities,
+        view,
+        description,
+        fullName,
+        email,
+        propertyName,
+        amount,
+        number,
+        addressCode,
+        roadName,
+        cityLine,
+        bedroom,
+        bathroom,
+        sqft,
+        builtYear,
+      });
+    }, [
+      byLawRestrictions,
+      maintFees,
+      maintFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      propertyName,
+      amount,
+      number,
+      addressCode,
+      roadName,
+      cityLine,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      updateFormData,
+    ]);
+
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
@@ -295,16 +491,12 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
     const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
       setScale((prev) => {
         const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        const bounded = Math.min(Math.max(newScale, 1), 3);
-        if (bounded <= 1) {
-          setPosition((p) => ({ ...p, [key]: { x: 0, y: 0 } }));
-        }
+        const bounded = Math.min(Math.max(newScale, 0.1), 5);
         return { ...prev, [key]: bounded };
       });
     };
 
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
-      if (scale[key] <= 1) return;
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
@@ -457,7 +649,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           />
         )}
 
-        <div className="pdf-page">
+        {/* Page 1 Divider - screen only */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 1
+          </span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
           <div className="relative w-full flex flex-col">
             <svg
               viewBox="0 0 631.26 828.16"
@@ -566,14 +767,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 />
               </defs>
             </svg>
-            <div className="absolute bottom-0 left-0 flex flex-col z-10 px-[70px] pb-[70px]">
-              <span className="text-[20px] text-[#B3B394]">CONTACT:</span>
+            <div className="absolute bottom-0 left-0 flex flex-col z-10 px-[40px] pb-[40px]">
+              <span className="text-[14px] font-[300] text-[#ffff]">
+                CONTACT:
+              </span>
               <StyledInput
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 inputStyle={fieldStyles["fullName"]}
                 onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                className=" text-[20px] text-[#B3B394] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                className=" text-[16px] w-[170px] font-normal text-[#fff] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
                 placeholder="FIRSTNAME LASTNAME"
               />
               <StyledInput
@@ -581,47 +784,47 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 onChange={(e) => setPropertyName(e.target.value)}
                 inputStyle={fieldStyles["propertyName"]}
                 onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                className=" text-[20px] font-thin h-[22px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                className=" text-[16px] font-normal h-[22px] font- bg-transparent text-left text-white w-[170px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
                 placeholder="MACDONALD  Realty"
               />
-              <div className="flex gap-2 font-normal text-[20px] text-white">
+              <div className="flex gap-2 font-normal text-[16px] text-white">
                 Phone:
                 <StyledInput
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
                   inputStyle={fieldStyles["number"]}
                   onChangeStyle={(s) => updateFieldStyle("number", s)}
-                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                  className="font-normal w-[180px] text-[16px] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
                   placeholder="604.000.0000"
                 />
               </div>
-              <div className="flex gap-2 font-normal text-[20px] text-white">
+              <div className="flex gap-2 font-normal text-[16px] text-white">
                 Email:
                 <StyledInput
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   inputStyle={fieldStyles["email"]}
                   onChangeStyle={(s) => updateFieldStyle("email", s)}
-                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                  className="font-normal w-[250px] text-[16px] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[200]"
                   placeholder="Enter email here"
                 />
               </div>
-              <div className="flex gap-2 font-normal text-nowrap text-[20px] text-white">
+              <div className="flex gap-2 font-normal text-nowrap text-[16px] text-white">
                 MLS #
                 <StyledInput
-                  value={mlsNumber}
-                  onChange={(e) => setMlsNumber(e.target.value)}
-                  inputStyle={fieldStyles["mlsNumber"]}
-                  onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
-                  className="font-thin text-[20px]  h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                  value={addressCode}
+                  onChange={(e) => setAddressCode(e.target.value)}
+                  inputStyle={fieldStyles["addressCode"]}
+                  onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                  className="font-thin w-[200px] text-[16px]  h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
                   placeholder="V981073"
                 />
               </div>
               <div className="relative justify-self-center flex gap-2  py-2 z-2 text-[#ffffff]">
-                <p className="text-[12px] font-thin leading-tight">
-                  All information deemed reliable but not guaranteed and should be
-                  independently veriﬁed. All properties are subject to prior sale,
-                  change or withdrawal. Neither listing broker(s) nor BC
+                <p className="text-[8px] font-[400] leading-tight">
+                  All information deemed reliable but not guaranteed and should
+                  be independently veriﬁed. All properties are subject to prior
+                  sale, change or withdrawal. Neither listing broker(s) nor BC
                   Floorplans shall be responsible for any typographical errors,
                   misinformation, misprints and shall be held totally harmless.
                 </p>
@@ -676,7 +879,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             </div>
             <div className=""> </div>
           </div>
-          <div className="flex flex-col absolute top-0 py-[50px] px-[70px] w-full gap-4">
+          <div className="flex flex-col absolute top-0 py-[40px] px-[40px] w-full gap-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex flex-col items-center">
@@ -687,7 +890,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         value={addressCode}
                         onChange={(e) => setAddressCode(e.target.value)}
                         inputStyle={fieldStyles["addressCode"]}
-                        onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                        onChangeStyle={(s) =>
+                          updateFieldStyle("addressCode", s)
+                        }
                         className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                         placeholder="0000-0000"
                       />
@@ -707,13 +912,13 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <div className="text-white text-[10px] justify-self-center">
+                  <div className="w-[290px] text-white text-[10px] justify-self-center">
                     <StyledInput
                       value={cityLine}
                       onChange={(e) => setCityLine(e.target.value)}
                       inputStyle={fieldStyles["cityLine"]}
                       onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                      className="text-white text-[12px] h-[20px] bg-transparent text-left w-[170px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                      className="text-white text-[20px] h-[20px] bg-transparent text-left w-[300px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                       placeholder="BRIGHOUSE SOUTH, RICHMOND"
                     />
                   </div>
@@ -730,7 +935,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 </div>
               </div>
               <div>
-                <div className="my-3 w-[200px] h-[110] relative overflow-hidden group">
+                <div className="my-0 w-[200px] h-full relative overflow-hidden group">
                   {/* logo */}
                   <div
                     onMouseDown={(e) => handleMouseDown("image1", e)}
@@ -740,21 +945,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image1 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image1}
-                          alt="selected"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
-                            cursor: dragging.image1
-                              ? "grabbing"
-                              : scale.image1 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image1}
+                          position={position.image1}
+                          rotation={image1Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -775,11 +970,20 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage1Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
+                          </button>
                         </div>
 
                         <button
                           type="button"
-                          // onClick={() => fileInputRef4.current?.click()}
                           onClick={() => openImageSourceModal("image1")}
                           className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                           title="Edit image"
@@ -817,10 +1021,10 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 </div>
               </div>
             </div>
-            <div className="flex gap-10 ">
+            <div className="flex gap-4 ">
               <div className="w-[65%] flex flex-col gap-4">
                 <div
-                  className="h-[700px] w-full group border-2 border-[#fff] relative overflow-hidden"
+                  className="h-[300px] w-full group relative overflow-hidden"
                   onMouseDown={(e) => handleMouseDown("image2", e)}
                   onMouseMove={(e) => handleMouseMove("image2", e)}
                   onMouseUp={() => handleMouseUp("image2")}
@@ -828,21 +1032,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 >
                   {images.image2 ? (
                     <>
-                      <NextImage
-                        unoptimized
+                      <ImageEditor
                         src={images.image2}
-                        alt="uploaded"
-                        width={200}
-                        height={300}
-                        className="w-full h-full object-cover transition-transform duration-150"
-                        style={{
-                          transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
-                          cursor: dragging.image2
-                            ? "grabbing"
-                            : scale.image2 > 1
-                              ? "grab"
-                              : "default",
-                        }}
+                        scale={scale.image2}
+                        position={position.image2}
+                        rotation={image2Rotation}
                       />
 
                       <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -861,6 +1055,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           title="Zoom Out"
                         >
                           <ZoomOut className="w-4 h-4 text-gray-700" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImage2Rotation((r) => (r + 90) % 360)
+                          }
+                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                          title="Rotate"
+                        >
+                          <RotateCw className="w-4 h-4 text-gray-700" />
                         </button>
                       </div>
 
@@ -900,14 +1104,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   />
                 </div>
                 <div className="mt-2">
-                  <div className="font-bold text-[24px] text-[#2B648E] flex flex-wrap gap-2">
+                  <div className="font-bold text-[12px] text-[#2B648E] flex flex-wrap gap-1">
                     <div className="inline">
                       <StyledInput
                         value={bedroom}
                         onChange={(e) => setBedroom(e.target.value)}
                         inputStyle={fieldStyles["bedroom"]}
                         onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                        className="font-semibold text-[24px] bg-transparent text-left w-[30px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                        className="font-semibold text-[12px] bg-transparent text-left w-[30px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
                     </div>
@@ -918,7 +1122,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onChange={(e) => setBathroom(e.target.value)}
                         inputStyle={fieldStyles["bathroom"]}
                         onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                        className="font-semibold text-[24px] bg-transparent text-left w-[30px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                        className="font-semibold text-[12px] bg-transparent text-left w-[30px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
                     </div>
@@ -929,7 +1133,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onChange={(e) => setSqft(e.target.value)}
                         inputStyle={fieldStyles["sqft"]}
                         onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                        className="font-semibold text-[24px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                        className="font-semibold text-[12px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="000"
                       />
                     </div>
@@ -940,7 +1144,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onChange={(e) => setBuiltYear(e.target.value)}
                         inputStyle={fieldStyles["builtYear"]}
                         onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                        className="font-semibold text-[24px] bg-transparent text-left h-[30px] w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                        className="font-semibold text-[12px] bg-transparent text-lefts w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0000"
                       />
                     </div>
@@ -953,7 +1157,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     onChange={(e) => setDescription(e.target.value)}
                     inputStyle={fieldStyles["description"]}
                     onChangeStyle={(s) => updateFieldStyle("description", s)}
-                    className="w-full font-normal text-[18px] z-20 text-[#231F20] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-grey placeholder:font-[500]"
+                    className="w-full font-normal text-[12px] z-20 text-[#231F20] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-grey placeholder:font-[500]"
                     placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building.
                     This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally
                     unobstructed VIEWS overlooking Brighouse Park & to the South and South
@@ -967,7 +1171,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   />
                 </div>
                 <div className="flex flex-col gap-2 mt-2">
-                  <div className="text-[#2B648E] text-[18px] flex">
+                  <div className="text-[#2B648E] text-[12px] flex">
                     <span className="text-nowrap font-bold">
                       BY-LAW RESTRICTIONS:{" "}
                     </span>
@@ -976,41 +1180,45 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       rows={1}
                       onChange={(e) => setByLawRestrictions(e.target.value)}
                       inputStyle={fieldStyles["byLawRestrictions"]}
-                      onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                      className="font-semibold text-[16px] text-left bg-transparent text-[#2B648E]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("byLawRestrictions", s)
+                      }
+                      className="font-semibold text-[12px] text-left bg-transparent text-[#2B648E]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] w-fit flex">
+                  <div className="text-[#2B648E] text-[12px] pl-2 w-fit flex">
                     <div className="text-nowrap font-bold">MAINT.FEES: </div>
                     <StyledInput
-                      value={maintenanceFees}
+                      value={maintFees}
                       rows={1}
-                      onChange={(e) => setMaintenanceFees(e.target.value)}
-                      inputStyle={fieldStyles["maintenanceFees"]}
-                      onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      onChange={(e) => setMaintFees(e.target.value)}
+                      inputStyle={fieldStyles["maintFees"]}
+                      onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="$000.00"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] flex">
-                    <div className="text-nowrap font-bold">
+                  <div className="text-[#2B648E] text-[12px] flex">
+                    <div className="text-nowrap font-bold pl-6 text-[12px]">
                       MAINTENANCE FEES INCLUDE:{" "}
                     </div>
                     <StyledInput
-                      value={maintenanceFeesInclude}
+                      value={maintFeesInclude}
                       rows={2}
-                      onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
-                      inputStyle={fieldStyles["maintenanceFeesInclude"]}
-                      onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                      placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                      onChange={(e) => setMaintFeesInclude(e.target.value)}
+                      inputStyle={fieldStyles["maintFeesInclude"]}
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("maintFeesInclude", s)
+                      }
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] flex">
+                  <div className="text-[#2B648E] text-[12px] pl-[65px] flex">
                     <div className="text-nowrap font-bold">
                       FEATURES INCLUDED:{" "}
                     </div>
@@ -1019,26 +1227,32 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       rows={1}
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
                       inputStyle={fieldStyles["featuresIncluded"]}
-                      onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("featuresIncluded", s)
+                      }
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] flex gap-1 pl-4">
-                    <div className="text-nowrap font-bold">SITE INFLUENCES: </div>
+                  <div className="text-[#2B648E] text-[12px] pl-[100px] flex gap-1">
+                    <div className="text-nowrap font-bold">
+                      SITE INFLUENCES:{" "}
+                    </div>
                     <StyledInput
                       value={siteInfluences}
                       rows={1}
                       onChange={(e) => setSiteInfluences(e.target.value)}
                       inputStyle={fieldStyles["siteInfluences"]}
-                      onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      onChangeStyle={(s) =>
+                        updateFieldStyle("siteInfluences", s)
+                      }
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="Central Location, Golf Course Nearby"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] flex gap-1 pl-8">
+                  <div className="text-[#2B648E] text-[12px] pl-[135px] flex gap-1">
                     <div className="text-nowrap font-bold">AMENITIES: </div>
                     <StyledInput
                       value={amenities}
@@ -1046,12 +1260,12 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onChange={(e) => setAmenities(e.target.value)}
                       inputStyle={fieldStyles["amenities"]}
                       onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="Exercise Centre, Garden, In Suite Laundry"
                     />
                   </div>
 
-                  <div className="text-[#2B648E] text-[18px] flex gap-1 pl-12">
+                  <div className="text-[#2B648E] text-[12px] pl-[220px] flex gap-1">
                     <div className="text-nowrap font-bold">VIEW: </div>
                     <StyledInput
                       value={view}
@@ -1059,7 +1273,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onChange={(e) => setView(e.target.value)}
                       inputStyle={fieldStyles["view"]}
                       onChangeStyle={(s) => updateFieldStyle("view", s)}
-                      className="font-semibold text-[16px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="Soutn & SW - van island"
                     />
                   </div>
@@ -1068,7 +1282,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               <div className="w-[35%]">
                 <div className="grid grid-cols-1 gap-4">
                   <div
-                    className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image3", e)}
                     onMouseMove={(e) => handleMouseMove("image3", e)}
                     onMouseUp={() => handleMouseUp("image3")}
@@ -1076,21 +1290,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image3 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image3}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
-                            cursor: dragging.image3
-                              ? "grabbing"
-                              : scale.image3 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image3}
+                          position={position.image3}
+                          rotation={image3Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -1110,6 +1314,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage3Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
                         </div>
 
@@ -1147,7 +1361,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image4", e)}
                     onMouseMove={(e) => handleMouseMove("image4", e)}
                     onMouseUp={() => handleMouseUp("image4")}
@@ -1155,21 +1369,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image4 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image4}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
-                            cursor: dragging.image4
-                              ? "grabbing"
-                              : scale.image4 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image4}
+                          position={position.image4}
+                          rotation={image4Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -1189,6 +1393,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage4Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
                         </div>
 
@@ -1226,7 +1440,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image5", e)}
                     onMouseMove={(e) => handleMouseMove("image5", e)}
                     onMouseUp={() => handleMouseUp("image5")}
@@ -1234,21 +1448,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image5 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image5}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
-                            cursor: dragging.image5
-                              ? "grabbing"
-                              : scale.image5 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image5}
+                          position={position.image5}
+                          rotation={image5Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -1268,6 +1472,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage5Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
                         </div>
 
@@ -1305,7 +1519,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image6", e)}
                     onMouseMove={(e) => handleMouseMove("image6", e)}
                     onMouseUp={() => handleMouseUp("image6")}
@@ -1313,21 +1527,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image6 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image6}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
-                            cursor: dragging.image12
-                              ? "grabbing"
-                              : scale.image6 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image6}
+                          position={position.image6}
+                          rotation={image6Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -1347,6 +1551,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage6Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
                         </div>
 
@@ -1384,7 +1598,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[270px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image7", e)}
                     onMouseMove={(e) => handleMouseMove("image7", e)}
                     onMouseUp={() => handleMouseUp("image7")}
@@ -1392,21 +1606,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   >
                     {images.image7 ? (
                       <>
-                        <NextImage
-                          unoptimized
+                        <ImageEditor
                           src={images.image7}
-                          alt="uploaded"
-                          width={200}
-                          height={300}
-                          className="w-full h-full object-cover transition-transform duration-150"
-                          style={{
-                            transform: `scale(${scale.image7}) translate(${position.image7.x}px, ${position.image7.y}px)`,
-                            cursor: dragging.image7
-                              ? "grabbing"
-                              : scale.image7 > 1
-                                ? "grab"
-                                : "default",
-                          }}
+                          scale={scale.image7}
+                          position={position.image7}
+                          rotation={image7Rotation}
                         />
 
                         {/* Zoom Controls */}
@@ -1426,6 +1630,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImage7Rotation((r) => (r + 90) % 360)
+                            }
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Rotate"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
                         </div>
 
@@ -1467,7 +1681,17 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             </div>
           </div>
         </div>
-        <div className="pdf-page">
+
+        {/* Page 2 Divider - screen only */}
+        <div className="w-[8.5in] flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        <div className="pdf-page w-[8.5in] h-[11in] relative overflow-hidden flex flex-col bg-white">
           <div className="relative w-full flex flex-col group">
             <div className="absolute top-10 right-[70px] z-20">
               <div className="flex flex-col items-center">
@@ -1504,7 +1728,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     onChange={(e) => setCityLine(e.target.value)}
                     inputStyle={fieldStyles["cityLine"]}
                     onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                    className="text-white text-[15px] h-[20px] bg-transparent text-right w-[250px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                    className="text-white text-[16px]  bg-transparent text-right w-[350px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                     placeholder="BRIGHOUSE SOUTH, RICHMOND"
                   />
                 </div>
@@ -1536,7 +1760,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 x={1}
                 y={604}
                 width={630}
-                height={207}
+                height={200}
               >
                 <path
                   d="M1 811H631V757.613C42.165 806.399 1.796 604 1.796 604L1 811Z"
@@ -1624,32 +1848,26 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               </defs>
             </svg>
             <div
-              className="w-[80%] h-[80%] overflow-hidden justify-center content-center absolute transition-all duration-200 group"
+              className="w-full h-full overflow-hidden justify-center content-center absolute transition-all duration-200 group"
               onMouseMove={(e) => handleMouseMove("image8", e)}
               onMouseUp={() => handleMouseUp("image8")}
               onMouseLeave={() => handleMouseLeave("image8")}
-              style={{ alignSelf: "anchor-center", justifySelf: "anchor-center" }}
+              style={{
+                alignSelf: "anchor-center",
+                justifySelf: "anchor-center",
+              }}
             >
               {images.image8 ? (
                 <>
                   <div
-                    className="w-full h-full flex items-center justify-center transition-transform duration-100 cursor-grab active:cursor-grabbing relative group-hover:z-10 group-hover:opacity-50"
+                    className="w-full h-full relative overflow-hidden"
                     onMouseDown={(e) => handleMouseDown("image8", e)}
-                    style={{
-                      transform: `scale(${scale.image8}) translate(${position.image8.x / scale.image8
-                        }px, ${position.image8.y / scale.image8}px)`,
-                      transition: dragging.image8
-                        ? "none"
-                        : "transform 0.3s ease-out",
-                    }}
                   >
-                    <NextImage
-                      unoptimized
+                    <ImageEditor
                       src={images.image8}
-                      alt="uploaded"
-                      width={200}
-                      height={300}
-                      className="w-full h-full object-cover"
+                      scale={scale.image8}
+                      position={position.image8}
+                      rotation={image8Rotation}
                     />
                   </div>
 
@@ -1671,12 +1889,19 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     >
                       <ZoomOut className="w-4 h-4 text-gray-700" />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setImage8Rotation((r) => (r + 90) % 360)}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Rotate"
+                    >
+                      <RotateCw className="w-4 h-4 text-gray-700" />
+                    </button>
                   </div>
 
                   {/* Edit/Delete Buttons */}
                   <button
                     type="button"
-                    // onClick={() => fileInputRef3.current?.click()}
                     onClick={() => openImageSourceModal("image8")}
                     className="absolute z-[22] top-[100px] right-20 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Edit image"
