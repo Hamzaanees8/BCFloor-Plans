@@ -354,7 +354,7 @@ const CreateFeatureSheet = forwardRef<
       fallbackUrl = `/${normalizedKey}.png`;
     }
 
-    if (template?.type === "listing") {
+    if (template?.type === "listing" || template?.type === "tabloid") {
       return [fallbackUrl, fallbackUrl];
     }
     return [fallbackUrl];
