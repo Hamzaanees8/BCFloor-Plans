@@ -149,3 +149,43 @@ export function prepareTemplateData(order: any, agent?: any, service?: any, vend
         ...additionalData
     };
 }
+
+/**
+ * Fetches organization notification preferences.
+ */
+export async function fetchNotificationPreferences() {
+    try {
+        const response = await api.get(`/notification-preferences`);
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch notification preferences:", error);
+        return { success: false, data: [] };
+    }
+}
+
+/**
+ * Fetches registered notification preference events and defaults.
+ */
+export async function fetchNotificationEvents() {
+    try {
+        const response = await api.get(`/notification-preferences/events`);
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch notification preference events:", error);
+        return { success: false, data: [] };
+    }
+}
+
+/**
+ * Bulk updates notification preferences.
+ */
+export async function updateNotificationPreferences(preferences: Array<{ role: string; event_type: string; email_enabled: boolean }>) {
+    try {
+        const response = await api.put(`/notification-preferences`, { preferences });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to update notification preferences:", error);
+        return { success: false };
+    }
+}
+

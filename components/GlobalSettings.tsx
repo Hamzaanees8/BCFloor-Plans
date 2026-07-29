@@ -61,6 +61,7 @@ import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
 import EmailLogsSettings from "./EmailLogsSettings";
 import PortalSettings from "./PortalSettings";
+import EmailNotificationsSettings from "./EmailNotificationsSettings";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -903,6 +904,7 @@ const GlobalSettings = () => {
             { name: "Portal Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Email Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN }
@@ -1289,6 +1291,9 @@ const GlobalSettings = () => {
             <form onSubmit={(e) => e.preventDefault()}>
                 {activeTab === "Templates" && userType === "admin" && (
                     <EmailTemplatesSettings />
+                )}
+                {activeTab === "Email Settings" && userType === "admin" && (
+                    <EmailNotificationsSettings />
                 )}
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />
