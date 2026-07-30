@@ -308,3 +308,30 @@ export async function ManualSyncCalendar(orderIds: number[]) {
   });
   return response.data;
 }
+
+export async function ReassignBookingSlot(
+  slotUuid: string,
+  newVendorUuid: string,
+  token: string,
+) {
+  const response = await api.post(
+    `/orders/slots/${slotUuid}/reassign`,
+    { vendor_id: newVendorUuid },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function SwapBookingSlots(
+  slotAUuid: string,
+  slotBUuid: string,
+  token: string,
+) {
+  const response = await api.post(
+    `/orders/slots/swap`,
+    { slot_a: slotAUuid, slot_b: slotBUuid },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+

@@ -43,7 +43,8 @@ export interface EditOrderPayload {
   property_website?: string,
   mls_property?: string,
   vendor_uuid?: string,
-
+  notes?: AgentNote[],
+  _method?: string,
 }
 export interface OrderServiceItem {
   uuid?: string; // Order service UUID (for updates)
@@ -52,7 +53,7 @@ export interface OrderServiceItem {
   amount: number;
   custom?: string;
 }
-type AgentNote = {
+export type AgentNote = {
   note: string;
   name: string;
   date: string;

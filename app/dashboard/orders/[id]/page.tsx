@@ -41,6 +41,7 @@ import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
 import VendorOrderEdit from "../components/VendorOrderEdit";
 import CancelOrderDialog, { CancelPreviewData } from "../components/CancelOrderDialog";
+import OrderNotesDialog from "../components/OrderNotesDialog";
 import { Agent } from "@/lib/types";
 import { GetAgents } from "../../calendar/calendar";
 import { toast } from "sonner";
@@ -153,6 +154,7 @@ function Page() {
   >([]);
   const [selectedVendors, setselectedVendors] = useState("");
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
+  const [openNotesPopup, setOpenNotesPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -629,6 +631,17 @@ function Page() {
           onOpenChange={setOpenEditPopup}
         />
       )}
+      {openNotesPopup && orderData && currentUser && (
+        <OrderNotesDialog
+          open={openNotesPopup}
+          onOpenChange={setOpenNotesPopup}
+          orderData={orderData}
+          orderId={orderId}
+          currentUser={currentUser}
+          onNotesUpdated={refreshOrders}
+          roleSettings={roleSettings}
+        />
+      )}
       {showCancelDialog && orderData && (
         <CancelOrderDialog
           open={showCancelDialog}
@@ -678,9 +691,21 @@ function Page() {
             </span>
           )}
         </div>
-        {userType !== "vendor" && (
-          <div className="flex gap-[18px]">
-            {orderData?.order_status !== "Cancelled" && (
+        <div className="flex gap-[18px]">
+          <Button
+            onClick={() => setOpenNotesPopup(true)}
+            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
+            style={{
+              backgroundColor: roleSettings.pageBg,
+              color: roleSettings.pageTabColor,
+              borderColor: roleSettings.pageTabColor,
+            }}
+          >
+            Order Notes
+          </Button>
+          {userType !== "vendor" && (
+            <>
+              {orderData?.order_status !== "Cancelled" && (
               <Button
                 onClick={() => {
                   router.push(`/dashboard/orders/create/${orderData?.uuid}?isEdit=true`);
@@ -730,8 +755,9 @@ function Page() {
                 )}
               </Button>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
       <div
         className={` relative w-full h-[160px] flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}

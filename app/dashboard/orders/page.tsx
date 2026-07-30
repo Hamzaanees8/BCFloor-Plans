@@ -66,7 +66,8 @@ export type Order = {
     notes: {
         note: string;
         name: string;
-        date: Date;
+        date: string;
+        internal?: string;
     }[];
     co_agents: CoAgent[];
     vendor?: Vendor;
