@@ -149,6 +149,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
             const payload = {
                 title,
                 type,
+                event_type: type,
                 tags: tags.length > 0 ? tags : null,
                 is_active: isActive,
                 content,
@@ -215,13 +216,16 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                         <SelectValue placeholder="Select a type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="service_completed">service_completed</SelectItem>
-                                        <SelectItem value="order_completed">order_completed</SelectItem>
-                                        <SelectItem value="service_changed">service_changed</SelectItem>
-                                        <SelectItem value="order_updated">order_updated</SelectItem>
-                                        <SelectItem value="vendor_changed">vendor_changed</SelectItem>
-                                        <SelectItem value="schedule_changed">schedule_changed</SelectItem>
-                                        <SelectItem value="service_updated">service_updated</SelectItem>
+                                        <SelectItem value="order_created">order_created (Order Created)</SelectItem>
+                                        <SelectItem value="order_updated">order_updated (Order Updated)</SelectItem>
+                                        <SelectItem value="order_cancelled">order_cancelled (Order Cancelled)</SelectItem>
+                                        <SelectItem value="slot_booked">slot_booked (Appointment Scheduled)</SelectItem>
+                                        <SelectItem value="slot_cancelled">slot_cancelled (Appointment Cancelled)</SelectItem>
+                                        <SelectItem value="slot_rescheduled">slot_rescheduled (Appointment Rescheduled)</SelectItem>
+                                        <SelectItem value="booking_reminder">booking_reminder (Booking Reminder)</SelectItem>
+                                        <SelectItem value="agent_payment_received">agent_payment_received (Payment Received)</SelectItem>
+                                        <SelectItem value="vendor_payment_processed">vendor_payment_processed (Vendor Payout)</SelectItem>
+                                        <SelectItem value="invoice_created">invoice_created (Invoice Created)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
