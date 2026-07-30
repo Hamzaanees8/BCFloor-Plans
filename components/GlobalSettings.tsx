@@ -60,6 +60,7 @@ import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
 import EmailLogsSettings from "./EmailLogsSettings";
+import QbSyncLogsSettings from "./QbSyncLogsSettings";
 import PortalSettings from "./PortalSettings";
 import EmailNotificationsSettings from "./EmailNotificationsSettings";
 import { usePermissions } from "@/app/hooks/usePermissions";
@@ -907,7 +908,8 @@ const GlobalSettings = () => {
             { name: "Email Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
-            { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN }
+            { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "QB Sync Logs", permission: PERMISSIONS.ACCESS_BILLING }
         ];
 
         return allTabs
@@ -1241,7 +1243,7 @@ const GlobalSettings = () => {
                     >
                         Save Changes
                     </Button>
-                ) : activeTab === "Templates" || activeTab === "Email Logs" ? null : (
+                ) : activeTab === "Templates" || activeTab === "Email Logs" || activeTab === "QB Sync Logs" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -1260,14 +1262,14 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full"
+                    className="min-h-[60px] h-auto sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full py-2"
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     }}
                 >
                     <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
-                        <div className="w-full overflow-x-auto scrollbar-hide flex items-center py-2 h-full">
-                            <div className="flex gap-[6px] min-w-max mx-auto">
+                        <div className="w-full flex items-center h-full">
+                            <div className="flex flex-wrap justify-center gap-[6px] w-full">
                                 {tabs.map((tab) => (
                                     <button
                                         key={tab}
@@ -1300,6 +1302,9 @@ const GlobalSettings = () => {
                 )}
                 {activeTab === "Email Logs" && userType === "admin" && (
                     <EmailLogsSettings />
+                )}
+                {activeTab === "QB Sync Logs" && userType === "admin" && (
+                    <QbSyncLogsSettings />
                 )}
                 {activeTab === "Portal Settings" && userType === "admin" && (
                     <PortalSettings ref={portalSettingsRef} />
