@@ -417,12 +417,14 @@ export default function OrderQuickViewCard({
           >
             Manage Media
           </Link>
-          <Button
-            onClick={() => setShowSwapModal(true)}
-            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text hover:text-white rounded-none w-full h-[32px] hover-${userType}-bg ${userType}-button`}
-          >
-            Reassign / Swap
-          </Button>
+          {userType === "admin" && (
+            <Button
+              onClick={() => setShowSwapModal(true)}
+              className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text hover:text-white rounded-none w-full h-[32px] hover-${userType}-bg ${userType}-button`}
+            >
+              Reassign / Swap
+            </Button>
+          )}
           <Button
             onClick={() => {
               setOpenDetails(true);

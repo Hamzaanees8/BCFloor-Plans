@@ -61,6 +61,14 @@ function slotsOverlap(a: Slot, b: Slot): boolean {
   return aStart < bEnd && bStart < aEnd;
 }
 
+/** Return true if the slot's date+end_time is already in the past */
+function isSlotPast(slot: Slot): boolean {
+  const [h, m, s] = slot.end_time.split(":").map(Number);
+  const slotEnd = new Date(slot.date);
+  slotEnd.setHours(h, m, s ?? 0, 0);
+  return slotEnd < new Date();
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function VendorSwapReassignModal({
@@ -86,6 +94,9 @@ export default function VendorSwapReassignModal({
 
   const currentVendorUuid =
     sourceSlot?.vendor?.uuid ?? sourceSlot?.vendor_id ?? "";
+
+  // True when the source slot has already ended — block reassign
+  const sourceSlotIsPast = sourceSlot ? isSlotPast(sourceSlot) : false;
 
   // ── Reassign mode: vendors eligible for reassignment ──
   // Exclude the current vendor (self-selection exclusion)
@@ -121,6 +132,9 @@ export default function VendorSwapReassignModal({
         // Conflict detection: skip if slots already overlap
         if (sourceSlot && slotsOverlap(sourceSlot, slot)) continue;
 
+        // Skip past slots — cannot swap into the past
+        if (isSlotPast(slot)) continue;
+
         const label = `Order #${order.id} – ${slot.date} ${slot.start_time.slice(0, 5)}–${slot.end_time.slice(0, 5)}`;
         results.push({ label, slotUuid: slot.uuid, slot, order });
       }
@@ -148,6 +162,8 @@ export default function VendorSwapReassignModal({
           String(slot.service_id) === String(currentService.uuid);
         if (!svcMatch) continue;
         if (sourceSlot && slotsOverlap(sourceSlot, slot)) continue;
+        // Skip past slots
+        if (isSlotPast(slot)) continue;
         const vid = String(slot.vendor?.uuid ?? slot.vendor_id);
         if (vid && vid !== currentVendorUuid) vendorUuids.add(vid);
       }
@@ -216,7 +232,9 @@ export default function VendorSwapReassignModal({
 
   const isSubmitDisabled =
     isLoading ||
-    (mode === "reassign" ? !selectedVendorUuid : !selectedSlotUuid);
+    (mode === "reassign"
+      ? !selectedVendorUuid || sourceSlotIsPast
+      : !selectedSlotUuid);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -275,6 +293,11 @@ export default function VendorSwapReassignModal({
           {/* ── REASSIGN mode ── */}
           {mode === "reassign" && (
             <div className="flex flex-col gap-1.5">
+              {sourceSlotIsPast && (
+                <p className="text-[12px] text-red-500 bg-red-50 border border-red-200 px-3 py-2 rounded-sm">
+                  This booking slot is in the past. Reassignment is not allowed for past slots.
+                </p>
+              )}
               <label className="text-[11px] font-[700] text-[#8E8E8E] uppercase tracking-wide">
                 New Vendor
               </label>
@@ -284,10 +307,11 @@ export default function VendorSwapReassignModal({
                 </p>
               ) : (
                 <Select
+                  disabled={sourceSlotIsPast}
                   value={selectedVendorUuid}
                   onValueChange={setSelectedVendorUuid}
                 >
-                  <SelectTrigger className="w-full h-[42px] border-[1px] border-[#BBBBBB] bg-[#EEEEEE]">
+                  <SelectTrigger className="w-full h-[42px] border-[1px] border-[#BBBBBB] bg-[#EEEEEE] disabled:opacity-50 disabled:cursor-not-allowed">
                     <SelectValue placeholder="Select Vendor" />
                   </SelectTrigger>
                   <SelectContent>

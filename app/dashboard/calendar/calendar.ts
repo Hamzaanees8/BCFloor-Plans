@@ -329,7 +329,7 @@ export async function SwapBookingSlots(
 ) {
   const response = await api.post(
     `/orders/slots/swap`,
-    { slot_a: slotAUuid, slot_b: slotBUuid },
+    { slot1_uuid: slotAUuid, slot2_uuid: slotBUuid },
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data;
