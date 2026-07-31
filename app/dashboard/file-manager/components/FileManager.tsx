@@ -1342,7 +1342,9 @@ const FileManager = () => {
                       )}
                       {userType !== "vendor" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                        viewingInvoice.status?.toUpperCase() !== "VOID" && (
+                        viewingInvoice.status?.toUpperCase() !== "VOID" &&
+                        viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
+                        viewingInvoice.status?.toUpperCase() !== "PARTIALLY_REFUNDED" && (
                           currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
                             <Button
                               onClick={() => {

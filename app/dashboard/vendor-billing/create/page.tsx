@@ -12,6 +12,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { CreateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import { batchCalculateTravelCosts, buildTripChainLegs, calculateTravelCostFromBatch } from "@/lib/batchTravelCalculator";
+import { getTaxRateByLocation } from "@/lib/taxCalculator";
 
 
 
@@ -94,27 +95,42 @@ const CreateVendorInvoicePage = () => {
             let currentTaxSnapshot: any = null;
             
             if (vendorDetails?.settings?.tax_enabled && !vendorDetails?.settings?.tax_exempt) {
-                const s = vendorDetails.settings;
-                autoTaxRate = s.tax_rate !== undefined && s.tax_rate !== null ? Number(s.tax_rate) : 13.0;
-                
-                if (s.tax_country === "US") {
-                    autoTaxType = "US Sales Tax";
-                } else {
+                const s = vendorDetails.settings || {};
+                const startLocation = vendorDetails?.addresses?.find((a: any) => a.type === 'start_location' || a.type === 'primary') || vendorDetails?.addresses?.[0];
+                const vendorProvince = startLocation?.province || startLocation?.state || "";
+                const rawCountryStr = (startLocation?.country || s.tax_country || "Canada").trim();
+                const vendorCountry = (rawCountryStr.toUpperCase() === "US" || rawCountryStr.toUpperCase() === "USA") ? "USA" : "Canada";
+
+                if (s.tax_rate !== undefined && s.tax_rate !== null && !isNaN(Number(s.tax_rate)) && Number(s.tax_rate) > 0) {
+                    autoTaxRate = Number(s.tax_rate);
                     const typeMap: Record<string, string> = {
                         "GST_HST": "GST/HST",
                         "GST_PST": "GST + PST",
                         "GST_QST": "GST + QST",
                         "GST": "GST"
                     };
-                    autoTaxType = typeMap[s.tax_type] || s.tax_type || "GST/HST";
+                    autoTaxType = typeMap[s.tax_type] || s.tax_type || (vendorCountry === "USA" ? "US Sales Tax" : "GST/HST");
+                } else if (vendorProvince) {
+                    const locTax = getTaxRateByLocation(vendorProvince, vendorCountry);
+                    autoTaxRate = locTax.rate;
+                    autoTaxType = locTax.taxType;
+                } else {
+                    autoTaxRate = vendorCountry === "USA" ? 0.0 : 13.0;
+                    const typeMap: Record<string, string> = {
+                        "GST_HST": "GST/HST",
+                        "GST_PST": "GST + PST",
+                        "GST_QST": "GST + QST",
+                        "GST": "GST"
+                    };
+                    autoTaxType = typeMap[s.tax_type] || s.tax_type || (vendorCountry === "USA" ? "US Sales Tax" : "GST/HST");
                 }
 
                 const isRegistered = true;
-                const taxNumberStr = vendorDetails.tax_number || s.tax_number_gst_hst || s.tax_number_us || "Pending";
+                const taxNumberStr = vendorDetails.tax_number || s.tax_number || s.tax_number_gst_hst || s.tax_number_us || "Pending";
 
                 taxInfo = {
-                    province: "",
-                    country: s.tax_country === "US" ? "USA" : "Canada",
+                    province: vendorProvince,
+                    country: vendorCountry,
                     taxType: `${autoTaxType} (${autoTaxRate}%)`,
                     isRegistered: isRegistered,
                     tax_number: taxNumberStr
@@ -123,7 +139,7 @@ const CreateVendorInvoicePage = () => {
                 currentTaxSnapshot = {
                     taxes: [{ name: autoTaxType, rate: autoTaxRate }],
                     total_rate: autoTaxRate,
-                    location: { country: s.tax_country === "US" ? "USA" : "Canada", province: "", city: "" },
+                    location: { country: vendorCountry, province: vendorProvince, city: "" },
                     is_registered: isRegistered,
                     tax_number: taxNumberStr,
                     snapshotted_at: new Date().toISOString()

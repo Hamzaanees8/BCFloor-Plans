@@ -1805,7 +1805,9 @@ function Page() {
                   <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
                     {userType !== "vendor" &&
                       viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                      viewingInvoice.status?.toUpperCase() !== "VOID" && (
+                      viewingInvoice.status?.toUpperCase() !== "VOID" &&
+                      viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
+                      viewingInvoice.status?.toUpperCase() !== "PARTIALLY_REFUNDED" && (
                         currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
                           <Button
                             onClick={() => {

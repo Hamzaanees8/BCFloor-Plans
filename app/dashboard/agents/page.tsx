@@ -10,7 +10,6 @@ import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { DataTable } from '@/components/DataTable';
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import DropdownActions from "@/components/DropdownActions";
 import { useRouter } from "next/navigation";
@@ -29,6 +28,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+
 export interface AgentData {
     uuid?: string;
     first_name: string;
@@ -81,6 +82,7 @@ const Page = () => {
     const { isSuperAdmin } = useUser();
     const [organizations, setOrganizations] = useState<any[]>([]);
     const [orgFilter, setOrgFilter] = useState<string>("all");
+    const [searchQuery, setSearchQuery] = useState<string>("");
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
@@ -105,9 +107,21 @@ const Page = () => {
             if (orgFilter !== "all" && String(agent.organization_id) !== orgFilter) {
                 return false;
             }
+            if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase().trim();
+                const fullName = `${agent.first_name || ''} ${agent.last_name || ''}`.toLowerCase();
+                const email = (agent.email || '').toLowerCase();
+                const company = (agent.company_name || '').toLowerCase();
+                const matchesName = fullName.includes(query);
+                const matchesEmail = email.includes(query);
+                const matchesCompany = company.includes(query);
+                if (!matchesName && !matchesEmail && !matchesCompany) {
+                    return false;
+                }
+            }
             return true;
         });
-    }, [agentData, orgFilter]);
+    }, [agentData, orgFilter, searchQuery]);
 
     const handleUpdateStatus = useCallback(async (uuid: string, status: boolean) => {
         try {
@@ -144,19 +158,6 @@ const Page = () => {
 
     const columns = useMemo<ColumnDef<Agent>[]>(() => {
         const cols: ColumnDef<Agent>[] = [
-        {
-            id: "select",
-            header: () => <div></div>,
-            cell: ({ row }) => (
-                <Checkbox
-                    checked={row.getIsSelected()}
-                    onCheckedChange={(value) => row.toggleSelected(!!value)}
-                    aria-label="Select row"
-                />
-            ),
-            enableSorting: false,
-            enableHiding: false,
-        },
         {
             accessorKey: "name",
             header: "AGENTS",
@@ -263,16 +264,7 @@ const Page = () => {
         {
             id: "actions",
             enableHiding: false,
-            cell: ({ row, table }) => {
-                const selectedRowIds = Object.keys(table.getState().rowSelection);
-                const selectedRowCount = selectedRowIds.length;
-                const selectedAgents = table.getRowModel().rows
-                    .filter(r => selectedRowIds.includes(r.id))
-                    .map(r => ({
-                        ...r.original,
-                        full_name: `${r.original.first_name} ${r.original.last_name}`
-                    }));
-
+            cell: ({ row }) => {
                 return (
                     userType !== "vendor" &&
                     <div className="flex gap-2 justify-center items-center">
@@ -307,22 +299,12 @@ const Page = () => {
                                         setSelectedData({ ...rest, roles: mappedRoles });
                                     },
                                 },
-                                ...(selectedRowCount === 2
-                                    ? [{
-                                        label: "Merge",
-                                        onClick: () => {
-                                            toast.success('Agents merged ')
-                                        },
-                                        confirm2: true,
-                                    }]
-                                    : []),
                                 {
                                     label: "Delete",
                                     onClick: () => handleDelete(row.original.uuid ?? ""),
                                     confirm1: true,
                                 }
                             ]}
-                            data={selectedAgents}
                         />
 
                     </div>
@@ -413,6 +395,15 @@ const Page = () => {
                     </div>
                 </div>
 
+                <div className="p-3 bg-gray-50 border-b">
+                    <Input
+                        placeholder="Search agent by name or email..."
+                        className="h-9 bg-white text-xs"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+
                 <MobileAgentsList
                     agents={filteredAgents}
                     loading={loading}
@@ -449,6 +440,12 @@ const Page = () => {
             <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Agents ({agentlength})</p>
                 <div className="flex items-center gap-3">
+                    <Input
+                        placeholder="Search agent by name or email..."
+                        className="w-[220px] md:w-[280px] h-[35px] md:h-[42px] bg-white border border-[#BBBBBB] rounded-[6px] text-sm"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                     {isSuperAdmin && (
                         <Select value={orgFilter} onValueChange={setOrgFilter}>
                             <SelectTrigger className="w-[180px] h-[35px] md:h-[42px] text-[#666666] border border-[#BBBBBB] rounded-[6px]" style={{ backgroundColor: roleSettings.pageBg }}>

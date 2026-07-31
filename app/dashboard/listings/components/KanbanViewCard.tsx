@@ -1,4 +1,4 @@
-import { Eye, FolderOpen, Calendar, Mail, Phone } from "lucide-react";
+import { Eye, FolderOpen, Calendar, Mail, Phone, FileText } from "lucide-react";
 import React from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
@@ -237,6 +237,14 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
                 <p className="text-[11px] text-gray-500">
                   <span className="font-semibold text-gray-600">Agent:</span> {(data as Listings).agent?.first_name} {(data as Listings).agent?.last_name || 'N/A'}
                 </p>
+                {latestOrder?.id && (
+                  <div className="flex items-center gap-1.5 mt-0.5" title={`Order #${latestOrder.id}`}>
+                    <FileText className="h-3 w-3 text-gray-400 shrink-0" />
+                    <p className="text-[10px] text-gray-500 font-medium truncate">
+                      #{latestOrder.id}
+                    </p>
+                  </div>
+                )}
                 {(data as Listings).agent?.email && (
                   <div className="flex items-center gap-1.5 mt-0.5" title={(data as Listings).agent?.email}>
                     <Mail className="h-3 w-3 text-gray-400 shrink-0" />
@@ -253,6 +261,14 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+            {type === 'listing' && (!((userType === 'admin' || userType === 'vendor') && (data as Listings).agent)) && latestOrder?.id && (
+              <div className="flex items-center gap-1.5 mt-1" title={`Order #${latestOrder.id}`}>
+                <FileText className="h-3 w-3 text-gray-400 shrink-0" />
+                <p className="text-[10px] text-gray-500 font-medium truncate">
+                  #{latestOrder.id}
+                </p>
               </div>
             )}
           </div>

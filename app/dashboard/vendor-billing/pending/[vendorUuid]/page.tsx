@@ -7,14 +7,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
 import { vendorBillingService } from "../../VendorBillingService";
-import { Info, Loader2, Save, X, AlertCircle } from "lucide-react";
+import { Info, Loader2, Save, X, AlertCircle, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import { GetOne } from "@/app/dashboard/vendors/vendors";
 import { Get } from "@/app/dashboard/orders/orders";
-import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
+import { batchCalculateTravelCosts } from "@/lib/batchTravelCalculator";
+import { getTaxRateByLocation } from "@/lib/taxCalculator";
 
 const logBillingError = (context: string, message: string, extraData?: any) => {
     console.error(`[Billing Error] Context: ${context} | Message: ${message}`, {
@@ -31,7 +32,18 @@ export default function PendingItemsPage() {
     const [loading, setLoading] = useState(true);
     const [editData, setEditData] = useState<any>(null);
     const [generating, setGenerating] = useState(false);
-    const [taxError, setTaxError] = useState<string | null>(null);
+    const [taxError] = useState<string | null>(null);
+
+    // Helper to get YYYY-MM-DD string
+    const formatDateYMD = (d: Date) => d.toISOString().split('T')[0];
+
+    // Billing Cycle Date Range filter state (Default: Today and past 15 days)
+    const [startDate, setStartDate] = useState<string>(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 15);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState<string>(() => formatDateYMD(new Date()));
 
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
@@ -48,9 +60,14 @@ export default function PendingItemsPage() {
 
     const fetchPendingItems = useCallback(async (token: string) => {
         try {
+            setLoading(true);
+            const filters: { start_date?: string; end_date?: string } = {};
+            if (startDate) filters.start_date = startDate;
+            if (endDate) filters.end_date = endDate;
+
             // Fetch pending items, vendor details, and all orders
             const [pendingResponse, vendorDetailsRes, ordersRes] = await Promise.all([
-                vendorBillingService.getPendingItems(vendorUuid, token),
+                vendorBillingService.getPendingItems(vendorUuid, token, filters),
                 GetOne(vendorUuid),
                 Get(token)
             ]);
@@ -58,108 +75,100 @@ export default function PendingItemsPage() {
             const vendorDetails = vendorDetailsRes?.data;
             const paymentPerKm = Number(vendorDetails?.settings?.payment_per_km ?? 0);
             const startLocation = vendorDetails?.addresses?.find((a: any) => a.type === 'start_location');
-            const startLocationAddress = startLocation ? `${startLocation.address_line_1}, ${startLocation.city}, ${startLocation.country}` : "";
+            const rawCountry = startLocation?.country || "";
+            const normalizedCountry = rawCountry.trim().toUpperCase() === 'CA' ? 'Canada' : rawCountry.trim().toUpperCase() === 'US' ? 'USA' : rawCountry;
+            const startLocationAddress = startLocation ? `${startLocation.address_line_1}, ${startLocation.city}, ${normalizedCountry}` : "";
 
-            // Map the items into our unified editable format
+            const allOrdersList = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+
+            // Map the items into detailed editable format (with Order ID, Address, Slot Date/Time, Service Option)
             const mappedItems: any[] = [];
             let subtotal = 0;
-            
-            // Create a map to track which orders need travel calculation
             const serviceToOrderMap: Record<string, any> = {};
-            
+
             pendingResponse.items.forEach(item => {
-                // 1. Service item
                 const serviceAmount = parseFloat(String(item.service.amount || 0));
+
+                const svcObj = (item.service as any)?.service || {};
+                const svcName = svcObj.name || 'Service';
+                const optionTitle = (item.service as any)?.option?.title || (item.service as any)?.service_option?.title || '';
+                const fullSvcTitle = optionTitle ? `${svcName} - ${optionTitle}` : svcName;
+
+                const orderIdVal = item.service?.order?.id;
+                const orderLabel = orderIdVal ? `order: #${orderIdVal}` : '';
+                const propAddress = item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || '';
+                const addressLabel = propAddress ? `address: ${propAddress}` : '';
+
+                // Locate exact booking slot date & time
+                const matchingOrder = allOrdersList.find((o: any) => o.id === orderIdVal);
+                const matchingSlot = matchingOrder?.slots?.find((s: any) => String(s.service_id) === String((item.service as any)?.service_id || svcObj.id));
+                const slotDateStr = matchingSlot?.date || '';
+                const slotTimeStr = matchingSlot?.start_time ? `${matchingSlot.start_time}${matchingSlot.end_time ? ` - ${matchingSlot.end_time}` : ''}` : '';
+                const slotLabel = slotDateStr ? `slots: ${slotDateStr}${slotTimeStr ? ` @ ${slotTimeStr}` : ''}` : '';
+
+                const detailedDescription = [fullSvcTitle, addressLabel, orderLabel, slotLabel].filter(Boolean).join('\n');
+
                 mappedItems.push({
-                    description: `${item.service?.service?.name || 'Service'} - Order #${item.service?.order?.id || ''} (${item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || ''})`,
+                    description: detailedDescription,
                     quantity: 1,
                     unit_price: serviceAmount,
                     amount: serviceAmount,
                     type: 'service',
                     order_service_id: item.service?.uuid,
-                    property_address: item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || ''
+                    property_address: propAddress
                 });
                 subtotal += serviceAmount;
                 serviceToOrderMap[item.service.uuid] = item.service.order;
             });
 
-            // Recalculate travel costs using the same logic as create/page.tsx
+            // ── Travel Calculation (Single 1xN Distance Matrix Call) ─────
             const travelItems: any[] = [];
             let totalTravelCost = 0;
             let totalKm = 0;
 
             if (startLocationAddress && paymentPerKm > 0 && pendingResponse.items.length > 0) {
-                const allOrders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
                 const ordersToCalculateTravel: any[] = [];
-
-                // Get unique property addresses from pending items
                 const pendingOrderIds = new Set(pendingResponse.items.map(item => item.service?.order?.id).filter(Boolean));
 
-                allOrders.forEach((order: any) => {
+                allOrdersList.forEach((order: any) => {
                     if (!pendingOrderIds.has(order.id)) return;
-
                     const vendorSlots = order.slots?.filter((s: any) => s.vendor_id === vendorUuid || s.vendor?.uuid === vendorUuid);
                     if (!vendorSlots || vendorSlots.length === 0) return;
 
                     ordersToCalculateTravel.push({
                         id: order.id,
                         address: order.property_address || order.property?.property_address || order.property?.address || '',
-                        location: order.property_location || order.property?.property_location || '',
-                        slots: vendorSlots,
-                        hasTravelRequiredService: order.services?.some((s: any) => 
-                            vendorSlots.some((slot: any) => String(slot.service_id) === String(s.service_id)) && 
+                        hasTravelRequiredService: order.services?.some((s: any) =>
+                            vendorSlots.some((slot: any) => String(slot.service_id) === String(s.service_id)) &&
                             (s.service?.is_travel_required || s.is_travel_required)
                         )
                     });
                 });
 
                 if (ordersToCalculateTravel.length > 0) {
-                    // Group by date
-                    const ordersByDate = new Map<string, any[]>();
+                    const uniqueAddresses: string[] = [];
                     ordersToCalculateTravel.forEach(o => {
-                        const date = o.slots[0]?.date;
-                        if (date) {
-                            if (!ordersByDate.has(date)) ordersByDate.set(date, []);
-                            ordersByDate.get(date)?.push(o);
+                        if (o.address && o.hasTravelRequiredService && !uniqueAddresses.includes(o.address)) {
+                            uniqueAddresses.push(o.address);
                         }
                     });
 
-                    // Calculate travel for each day using batch utility
-                    for (const [date, dailyOrders] of Array.from(ordersByDate.entries())) {
-                        dailyOrders.sort((a, b) => (a.slots[0]?.start_time || "").localeCompare(b.slots[0]?.start_time || ""));
-                        
-                        const travelOrdersForDay = dailyOrders.filter(o => o.hasTravelRequiredService);
-                        if (travelOrdersForDay.length === 0) continue;
-
-                        const routeSequence = travelOrdersForDay.map(o => `#${o.id}`).join(" → ");
-                        console.log(`Travel route for ${date}:`, `Start → ${routeSequence} → Start`);
-
-                        const addresses = travelOrdersForDay.map(o => o.address).filter(addr => addr);
-                        if (addresses.length === 0) continue;
-
-                        const tripLegs = buildTripChainLegs(startLocationAddress, addresses);
+                    if (uniqueAddresses.length > 0) {
+                        const tripLegs = uniqueAddresses.map((addr, idx) => ({
+                            from: startLocationAddress,
+                            to: addr,
+                            legIndex: idx,
+                        }));
 
                         try {
+                            console.log(`📍 [Pending Invoice] Single 1xN API call → 1 origin x ${uniqueAddresses.length} destinations`);
                             const batchResult = await batchCalculateTravelCosts(tripLegs);
                             if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
-                                const costForDay = batchResult.totalDistance * paymentPerKm;
-                                totalTravelCost += costForDay;
-                                totalKm += batchResult.totalDistance;
-                            } else {
-                                console.error(`Batch travel calculation failed completely for ${date}:`, batchResult.status);
-                                logBillingError("pending_items_batch_calculation_failed", `Batch calculation failed with status ${batchResult.status}`, {
-                                    date,
-                                    vendorUuid,
-                                    tripLegsCount: tripLegs.length
-                                });
+                                totalKm = batchResult.totalDistance;
+                                totalTravelCost = parseFloat((totalKm * paymentPerKm).toFixed(2));
                             }
                         } catch (e: any) {
                             console.error("Exception in batch travel calculation:", e);
-                            logBillingError("pending_items_batch_calculation_exception", e.message || "Exception in batch calculation", {
-                                date,
-                                vendorUuid,
-                                tripLegsCount: tripLegs.length
-                            });
                         }
                     }
 
@@ -176,20 +185,39 @@ export default function PendingItemsPage() {
                 }
             }
 
-            // Combine all items
             const allItems = [...mappedItems, ...travelItems];
 
-            // Read tax rate and details from vendor profile settings
             let taxRate = 0;
             let taxType = "Tax";
             let taxSnapshot: any = null;
-            const calculatedTaxError: string | null = null;
 
-            if (vendorDetails?.settings?.tax_enabled) {
-                taxRate = parseFloat(vendorDetails.settings.tax_rate) || 0;
-                taxType = vendorDetails.settings.tax_type || "Tax";
-                const taxNumber = vendorDetails.settings.tax_number || "";
-                
+            if (vendorDetails?.settings?.tax_enabled && !vendorDetails?.settings?.tax_exempt) {
+                const s = vendorDetails?.settings || {};
+                const startLocation = vendorDetails?.addresses?.find((a: any) => a.type === 'start_location' || a.type === 'primary') || vendorDetails?.addresses?.[0];
+                const vendorProvince = startLocation?.province || startLocation?.state || "";
+                const rawCountryStr = (startLocation?.country || s.tax_country || "Canada").trim();
+                const vendorCountry = (rawCountryStr.toUpperCase() === "US" || rawCountryStr.toUpperCase() === "USA") ? "USA" : "Canada";
+
+                if (s.tax_rate !== undefined && s.tax_rate !== null && !isNaN(parseFloat(s.tax_rate)) && parseFloat(s.tax_rate) > 0) {
+                    taxRate = parseFloat(s.tax_rate);
+                    taxType = s.tax_type || (vendorCountry === "USA" ? "Sales Tax" : "GST/HST");
+                } else if (vendorProvince) {
+                    const locTax = getTaxRateByLocation(vendorProvince, vendorCountry);
+                    taxRate = locTax.rate;
+                    taxType = locTax.taxType;
+                } else {
+                    taxRate = vendorCountry === "USA" ? 0 : 13.0;
+                    const typeMap: Record<string, string> = {
+                        "GST_HST": "GST/HST",
+                        "GST_PST": "GST + PST",
+                        "GST_QST": "GST + QST",
+                        "GST": "GST"
+                    };
+                    taxType = typeMap[s.tax_type] || s.tax_type || (vendorCountry === "USA" ? "Sales Tax" : "GST/HST");
+                }
+
+                const taxNumber = vendorDetails.tax_number || s.tax_number || s.tax_number_gst_hst || s.tax_number_us || "";
+
                 taxSnapshot = {
                     total_rate: taxRate,
                     is_registered: !!taxNumber,
@@ -201,7 +229,6 @@ export default function PendingItemsPage() {
 
             const taxAmount = subtotal * (taxRate / 100);
 
-            // Set up invoice data object
             setEditData({
                 vendor: pendingResponse.vendor,
                 invoice_number: 'DRAFT',
@@ -218,17 +245,13 @@ export default function PendingItemsPage() {
                 tax_snapshot: taxSnapshot
             });
 
-            if (calculatedTaxError) {
-                setTaxError(calculatedTaxError);
-            }
-
             setLoading(false);
         } catch (err) {
             console.error("Failed to fetch pending items:", err);
             toast.error("Failed to load pending items");
             setLoading(false);
         }
-    }, [vendorUuid]);
+    }, [vendorUuid, startDate, endDate]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -324,6 +347,8 @@ export default function PendingItemsPage() {
             const generatePayload = {
                 vendor_uuid: vendorUuid,
                 order_service_uuids: uniqueServiceIds,
+                cycle_start: startDate || undefined,
+                cycle_end: endDate || undefined,
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
                 tax_type: editData.tax_type,
@@ -385,6 +410,64 @@ export default function PendingItemsPage() {
                         <Info className="h-5 w-5 shrink-0 mt-0.5" style={{ color: roleSettings.pageTabColor }} />
                         <div className="text-sm leading-relaxed text-gray-700">
                             <strong>Review and Edit Pending Invoice:</strong> The services shown below were automatically calculated. You may freely map or remap the prices, alter descriptions, override tax calculations, and manually append miscellaneous costs prior to confirming final invoice generation. To remove an item from being billed, simply delete it from this list.
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* BILLING CYCLE DATE RANGE FILTER BAR */}
+                <Card className="border shadow-sm bg-white">
+                    <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5 text-gray-500 shrink-0" style={{ color: roleSettings.pageTabColor }} />
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-800">Billing Cycle Range</h3>
+                                <p className="text-xs text-gray-500">Select dates to filter uninvoiced services within a specific period.</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="font-medium text-gray-600">From:</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="border rounded px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="font-medium text-gray-600">To:</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="border rounded px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() - 15);
+                                    setStartDate(d.toISOString().split('T')[0]);
+                                    setEndDate(new Date().toISOString().split('T')[0]);
+                                }}
+                                className="text-xs h-7 px-2 text-gray-500 hover:text-gray-800"
+                                title="Reset to default 15 days cycle"
+                            >
+                                Reset 15 Days
+                            </Button>
+                            {(startDate || endDate) && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => { setStartDate(""); setEndDate(""); }}
+                                    className="text-xs h-7 px-2 text-gray-400 hover:text-gray-700"
+                                    title="Show all uninvoiced without date filter"
+                                >
+                                    All Dates
+                                </Button>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

@@ -12,7 +12,130 @@ import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument"
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 
-export function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
+const enrichInvoiceLines = (lines: any[], orders?: any[]) => {
+    if (!lines || !Array.isArray(lines)) return [];
+
+    const formatTime = (timeStr?: string) => {
+        if (!timeStr) return "—";
+        const parts = timeStr.split(":");
+        if (parts.length >= 2) return `${parts[0].padStart(2, "0")}:${parts[1]}`;
+        return timeStr;
+    };
+
+    const computeSlots = (slots: any[]) => {
+        if (!slots || slots.length === 0) return "";
+        const sorted = [...slots].sort(
+            (a, b) =>
+                new Date(`1970-01-01T${a.start_time}`).getTime() -
+                new Date(`1970-01-01T${b.start_time}`).getTime(),
+        );
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+
+        const start = formatTime(first.start_time);
+        const end = formatTime(last.end_time);
+
+        let slotDate = "";
+        if (first.date) {
+            try {
+                const d = new Date(first.date);
+                if (!isNaN(d.getTime())) {
+                    slotDate = d.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                    });
+                }
+            } catch {
+                slotDate = first.date;
+            }
+        }
+
+        const startDate = new Date(`1970-01-01T${first.start_time}`);
+        const endDate = new Date(`1970-01-01T${last.end_time}`);
+        const diffMin = Math.max(
+            0,
+            Math.round((endDate.getTime() - startDate.getTime()) / 60000),
+        );
+
+        const timeRange = `${start} - ${end} (${diffMin} minutes)`;
+        return slotDate ? `${slotDate} @ ${timeRange}` : timeRange;
+    };
+
+    return lines.map((line: any) => {
+        let desc = line.description || "";
+
+        if (desc.includes("address:") || desc.includes("order:")) {
+            return {
+                ...line,
+                description: desc,
+                quantity: line.quantity || 1,
+                unit_price: line.unit_price || line.amount,
+            };
+        }
+
+        const lineOrderSvc = line.order_service;
+        const lineOrder = line.order || lineOrderSvc?.order;
+
+        let address =
+            lineOrder?.property_address ||
+            lineOrder?.property?.property_address ||
+            lineOrder?.property?.address ||
+            "";
+        let orderId = lineOrder?.id || lineOrderSvc?.order_id || "";
+        let slotsStr = lineOrderSvc?.slots ? computeSlots(lineOrderSvc.slots) : "";
+
+        if ((!address || !orderId) && orders && orders.length > 0) {
+            for (const order of orders) {
+                const services =
+                    (order as any).order_services || (order as any).services || [];
+                for (const svc of services) {
+                    const matchesId =
+                        line.order_service_id &&
+                        (svc.id === line.order_service_id ||
+                            svc.uuid === line.order_service_id ||
+                            String(svc.id) === String(line.order_service_id));
+                    const matchesName =
+                        (svc.service?.name && desc.includes(svc.service.name)) ||
+                        (svc.service_name && desc.includes(svc.service_name));
+
+                    if (matchesId || matchesName) {
+                        if (!address) {
+                            address =
+                                order.property_address ||
+                                (order as any).property?.property_address ||
+                                (order as any).property?.address ||
+                                "";
+                            if ((order as any).property_location)
+                                address = `${address}, ${(order as any).property_location}`;
+                        }
+                        if (!orderId) orderId = order.id;
+                        if (!slotsStr) slotsStr = computeSlots(svc.slots || []);
+                        break;
+                    }
+                }
+                if (address && orderId) break;
+            }
+        }
+
+        if (address || orderId || slotsStr) {
+            const parts = [desc];
+            if (address) parts.push(`address: ${address}`);
+            if (orderId) parts.push(`order: #${orderId}`);
+            if (slotsStr) parts.push(`slots: ${slotsStr}`);
+            desc = parts.join("\n");
+        }
+
+        return {
+            ...line,
+            description: desc,
+            quantity: line.quantity || 1,
+            unit_price: line.unit_price || line.amount,
+        };
+    });
+};
+
+export function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings, orders }: any) {
     const handleDownload = async () => {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
@@ -23,11 +146,7 @@ export function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any
     // Map vendor invoice data to InvoiceDocument format
     const documentData = {
         ...invoice,
-        items: invoice.lines?.map((line: any) => ({
-            ...line,
-            quantity: line.quantity || 1,
-            unit_price: line.unit_price || line.amount,
-        })) || []
+        items: enrichInvoiceLines(invoice.lines || [], orders)
     }
 
     return (

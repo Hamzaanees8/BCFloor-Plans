@@ -181,8 +181,8 @@ const Page = () => {
   };
 
   const filteredNotifications = notificationData.filter((notification) => {
-    const addressSearch = searchAddress.toLowerCase();
-    const nameSearch = searchName.toLowerCase();
+    const addressSearch = searchAddress.toLowerCase().trim();
+    const nameSearch = searchName.toLowerCase().trim();
 
     const matchesAddress =
       addressSearch === "" ||
@@ -195,12 +195,10 @@ const Page = () => {
       notification.meta_data?.property_address
         ?.toLowerCase()
         .includes(addressSearch) ||
-      notification.order?.id === Number(addressSearch) ||
-      notification.meta_data?.order_id === Number(addressSearch) ||
-      String(notification.order?.id).toLowerCase().includes(addressSearch) ||
-      String(notification.meta_data?.order_id)
-        .toLowerCase()
-        .includes(addressSearch);
+      (notification.order?.id != null && String(notification.order.id).toLowerCase().includes(addressSearch)) ||
+      (notification.meta_data?.order_id != null && String(notification.meta_data.order_id).toLowerCase().includes(addressSearch)) ||
+      ((notification.order as any)?.uuid != null && String((notification.order as any).uuid).toLowerCase().includes(addressSearch)) ||
+      ((notification as any).order_id != null && String((notification as any).order_id).toLowerCase().includes(addressSearch));
 
     const matchesName =
       nameSearch === "" ||

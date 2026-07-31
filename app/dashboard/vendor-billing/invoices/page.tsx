@@ -79,15 +79,36 @@ export default function VendorInvoicesListPage() {
         setPaying(invoiceUuid);
         try {
             const result = await vendorBillingService.payInvoice(invoiceUuid, token);
-            if (result.success) {
+            const isSuccess = result && (
+                result.success === true ||
+                result.status === "success" ||
+                result.status === "paid" ||
+                result.data != null ||
+                (result.message && !result.message.toLowerCase().includes("fail") && !result.message.toLowerCase().includes("error"))
+            );
+            if (isSuccess) {
                 toast.success("Payment processed successfully!");
                 fetchInvoices(token);
             } else {
-                toast.error(result.message || "Payment failed");
+                const failMsg = result?.message || result?.error || "Payment failed";
+                const lower = String(failMsg).toLowerCase();
+                toast.error(
+                    lower.includes("connect") || lower.includes("account") || lower.includes("stripe")
+                        ? "Payment Failed: Vendor does not have a connected Stripe account. Please ask vendor to connect their Stripe account under Vendor Settings."
+                        : failMsg
+                );
             }
         } catch (err: any) {
             console.error("Payment error:", err);
-            toast.error(err.response?.data?.message || "Payment failed");
+            const backendMsg = err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail;
+            const rawMsg = backendMsg || err.message || "";
+            const lower = String(rawMsg).toLowerCase();
+
+            if (lower.includes("500") || lower.includes("request failed") || lower.includes("connect") || lower.includes("account")) {
+                toast.error("Payment Failed: Vendor does not have a connected Stripe account. Please ask vendor to connect their Stripe account under Vendor Settings.");
+            } else {
+                toast.error(rawMsg || "Payment failed. Please check vendor Stripe setup.");
+            }
         } finally {
             setPaying(null);
         }
@@ -448,6 +469,96 @@ function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, roleSe
     );
 }
 
+const enrichModalInvoiceLines = (lines: any[]) => {
+    if (!lines || !Array.isArray(lines)) return [];
+
+    const formatTime = (timeStr?: string) => {
+        if (!timeStr) return "—";
+        const parts = timeStr.split(":");
+        if (parts.length >= 2) return `${parts[0].padStart(2, "0")}:${parts[1]}`;
+        return timeStr;
+    };
+
+    const computeSlots = (slots: any[]) => {
+        if (!slots || slots.length === 0) return "";
+        const sorted = [...slots].sort(
+            (a, b) =>
+                new Date(`1970-01-01T${a.start_time}`).getTime() -
+                new Date(`1970-01-01T${b.start_time}`).getTime(),
+        );
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+
+        const start = formatTime(first.start_time);
+        const end = formatTime(last.end_time);
+
+        let slotDate = "";
+        if (first.date) {
+            try {
+                const d = new Date(first.date);
+                if (!isNaN(d.getTime())) {
+                    slotDate = d.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                    });
+                }
+            } catch {
+                slotDate = first.date;
+            }
+        }
+
+        const startDate = new Date(`1970-01-01T${first.start_time}`);
+        const endDate = new Date(`1970-01-01T${last.end_time}`);
+        const diffMin = Math.max(
+            0,
+            Math.round((endDate.getTime() - startDate.getTime()) / 60000),
+        );
+
+        const timeRange = `${start} - ${end} (${diffMin} minutes)`;
+        return slotDate ? `${slotDate} @ ${timeRange}` : timeRange;
+    };
+
+    return lines.map((line: any) => {
+        let desc = line.description || "";
+
+        if (desc.includes("address:") || desc.includes("order:")) {
+            return {
+                ...line,
+                description: desc,
+                quantity: line.quantity || 1,
+                unit_price: line.unit_price || line.amount,
+            };
+        }
+
+        const lineOrderSvc = line.order_service;
+        const lineOrder = line.order || lineOrderSvc?.order;
+
+        const address =
+            lineOrder?.property_address ||
+            lineOrder?.property?.property_address ||
+            lineOrder?.property?.address ||
+            "";
+        const orderId = lineOrder?.id || lineOrderSvc?.order_id || "";
+        const slotsStr = lineOrderSvc?.slots ? computeSlots(lineOrderSvc.slots) : "";
+
+        if (address || orderId || slotsStr) {
+            const parts = [desc];
+            if (address) parts.push(`address: ${address}`);
+            if (orderId) parts.push(`order: #${orderId}`);
+            if (slotsStr) parts.push(`slots: ${slotsStr}`);
+            desc = parts.join("\n");
+        }
+
+        return {
+            ...line,
+            description: desc,
+            quantity: line.quantity || 1,
+            unit_price: line.unit_price || line.amount,
+        };
+    });
+};
+
 function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
     const handleDownload = async () => {
         if (!invoice) return;
@@ -459,11 +570,7 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
     // Map vendor invoice data to InvoiceDocument format
     const documentData = {
         ...invoice,
-        items: invoice.lines?.map((line: any) => ({
-            ...line,
-            quantity: line.quantity || 1, // Default to 1 if missing
-            unit_price: line.unit_price || line.amount, // Vendor lines might use amount directly
-        })) || []
+        items: enrichModalInvoiceLines(invoice?.lines || [])
     }
 
     return (

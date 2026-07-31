@@ -155,9 +155,9 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-t-2 border-b border-opacity-30 border-gray-200 text-xs text-gray-500 uppercase tracking-wider" style={{ borderTopColor: settings.pageTabColor }}>
-                            <th className="py-4 px-4 text-left font-bold w-1/2">Item</th>
-                            <th className="py-4 px-4 text-center font-bold">Quantity</th>
-                            <th className="py-4 px-4 text-right font-bold w-1/4">Amount</th>
+                            <th className="py-4 px-4 text-left font-bold w-[70%]">Item</th>
+                            <th className="py-4 px-4 text-center font-bold w-[12%]">Quantity</th>
+                            <th className="py-4 px-4 text-right font-bold w-[18%]">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -170,7 +170,7 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                             return (
                                 <tr key={idx}>
                                     <td className="py-4 px-4">
-                                        <div className="font-medium text-gray-900 block">{desc}</div>
+                                        <div className="font-medium text-gray-900 block whitespace-pre-line leading-relaxed">{desc}</div>
                                         {serviceOption && (
                                             <div className="mt-2 block">
                                                 <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-opacity-20 leading-none"

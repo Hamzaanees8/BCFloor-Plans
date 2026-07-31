@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { GetPrintRequests, UpdatePrintRequestStatus, PrintRequest } from "./print-requests";
 import { toast } from "sonner";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Printer } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobilePrintRequestsList from "@/components/mobile/admin/MobilePrintRequestsList";
@@ -36,6 +37,12 @@ const Page = () => {
   const [error, setError] = useState<boolean>(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  // Search & Filter states
+  const [searchAgent, setSearchAgent] = useState<string>("");
+  const [searchAddress, setSearchAddress] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
 
   useEffect(() => {
     if (!isSettingsLoading && !allowPrintRequest) {
@@ -59,6 +66,56 @@ const Page = () => {
       setLoading(false);
     }
   };
+
+  const filteredAndSortedRequests = useMemo(() => {
+    return printRequests
+      .filter((req) => {
+        if (statusFilter !== "all" && req.status !== statusFilter) {
+          return false;
+        }
+
+        if (searchAgent.trim()) {
+          const query = searchAgent.toLowerCase().trim();
+          const agentName = `${req.agent?.first_name || ""} ${req.agent?.last_name || ""}`.toLowerCase();
+          const agentEmail = (req.agent?.email || "").toLowerCase();
+          if (!agentName.includes(query) && !agentEmail.includes(query)) {
+            return false;
+          }
+        }
+
+        if (searchAddress.trim()) {
+          const query = searchAddress.toLowerCase().trim();
+          const address = (req.property?.address || "").toLowerCase();
+          if (!address.includes(query)) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "newest":
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          case "oldest":
+            return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+          case "agent_asc": {
+            const nameA = `${a.agent?.first_name || ""} ${a.agent?.last_name || ""}`;
+            const nameB = `${b.agent?.first_name || ""} ${b.agent?.last_name || ""}`;
+            return nameA.localeCompare(nameB);
+          }
+          case "address_asc": {
+            const addrA = a.property?.address || "";
+            const addrB = b.property?.address || "";
+            return addrA.localeCompare(addrB);
+          }
+          case "status":
+            return (a.status || "").localeCompare(b.status || "");
+          default:
+            return 0;
+        }
+      });
+  }, [printRequests, searchAgent, searchAddress, statusFilter, sortBy]);
 
   const handleStatusChange = async (uuid: string, newStatus: string) => {
     try {
@@ -217,13 +274,55 @@ const Page = () => {
             <div className="flex items-center gap-2">
               <Printer className="w-5 h-5" style={{ color: roleSettings.pageTabColor }} />
               <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
-                Print Requests ({printRequests.length})
+                Print Requests ({filteredAndSortedRequests.length})
               </p>
             </div>
           </div>
 
+          {/* Mobile Filters */}
+          <div className="p-4 space-y-2.5 bg-gray-50 border-b">
+            <Input
+              placeholder="Search by agent..."
+              className="h-9 bg-white text-xs"
+              value={searchAgent}
+              onChange={(e) => setSearchAgent(e.target.value)}
+            />
+            <Input
+              placeholder="Search by address..."
+              className="h-9 bg-white text-xs"
+              value={searchAddress}
+              onChange={(e) => setSearchAddress(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 bg-white text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Processing">Processing</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-9 bg-white text-xs">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="agent_asc">Agent: A-Z</SelectItem>
+                  <SelectItem value="address_asc">Address: A-Z</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <MobilePrintRequestsList
-            requests={printRequests}
+            requests={filteredAndSortedRequests}
             loading={loading}
             error={error}
             handleStatusChange={handleStatusChange}
@@ -251,14 +350,66 @@ const Page = () => {
               className="text-[16px] md:text-[24px] font-[400]"
               style={{ color: roleSettings.pageTabColor }}
             >
-              Print Requests ({printRequests.length})
+              Print Requests ({filteredAndSortedRequests.length})
             </p>
+          </div>
+        </div>
+
+        {/* Desktop Filter & Sort Bar */}
+        <div className="p-4 border-b sticky top-[80px] z-40 bg-gray-50 border-[#BBBBBB] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Filter by Agent</label>
+            <Input
+              placeholder="Agent name or email..."
+              className="h-9 bg-white text-xs border-[#BBBBBB]"
+              value={searchAgent}
+              onChange={(e) => setSearchAgent(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Filter by Address</label>
+            <Input
+              placeholder="Property address..."
+              className="h-9 bg-white text-xs border-[#BBBBBB]"
+              value={searchAddress}
+              onChange={(e) => setSearchAddress(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Filter by Status</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 bg-white text-xs border-[#BBBBBB]">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Processing">Processing</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-9 bg-white text-xs border-[#BBBBBB]">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="agent_asc">Agent Name: A-Z</SelectItem>
+                <SelectItem value="address_asc">Property Address: A-Z</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <div className="w-full flex-1 overflow-auto">
           <DataTable
-            data={printRequests}
+            data={filteredAndSortedRequests}
             columns={columns}
             dataName="Print Requests"
             userType={role}

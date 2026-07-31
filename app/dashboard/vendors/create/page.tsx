@@ -948,7 +948,7 @@ const VendorForm = () => {
           tax_number_pst: taxCountry === "CA" ? taxNumberPst : null,
           tax_number_qst: taxCountry === "CA" ? taxNumberQst : null,
           tax_number_us: taxCountry === "US" ? taxNumberUs : null,
-          tax_rate: taxCountry === "US" ? (taxRateOverride ? Number(taxRateOverride) : null) : null,
+          tax_rate: taxRateOverride ? Number(taxRateOverride) : (taxCountry === "CA" ? (taxType === "GST_HST" ? 13 : taxType === "GST" ? 5 : taxType === "GST_QST" ? 14.975 : 13) : null),
           tax_number: calculatedTaxNumber,
         },
         portfolio_images:

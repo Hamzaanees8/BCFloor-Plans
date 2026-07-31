@@ -168,7 +168,7 @@ export default function MobileAdminVendorBilling({
                           <div>
                             <p className="font-semibold text-gray-800">#{inv.invoice_number}</p>
                             <p className="text-[10px] text-gray-400">
-                              {inv.cycle_start ? `${inv.cycle_start} → ${inv.cycle_end}` : '—'}
+                              {inv.cycle_start ? `${inv.cycle_start.split('T')[0]} → ${inv.cycle_end ? inv.cycle_end.split('T')[0] : ''}` : '—'}
                             </p>
                             <p className="font-bold text-gray-700 mt-1">${Number(inv.total_amount).toFixed(2)}</p>
                           </div>
@@ -255,9 +255,9 @@ export default function MobileAdminVendorBilling({
                                       <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
                                         isPaid ? 'bg-green-100 text-green-700' :
                                         isInvoiced ? 'bg-blue-100 text-blue-700' :
-                                        'bg-gray-100 text-gray-500'
+                                        'bg-orange-100 text-orange-700'
                                       }`}>
-                                        {isPaid ? 'Paid' : isInvoiced ? 'Invoiced' : 'Unpaid'}
+                                        Payment: {isPaid ? 'Paid' : isInvoiced ? 'Invoiced' : 'Unpaid'}
                                       </span>
                                     </div>
                                     <p className="text-[10px] text-gray-500">

@@ -135,7 +135,8 @@ export default function MobileBillingOverview() {
         (b) =>
           (b.property_address || '').toLowerCase().includes(q) ||
           (b.agent_name || '').toLowerCase().includes(q) ||
-          String(b.order_id).includes(q)
+          String(b.order_id).toLowerCase().includes(q) ||
+          (b.order_uuid || '').toLowerCase().includes(q)
       )
     }
 

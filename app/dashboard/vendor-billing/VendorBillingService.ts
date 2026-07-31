@@ -55,6 +55,8 @@ export interface VendorInvoice {
     total?: string | number;
     cycle_start?: string;
     cycle_end?: string;
+    paid_at?: string;
+    updated_at?: string;
     created_at: string;
     notes?: string;
     vendor?: {
