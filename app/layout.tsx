@@ -30,10 +30,60 @@ const raleway = Raleway({
   subsets: ['latin'],
   variable: '--font-raleway',
 });
-export const metadata: Metadata = {
-  title: "BC Floor",
-  description: "BC Floor",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const headersList = await headers();
+  const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
+  const domainWithoutPort = host.split(':')[0];
+  const envDefaultDomains = getDefaultDomains();
+  const defaultDomains = [
+    ...envDefaultDomains,
+    "booking-new.localhost",
+    "teams-new.localhost",
+    "vendors-new.localhost",
+    "agents-new.localhost",
+    "localhost",
+    "127.0.0.1"
+  ];
+
+  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
+
+  let title = "Tojuco Solutions";
+  let favicon = "/tojuco.png";
+
+  if (!isDefaultDomain) {
+    try {
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com')
+        .replace(/\/api\/?$/, '');
+      const protocol = headersList.get("x-forwarded-proto") || "http";
+      const fullBaseUrl = `${protocol}://${host}`;
+      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
+
+      const res = await fetch(fetchUrl, { next: { revalidate: 3600 } });
+      if (res.ok) {
+        const whitelabelData = await res.json();
+        if (whitelabelData?.name || whitelabelData?.from_name) {
+          title = whitelabelData.name || whitelabelData.from_name;
+        }
+        if (whitelabelData?.branding?.logo) {
+          favicon = whitelabelData.branding.logo;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch branding in generateMetadata:', e);
+    }
+  }
+
+  return {
+    title: title,
+    description: title,
+    icons: {
+      icon: [{ url: favicon }],
+      shortcut: [{ url: favicon }],
+      apple: [{ url: favicon }],
+    },
+  };
+}
+
 
 import { headers } from "next/headers";
 import { OrganizationProvider } from "./context/OrganizationContext";

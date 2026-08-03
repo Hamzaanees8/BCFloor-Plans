@@ -189,14 +189,24 @@ const AddAgentDialog: React.FC<Props> = ({
             setAgentLicense(currentUser.license_number || "")
             setHeadQuarterAddress(currentUser.headquarter_address || "");
             setCertifications(currentUser.certifications || []);
-            if (currentUser.co_agents && Array.isArray(currentUser.co_agents)) {
-                const formattedAgents = currentUser.co_agents.map(agent => ({
-                    name: agent.name,
-                    email: agent.email,
-                    primary_phone: agent.primary_phone,
-                    split: agent.split,
-                }));
-                setCoAgents(formattedAgents);
+            if (currentUser.co_agents) {
+                let parsedCoAgents = currentUser.co_agents;
+                if (typeof parsedCoAgents === "string") {
+                    try {
+                        parsedCoAgents = JSON.parse(parsedCoAgents);
+                    } catch {
+                        parsedCoAgents = [];
+                    }
+                }
+                if (Array.isArray(parsedCoAgents)) {
+                    const formattedAgents = (parsedCoAgents as any[]).map(agent => ({
+                        name: agent.name || agent.first_name || "",
+                        email: agent.email || "",
+                        primary_phone: agent.primary_phone || "",
+                        split: agent.split || agent.percentage || "",
+                    }));
+                    setCoAgents(formattedAgents);
+                }
             }
             setAgentNotes(currentUser.notes || "")
         }

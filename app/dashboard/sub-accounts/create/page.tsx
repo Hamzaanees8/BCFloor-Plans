@@ -25,7 +25,7 @@ import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput'
-import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from '@/lib/utils'
+import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber, isValidEmail } from '@/lib/utils'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -76,7 +76,7 @@ const OrdersForm = () => {
     const [email, setEmail] = useState("");
     const [secondaryEmail, setSecondaryEmail] = useState("");
     const [notificationEmail, setNotificationEmail] = useState(true);
-    const [emailType, setEmailType] = useState("");
+    const [emailType, setEmailType] = useState("primary");
     const [primaryPhone, setPrimaryPhone] = useState("");
     const [secondaryPhone, setSecondaryPhone] = useState("");
     const [companyName, setCompanyName] = useState("");
@@ -215,9 +215,9 @@ const OrdersForm = () => {
             setRole(currentUser.role ? String(currentUser.role.id) : "");
             setEmail(currentUser.primary_email || "");
             setSecondaryEmail(currentUser.secondary_email || "");
-            setNotificationEmail(currentUser.notification_email);
+            setNotificationEmail(currentUser.notification_email ?? true);
             const type = currentUser.email_type?.toLowerCase();
-            setEmailType(type || "");
+            setEmailType(type || "primary");
             setPrimaryPhone(currentUser.primary_phone || "");
             setSecondaryPhone(currentUser.secondary_phone || "");
             setCompanyName(currentUser.company_name || "");
@@ -412,12 +412,12 @@ const OrdersForm = () => {
             errors.primary_email = ["Email is required"];
             isValid = false;
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            errors.primary_email = ["Invalid email format"];
+            errors.primary_email = ["Enter correct email"];
             isValid = false;
         }
 
         if (secondaryEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmail)) {
-            errors.secondary_email = ["Invalid email format"];
+            errors.secondary_email = ["Enter correct email"];
             isValid = false;
         }
 
@@ -734,7 +734,14 @@ const OrdersForm = () => {
                                                             }
                                                         }}
                                                         autoComplete="off"
-                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_email ? 'border-red-500' : ''}`} type="email" />
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.primary_email ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val && !isValidEmail(val)) {
+                                                                setFieldErrors(prev => ({ ...prev, primary_email: ["Enter correct email"] }));
+                                                            }
+                                                        }}
+                                                        type="email" />
 
                                                     {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
                                                 </div>
@@ -821,8 +828,24 @@ const OrdersForm = () => {
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Email Secondary</label>
                                                     <Input value={secondaryEmail}
-                                                        onChange={(e) => setSecondaryEmail(e.target.value)}
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+                                                        onChange={(e) => {
+                                                            setSecondaryEmail(e.target.value);
+                                                            if (fieldErrors.secondary_email) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.secondary_email;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val && !isValidEmail(val)) {
+                                                                setFieldErrors(prev => ({ ...prev, secondary_email: ["Enter correct email"] }));
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] mt-[12px] ${fieldErrors.secondary_email ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`} type="email" />
+                                                    {fieldErrors.secondary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.secondary_email[0]}</p>}
                                                 </div>
                                                 <div className='flex items-center gap-[10px]'>
                                                     <div className='flex items-center gap-[10px]'>

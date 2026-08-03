@@ -177,6 +177,23 @@ export function isValidWebsite(url: string): boolean {
   }
 }
 
+export function isValidEmail(email: string): boolean {
+  if (!email) return false;
+  
+  // Enforce standard email format (case-insensitive)
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) return false;
 
+  // Check for common typos in domains (case-insensitive check)
+  const parts = email.split('@');
+  if (parts.length === 2) {
+    const domain = parts[1].toLowerCase();
+    const typos = [
+      'gmeial.com', 'gmai.com', 'gmil.com', 'gmail.con', 'gmail.co',
+      'yaho.com', 'yahoo.con', 'outlok.com', 'hotmail.con'
+    ];
+    if (typos.includes(domain)) return false;
+  }
 
-
+  return true;
+}

@@ -8,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
   Select,
@@ -37,7 +38,9 @@ import DynamicMap from "@/components/DYnamicMap";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import { usePermissions } from "@/app/hooks/usePermissions";
-import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils";
+import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber, isValidEmail } from "@/lib/utils";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { useAppContext } from "@/app/context/AppContext";
 const ROLE_PERMISSION_NAMES = {
   super_admin: null, // means ALL
   admin: [
@@ -90,7 +93,7 @@ const AdminForm = () => {
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [secondaryEmail, setSecondaryEmail] = useState("");
-  const [notificationEmail, setNotificationEmail] = useState("");
+  const [notificationEmail, setNotificationEmail] = useState<boolean>(true);
   const [primaryPhone, setPrimaryPhone] = useState("");
   const [secondaryPhone, setSecondaryPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -197,6 +200,13 @@ const AdminForm = () => {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { isSuperAdmin } = usePermissions();
+  const { userType } = useAppContext();
+  const { appliedSettings } = useWhiteLabel();
+  const userRole = (userType as string) || "admin";
+  const roleSettings =
+    appliedSettings[userRole as keyof typeof appliedSettings] ||
+    appliedSettings["admin"];
+  const primaryColor = roleSettings?.activeColor || roleSettings?.pageTabColor || "#4290E9";
 
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
@@ -315,7 +325,7 @@ const AdminForm = () => {
 
       setEmail(currentUser.email || "");
       setSecondaryEmail(currentUser.secondary_email || "");
-      setNotificationEmail(currentUser.notification_email || "");
+      setNotificationEmail(currentUser.notification_email ? true : false);
       setPrimaryPhone(currentUser.primary_phone || "");
       setSecondaryPhone(currentUser.secondary_phone || "");
       setCompanyName(currentUser.company_name || "");
@@ -451,12 +461,12 @@ const AdminForm = () => {
       errors.email = ["Email is required"];
       isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = ["Invalid email format"];
+      errors.email = ["Enter correct email"];
       isValid = false;
     }
 
     if (secondaryEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmail)) {
-      errors.secondary_email = ["Invalid email format"];
+      errors.secondary_email = ["Enter correct email"];
       isValid = false;
     }
 
@@ -609,15 +619,15 @@ const AdminForm = () => {
     <div className="font-alexandria">
       <div
         ref={headerRef}
-        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
-        style={{ boxShadow: "0px 4px 4px #0000001F" }}
+        className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
+        style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
         {userId ? (
-          <p className="text-[16px] md:text-[24px] font-[400] text-[#4290E9]">
+          <p className="text-[16px] md:text-[24px] font-[400]" style={{ color: primaryColor }}>
             Admin Edit › {currentUser?.first_name} {currentUser?.last_name}
           </p>
         ) : (
-          <p className="text-[16px] md:text-[24px] font-[400] text-[#4290E9]">
+          <p className="text-[16px] md:text-[24px] font-[400]" style={{ color: primaryColor }}>
             Admin Create
           </p>
         )}
@@ -625,7 +635,8 @@ const AdminForm = () => {
           onClick={(e) => {
             handleSubmit(e);
           }}
-          className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]"
+          className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-90 hover:brightness-110"
+          style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
         >
           Save Changes
         </Button>
@@ -647,7 +658,10 @@ const AdminForm = () => {
             className="w-full space-y-4"
           >
             <AccordionItem value="profile">
-              <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+              <AccordionTrigger
+                className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current"
+                style={{ color: primaryColor }}
+              >
                 PROFILE
               </AccordionTrigger>
               <AccordionContent className="grid gap-4">
@@ -742,8 +756,14 @@ const AdminForm = () => {
                               });
                             }
                           }}
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.email ? "border-red-500" : ""
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.email ? "border-red-500" : "border-[#BBBBBB]"
                             }`}
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val && !isValidEmail(val)) {
+                              setFieldErrors(prev => ({ ...prev, email: ["Enter correct email"] }));
+                            }
+                          }}
                           type="text"
                         />
 
@@ -852,17 +872,36 @@ const AdminForm = () => {
                         <label htmlFor="">Email Secondary</label>
                         <Input
                           value={secondaryEmail}
-                          onChange={(e) => setSecondaryEmail(e.target.value)}
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          onChange={(e) => {
+                            setSecondaryEmail(e.target.value);
+                            if (fieldErrors.secondary_email) {
+                              setFieldErrors((prev) => {
+                                const newErrors = { ...prev };
+                                delete newErrors.secondary_email;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val && !isValidEmail(val)) {
+                              setFieldErrors(prev => ({ ...prev, secondary_email: ["Enter correct email"] }));
+                            }
+                          }}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.secondary_email ? "border-red-500" : "border-[#BBBBBB]"}`}
                           type="text"
                         />
+                        {fieldErrors.secondary_email && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.secondary_email[0]}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-[10px]">
-                        <Input
-                          value={notificationEmail}
-                          onChange={(e) => setNotificationEmail(e.target.value)}
-                          type="checkbox"
-                          className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                        <Checkbox
+                          checked={notificationEmail}
+                          onCheckedChange={(checked) => setNotificationEmail(checked === true)}
+                          className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
                         />
                         <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
                           Notification Email
@@ -1025,7 +1064,10 @@ const AdminForm = () => {
             </AccordionItem>
 
             <AccordionItem value="permissions">
-              <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+              <AccordionTrigger
+                className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current"
+                style={{ color: primaryColor }}
+              >
                 PERMISSION ACCESS
               </AccordionTrigger>
               <AccordionContent className="grid gap-4">
@@ -1041,7 +1083,8 @@ const AdminForm = () => {
                         <Switch
                           checked={activeRolePreset === "super_admin"}
                           onCheckedChange={() => applyRolePreset("super_admin")}
-                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                          className="bg-gray-300"
+                          style={activeRolePreset === "super_admin" ? { backgroundColor: primaryColor } : undefined}
                         />
                       </div>
 
@@ -1055,7 +1098,8 @@ const AdminForm = () => {
                         <Switch
                           checked={activeRolePreset === "admin"}
                           onCheckedChange={() => applyRolePreset("admin")}
-                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                          className="bg-gray-300"
+                          style={activeRolePreset === "admin" ? { backgroundColor: primaryColor } : undefined}
                         />
                       </div>
 
@@ -1069,7 +1113,8 @@ const AdminForm = () => {
                         <Switch
                           checked={activeRolePreset === "booking_agent"}
                           onCheckedChange={() => applyRolePreset("booking_agent")}
-                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                          className="bg-gray-300"
+                          style={activeRolePreset === "booking_agent" ? { backgroundColor: primaryColor } : undefined}
                         />
                       </div>
                     </div>

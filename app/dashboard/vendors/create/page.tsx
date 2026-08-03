@@ -8,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
   Select,
@@ -64,7 +65,7 @@ import { VendorsTourMedia } from "@/components/vendorWorkGallery";
 import { S3UploadService } from "@/lib/upload/s3-service";
 import { PresignedUrlRequest, ConfirmUploadRequest } from "@/lib/upload/types";
 import { validateForm, ValidationSchema } from "@/lib/validation";
-import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils";
+import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber, isValidEmail } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 // import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
@@ -197,7 +198,7 @@ const VendorForm = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [secondaryEmail, setSecondaryEmail] = useState("");
-  const [notificationEmail, setNotificationEmail] = useState(false);
+  const [notificationEmail, setNotificationEmail] = useState(true);
   const [enableServiceArea, setEnableServiceArea] = useState(false);
   const [forceServiceArea, setForceServiceArea] = useState(false);
   const [adminReviewRequired, setAdminReviewRequired] = useState(true);
@@ -206,7 +207,7 @@ const VendorForm = () => {
   const [billingAddress1, setBillingAddress1] = useState("");
   const [billingAddress2, setBillingAddress2] = useState("");
   const [startLocation, setStartLocation] = useState("");
-  const [emailType, setEmailType] = useState("");
+  const [emailType, setEmailType] = useState("primary");
   const [primaryPhone, setPrimaryPhone] = useState("");
   const [secondaryPhone, setSecondaryPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -269,7 +270,7 @@ const VendorForm = () => {
     commuteTime: 30,
     repeat: true,
     googleSync: false,
-    googleSyncEnabled: false,
+    googleSyncEnabled: true,
     emailType: "",
     next_booking_slot_only: false,
   });
@@ -486,9 +487,9 @@ const VendorForm = () => {
       setLastName(currentUser.last_name || "");
       setEmail(currentUser.email || "");
       setSecondaryEmail(currentUser.secondary_email || "");
-      setNotificationEmail(currentUser.notification_email ?? false);
+      setNotificationEmail(currentUser.notification_email ?? true);
       const type = currentUser.email_type?.toLowerCase();
-      setEmailType(type || "");
+      setEmailType(type || "primary");
       setPrimaryPhone(currentUser.primary_phone || "");
       setSecondaryPhone(currentUser.secondary_phone || "");
       setAvatarFileName(currentUser.avatar || "");
@@ -633,7 +634,7 @@ const VendorForm = () => {
             currentUser.work_hours?.repeat_weekly === "1" ||
             currentUser.work_hours?.repeat_weekly === "true",
           googleSync: currentUser.sync_google ?? false,
-          googleSyncEnabled: currentUser.sync_google_calendar ?? false,
+          googleSyncEnabled: currentUser.sync_google_calendar ?? true,
           emailType: currentUser.sync_email || "",
           next_booking_slot_only:
             [1, "1", true, "true"].includes(currentUser.settings?.next_booking_slot_only as any) ||
@@ -746,7 +747,7 @@ const VendorForm = () => {
     const schema: ValidationSchema = {
       first_name: { required: true, message: "First Name is required" },
       last_name: { required: true, message: "Last Name is required" },
-      email: { required: true, email: true, message: "Invalid email format" },
+      email: { required: true, email: true, message: "Enter correct email" },
       primary_phone: { required: true, message: "Primary Phone is required" },
       company_address: { required: true, message: "Headquarter Address is required" },
       company_city: { required: true, message: "Headquarter City is required" },
@@ -1520,6 +1521,12 @@ const VendorForm = () => {
                                 ? "border-red-500"
                                 : "bg-[#EEEEEE] border-[#BBBBBB]"
                                 }`}
+                              onBlur={(e) => {
+                                const val = e.target.value;
+                                if (val && !isValidEmail(val)) {
+                                  setFieldErrors(prev => ({ ...prev, email: ["Enter correct email"] }));
+                                }
+                              }}
                             />
                             {fieldErrors.email && (
                               <p className="text-red-500 text-xs mt-1">
@@ -1600,20 +1607,37 @@ const VendorForm = () => {
                           <Input
                             value={secondaryEmail}
                             autoComplete="off"
-                            onChange={(e) => setSecondaryEmail(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            onChange={(e) => {
+                              setSecondaryEmail(e.target.value);
+                              if (fieldErrors.secondary_email) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.secondary_email;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const val = e.target.value;
+                              if (val && !isValidEmail(val)) {
+                                setFieldErrors(prev => ({ ...prev, secondary_email: ["Enter correct email"] }));
+                              }
+                            }}
+                            className={`h-[42px] mt-[12px] ${fieldErrors.secondary_email ? "border-red-500" : "bg-[#EEEEEE] border-[#BBBBBB]"}`}
                             type="email"
                           />
+                          {fieldErrors.secondary_email && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {fieldErrors.secondary_email[0]}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-[10px]">
                           <div className="flex items-center gap-[10px]">
-                            <Input
-                              type="checkbox"
+                            <Checkbox
                               checked={notificationEmail}
-                              onChange={(e) =>
-                                setNotificationEmail(e.target.checked)
+                              onCheckedChange={(checked) =>
+                                setNotificationEmail(checked === true)
                               }
-                              className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                              className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
                             />
                             <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
                               Notification Email

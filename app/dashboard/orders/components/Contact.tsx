@@ -18,6 +18,7 @@ import { SearchableSelect } from './SearchableSelect';
 import { useOrderContext } from '../context/OrderContext';
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { GetOne as GetOneAgent } from '@/app/dashboard/agents/agents';
 import {
     Table,
     TableBody,
@@ -69,6 +70,57 @@ const Contact = () => {
     const selectedAgent = useMemo(() => {
         return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
     }, [agentsData, selectedAgentId]);
+
+    const [detailedAgent, setDetailedAgent] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (selectedAgentId) {
+            GetOneAgent(selectedAgentId)
+                .then((res: any) => {
+                    if (res?.data) {
+                        setDetailedAgent(res.data);
+                    }
+                })
+                .catch((err: any) => {
+                    console.error("Failed to fetch detailed agent:", err);
+                });
+        } else {
+            setDetailedAgent(null);
+        }
+    }, [selectedAgentId]);
+
+    const availableCoAgents = useMemo(() => {
+        const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : selectedAgent;
+        if (!target || !target.co_agents) return [];
+
+        let raw = target.co_agents;
+        if (typeof raw === 'string') {
+            try {
+                raw = JSON.parse(raw);
+            } catch (e) {
+                console.error("Failed to parse co_agents JSON:", e);
+                return [];
+            }
+        }
+
+        if (!Array.isArray(raw)) return [];
+
+        return raw.map((item: any) => {
+            if (typeof item === 'string') {
+                const isEmail = item.includes('@');
+                return {
+                    name: isEmail ? item.split('@')[0] : item,
+                    email: isEmail ? item : '',
+                    percentage: 0
+                };
+            }
+            return {
+                name: item.name || item.first_name || (item.email ? item.email.split('@')[0] : 'Co-Agent'),
+                email: item.email || item.primary_email || '',
+                percentage: Number(item.split) || Number(item.percentage) || 0
+            };
+        }).filter((item: any) => item.email || item.name);
+    }, [selectedAgent, detailedAgent, selectedAgentId]);
     //     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]); // Keeping for backward compatibility if needed, but primary flow will direct update coAgents
     const [percentage, setPercentage] = useState<number | ''>('');
     const [userName, setUserName] = useState<string>("");
@@ -180,12 +232,14 @@ const Contact = () => {
     };
 
     const handleSelectExisting = (agentId: string) => {
-        const agent = selectedAgent?.co_agents?.find((a: { name: string; email: string }) => a.email === agentId || a.name === agentId);
+        const agent = availableCoAgents.find((a) => a.email === agentId || a.name === agentId);
 
         if (agent) {
             setCoAgentName(agent.name);
             setCoAgentEmail(agent.email);
-            // setPercentage(agent.split...?) // If split is in there? Assuming no specific existing split logic for now unless mapped.
+            if (agent.percentage && agent.percentage > 0) {
+                setPercentage(agent.percentage);
+            }
         }
     };
 
@@ -261,7 +315,7 @@ const Contact = () => {
         if (selectedAgent && selectedAgent.uuid !== lastPopulatedAgentId) {
             setCoAgents(prev => {
                 if (prev.length > 0) return prev;
-                return selectedAgent.co_agents || [];
+                return availableCoAgents;
             });
 
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
@@ -284,7 +338,7 @@ const Contact = () => {
             }
             setLastPopulatedAgentId(selectedAgent.uuid || null);
         }
-    }, [selectedAgent, setAgentNotes, setCoAgents, lastPopulatedAgentId, setLastPopulatedAgentId]);
+    }, [selectedAgent, availableCoAgents, setAgentNotes, setCoAgents, lastPopulatedAgentId, setLastPopulatedAgentId]);
 
     const [tempAppointmentNote, setTempAppointmentNote] = useState('');
     const [tempInternalNote, setTempInternalNote] = useState('');
@@ -562,15 +616,18 @@ const Contact = () => {
                                                             <div className="flex flex-col gap-2">
                                                                 <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
                                                                 <SearchableSelect
-                                                                    options={selectedAgent?.co_agents?.map((a: { name: string; email: string }) => ({
-                                                                        label: `${a.name} (${a.email})`,
-                                                                        value: a.email
-                                                                    })) || []}
+                                                                    options={availableCoAgents.map((a) => ({
+                                                                        label: a.email ? `${a.name} (${a.email})` : a.name,
+                                                                        value: a.email || a.name
+                                                                    }))}
                                                                     value={coAgentEmail}
                                                                     onChange={handleSelectExisting}
                                                                     placeholder="Search co-agents..."
                                                                     className="w-full"
                                                                 />
+                                                                {availableCoAgents.length === 0 && (
+                                                                    <p className="text-xs text-amber-600 mt-1">No existing co-agents found for this agent. Switch to &quot;Add New&quot; tab above to enter details.</p>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ) : (

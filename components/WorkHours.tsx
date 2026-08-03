@@ -265,7 +265,9 @@ interface WorkDetailProps {
   portfolioImages?: File[];
   setPortfolioImages?: React.Dispatch<React.SetStateAction<File[]>>;
   portfolioImagesUrls?: VendorPortfolioImage[];
-  setPortfolioImagesUrls?: React.Dispatch<React.SetStateAction<VendorPortfolioImage[]>>;
+  setPortfolioImagesUrls?: React.Dispatch<
+    React.SetStateAction<VendorPortfolioImage[]>
+  >;
   vendorTourMedia?: VendorsTourMedia[];
   galleryImages?: string[];
   setGalleryImages?: React.Dispatch<React.SetStateAction<string[]>>;
@@ -353,10 +355,10 @@ const VendorWorkHours = ({
   const [showTimeFields, setShowTimeFields] = useState(false);
   const [isBreakPopupOpen, setIsBreakPopupOpen] = useState(false);
   const [breaks, setBreaks] = useState<Break[]>(
-    currentUser?.additional_breaks || []
+    currentUser?.additional_breaks || [],
   );
   const [selectedBreak, setSelectedBreak] = useState<Break | undefined>(
-    undefined
+    undefined,
   );
   const [showAllTimeOffs, setShowAllTimeOffs] = useState(false);
   const [paginatedBreaks, setPaginatedBreaks] = useState<Break[]>([]);
@@ -374,13 +376,13 @@ const VendorWorkHours = ({
   const [timeZoneOptions, setTimeZoneOptions] = useState<TimeZoneOption[]>([]);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [isCalendarConnected, setIsCalendarConnected] = useState(
-    !!currentUser?.google_access_token || !!currentUser?.google_refresh_token
+    !!currentUser?.google_access_token || !!currentUser?.google_refresh_token,
   );
 
   useEffect(() => {
     if (currentUser) {
       setIsCalendarConnected(
-        !!currentUser.google_access_token || !!currentUser.google_refresh_token
+        !!currentUser.google_access_token || !!currentUser.google_refresh_token,
       );
     }
   }, [currentUser]);
@@ -419,11 +421,11 @@ const VendorWorkHours = ({
       showAllTimeOffs
         ? breaks
         : breaks.filter((brk) => {
-          const endDate = new Date(`${brk.date}T${brk.end_time}`);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          return endDate >= today;
-        })
+            const endDate = new Date(`${brk.date}T${brk.end_time}`);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return endDate >= today;
+          })
     ).sort((a, b) => {
       // Sort by date descending (latest first)
       const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -440,7 +442,7 @@ const VendorWorkHours = ({
     setWorkHours((prev) => ({
       ...prev,
       work_days: prev.work_days.map((day) =>
-        day.day === dayKey ? { ...day, is_off: !day.is_off } : day
+        day.day === dayKey ? { ...day, is_off: !day.is_off } : day,
       ),
     }));
   };
@@ -448,12 +450,12 @@ const VendorWorkHours = ({
   const handleTimeChange = (
     dayKey: string,
     field: "start_time" | "end_time",
-    value: string
+    value: string,
   ) => {
     setWorkHours((prev) => ({
       ...prev,
       work_days: prev.work_days.map((day) =>
-        day.day === dayKey ? { ...day, [field]: value } : day
+        day.day === dayKey ? { ...day, [field]: value } : day,
       ),
     }));
   };
@@ -462,14 +464,14 @@ const VendorWorkHours = ({
     setWorkHours((prev) => ({
       ...prev,
       work_days: prev.work_days.map((day) =>
-        day.day === dayKey ? { ...day, is_twilight: !day.is_twilight } : day
+        day.day === dayKey ? { ...day, is_twilight: !day.is_twilight } : day,
       ),
     }));
   };
 
   const handleChange = (
     field: keyof WorkHoursData,
-    value: string | boolean | number
+    value: string | boolean | number,
   ) => {
     setWorkHours((prev) => ({
       ...prev,
@@ -533,7 +535,7 @@ const VendorWorkHours = ({
   //     }
   //   };
   const handleConnectCalendar = async (
-    e: React.MouseEvent<HTMLButtonElement>
+    e: React.MouseEvent<HTMLButtonElement>,
   ) => {
     e.preventDefault();
     setIsCalendarLoading(true);
@@ -552,10 +554,12 @@ const VendorWorkHours = ({
 
   const handleCalendarDisconnect = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
+    if (!confirm("Are you sure you want to disconnect Google Calendar?"))
+      return;
     setIsCalendarLoading(true);
     try {
-      const vendorUuid = (currentUser?.uuid || currentUser?.company?.vendor_id?.toString()) as string;
+      const vendorUuid = (currentUser?.uuid ||
+        currentUser?.company?.vendor_id?.toString()) as string;
       const res = await disconnectVendorCalendar(vendorUuid);
       if (
         res?.success ||
@@ -571,7 +575,9 @@ const VendorWorkHours = ({
         handleChange("googleSyncEnabled", false);
         toast.success("Calendar disconnected successfully");
       } else {
-        toast.error(res?.message || res?.error || "Failed to disconnect calendar");
+        toast.error(
+          res?.message || res?.error || "Failed to disconnect calendar",
+        );
       }
     } catch (error: any) {
       console.error("Calendar disconnect error:", error);
@@ -616,7 +622,7 @@ const VendorWorkHours = ({
     index: number,
     optionUuid: string,
     field: "vendor_price" | "adjustment_time",
-    value: number | string
+    value: number | string,
   ) => {
     setSelectedServices((prev) => {
       const updatedServices = [...prev];
@@ -625,7 +631,7 @@ const VendorWorkHours = ({
       if (!service) return prev;
 
       service.options = service.options.map((opt) =>
-        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt
+        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt,
       );
 
       return updatedServices;
@@ -636,7 +642,7 @@ const VendorWorkHours = ({
     index: number,
     optionUuid: string,
     field: "vendor_price" | "adjustment_time",
-    value: number | string
+    value: number | string,
   ) => {
     setVendorServices((prev) => {
       const updatedServices = [...prev];
@@ -645,7 +651,7 @@ const VendorWorkHours = ({
       if (!service) return prev;
 
       service.options = service.options.map((opt) =>
-        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt
+        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt,
       );
 
       return updatedServices;
@@ -676,7 +682,7 @@ const VendorWorkHours = ({
 
     if (selectedBreak) {
       setBreaks((prev) =>
-        prev.map((b) => (b.id === newBreak.id ? newBreak : b))
+        prev.map((b) => (b.id === newBreak.id ? newBreak : b)),
       );
     } else {
       setBreaks((prev) => [...prev, newBreak]);
@@ -702,7 +708,7 @@ const VendorWorkHours = ({
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
   const [galleryImages, setGalleryImages] = useState<string[]>(
-    propGalleryImages || []
+    propGalleryImages || [],
   );
   const [showImageSourceModal, setShowImageSourceModal] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -774,7 +780,7 @@ const VendorWorkHours = ({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [portfolioImages, setPortfolioImages]
+    [portfolioImages, setPortfolioImages],
   );
 
   useEffect(() => {
@@ -789,7 +795,12 @@ const VendorWorkHours = ({
       window.removeEventListener("dragover", handleDragOverWindow);
       window.removeEventListener("drop", handleDropWindow);
     };
-  }, [handleDragEnter, handleDragLeave, handleDragOverWindow, handleDropWindow]);
+  }, [
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOverWindow,
+    handleDropWindow,
+  ]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -811,7 +822,11 @@ const VendorWorkHours = ({
     if (!url) return "/placeholder.png";
 
     // 1. If it's already a working cloud URL, blob, data URL, or local public asset, return it directly.
-    if (url.includes("amazonaws.com") || url.startsWith("blob:") || url.startsWith("data:")) {
+    if (
+      url.includes("amazonaws.com") ||
+      url.startsWith("blob:") ||
+      url.startsWith("data:")
+    ) {
       return url;
     }
     if (url.startsWith("/") && !url.startsWith("/storage/")) {
@@ -834,7 +849,11 @@ const VendorWorkHours = ({
     }
 
     // 4. If it's a local storage URL (e.g. https://api-stage.bcfloorplans.com/storage/...)
-    if (type === "tour_reference" || url.includes("/storage/tours/") || url.includes("/storage/orders/")) {
+    if (
+      type === "tour_reference" ||
+      url.includes("/storage/tours/") ||
+      url.includes("/storage/orders/")
+    ) {
       try {
         const parsed = new URL(url);
         let pathname = parsed.pathname;
@@ -856,7 +875,10 @@ const VendorWorkHours = ({
   const allImagesForDisplay: DisplayImage[] = [
     ...portfolioImagesUrls.map((img) => ({
       id: `existing-${img.uuid}`,
-      url: cleanImageUrl(img.variant_urls?.thumb || img.image_url, "tour_reference"),
+      url: cleanImageUrl(
+        img.variant_urls?.thumb || img.image_url,
+        "tour_reference",
+      ),
       type: "existing" as const,
       api: true,
       is_processing: img.is_processing,
@@ -879,7 +901,7 @@ const VendorWorkHours = ({
 
   const handleRemoveFile = (displayFile: DisplayImage) => {
     if (displayFile.type === "new") {
-      const match = allImagesForDisplay.filter(f => f.type === "new");
+      const match = allImagesForDisplay.filter((f) => f.type === "new");
       const itemIndex = match.indexOf(displayFile);
       if (itemIndex > -1) {
         const newFiles = files.filter((_, i) => i !== itemIndex);
@@ -889,10 +911,12 @@ const VendorWorkHours = ({
         }
       }
     } else if (displayFile.type === "gallery") {
-      const match = allImagesForDisplay.filter(f => f.type === "gallery");
+      const match = allImagesForDisplay.filter((f) => f.type === "gallery");
       const itemIndex = match.indexOf(displayFile);
       if (itemIndex > -1) {
-        const newGalleryImages = galleryImages.filter((_, i) => i !== itemIndex);
+        const newGalleryImages = galleryImages.filter(
+          (_, i) => i !== itemIndex,
+        );
         setGalleryImages(newGalleryImages);
         if (propSetGalleryImages) {
           propSetGalleryImages(newGalleryImages);
@@ -938,7 +962,7 @@ const VendorWorkHours = ({
 
                   {workHours.work_days.map((schedule) => {
                     const dayConfig = daysOfWeek.find(
-                      (d) => d.key === schedule.day
+                      (d) => d.key === schedule.day,
                     );
                     const dayName = dayConfig?.label || schedule.day;
 
@@ -976,15 +1000,16 @@ const VendorWorkHours = ({
                                     handleTimeChange(
                                       schedule.day,
                                       "start_time",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
-                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors[
-                                    `work_days[${schedule.day}].start_time`
-                                  ]
-                                    ? "border-red-500"
-                                    : "border-[#BBBBBB]"
-                                    } mt-[10px] flex items-center justify-between px-3`}
+                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
+                                    fieldErrors[
+                                      `work_days[${schedule.day}].start_time`
+                                    ]
+                                      ? "border-red-500"
+                                      : "border-[#BBBBBB]"
+                                  } mt-[10px] flex items-center justify-between px-3`}
                                   style={{
                                     backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                   }}
@@ -992,14 +1017,14 @@ const VendorWorkHours = ({
                                 {fieldErrors[
                                   `work_days[${schedule.day}].start_time`
                                 ] && (
-                                    <p className="text-red-500 text-xs mt-1">
-                                      {
-                                        fieldErrors[
+                                  <p className="text-red-500 text-xs mt-1">
+                                    {
+                                      fieldErrors[
                                         `work_days[${schedule.day}].start_time`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
+                                      ][0]
+                                    }
+                                  </p>
+                                )}
                               </div>
                               <div>
                                 <Label
@@ -1016,15 +1041,16 @@ const VendorWorkHours = ({
                                     handleTimeChange(
                                       schedule.day,
                                       "end_time",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
-                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors[
-                                    `work_days[${schedule.day}].end_time`
-                                  ]
-                                    ? "border-red-500"
-                                    : "border-[#BBBBBB]"
-                                    } mt-[10px] flex items-center justify-between px-3`}
+                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
+                                    fieldErrors[
+                                      `work_days[${schedule.day}].end_time`
+                                    ]
+                                      ? "border-red-500"
+                                      : "border-[#BBBBBB]"
+                                  } mt-[10px] flex items-center justify-between px-3`}
                                   style={{
                                     backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                   }}
@@ -1032,14 +1058,14 @@ const VendorWorkHours = ({
                                 {fieldErrors[
                                   `work_days[${schedule.day}].end_time`
                                 ] && (
-                                    <p className="text-red-500 text-xs mt-1">
-                                      {
-                                        fieldErrors[
+                                  <p className="text-red-500 text-xs mt-1">
+                                    {
+                                      fieldErrors[
                                         `work_days[${schedule.day}].end_time`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
+                                      ][0]
+                                    }
+                                  </p>
+                                )}
                               </div>
                             </div>
 
@@ -1087,14 +1113,19 @@ const VendorWorkHours = ({
                 <div className="mb-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="next-booking-slot" className="font-medium text-[14px]">
+                      <Label
+                        htmlFor="next-booking-slot"
+                        className="font-medium text-[14px]"
+                      >
                         Only Allow Next Booking Slot
                       </Label>
                     </div>
                     <Switch
                       id="next-booking-slot"
                       checked={workHours.next_booking_slot_only ?? false}
-                      onCheckedChange={(checked) => handleChange("next_booking_slot_only", checked)}
+                      onCheckedChange={(checked) =>
+                        handleChange("next_booking_slot_only", checked)
+                      }
                       className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
                     />
                   </div>
@@ -1111,10 +1142,11 @@ const VendorWorkHours = ({
                     >
                       <SelectTrigger
                         id="timezone"
-                        className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors.timezone
-                          ? "border-red-500"
-                          : "border-[#BBBBBB]"
-                          } mt-[10px] flex items-center justify-between px-3`}
+                        className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
+                          fieldErrors.timezone
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
+                        } mt-[10px] flex items-center justify-between px-3`}
                         style={{
                           backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                         }}
@@ -1259,101 +1291,103 @@ const VendorWorkHours = ({
                       </button> */}
 
                       {/* Calendar Button */}
-
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="w-[40%] flex items-center mb-4">
-                        <Checkbox
-                          id="google-sync-enabled"
-                          checked={workHours.googleSyncEnabled}
-                          onCheckedChange={(checked) =>
-                            handleChange("googleSyncEnabled", checked)
-                          }
-                          className="mr-2 h-[16px] w-[16px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
-                        />
-                        <Label htmlFor="google-sync-enabled">
-                          Sync to Google
-                        </Label>
-                      </div>
-                      {isCalendarConnected ? (
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold text-green-700 bg-green-50 px-3 py-1.5 border border-green-200 rounded-md flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            Connected
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isCalendarLoading}
-                            onClick={handleCalendarDisconnect}
-                            className="px-4 py-2 text-sm text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center gap-1.5"
-                          >
-                            {isCalendarLoading ? "Disconnecting..." : "Disconnect"}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            handleConnectCalendar(e);
-                          }}
-                          disabled={isCalendarLoading}
-                          className={`px-6 py-3 w-auto ${userType}-bg hover-${userType}-bg text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-                        >
-                          {isCalendarLoading ? (
-                            <>
-                              <svg
-                                className="animate-spin h-5 w-5 text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              Connecting...
-                            </>
-                          ) : (
-                            "Connect with Calendar"
-                          )}
-                        </button>
-                      )}
-                      {/* <div className="w-1/2">
-                        <Select
-                          value={syncEmailType}
-                          onValueChange={(value) => setSyncEmailType(value)}
-                        >
-                          <SelectTrigger
-                            className={`w-full ${
-                              fieldErrors.sync_email ? "border-red-500" : ""
-                            }`}
-                          >
-                            <SelectValue placeholder="Select Email Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="primary">Primary </SelectItem>
-                            <SelectItem value="secondary">
-                              Secondary{" "}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {fieldErrors.sync_email && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {fieldErrors.sync_email[0]}
+                    <div className="mt-8 mb-4">
+                      <h3 className="text-sm font-semibold text-[#424242] mb-3 border-b pb-2">
+                        Google Calendar Integration
+                      </h3>
+                      <div
+                        className={`flex flex-col sm:items-center justify-between gap-4 p-4 rounded-lg border ${
+                          !isCalendarConnected
+                            ? "bg-red-50 border-red-200"
+                            : workHours.googleSyncEnabled
+                              ? "bg-green-50 border-green-200"
+                              : "bg-orange-50 border-orange-200"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-1 flex-1 min-w-0">
+                          <div className="flex items-center">
+                            <Checkbox
+                              id="google-sync-enabled"
+                              checked={workHours.googleSyncEnabled}
+                              onCheckedChange={(checked) =>
+                                handleChange("googleSyncEnabled", checked)
+                              }
+                              className="mr-2 h-[16px] w-[16px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9] flex-shrink-0"
+                            />
+                            <Label
+                              htmlFor="google-sync-enabled"
+                              className="text-sm font-medium text-[#424242] truncate sm:whitespace-normal"
+                            >
+                              Sync to Google Calendar
+                            </Label>
+                          </div>
+                          <p className="text-xs text-[#7D7D7D] ml-6">
+                            {isCalendarConnected
+                              ? "Your Google Calendar is currently connected and active."
+                              : "Connect your Google Calendar to sync your schedule."}
                           </p>
-                        )}
-                      </div> */}
+                        </div>
+
+                        <div className="flex items-center">
+                          {isCalendarConnected ? (
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium text-green-600 flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-md border border-gray-200">
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                Connected
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isCalendarLoading}
+                                onClick={handleCalendarDisconnect}
+                                className="px-4 py-2 text-sm text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border border-gray-300 hover:border-red-300 rounded-md transition-colors font-medium disabled:opacity-50 flex items-center gap-1.5"
+                              >
+                                {isCalendarLoading
+                                  ? "Disconnecting..."
+                                  : "Disconnect"}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                handleConnectCalendar(e);
+                              }}
+                              disabled={isCalendarLoading}
+                              className={`px-4 py-2 text-sm w-auto ${userType}-bg hover-${userType}-bg text-white font-medium rounded-md shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                            >
+                              {isCalendarLoading ? (
+                                <>
+                                  <svg
+                                    className="animate-spin h-4 w-4 text-white"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    ></path>
+                                  </svg>
+                                  Connecting...
+                                </>
+                              ) : (
+                                "Connect Google Calendar"
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1428,11 +1462,11 @@ const VendorWorkHours = ({
                                 .filter(
                                   (service) =>
                                     !selectedServices.some(
-                                      (s) => s.service_id === service.uuid
+                                      (s) => s.service_id === service.uuid,
                                     ) &&
                                     !vendorServices.some(
-                                      (s) => s.service_id === service.uuid
-                                    )
+                                      (s) => s.service_id === service.uuid,
+                                    ),
                                 )
                                 .map((option) => (
                                   <SelectItem
@@ -1491,9 +1525,11 @@ const VendorWorkHours = ({
                                           placeholder="Enter price"
                                           value={
                                             tempOptionPrices[option.uuid] !==
-                                              undefined
+                                            undefined
                                               ? tempOptionPrices[option.uuid]
-                                              : option.cost || Number(option.amount) || 0
+                                              : option.cost ||
+                                                Number(option.amount) ||
+                                                0
                                           }
                                           onChange={(e) => {
                                             const price =
@@ -1539,7 +1575,7 @@ const VendorWorkHours = ({
                                                 >
                                                   {opt.label}
                                                 </SelectItem>
-                                              )
+                                              ),
                                             )}
                                           </SelectContent>
                                         </Select>
@@ -1573,7 +1609,8 @@ const VendorWorkHours = ({
                             ))}
                           </div>
                         ) : (
-                          !isAddingService && (vendorServices?.length || 0) === 0 && (
+                          !isAddingService &&
+                          (vendorServices?.length || 0) === 0 && (
                             <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                               No services added yet. Click Add to get started.
                             </div>
@@ -1650,13 +1687,13 @@ const VendorWorkHours = ({
                     showAllTimeOffs
                       ? breaks
                       : breaks.filter((brk) => {
-                        const endDate = new Date(
-                          `${brk.date}T${brk.end_time}`
-                        );
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return endDate >= today;
-                      })
+                          const endDate = new Date(
+                            `${brk.date}T${brk.end_time}`,
+                          );
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return endDate >= today;
+                        })
                   ).sort((a, b) => {
                     // Sort by date descending (latest first)
                     const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -1690,22 +1727,37 @@ const VendorWorkHours = ({
                         ];
 
                         return (
-                          <div key={brk.uuid} className="bg-white p-4 rounded-[6px] border border-[#BBBBBB] flex flex-col gap-2 shadow-sm text-left">
+                          <div
+                            key={brk.uuid}
+                            className="bg-white p-4 rounded-[6px] border border-[#BBBBBB] flex flex-col gap-2 shadow-sm text-left"
+                          >
                             <div className="flex justify-between items-start">
-                              <span className="font-semibold text-[#424242]">{brk.title}</span>
+                              <span className="font-semibold text-[#424242]">
+                                {brk.title}
+                              </span>
                               <DropdownActions options={options} />
                             </div>
                             <div className="text-sm text-[#666666] flex justify-between">
-                              <span className="font-semibold text-[#7D7D7D]">From:</span> 
-                              <span>{brk.start_date || brk.date} {brk.start_time}</span>
+                              <span className="font-semibold text-[#7D7D7D]">
+                                From:
+                              </span>
+                              <span>
+                                {brk.start_date || brk.date} {brk.start_time}
+                              </span>
                             </div>
                             <div className="text-sm text-[#666666] flex justify-between">
-                              <span className="font-semibold text-[#7D7D7D]">To:</span> 
-                              <span>{brk.end_date || brk.date} {brk.end_time}</span>
+                              <span className="font-semibold text-[#7D7D7D]">
+                                To:
+                              </span>
+                              <span>
+                                {brk.end_date || brk.date} {brk.end_time}
+                              </span>
                             </div>
                             {brk.address && (
                               <div className="text-sm text-[#666666] flex flex-col mt-1">
-                                <span className="font-semibold text-[#7D7D7D]">Location:</span> 
+                                <span className="font-semibold text-[#7D7D7D]">
+                                  Location:
+                                </span>
                                 <span className="truncate">{brk.address}</span>
                               </div>
                             )}
@@ -1716,78 +1768,78 @@ const VendorWorkHours = ({
                   ) : (
                     <div className="w-full min-w-0">
                       <Table className="font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]">
-                      <TableHeader>
-                        <TableRow
-                          className="font-alexandria h-[54px] hover:bg-transparent"
-                          style={{
-                            backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-                          }}
-                        >
-                          <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
-                            Time Off
-                          </TableHead>
-                          <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
-                            From
-                          </TableHead>
-                          <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
-                            To
-                          </TableHead>
-                          <TableHead className="text-[14px] font-[700] text[#7D7D7D]">
-                            Address
-                          </TableHead>
-                          <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
-                            Actions
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedBreaks?.map((brk) => {
-                          const options = [
-                            {
-                              label: "Edit",
-                              onClick: () => {
-                                setSelectedBreak(brk);
-                                setIsBreakPopupOpen(true);
+                        <TableHeader>
+                          <TableRow
+                            className="font-alexandria h-[54px] hover:bg-transparent"
+                            style={{
+                              backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                            }}
+                          >
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                              Time Off
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                              From
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                              To
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text[#7D7D7D]">
+                              Address
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                              Actions
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedBreaks?.map((brk) => {
+                            const options = [
+                              {
+                                label: "Edit",
+                                onClick: () => {
+                                  setSelectedBreak(brk);
+                                  setIsBreakPopupOpen(true);
+                                },
                               },
-                            },
-                            {
-                              label: "Delete",
-                              onClick: () => handleDelete(brk.uuid || ""),
-                              confirm1: true,
-                            },
-                          ];
-                          return (
-                            <TableRow key={brk.id} className="py-4">
-                              <TableCell className="text-[15px] font-[400]  pl-[20px] text-[#666666]">
-                                {brk.title}
-                              </TableCell>
-                              <TableCell className="text-[15px] font-[400] text-[#666666]">
-                                <div className="flex gap-2">
-                                  <span>{brk.start_date}</span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {brk.start_time.slice(0, 5)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-[15px] font-[400]  text-[#666666]">
-                                <div className="flex gap-2">
-                                  <span>{brk.end_date}</span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {brk.end_time.slice(0, 5)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-[15px] font-[400] text-[#666666]">
-                                {brk.address || "-"}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownActions options={options} />
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                              {
+                                label: "Delete",
+                                onClick: () => handleDelete(brk.uuid || ""),
+                                confirm1: true,
+                              },
+                            ];
+                            return (
+                              <TableRow key={brk.id} className="py-4">
+                                <TableCell className="text-[15px] font-[400]  pl-[20px] text-[#666666]">
+                                  {brk.title}
+                                </TableCell>
+                                <TableCell className="text-[15px] font-[400] text-[#666666]">
+                                  <div className="flex gap-2">
+                                    <span>{brk.start_date}</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {brk.start_time.slice(0, 5)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-[15px] font-[400]  text-[#666666]">
+                                  <div className="flex gap-2">
+                                    <span>{brk.end_date}</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {brk.end_time.slice(0, 5)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-[15px] font-[400] text-[#666666]">
+                                  {brk.address || "-"}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownActions options={options} />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   );
                 })()}
@@ -1798,11 +1850,11 @@ const VendorWorkHours = ({
                   showAllTimeOffs
                     ? breaks
                     : breaks.filter((brk) => {
-                      const endDate = new Date(`${brk.date}T${brk.end_time}`);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      return endDate >= today;
-                    })
+                        const endDate = new Date(`${brk.date}T${brk.end_time}`);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return endDate >= today;
+                      })
                 ).sort((a, b) => {
                   // Sort by date descending (latest first)
                   const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -1928,7 +1980,9 @@ const VendorWorkHours = ({
                               <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-300">
                                 {file.is_processing ? (
                                   <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                                    <p className="text-gray-500 font-medium text-[10px]">Processing...</p>
+                                    <p className="text-gray-500 font-medium text-[10px]">
+                                      Processing...
+                                    </p>
                                   </div>
                                 ) : (
                                   <Image
@@ -1941,14 +1995,14 @@ const VendorWorkHours = ({
                                 )}
                                 {(file.type === "new" ||
                                   file.type === "gallery") && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveFile(file)}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveFile(file)}
+                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </CarouselItem>
                           );

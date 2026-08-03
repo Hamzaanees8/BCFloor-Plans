@@ -497,7 +497,7 @@ const Page = () => {
       .catch((err) => {
         console.error("Error fetching vendor services:", err);
       });
-  }, []);
+  }, [userType]);
 
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return "—";

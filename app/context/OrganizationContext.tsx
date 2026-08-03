@@ -44,9 +44,32 @@ function extractColorValue(color: string | ColorValue | undefined, fallback: str
   return color || fallback;
 }
 
+function updatePageMetadata(org: OrganizationData | null) {
+  if (typeof document === "undefined") return;
+
+  const title = org?.name || org?.from_name || "Tojuco Solutions";
+  document.title = title;
+
+  const faviconUrl = org?.branding?.logo || "/tojuco.png";
+  const relTypes = ["icon", "shortcut icon", "apple-touch-icon"];
+  relTypes.forEach((rel) => {
+    let link: HTMLLinkElement | null = document.querySelector(`link[rel="${rel}"]`);
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = rel;
+      document.head.appendChild(link);
+    }
+    link.href = faviconUrl;
+  });
+}
+
 export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
   const [organization, setOrganization] = useState<OrganizationData | null>(null);
   const [isOrganizationLoaded, setIsOrganizationLoaded] = useState(false);
+
+  useEffect(() => {
+    updatePageMetadata(organization);
+  }, [organization]);
 
   useEffect(() => {
     const origin = getAppOrigin();
@@ -141,6 +164,7 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
     </OrganizationContext.Provider>
   );
 };
+
 
 export const useOrganization = () => {
   const context = useContext(OrganizationContext);

@@ -199,7 +199,7 @@ const AgentForm = () => {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     //const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
-    const [isPaymentRequired, setIsPaymentRequired] = useState(false);
+    const [isPaymentRequired, setIsPaymentRequired] = useState(true);
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
     const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
     const [companyLogos, setCompanyLogos] = useState<CompanyLogoState[]>([]);
@@ -499,7 +499,7 @@ const AgentForm = () => {
             setAgentLicense(currentUser.license_number || "")
             setHeadQuarterAddress(currentUser.headquarter_address || "");
             setCertifications(currentUser.certifications || []);
-            setIsPaymentRequired(currentUser.requires_payment)
+            setIsPaymentRequired(currentUser.requires_payment ?? true)
             setAvatarFileName(currentUser.avatar || "")
             setCompanyBannerFileName(currentUser.company_banner || "")
             if (currentUser.company_logo_url) {

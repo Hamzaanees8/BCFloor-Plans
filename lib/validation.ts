@@ -2,6 +2,7 @@
  * A simple, reusable form validation utility.
  * No external libraries used.
  */
+import { isValidEmail } from "./utils";
 
 export interface ValidationRule {
   required?: boolean;
@@ -55,9 +56,8 @@ export function validateForm(
 
     // Email check
     if (rule.email && typeof value === "string") {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) {
-        addError(key, rule.message || "Invalid email format");
+      if (!isValidEmail(value)) {
+        addError(key, rule.message || "Enter correct email");
       }
     }
 
