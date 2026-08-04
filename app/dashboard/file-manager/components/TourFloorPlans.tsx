@@ -346,7 +346,7 @@ function TourFloorPlans({ type = "" }) {
       toast.success('Snapshot saved successfully');
     }
 
-    setPreviewMarker(prev => prev ? { ...prev, ...newMarker } : prev);
+    setPreviewMarker(newMarker);
   };
 
 
@@ -558,6 +558,7 @@ function TourFloorPlans({ type = "" }) {
                   }
                 }}
                 onMouseEnter={() => {
+                  if (type !== "confirm") return;
                   if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                   }
@@ -572,26 +573,14 @@ function TourFloorPlans({ type = "" }) {
                       description: marker.description ?? "",
                       isApi: true,
                       thumbnail_url: marker.thumbnail_url,
+                      variant_urls: (marker as any).variant_urls,
                     });
-
-                    setSnapshotFile(null);
-                    setSnapshotName(marker.name ?? "");
-                    setSnapshotDescription(marker.description ?? "");
-                    setTempMarkerPos({ x: Number(marker.x_axis), y: Number(marker.y_axis) });
-                    setActiveMarkerIndex(null);
-                    setActiveApiSnapshotUuid(marker.uuid);
                   } else {
-                    const originalIndex = droppedMarkers.findIndex((m) => m === marker);
-                    setActiveMarkerIndex(originalIndex);
-                    setActiveApiSnapshotUuid(null);
-                    setSnapshotFile(marker.file ?? null);
-                    setSnapshotName(marker.name ?? "");
-                    setSnapshotDescription(marker.description ?? "");
-                    setTempMarkerPos({ x: marker.x, y: marker.y });
                     setPreviewMarker(marker);
                   }
                 }}
                 onMouseLeave={() => {
+                  if (type !== "confirm") return;
                   hoverTimeoutRef.current = setTimeout(() => {
                     setPreviewMarker(null);
                   }, 300);
@@ -673,9 +662,12 @@ function TourFloorPlans({ type = "" }) {
                 {snapshotFile ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" className="w-full h-full object-cover" />
+                ) : previewMarker?.file ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={URL.createObjectURL(previewMarker.file)} alt="Snapshot Preview" className="w-full h-full object-cover" />
                 ) : (previewMarker) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.url || previewMarker.thumbnail_url || (previewMarker.file_path?.startsWith('http') ? previewMarker.file_path : `${API_URL}/${previewMarker.file_path}`)} alt="Snapshot Preview" className="w-full h-full object-cover" />
+                  <img src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.variant_urls?.thumb || previewMarker.url || previewMarker.thumbnail_url || (previewMarker.file_path ? (previewMarker.file_path.startsWith('http') ? previewMarker.file_path : `${API_URL}/${previewMarker.file_path}`) : "")} alt="Snapshot Preview" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-gray-400 text-xs text-center">No snapshot selected</div>
                 )}

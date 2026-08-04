@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
 import { Check, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Services } from '../../services/page';
@@ -475,21 +476,31 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 </div>
                             )}
                             {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
-                                <span
-                                    className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilesToHide(prev => {
-                                            const next = new Set(prev);
-                                            if (next.has(file.uuid)) next.delete(file.uuid);
-                                            else next.add(file.uuid);
-                                            return next;
-                                        });
-                                    }}
-                                    title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
-                                >
-                                    {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
-                                </span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesToHide(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(file.uuid)) next.delete(file.uuid);
+                                                    else next.add(file.uuid);
+                                                    return next;
+                                                });
+                                            }}
+                                        >
+                                            {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[220px] text-xs leading-tight">
+                                            {filesToHide.has(file.uuid)
+                                                ? "Hidden Video: Click to show on property tour & client downloads"
+                                                : "Visible Video: Click to hide from property tour & client downloads"}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                             {file.is_deleted && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
@@ -513,25 +524,36 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 </div>
                             )}
                             {userType === 'admin' && (
-                                <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedVideoFiles(prev =>
-                                            prev.map(f => {
-                                                if (f.file === file.file && f.service_id === file.service_id) {
-                                                    return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                }
-                                                return f;
-                                            })
-                                        );
-                                    }}
-                                >
-                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? 'bg-green-500 border-green-500' : 'bg-white border-gray-400'}`}>
-                                        {file.is_admin_approved && <Check color="white" size={12} />}
-                                    </div>
-                                    <span className="text-[10px] font-bold">Approved</span>
-                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedVideoFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? 'bg-green-500 border-green-500' : 'bg-white border-gray-400'}`}>
+                                                {file.is_admin_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold">Approved</span>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[240px] text-xs leading-tight">
+                                            {file.is_admin_approved
+                                                ? "Admin Approved: Video has been quality checked and approved by admin, making it available for the agent to review, select, and download"
+                                                : "Approve Video: Click to mark video as approved by admin"}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
                             {/* Unsaved media green and red edge removed */}
@@ -600,113 +622,147 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         </div>
                                     )}
                                     {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
-                                        <span
-                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setFilesToHide(prev => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(file.uuid)) next.delete(file.uuid);
-                                                    else next.add(file.uuid);
-                                                    return next;
-                                                });
-                                            }}
-                                            title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
-                                        >
-                                            {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
-                                        </span>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span
+                                                    className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFilesToHide(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(file.uuid)) next.delete(file.uuid);
+                                                            else next.add(file.uuid);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
+                                                    {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p className="max-w-[220px] text-xs leading-tight">
+                                                    {filesToHide.has(file.uuid)
+                                                        ? "Hidden Video: Click to show on property tour & client downloads"
+                                                        : "Visible Video: Click to hide from property tour & client downloads"}
+                                                </p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     )}
                                 </div>
                             )}
                             {userType === 'admin' && (
-                                <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (file.is_admin_approved) {
-                                            setFilesData(prev => {
-                                                if (!prev) return prev;
-                                                return {
-                                                    ...prev,
-                                                    files: prev.files.map(f => {
-                                                        if (f.uuid === file.uuid) {
-                                                            setChangedFileUuids(prevSet => {
-                                                                const newSet = new Set(prevSet);
-                                                                newSet.add(f.uuid);
-                                                                return newSet;
-                                                            });
-                                                            return { ...f, is_admin_approved: false };
-                                                        }
-                                                        return f;
-                                                    })
-                                                };
-                                            });
-                                        } else {
-                                            setApprovalSelectedUuids(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid!)) {
-                                                    next.delete(file.uuid!);
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (file.is_admin_approved) {
+                                                    setFilesData(prev => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            files: prev.files.map(f => {
+                                                                if (f.uuid === file.uuid) {
+                                                                    setChangedFileUuids(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        newSet.add(f.uuid);
+                                                                        return newSet;
+                                                                    });
+                                                                    return { ...f, is_admin_approved: false };
+                                                                }
+                                                                return f;
+                                                            })
+                                                        };
+                                                    });
                                                 } else {
-                                                    next.add(file.uuid!);
+                                                    setApprovalSelectedUuids(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid!)) {
+                                                            next.delete(file.uuid!);
+                                                        } else {
+                                                            next.add(file.uuid!);
+                                                        }
+                                                        return next;
+                                                    });
                                                 }
-                                                return next;
-                                            });
-                                        }
-                                    }}
-                                >
-                                    {file.is_admin_approved ? (
-                                        <>
-                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
-                                                <Check color="white" size={12} />
-                                            </div>
-                                            <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
-                                                {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
-                                            </div>
-                                            <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
-                                        </>
-                                    )}
-                                </div>
+                                            }}
+                                        >
+                                            {file.is_admin_approved ? (
+                                                <>
+                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
+                                                        <Check color="white" size={12} />
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                                        {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                                    </div>
+                                                    <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[240px] text-xs leading-tight">
+                                            {file.is_admin_approved
+                                                ? "Admin Approved: Video has been quality checked and approved by admin, making it available for the agent to review, select, and download"
+                                                : (approvalSelectedUuids.has(file.uuid!)
+                                                    ? "Selected for Admin Approval: Click to toggle selection"
+                                                    : "Select for Admin Approval: Click to include in batch admin approval")}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
 
                             {userType === 'agent' && !file.is_complimentary && (
-                                <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        setSelectionChangedUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
-                                    }}
-                                >
-                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                        {file.is_agent_approved && <Check color="white" size={12} />}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
-                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                setSelectionChangedUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_agent_approved: !f.is_agent_approved };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                {file.is_agent_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[220px] text-xs leading-tight">
+                                            {file.is_agent_approved
+                                                ? "Agent Approved: Selected for final delivery & property website"
+                                                : "Approve Video: Click to select/approve this video"}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
                         </>

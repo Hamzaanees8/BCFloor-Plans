@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -286,7 +286,7 @@ const CreateFeatureSheet = forwardRef<
   };
 
   const [isDownloading, setIsDownloading] = useState(false);
-  const [safeZone, setSafeZone] = useState<boolean>(false);
+  const [safeZone] = useState<boolean>(false);
 
   const handleDownload = async (
     withBleed: boolean,
@@ -789,8 +789,6 @@ const CreateFeatureSheet = forwardRef<
     }
   };
 
-
-
   const pdfSectionStyle: React.CSSProperties = {
     width: "8.5in",
     minHeight: `${numPdfPages * 11}in`,
@@ -850,7 +848,7 @@ const CreateFeatureSheet = forwardRef<
               </DropdownMenu>
 
               {/* Safe Zone Toggle Toolbar Button */}
-              <button
+              {/* <button
                 type="button"
                 onClick={() => setSafeZone(!safeZone)}
                 className={`flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] h-[32px] transition-colors border-2 rounded-[6px] font-[500] ${
@@ -863,7 +861,7 @@ const CreateFeatureSheet = forwardRef<
                 <Shield className="w-3.5 h-3.5" />
                 Safe Zone:{" "}
                 <span className="font-bold">{safeZone ? "ON" : "OFF"}</span>
-              </button>
+              </button> */}
 
               {/* Copy Style button — only visible when a template is open */}
               {selectedTemplate && (

@@ -48,7 +48,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     const [tourActivated, setTourActivated] = useState<boolean>(false);
     const [propertyWebsite, setPropertyWebsite] = useState("");
     const [mlsProperty, setMlsProperty] = useState("");
-    const [saving, setSaving] = useState(false);
+    const [savingProperty, setSavingProperty] = useState(false);
+    const [savingContact, setSavingContact] = useState(false);
     const CompanyLogofileInputRef = useRef(null)
     const [CompanyLogofileName, setCompanyLogoFileName] = useState('')
     const [AvatarfileName, setAvatarFileName] = useState('')
@@ -191,71 +192,15 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
         }
     }
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSavePropertyDetails = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!orderData?.property?.uuid) {
             toast.error("Property not found");
             return;
         }
-        if (!orderData?.agent?.uuid) {
-            toast.error("Agent not found");
-            return;
-        }
 
-        let formattedWebsite = website?.trim();
-        // Validate agent inputs
-        if (userType !== 'vendor') {
-            if (!first_name.trim()) {
-                toast.error("Agent first name is required");
-                return;
-            }
-            if (!last_name.trim()) {
-                toast.error("Agent last name is required");
-                return;
-            }
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!email.trim()) {
-                toast.error("Agent email is required");
-                return;
-            } else if (!emailRegex.test(email)) {
-                toast.error("Invalid agent email address");
-                return;
-            }
-
-            if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
-                formattedWebsite = 'https://' + formattedWebsite;
-            }
-        }
-
-        setSaving(true);
+        setSavingProperty(true);
         try {
-            if (userType !== 'vendor') {
-                // Step 1: Upload agent files directly to S3
-                const filesToUpload: { file: File; slot: string }[] = [];
-                if (avatarFile) {
-                    filesToUpload.push({ file: avatarFile, slot: 'avatar' });
-                }
-                if (companyLogoFile) {
-                    filesToUpload.push({ file: companyLogoFile, slot: 'company_logo' });
-                }
-                if (filesToUpload.length > 0) {
-                    await uploadFiles(filesToUpload, orderData.agent.uuid);
-                }
-
-                // Step 2: Save agent details
-                await EditAgent(orderData.agent.uuid, {
-                    first_name,
-                    last_name,
-                    email,
-                    primary_phone: primary_phone || undefined,
-                    company_name: company_name || undefined,
-                    website: formattedWebsite || undefined,
-                    license_number: license_number || undefined,
-                    _method: 'PUT'
-                });
-            }
-
-            // Step 3: Save property details
             const token = localStorage.getItem("token");
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -289,9 +234,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             const data = await response.json();
 
             if (response.ok && data.status) {
-                toast.success("Settings saved successfully");
-                setAvatarFile(null);
-                setCompanyLogoFile(null);
+                toast.success("Property details saved successfully");
                 if (setOrderData && data.data) {
                     setOrderData((prev: any) => {
                         if (!prev) return prev;
@@ -317,8 +260,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                 toast.error(errorMsg);
             }
         } catch (err: any) {
-            console.error("Save error:", err);
-            let errorMsg = err.message || "An unexpected error occurred while saving";
+            console.error("Save property error:", err);
+            let errorMsg = err.message || "An unexpected error occurred while saving property details";
             if (err.errors && typeof err.errors === "object") {
                 const firstError = Object.values(err.errors).flat()[0];
                 if (firstError) {
@@ -327,7 +270,88 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             }
             toast.error(errorMsg);
         } finally {
-            setSaving(false);
+            setSavingProperty(false);
+        }
+    };
+
+    const handleSaveContactDetails = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!orderData?.agent?.uuid) {
+            toast.error("Agent not found");
+            return;
+        }
+
+        let formattedWebsite = website?.trim();
+        // Validate agent inputs
+        if (userType !== 'vendor') {
+            if (!first_name.trim()) {
+                toast.error("Agent first name is required");
+                return;
+            }
+            if (!last_name.trim()) {
+                toast.error("Agent last name is required");
+                return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email.trim()) {
+                toast.error("Agent email is required");
+                return;
+            } else if (!emailRegex.test(email)) {
+                toast.error("Invalid agent email address");
+                return;
+            }
+
+            if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
+                formattedWebsite = 'https://' + formattedWebsite;
+            }
+        }
+
+        setSavingContact(true);
+        try {
+            if (userType !== 'vendor') {
+                // Step 1: Upload agent files directly to S3
+                const filesToUpload: { file: File; slot: string }[] = [];
+                if (avatarFile) {
+                    filesToUpload.push({ file: avatarFile, slot: 'avatar' });
+                }
+                if (companyLogoFile) {
+                    filesToUpload.push({ file: companyLogoFile, slot: 'company_logo' });
+                }
+                if (filesToUpload.length > 0) {
+                    await uploadFiles(filesToUpload, orderData.agent.uuid);
+                }
+
+                // Step 2: Save agent details
+                await EditAgent(orderData.agent.uuid, {
+                    first_name,
+                    last_name,
+                    email,
+                    primary_phone: primary_phone || undefined,
+                    company_name: company_name || undefined,
+                    website: formattedWebsite || undefined,
+                    license_number: license_number || undefined,
+                    _method: 'PUT'
+                });
+            }
+
+            toast.success("Contact details saved successfully");
+            setAvatarFile(null);
+            setCompanyLogoFile(null);
+            if (onRefresh) {
+                await onRefresh();
+            }
+        } catch (err: any) {
+            console.error("Save contact error:", err);
+            let errorMsg = err.message || "An unexpected error occurred while saving contact details";
+            if (err.errors && typeof err.errors === "object") {
+                const firstError = Object.values(err.errors).flat()[0];
+                if (firstError) {
+                    errorMsg = String(firstError);
+                }
+            }
+            toast.error(errorMsg);
+        } finally {
+            setSavingContact(false);
         }
     };
 
@@ -335,7 +359,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     return (
         <div className="font-alexandria">
             <div>
-                <form onSubmit={userType === 'vendor' ? (e) => e.preventDefault() : handleSave}>
+                <form onSubmit={(e) => e.preventDefault()}>
                     <div className="relative">
                         {userType === 'vendor' && (
                             <Tooltip>
@@ -659,6 +683,16 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 />
                                             </div>
 
+                                            <div className="col-span-2 flex justify-end mt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSavePropertyDetails}
+                                                    disabled={savingProperty}
+                                                    className={`w-full md:w-[220px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'}`}
+                                                >
+                                                    {savingProperty ? "Saving..." : "Save Property Details"}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -814,7 +848,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 type="email" 
                                             />
                                         </div>
-                                        <div>
+                                        <div className='col-span-2'>
                                             <label htmlFor="">Phone Number </label>
                                             <Input
                                                 value={primary_phone}
@@ -824,21 +858,21 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             />
                                         </div>
 
+                                        <div className="col-span-2 flex justify-end mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={handleSaveContactDetails}
+                                                disabled={savingContact}
+                                                className={`w-full md:w-[220px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'}`}
+                                            >
+                                                {savingContact ? "Saving..." : "Save Contact Details"}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
-                    <div className="w-full flex justify-center md:justify-end px-[10px] md:px-0 mt-6 pb-6">
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className={`w-full md:w-[180px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'
-                                }`}
-                        >
-                            {saving ? "Saving..." : "Save Changes"}
-                        </button>
-                    </div>
                     </div>
                     </div>
                 </form>

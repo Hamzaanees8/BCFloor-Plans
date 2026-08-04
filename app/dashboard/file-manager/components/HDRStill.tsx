@@ -634,7 +634,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{filesToHide.has(file.uuid) ? "Show Media" : "Hide Media"}</p>
+                                        <p className="max-w-[220px] text-xs leading-tight">
+                                            {filesToHide.has(file.uuid)
+                                                ? "Hidden Media: Click to show on property tour & client downloads"
+                                                : "Visible Media: Click to hide from property tour & client downloads"}
+                                        </p>
                                     </TooltipContent>
                                 </Tooltip>
                             )}
@@ -696,109 +700,154 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{file.is_featured ? "Featured Image" : "Set as Featured Image"}</p>
+                                        <p className="max-w-[220px] text-xs leading-tight">
+                                            {file.is_featured
+                                                ? "Featured Media: Set as primary cover photo for listing"
+                                                : "Featured Media: Click to set as primary cover photo for listing"}
+                                        </p>
                                     </TooltipContent>
                                 </Tooltip>
                             )}
                             {userType === 'admin' && (
-                                <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (file.is_admin_approved) {
-                                            // Optional: allow un-approving if already approved? 
-                                            // The user request only mentioned approving pending files.
-                                            setFilesData(prev => {
-                                                if (!prev) return prev;
-                                                return {
-                                                    ...prev,
-                                                    files: prev.files.map(f => {
-                                                        if (f.uuid === file.uuid) {
-                                                            setChangedFileUuids(prevSet => {
-                                                                const newSet = new Set(prevSet);
-                                                                newSet.add(f.uuid);
-                                                                return newSet;
-                                                            });
-                                                            return { ...f, is_admin_approved: false };
-                                                        }
-                                                        return f;
-                                                    })
-                                                };
-                                            });
-                                        } else {
-                                            // Toggle selection for approval
-                                            setApprovalSelectedUuids(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid!)) {
-                                                    next.delete(file.uuid!);
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (file.is_admin_approved) {
+                                                    setFilesData(prev => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            files: prev.files.map(f => {
+                                                                if (f.uuid === file.uuid) {
+                                                                    setChangedFileUuids(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        newSet.add(f.uuid);
+                                                                        return newSet;
+                                                                    });
+                                                                    return { ...f, is_admin_approved: false };
+                                                                }
+                                                                return f;
+                                                            })
+                                                        };
+                                                    });
                                                 } else {
-                                                    next.add(file.uuid!);
+                                                    setApprovalSelectedUuids(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid!)) {
+                                                            next.delete(file.uuid!);
+                                                        } else {
+                                                            next.add(file.uuid!);
+                                                        }
+                                                        return next;
+                                                    });
                                                 }
-                                                return next;
-                                            });
-                                        }
-                                    }}
-                                >
-                                    {file.is_admin_approved ? (
-                                        <>
-                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
-                                                <Check color="white" size={12} />
-                                            </div>
-                                            <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
-                                                {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
-                                            </div>
-                                            <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
-                                        </>
-                                    )}
-                                </div>
+                                            }}
+                                        >
+                                            {file.is_admin_approved ? (
+                                                <>
+                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
+                                                        <Check color="white" size={12} />
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                                        {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                                    </div>
+                                                    <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[240px] text-xs leading-tight">
+                                            {file.is_admin_approved
+                                                ? "Admin Approved: Media has been quality checked and approved by admin, making it available for the agent to review, select, and download"
+                                                : (approvalSelectedUuids.has(file.uuid!)
+                                                    ? "Selected for Admin Approval: Click to toggle selection"
+                                                    : "Select for Admin Approval: Click to include in batch admin approval")}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
                             {userType === 'agent' && !file.is_complimentary && (
-                                <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
-                                            setBulkSelectedIds(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid)) next.delete(file.uuid);
-                                                else next.add(file.uuid);
-                                                return next;
-                                            });
-                                            return;
-                                        }
-                                        if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
-                                            setBulkDeselectedIds(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid)) next.delete(file.uuid);
-                                                else next.add(file.uuid);
-                                                return next;
-                                            });
-                                            return;
-                                        }
-                                        if (!file.is_agent_approved) {
-                                            // Find the card element to get its screen position
-                                            const cardEl = (e.currentTarget as HTMLElement).closest('[data-fileid]') as HTMLElement | null;
-                                            const imgEl = cardEl?.querySelector('img') as HTMLImageElement | null;
-                                            const thumbSrc = imgEl?.src ||
-                                                file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '');
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
+                                                    setBulkSelectedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid)) next.delete(file.uuid);
+                                                        else next.add(file.uuid);
+                                                        return next;
+                                                    });
+                                                    return;
+                                                }
+                                                if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
+                                                    setBulkDeselectedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid)) next.delete(file.uuid);
+                                                        else next.add(file.uuid);
+                                                        return next;
+                                                    });
+                                                    return;
+                                                }
+                                                if (!file.is_agent_approved) {
+                                                    const cardEl = (e.currentTarget as HTMLElement).closest('[data-fileid]') as HTMLElement | null;
+                                                    const imgEl = cardEl?.querySelector('img') as HTMLImageElement | null;
+                                                    const thumbSrc = imgEl?.src ||
+                                                        file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '');
 
-                                            if (cardEl) {
-                                                const rect = cardEl.getBoundingClientRect();
-                                                const cloneId = `${file.uuid}-${Date.now()}`;
+                                                    if (cardEl) {
+                                                        const rect = cardEl.getBoundingClientRect();
+                                                        const cloneId = `${file.uuid}-${Date.now()}`;
 
-                                                // Add shrink class to the card
-                                                setShrinkingIds(prev => { const s = new Set(prev); s.add(file.uuid); return s; });
+                                                        setShrinkingIds(prev => { const s = new Set(prev); s.add(file.uuid); return s; });
+                                                        setFlyingClones(prev => [...prev, { id: cloneId, src: thumbSrc, rect }]);
 
-                                                // Spawn the flying clone
-                                                setFlyingClones(prev => [...prev, { id: cloneId, src: thumbSrc, rect }]);
-
-                                                // After animation, commit state change and clean up
-                                                setTimeout(() => {
+                                                        setTimeout(() => {
+                                                            setFilesData(prev => {
+                                                                if (!prev) return prev;
+                                                                return {
+                                                                    ...prev,
+                                                                    files: prev.files.map(f => {
+                                                                        if (f.uuid === file.uuid) {
+                                                                            setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                            setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                            return { ...f, is_agent_approved: true };
+                                                                        }
+                                                                        return f;
+                                                                    })
+                                                                };
+                                                            });
+                                                            setShrinkingIds(prev => { const s = new Set(prev); s.delete(file.uuid); return s; });
+                                                            setFlyingClones(prev => prev.filter(c => c.id !== cloneId));
+                                                        }, 580);
+                                                    } else {
+                                                        setFilesData(prev => {
+                                                            if (!prev) return prev;
+                                                            return {
+                                                                ...prev,
+                                                                files: prev.files.map(f => {
+                                                                    if (f.uuid === file.uuid) {
+                                                                        setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                        setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                        return { ...f, is_agent_approved: true };
+                                                                    }
+                                                                    return f;
+                                                                })
+                                                            };
+                                                        });
+                                                    }
+                                                } else {
                                                     setFilesData(prev => {
                                                         if (!prev) return prev;
                                                         return {
@@ -807,56 +856,29 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                                 if (f.uuid === file.uuid) {
                                                                     setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
                                                                     setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
-                                                                    return { ...f, is_agent_approved: true };
+                                                                    return { ...f, is_agent_approved: false };
                                                                 }
                                                                 return f;
                                                             })
                                                         };
                                                     });
-                                                    setShrinkingIds(prev => { const s = new Set(prev); s.delete(file.uuid); return s; });
-                                                    setFlyingClones(prev => prev.filter(c => c.id !== cloneId));
-                                                }, 580);
-                                            } else {
-                                                // Fallback: no card element found, commit immediately
-                                                setFilesData(prev => {
-                                                    if (!prev) return prev;
-                                                    return {
-                                                        ...prev,
-                                                        files: prev.files.map(f => {
-                                                            if (f.uuid === file.uuid) {
-                                                                setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
-                                                                setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
-                                                                return { ...f, is_agent_approved: true };
-                                                            }
-                                                            return f;
-                                                        })
-                                                    };
-                                                });
-                                            }
-                                        } else {
-                                            // Deselect instantly — no animation needed
-                                            setFilesData(prev => {
-                                                if (!prev) return prev;
-                                                return {
-                                                    ...prev,
-                                                    files: prev.files.map(f => {
-                                                        if (f.uuid === file.uuid) {
-                                                            setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
-                                                            setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
-                                                            return { ...f, is_agent_approved: false };
-                                                        }
-                                                        return f;
-                                                    })
-                                                };
-                                            });
-                                        }
-                                    }}
-                                >
-                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                        {file.is_agent_approved && <Check color="white" size={12} />}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
-                                </div>
+                                                }
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                {file.is_agent_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-[220px] text-xs leading-tight">
+                                            {file.is_agent_approved
+                                                ? "Agent Approved: Selected for final delivery & property website"
+                                                : "Approve Media: Click to select/approve this item"}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
                         </>

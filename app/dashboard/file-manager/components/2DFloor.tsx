@@ -474,21 +474,31 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                 )}
                                 {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
-                                    <span
-                                        className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFilesToHide(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid)) next.delete(file.uuid);
-                                                else next.add(file.uuid);
-                                                return next;
-                                            });
-                                        }}
-                                        title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
-                                    >
-                                        {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
-                                    </span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span
+                                                className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFilesToHide(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid)) next.delete(file.uuid);
+                                                        else next.add(file.uuid);
+                                                        return next;
+                                                    });
+                                                }}
+                                            >
+                                                {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-[240px] text-xs leading-tight">
+                                                {filesToHide.has(file.uuid)
+                                                    ? "Hidden Floor Plan: Click to show on property tour & client downloads"
+                                                    : "Visible Floor Plan: Click to hide from property tour & client downloads"}
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 )}
                                 {file.is_deleted && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
@@ -580,21 +590,31 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                 )}
                                 {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (!file.file || typeof file.file === 'string') && (
-                                    <span
-                                        className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFilesToHide(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid)) next.delete(file.uuid);
-                                                else next.add(file.uuid);
-                                                return next;
-                                            });
-                                        }}
-                                        title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
-                                    >
-                                        {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
-                                    </span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span
+                                                className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFilesToHide(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid)) next.delete(file.uuid);
+                                                        else next.add(file.uuid);
+                                                        return next;
+                                                    });
+                                                }}
+                                            >
+                                                {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-[240px] text-xs leading-tight">
+                                                {filesToHide.has(file.uuid)
+                                                    ? "Hidden Floor Plan: Click to show on property tour & client downloads"
+                                                    : "Visible Floor Plan: Click to hide from property tour & client downloads"}
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 )}
                             </>
                         )}
@@ -604,16 +624,85 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                         {/* Unsaved media remove button hidden during processing */}
 
                         {userType === 'admin' && (
-                            <div
-                                className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/90 p-1.5 rounded-[4px] shadow-sm border border-gray-200"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isLocal) {
-                                        setFloorFiles(prev =>
-                                            prev.map(f => f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f)
-                                        );
-                                    } else {
-                                        if (file.is_admin_approved) {
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/90 p-1.5 rounded-[4px] shadow-sm border border-gray-200"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isLocal) {
+                                                setFloorFiles(prev =>
+                                                    prev.map(f => f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f)
+                                                );
+                                            } else {
+                                                if (file.is_admin_approved) {
+                                                    setFilesData(prev => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            files: prev.files.map(f => {
+                                                                if (f.uuid === file.uuid) {
+                                                                    setChangedFileUuids(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        newSet.add(f.uuid);
+                                                                        return newSet;
+                                                                    });
+                                                                    return { ...f, is_admin_approved: false };
+                                                                }
+                                                                return f;
+                                                            })
+                                                        };
+                                                    });
+                                                } else {
+                                                    setApprovalSelectedUuids(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(file.uuid!)) {
+                                                            next.delete(file.uuid!);
+                                                        } else {
+                                                            next.add(file.uuid!);
+                                                        }
+                                                        return next;
+                                                    });
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        {isLocal || file.is_admin_approved ? (
+                                            <>
+                                                <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                    {file.is_admin_approved && <Check color="white" size={12} />}
+                                                </div>
+                                                <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
+                                                    {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
+                                                </div>
+                                                <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="max-w-[240px] text-xs leading-tight">
+                                        {file.is_admin_approved
+                                            ? "Admin Approved: Floor plan has been quality checked and approved by admin, making it available for the agent to review, select, and download"
+                                            : (approvalSelectedUuids.has(file.uuid!)
+                                                ? "Selected for Admin Approval: Click to toggle selection"
+                                                : "Select for Admin Approval: Click to include in batch admin approval")}
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+
+                        {userType === 'agent' && !file.is_complimentary && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             setFilesData(prev => {
                                                 if (!prev) return prev;
                                                 return {
@@ -625,78 +714,33 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                                                 newSet.add(f.uuid);
                                                                 return newSet;
                                                             });
-                                                            return { ...f, is_admin_approved: false };
+                                                            setSelectionChangedUuids(prevSet => {
+                                                                const newSet = new Set(prevSet);
+                                                                newSet.add(f.uuid);
+                                                                return newSet;
+                                                            });
+                                                            return { ...f, is_agent_approved: !f.is_agent_approved };
                                                         }
                                                         return f;
                                                     })
                                                 };
                                             });
-                                        } else {
-                                            setApprovalSelectedUuids(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(file.uuid!)) {
-                                                    next.delete(file.uuid!);
-                                                } else {
-                                                    next.add(file.uuid!);
-                                                }
-                                                return next;
-                                            });
-                                        }
-                                    }
-                                }}
-                            >
-                                {isLocal || file.is_admin_approved ? (
-                                    <>
-                                        <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                            {file.is_admin_approved && <Check color="white" size={12} />}
+                                        }}
+                                    >
+                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                            {file.is_agent_approved && <Check color="white" size={12} />}
                                         </div>
-                                        <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center transition-colors ${approvalSelectedUuids.has(file.uuid!) ? 'bg-amber-500 border-amber-500' : 'bg-white border-gray-400'}`}>
-                                            {approvalSelectedUuids.has(file.uuid!) && <Check color="white" size={12} />}
-                                        </div>
-                                        <span className={`text-[11px] font-bold ${approvalSelectedUuids.has(file.uuid!) ? 'text-amber-700' : 'text-gray-500'}`}>Select for Approval</span>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {userType === 'agent' && !file.is_complimentary && (
-                            <div
-                                className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFilesData(prev => {
-                                        if (!prev) return prev;
-                                        return {
-                                            ...prev,
-                                            files: prev.files.map(f => {
-                                                if (f.uuid === file.uuid) {
-                                                    setChangedFileUuids(prevSet => {
-                                                        const newSet = new Set(prevSet);
-                                                        newSet.add(f.uuid);
-                                                        return newSet;
-                                                    });
-                                                    setSelectionChangedUuids(prevSet => {
-                                                        const newSet = new Set(prevSet);
-                                                        newSet.add(f.uuid);
-                                                        return newSet;
-                                                    });
-                                                    return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                }
-                                                return f;
-                                            })
-                                        };
-                                    });
-                                }}
-                            >
-                                <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                    {file.is_agent_approved && <Check color="white" size={12} />}
-                                </div>
-                                <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
-                            </div>
+                                        <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="max-w-[240px] text-xs leading-tight">
+                                        {file.is_agent_approved
+                                            ? "Agent Approved: Selected for final delivery & property website"
+                                            : "Approve Floor Plan: Click to select/approve this floor plan"}
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
                         )}
 
 
