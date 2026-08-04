@@ -87,7 +87,7 @@ function buildSquareFootageText(
     parts.push(address);
     parts.push('');
 
-    // Left column: Finished + Subtotal groups, then Grand Total
+    // Left column: Finished + Subtotal groups
     if (finishedAreas.length > 0) {
         parts.push(buildSection(titles.finished, finishedAreas, finishedTotal, 'Total'));
         parts.push('');
@@ -96,21 +96,19 @@ function buildSquareFootageText(
     if (subtotalAreas.length > 0) {
         parts.push(buildSection(titles.subtotal, subtotalAreas, subtotalTotal, 'Total'));
         parts.push('');
-    }
 
-    // Right column: Other areas
-    if (otherAreas.length > 0) {
-        parts.push(buildSection(titles.other, otherAreas, otherTotal, 'Total'));
-        parts.push('');
-    }
-
-    if (finishedAreas.length > 0 || subtotalAreas.length > 0) {
-        // Grand total line
+        // Grand total line - shown directly under Subtotal section when present
         parts.push(SEPARATOR);
         const grandLabel = 'Grand Total:';
         const grandValue = formatNumber(grandTotal) + ' ' + SQ_FT;
         const width = Math.max(grandLabel.length + 2 + grandValue.length + 2, 32);
         parts.push(grandLabel.padEnd(width - grandValue.length) + grandValue);
+        parts.push('');
+    }
+
+    // Right column: Other areas
+    if (otherAreas.length > 0) {
+        parts.push(buildSection(titles.other, otherAreas, otherTotal, 'Total'));
         parts.push('');
     }
 

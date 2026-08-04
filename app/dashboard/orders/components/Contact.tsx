@@ -91,9 +91,16 @@ const Contact = () => {
 
     const availableCoAgents = useMemo(() => {
         const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : selectedAgent;
-        if (!target || !target.co_agents) return [];
+        if (!target) return [];
 
-        let raw = target.co_agents;
+        let raw = target.co_agents || target.coagents || target.coagent;
+        
+        if (!raw) return [];
+
+        if (typeof raw === 'object' && !Array.isArray(raw)) {
+            raw = [raw];
+        }
+
         if (typeof raw === 'string') {
             try {
                 raw = JSON.parse(raw);

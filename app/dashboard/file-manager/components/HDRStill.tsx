@@ -488,7 +488,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
+                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const fileKey = `${file.file.name}-${file.file.size}`;
@@ -509,7 +509,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedFiles(prev =>
@@ -619,7 +619,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
+                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setFilesToHide(prev => {
@@ -656,7 +656,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
-                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:block' : 'block'}`}
+                                            className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setFilesData(prev => {
@@ -702,7 +702,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:flex' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (file.is_admin_approved) {
@@ -759,7 +759,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
                             {userType === 'agent' && !file.is_complimentary && (
                                 <div
-                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden md:flex' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (isBulkSelecting && file.uuid && !file.is_agent_approved) {

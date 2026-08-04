@@ -191,7 +191,9 @@ const FileRow = React.memo(({
 
         <div className="w-full flex flex-col gap-[10px]">
           <div className="flex justify-between items-center">
-            <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+            <Label className="text-[#7d7d7d] text-[14px]">
+              {type === 'floor_plans' ? 'Floor Plan Type' : 'Media Name'}
+            </Label>
             <div className="flex items-center gap-4">
               <div
                 onClick={() => onToggleComplimentary(idx)}
@@ -243,7 +245,7 @@ const FileRow = React.memo(({
                   }, 0);
                 }
               }}
-              placeholder="Select or Type Media Name"
+              placeholder={type === 'floor_plans' ? "Select type or enter custom type" : "Select name or enter custom name"}
               className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
             />
             {idx > 0 && (
@@ -372,15 +374,7 @@ export default function FilePreviewModal({
 
   useEffect(() => {
     setLocalFiles(files);
-    if (type === 'floor_plans') {
-      const defaults: { [key: number]: string } = {};
-      files.forEach((_, idx) => {
-        defaults[idx] = "UnBranded Floor Plan";
-      });
-      setMediaTypes(defaults);
-    } else {
-      setMediaTypes({});
-    }
+    setMediaTypes({});
     setSelectedIndexes([]);
     setComplimentaryIndexes([]);
     setThumbnailFiles({});

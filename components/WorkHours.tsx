@@ -22,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { DropDownArrow, DownloadIcon } from "./Icons";
-import { ChevronDownIcon, Plus, X, Eye, EyeOff } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { DownloadIcon } from "./Icons";
+import { ChevronDownIcon, Plus, X, Eye, EyeOff, Check } from "lucide-react";
 import ServiceItem from "./ServiceItem";
 import AddBreakPopup from "@/app/dashboard/calendar/components/AddBreakPopup";
 import { Pagination } from "./TablePagination";
@@ -312,15 +313,6 @@ interface TimeZoneOption {
   value: string;
 }
 
-const timeNeededOptions = [
-  { value: 0, label: "no adjustment" },
-  { value: 5, label: "5 Minutes less" },
-  { value: 10, label: "10 Minutes less" },
-  { value: 15, label: "15 Minutes less" },
-  { value: 30, label: "30 Minutes less" },
-  { value: 45, label: "45 Minutes less" },
-];
-
 const daysOfWeek = [
   { key: "mon", label: "Monday" },
   { key: "tue", label: "Tuesday" },
@@ -350,9 +342,15 @@ const VendorWorkHours = ({
   setGalleryImages: propSetGalleryImages,
   fieldErrors,
 }: WorkDetailProps) => {
-  const [isAddingService, setIsAddingService] = useState(false);
   const [serviceId, setServiceId] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isAddingService, setIsAddingService] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showTimeFields, setShowTimeFields] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [tempOptionPrices, setTempOptionPrices] = useState<{ [key: string]: number }>({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [tempOptionTimes, setTempOptionTimes] = useState<{ [key: string]: string }>({});
   const [isBreakPopupOpen, setIsBreakPopupOpen] = useState(false);
   const [breaks, setBreaks] = useState<Break[]>(
     currentUser?.additional_breaks || [],
@@ -367,12 +365,6 @@ const VendorWorkHours = ({
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
-  const [tempOptionPrices, setTempOptionPrices] = useState<{
-    [key: string]: number;
-  }>({});
-  const [tempOptionTimes, setTempOptionTimes] = useState<{
-    [key: string]: string;
-  }>({});
   const [timeZoneOptions, setTimeZoneOptions] = useState<TimeZoneOption[]>([]);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [isCalendarConnected, setIsCalendarConnected] = useState(
@@ -1170,7 +1162,7 @@ const VendorWorkHours = ({
 
                   <div className="w-full mb-6">
                     <Label htmlFor="commute" className="block mb-2">
-                      Commute Time Baseline (Minutes)
+                      Max allowable commute time (minutes)
                     </Label>
                     <Input
                       id="commute"
@@ -1396,7 +1388,11 @@ const VendorWorkHours = ({
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="service" className="border-none">
+        <AccordionItem
+          value="service"
+          id="services-accordion-item"
+          className="border-none"
+        >
           <AccordionTrigger
             className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
@@ -1407,188 +1403,111 @@ const VendorWorkHours = ({
             <div className="w-full flex flex-col items-center">
               <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                 <div className="grid grid-cols-1 gap-[16px]">
-                  <div className="col-span-1">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="font-normal text-base text-[#666666]">
-                        Services{" "}
-                        {fieldErrors.services && (
-                          <span className="text-red-500 text-xs ml-2">
-                            ({fieldErrors.services[0]})
-                          </span>
-                        )}
-                      </p>
-                      {userType !== "vendor" && (
-                        <div
-                          className="flex items-center gap-x-[10px] cursor-pointer"
-                          onClick={() => setIsAddingService(true)}
-                        >
-                          <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                            Add
-                          </p>
-                          <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
-                        </div>
+                  <div className="col-span-1 p-4">
+                    <label
+                      htmlFor="serviceName"
+                      className="block text-sm font-normal mb-2 text-[#424242]"
+                    >
+                      Select Services <span className="text-red-500">*</span>
+                      {fieldErrors.services && (
+                        <span className="text-red-500 text-xs ml-2">
+                          ({fieldErrors.services[0]})
+                        </span>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Add Service Form */}
-                  {isAddingService && (
-                    <div className="col-span-1 mb-0">
-                      <div className="mb-4 p-4">
-                        <label
-                          htmlFor="serviceName"
-                          className="block text-sm font-normal mb-2"
-                        >
-                          Service Name <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex items-center gap-x-[20px]">
-                          <Select
-                            value={serviceId}
-                            onValueChange={(value) => {
-                              setServiceId(value);
-                              setTimeout(() => handleAddService(value), 0);
-                            }}
-                          >
-                            <SelectTrigger
-                              className="w-full h-[42px] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
-                              style={{
-                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                              }}
-                            >
-                              <SelectValue placeholder="Select Service Option Here" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {servicesData
-                                .filter(
-                                  (service) =>
-                                    !selectedServices.some(
-                                      (s) => s.service_id === service.uuid,
-                                    ) &&
-                                    !vendorServices.some(
-                                      (s) => s.service_id === service.uuid,
-                                    ),
-                                )
-                                .map((option) => (
-                                  <SelectItem
-                                    key={option.uuid}
-                                    value={option.uuid}
-                                  >
-                                    {option.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-
+                    </label>
+                    {userType !== "vendor" && (
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <button
                             type="button"
-                            onClick={() => setShowTimeFields(!showTimeFields)}
-                            className=" rounded"
+                            className="w-full h-[42px] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 text-sm rounded-md text-left transition-colors"
+                            style={{
+                              backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                            }}
                           >
-                            {showTimeFields ? (
-                              <ChevronDownIcon />
-                            ) : (
-                              <DropDownArrow />
-                            )}
+                            <span className="truncate text-[#424242]">
+                              {selectedServices.length + vendorServices.length >
+                              0
+                                ? `${selectedServices.length + vendorServices.length} service(s) selected`
+                                : "Select or add services..."}
+                            </span>
+                            <ChevronDownIcon className="w-4 h-4 text-gray-500 shrink-0 ml-2" />
                           </button>
-                        </div>
-                      </div>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-[var(--radix-popover-trigger-width)] min-w-[320px] p-2 bg-white border border-[#BBBBBB] rounded-md shadow-lg"
+                          align="start"
+                        >
+                          <div className="max-h-[260px] overflow-y-auto space-y-1">
+                            {servicesData.length === 0 ? (
+                              <div className="p-3 text-center text-xs text-gray-500">
+                                No services available
+                              </div>
+                            ) : (
+                              servicesData.map((service) => {
+                                const isSelected =
+                                  selectedServices.some(
+                                    (s) => s.service_id === service.uuid,
+                                  ) ||
+                                  vendorServices.some(
+                                    (s) => s.service_id === service.uuid,
+                                  );
 
-                      {showTimeFields && serviceId && (
-                        <div className="mt-1 px-3">
-                          <Accordion type="single" collapsible>
-                            {servicesData
-                              .find((s) => s.uuid === serviceId)
-                              ?.product_options?.map((option) => (
-                                <AccordionItem
-                                  key={option.uuid}
-                                  value={option.uuid}
-                                >
-                                  <AccordionTrigger>
-                                    {option.title}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-gray-50 rounded">
-                                      <div>
-                                        <Label
-                                          htmlFor={`preview-price-${option.uuid}`}
-                                          className="block text-xs font-normal mb-1"
-                                        >
-                                          Package Price{" "}
-                                          <span className="text-red-500">
-                                            *
-                                          </span>
-                                        </Label>
-                                        <Input
-                                          id={`preview-price-${option.uuid}`}
-                                          type="number"
-                                          inputMode="decimal"
-                                          placeholder="Enter price"
-                                          value={
-                                            tempOptionPrices[option.uuid] !==
-                                            undefined
-                                              ? tempOptionPrices[option.uuid]
-                                              : option.cost ||
-                                                Number(option.amount) ||
-                                                0
+                                return (
+                                  <div
+                                    key={service.uuid}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        const selIdx =
+                                          selectedServices.findIndex(
+                                            (s) =>
+                                              s.service_id === service.uuid,
+                                          );
+                                        if (selIdx !== -1) {
+                                          handleRemoveService(selIdx);
+                                        } else {
+                                          const venIdx =
+                                            vendorServices.findIndex(
+                                              (s) =>
+                                                s.service_id === service.uuid,
+                                            );
+                                          if (venIdx !== -1) {
+                                            handleRemoveVendorService(venIdx);
                                           }
-                                          onChange={(e) => {
-                                            const price =
-                                              e.target.value === ""
-                                                ? 0
-                                                : Number(e.target.value);
-                                            setTempOptionPrices((prev) => ({
-                                              ...prev,
-                                              [option.uuid]: price,
-                                            }));
-                                          }}
-                                          className="w-full h-[38px] bg-white border-[1px] border-[#BBBBBB] text-sm"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label
-                                          htmlFor={`preview-time-${option.uuid}`}
-                                          className="block text-xs font-normal mb-1"
-                                        >
-                                          Time Adjustment
-                                        </Label>
-                                        <Select
-                                          value={
-                                            tempOptionTimes[option.uuid] || "0"
-                                          }
-                                          onValueChange={(value) => {
-                                            setTempOptionTimes((prev) => ({
-                                              ...prev,
-                                              [option.uuid]: value,
-                                            }));
-                                          }}
-                                        >
-                                          <SelectTrigger className="w-full h-[38px] bg-white border-[1px] border-[#BBBBBB] text-sm">
-                                            <SelectValue placeholder="Select Time" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {timeNeededOptions.map(
-                                              (opt, idx) => (
-                                                <SelectItem
-                                                  key={idx}
-                                                  value={String(opt.value)}
-                                                >
-                                                  {opt.label}
-                                                </SelectItem>
-                                              ),
-                                            )}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
+                                        }
+                                      } else {
+                                        handleAddService(service.uuid);
+                                      }
+                                    }}
+                                    className={`flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-colors ${
+                                      isSelected
+                                        ? "bg-blue-50 text-blue-900 font-medium"
+                                        : "hover:bg-gray-100 text-gray-700"
+                                    }`}
+                                  >
+                                    <span className="truncate">
+                                      {service.name}
+                                    </span>
+                                    <div
+                                      className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                        isSelected
+                                          ? "bg-blue-600 border-blue-600 text-white"
+                                          : "border-gray-300 bg-white"
+                                      }`}
+                                    >
+                                      {isSelected && (
+                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      )}
                                     </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
 
                   <div className="col-span-1">
                     <div className="col-span-1">
@@ -1609,10 +1528,10 @@ const VendorWorkHours = ({
                             ))}
                           </div>
                         ) : (
-                          !isAddingService &&
                           (vendorServices?.length || 0) === 0 && (
-                            <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                              No services added yet. Click Add to get started.
+                            <div className="text-center py-6 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg text-sm">
+                              No services added yet. Choose a service from the
+                              dropdown above.
                             </div>
                           )
                         )}

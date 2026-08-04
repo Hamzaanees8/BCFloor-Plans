@@ -21,14 +21,24 @@ import { useAppContext } from "@/app/context/AppContext";
 import { CurrentUser, SelectedService, Services } from "./WorkHours";
 import { toast } from "sonner";
 
-// Define timeNeededOptions as an array of strings
 const timeNeededOptions = [
   "no adjustment",
-  "5 Minutes less",
-  "10 Minutes less",
-  "15 Minutes less",
-  "30 Minutes less",
-  "45 Minutes less",
+  "less than 15 minutes",
+  "more than 15 minutes",
+  "less than 30 minutes",
+  "more than 30 minutes",
+  "less than 45 minutes",
+  "more than 45 minutes",
+  "less than 60 minutes",
+  "more than 60 minutes",
+  "less than 75 minutes",
+  "more than 75 minutes",
+  "less than 90 minutes",
+  "more than 90 minutes",
+  "less than 105 minutes",
+  "more than 105 minutes",
+  "less than 120 minutes",
+  "more than 120 minutes",
 ];
 
 interface ServiceItemProps {
@@ -39,7 +49,7 @@ interface ServiceItemProps {
     index: number,
     optionUuid: string,
     field: "vendor_price" | "adjustment_time",
-    value: number | string
+    value: number | string,
   ) => void;
   onRemove: (index: number) => void;
   currentUser: CurrentUser | null;
@@ -60,7 +70,7 @@ const ServiceItem = ({
 
   // Find the full service data
   const serviceData = servicesData.find(
-    (s) => s.uuid === selectedService.service_id
+    (s) => s.uuid === selectedService.service_id,
   );
   const serviceName = serviceData?.name || "Unknown Service";
 
@@ -74,7 +84,7 @@ const ServiceItem = ({
 
   const handleTimeAdjustmentChange = (
     optionUuid: string,
-    adjustment: string
+    adjustment: string,
   ) => {
     onChange(index, optionUuid, "adjustment_time", adjustment);
   };
@@ -82,7 +92,7 @@ const ServiceItem = ({
   // Find option data from selectedService
   const getOptionData = (optionUuid: string) => {
     return selectedService.options.find(
-      (opt) => opt.option_uuid === optionUuid
+      (opt) => opt.option_uuid === optionUuid,
     );
   };
 
@@ -106,10 +116,11 @@ const ServiceItem = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center justify-between gap-3 w-full">
           <span
-            className={`flex-1 border rounded-[8px] h-[42px] flex items-center pl-2 ${fieldErrors?.[`services[${index}].service_id`]
-              ? "border-red-500"
-              : "border-[#BBBBBB]"
-              }`}
+            className={`flex-1 border rounded-[8px] h-[42px] flex items-center pl-2 ${
+              fieldErrors?.[`services[${index}].service_id`]
+                ? "border-red-500"
+                : "border-[#BBBBBB]"
+            }`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
             {serviceName}
@@ -149,7 +160,8 @@ const ServiceItem = ({
                           htmlFor={`price-${option.uuid}`}
                           className="block text-sm font-normal mb-1"
                         >
-                          Vendor Pay Amount<span className="text-red-500">*</span>
+                          Vendor Pay Amount
+                          <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id={`price-${option.uuid}`}
@@ -160,11 +172,12 @@ const ServiceItem = ({
                           onChange={(e) =>
                             handleOptionPriceChange(
                               option.uuid ?? "",
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className={`h-[42px] w-full border text-[16px] mt-[12px] placeholder:text-[#9ca3af] ${hasError ? "border-red-500" : "border-[#BBBBBB]"
-                            }`}
+                          className={`h-[42px] w-full border text-[16px] mt-[12px] placeholder:text-[#9ca3af] ${
+                            hasError ? "border-red-500" : "border-[#BBBBBB]"
+                          }`}
                           style={{
                             backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                           }}
@@ -192,7 +205,7 @@ const ServiceItem = ({
                           disabled={userType === "vendor"}
                         >
                           <SelectTrigger
-                            className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
+                            className="h-[42px] w-full border text-[13px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
                             style={{
                               backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                             }}
@@ -220,7 +233,9 @@ const ServiceItem = ({
         <div className="flex justify-end mr-0 md:mr-9 mt-4">
           <Button
             className={`w-[110px] h-[35px] border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
-            onClick={() => handleRemove(selectedService?.vendor_service_id ?? "")}
+            onClick={() =>
+              handleRemove(selectedService?.vendor_service_id ?? "")
+            }
           >
             Remove
           </Button>

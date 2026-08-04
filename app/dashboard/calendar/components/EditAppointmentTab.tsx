@@ -784,7 +784,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
                         </div>
                         <div>
-                            <Schedule currentOrder={currentOrder} invalidServices={invalidServices} />
+                            <Schedule currentOrder={currentOrder} squareFootage={squareFootage || totalSquareFootage || currentOrder?.property?.square_footage} invalidServices={invalidServices} />
                             {/* <div className='col-span-5 flex items-center justify-end mt-[10px]'>
                                 <label className='flex items-center justify-end gap-x-[10px] cursor-pointer'>
                                     <input

@@ -100,8 +100,6 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
 
     // 2. Add defaults if empty
     const finishedSettings = tourSettings.filter(s => s.type === "Finished Area");
-    const subtotalSettings = tourSettings.filter(s => s.type === "Sub Area");
-    const otherSettings = tourSettings.filter(s => s.type !== "Finished Area" && s.type !== "Sub Area");
 
     if (finished.length === 0 && finishedSettings.length > 0) {
       const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === "main level") || finishedSettings[0];
@@ -111,26 +109,6 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
         value: 0,
         custom_title: mainLevelSetting.area,
         category: "Finished"
-      });
-    }
-
-    if (subtotal.length === 0 && subtotalSettings.length > 0) {
-      subtotal.push({
-        id: uniqueId++,
-        label: subtotalSettings[0].area,
-        value: 0,
-        custom_title: subtotalSettings[0].area,
-        category: "Subtotal"
-      });
-    }
-
-    if (other.length === 0 && otherSettings.length > 0) {
-      other.push({
-        id: uniqueId++,
-        label: otherSettings[0].area,
-        value: 0,
-        custom_title: otherSettings[0].area,
-        category: "Other"
       });
     }
 
@@ -285,7 +263,7 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
                   + Add area
                 </Button>
               )}
-              {showTotal && <div className="hidden md:flex font-semibold gap-4 text-gray-700 sm:text-black"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
+              {showTotal && list.length > 0 && <div className="hidden md:flex font-semibold gap-4 text-gray-700 sm:text-black"><span>TOTAL</span> <span className="sm:ml-[80px]">{total(list)} Sq.ft</span></div>}
             </div>
           </div>
         )}
@@ -310,21 +288,22 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
       <div className="px-4 md:px-0 space-y-3 md:space-y-6">
         {renderSection('finished', finishedAreas, setFinishedAreas)}
         {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
-        {renderSection('other', otherAreas, setOtherAreas)}
-      </div>
 
-      {/* Grand Total Row (Desktop) */}
-      <div className="hidden md:flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
-        <span className="font-bold pl-2">Grand Total</span>
-        <span className="font-bold">{grandTotal} Sq.ft</span>
-      </div>
-      
-      {/* Grand Total Row (Mobile) */}
-      <div className="flex md:hidden items-center justify-between px-4 py-3 bg-white border-t mt-4 border-b">
-        <span className="text-sm font-medium text-gray-600">Grand Total</span>
-        <span className="text-xl font-bold text-gray-900">
-          {grandTotal.toLocaleString()} <span className="text-sm font-normal text-gray-400">sq ft</span>
-        </span>
+        {/* Grand Total Row (Desktop) */}
+        <div className="hidden md:flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded my-2">
+          <span className="font-bold pl-2">Grand Total</span>
+          <span className="font-bold">{grandTotal} Sq.ft</span>
+        </div>
+        
+        {/* Grand Total Row (Mobile) */}
+        <div className="flex md:hidden items-center justify-between px-4 py-3 bg-white border-t border-b my-2">
+          <span className="text-sm font-medium text-gray-600">Grand Total</span>
+          <span className="text-xl font-bold text-gray-900">
+            {grandTotal.toLocaleString()} <span className="text-sm font-normal text-gray-400">sq ft</span>
+          </span>
+        </div>
+
+        {renderSection('other', otherAreas, setOtherAreas)}
       </div>
 
       <AddExtraDialog

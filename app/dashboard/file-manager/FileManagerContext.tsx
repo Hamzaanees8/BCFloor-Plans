@@ -78,6 +78,7 @@ export type Files = {
         popup: string;
     };
     isPanorama?: boolean;
+    size?: number;
 }
 export type SnapShots = {
     id: number;

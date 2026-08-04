@@ -97,9 +97,34 @@ async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor
 }
 interface ScheduleProps extends AppointmentTab {
     invalidServices?: string[];
+    squareFootage?: number | string;
 }
 
-const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
+const getSquareFootageFromOrder = (order?: Order, propSqFt?: number | string) => {
+    if (propSqFt !== undefined && propSqFt !== null && propSqFt !== "") {
+        const parsed = typeof propSqFt === 'string' ? parseFloat(propSqFt.replace(/,/g, '')) : Number(propSqFt);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    if (order?.property?.square_footage) {
+        const parsed = typeof order.property.square_footage === 'string'
+            ? parseFloat(String(order.property.square_footage).replace(/,/g, ''))
+            : Number(order.property.square_footage);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    if (Array.isArray(order?.areas) && order.areas.length > 0) {
+        const finished = order.areas
+            .filter((a: any) => a.category === 'Finished' || a.type === 'Finished')
+            .reduce((sum: number, a: any) => sum + (Number(a.footage) || 0), 0);
+        const subtotal = order.areas
+            .filter((a: any) => a.category === 'Subtotal' || a.type === 'Subtotal')
+            .reduce((sum: number, a: any) => sum + (Number(a.footage) || 0), 0);
+        const areaTotal = finished + subtotal;
+        if (areaTotal > 0) return areaTotal;
+    }
+    return undefined;
+};
+
+const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServices = [] }: ScheduleProps) => {
     const { userType } = useAppContext();
     const [googleReady, setGoogleReady] = useState(typeof window !== 'undefined' && !!window.google && !!window.google.maps);
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
@@ -512,7 +537,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                     const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
                     const noVendors = !isCalculating && !!service.service.uuid && visibleVendors.length === 0;
 
-                    const squareFootage = currentOrder?.property?.square_footage;
+                    const squareFootage = getSquareFootageFromOrder(currentOrder, propSquareFootage);
                     const requiredDuration = getEffectiveServiceDuration(
                         service.option?.service_duration,
                         squareFootage
@@ -572,7 +597,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                         service.option?.service_duration,
                                                         squareFootage
                                                     );
-                                                    const isCalculated = !service.option?.service_duration || Number(service.option.service_duration) === 0;
+                                                    const isCalculated = !service.option?.service_duration || Number(service.option.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
 
                                                     return (
                                                         <>
@@ -917,7 +942,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             vendorDistances={vendorDistances}
                                             onVendorSelected={handleVendorChange}
                                             propertyTimezone={propertyLocation?.timeZoneId}
-                                            squareFootage={currentOrder?.property?.square_footage}
+                                            squareFootage={squareFootage}
                                             isCalculating={isCalculating}
                                         />
                                     </div>

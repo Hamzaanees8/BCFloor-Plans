@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -362,8 +362,15 @@ const NotificationModal: React.FC<Props> = ({
           {bothSelected && showAgentModal ? (
             <Button onClick={handleNext} className={`${userType}-bg text-white w-[140px]`}>Next</Button>
           ) : (
-            <Button onClick={handleSave} disabled={isSendingEmails} className={`${userType}-bg text-white w-[140px]`}>
-              {isSendingEmails ? "Sending..." : "Save and Exit"}
+            <Button onClick={handleSave} disabled={isSendingEmails} className={`${userType}-bg text-white w-[140px] flex items-center justify-center gap-2`}>
+              {isSendingEmails ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                "Save and Exit"
+              )}
             </Button>
           )}
           <Button variant="outline" onClick={handleClose} className="w-[140px]">Cancel</Button>

@@ -2,11 +2,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
-import {
-  useParams,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { GetOneOrder } from "../../orders/orders";
 import Service from "./2DFloor";
 import { Order, Slot } from "../../orders/page";
@@ -16,7 +12,10 @@ import FileTab1 from "./HDRStill";
 import FileTab2 from "./3DFloor";
 import TourTabs from "./TourTabs";
 import Video from "./Video";
-import CreateFeatureSheet, { CreateFeatureSheetRef } from "./CreateFeatureSheet";
+import CreateFeatureSheet, {
+  CreateFeatureSheetRef,
+} from "./CreateFeatureSheet";
+import QuoteServiceTab from "./QuoteServiceTab";
 import DownloadTab from "./DownloadTab";
 import HiddenMediaModal from "./HiddenMediaModal";
 import { useAppContext } from "@/app/context/AppContext";
@@ -26,7 +25,12 @@ import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { toast } from "sonner";
-import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoiceExtraItems, UpdateInvoice } from "../../invoice/invoice_api";
+import {
+  GetInvoicesByOrder,
+  PayInvoiceWithStripe,
+  UpdateInvoiceExtraItems,
+  UpdateInvoice,
+} from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import {
   Dialog,
@@ -34,10 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  GetFilesData,
-  GetTourSettings,
-} from "../file-manager";
+import { GetFilesData, GetTourSettings } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
@@ -65,7 +66,8 @@ const FileManager = () => {
   const groupedServices = React.useMemo(() => {
     const map = new Map<string, OrerServices[]>();
     (services ?? []).forEach((os) => {
-      const isFS = os.service?.name?.toLowerCase() === "feature sheets" ||
+      const isFS =
+        os.service?.name?.toLowerCase() === "feature sheets" ||
         (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
       if (isFS) return;
 
@@ -78,14 +80,13 @@ const FileManager = () => {
     map.forEach((group) =>
       group.sort(
         (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      ),
     );
     return map;
   }, [services]);
 
   const [activeTab, setActiveTab] = useState<string>("download");
-
 
   const [activeServiceIndex, setActiveServiceIndex] = useState<number>(0);
   const [orderData, setOrderData] = React.useState<Order | null>(null);
@@ -96,7 +97,7 @@ const FileManager = () => {
       const scrollY = window.scrollY;
       const scrollHeight = Math.max(
         document.documentElement.scrollHeight,
-        document.body.scrollHeight
+        document.body.scrollHeight,
       );
       const clientHeight = window.innerHeight;
       const scrollableHeight = scrollHeight - clientHeight;
@@ -183,7 +184,7 @@ const FileManager = () => {
     setTourSettings,
     setTourDefaultSettings,
     approvalSelectedUuids,
-    setApprovalSelectedUuids
+    setApprovalSelectedUuids,
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
@@ -198,14 +199,17 @@ const FileManager = () => {
     let ancestor = header.parentElement;
     while (ancestor) {
       const style = window.getComputedStyle(ancestor);
-      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
-        ancestor.style.setProperty('overflow-x', 'visible', 'important');
-        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+      if (
+        style.overflowX === "hidden" ||
+        ancestor.classList.contains("overflow-x-hidden")
+      ) {
+        ancestor.style.setProperty("overflow-x", "visible", "important");
+        ancestor.style.setProperty("overflow-y", "visible", "important");
 
         const target = ancestor;
         return () => {
-          target.style.removeProperty('overflow-x');
-          target.style.removeProperty('overflow-y');
+          target.style.removeProperty("overflow-x");
+          target.style.removeProperty("overflow-y");
         };
       }
       ancestor = ancestor.parentElement;
@@ -221,7 +225,11 @@ const FileManager = () => {
   const hasInitializedTab = useRef(false);
 
   useEffect(() => {
-    if (!hasInitializedTab.current && groupedServices.size > 0 && activeTab === "download") {
+    if (
+      !hasInitializedTab.current &&
+      groupedServices.size > 0 &&
+      activeTab === "download"
+    ) {
       const serviceIdFromURL = searchParams?.get("serviceId");
       if (!serviceIdFromURL) {
         const firstServiceUuid = Array.from(groupedServices.keys())[0];
@@ -254,8 +262,6 @@ const FileManager = () => {
   }, []);
 
   const serviceIdFromURL = searchParams.get("serviceId");
-
-
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -312,7 +318,7 @@ const FileManager = () => {
         const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
         filteredServices = order.services?.filter(
           (srv: { service_id: number }) =>
-            uniqueVendorServiceIds.includes(srv.service_id)
+            uniqueVendorServiceIds.includes(srv.service_id),
         );
       }
 
@@ -338,13 +344,13 @@ const FileManager = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
             },
-          }
+          },
         );
         const result = await response.json();
 
         if (!response.ok || !result.success) {
           throw new Error(
-            result.message || result.error || "Payment processing failed"
+            result.message || result.error || "Payment processing failed",
           );
         }
 
@@ -354,7 +360,9 @@ const FileManager = () => {
         await fetchOrder();
         if (orderData?.uuid && userType !== "vendor") {
           const updatedInvoices = await GetInvoicesByOrder(orderData.uuid);
-          setInvoices(Array.isArray(updatedInvoices.data) ? updatedInvoices.data : []);
+          setInvoices(
+            Array.isArray(updatedInvoices.data) ? updatedInvoices.data : [],
+          );
         }
 
         // remove session_id from URL
@@ -366,7 +374,7 @@ const FileManager = () => {
         toast.error(
           error instanceof Error
             ? error.message || "Unable to verify payment session."
-            : "Unable to verify payment session."
+            : "Unable to verify payment session.",
         );
       }
     };
@@ -383,7 +391,10 @@ const FileManager = () => {
       .finally(() => setInvoicesLoading(false));
   }, [orderData?.uuid, userType]);
 
-  const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
+  const handlePayInvoice = async (
+    invoice: any,
+    mode?: "on_behalf" | "self",
+  ) => {
     if (!orderData) return;
     const token = localStorage.getItem("token");
     if (!token) {
@@ -402,7 +413,8 @@ const FileManager = () => {
 
       const isSplit = !!invoice.split_details;
       const payerUuid = currentUser?.uuid;
-      const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
+      const isOwner =
+        currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
 
       let paymentMode: "on_behalf" | "self" | undefined = mode;
 
@@ -410,7 +422,10 @@ const FileManager = () => {
         if (isOwner) {
           paymentMode = "self";
         } else {
-          paymentMode = (invoice.agent_type === "primary" && userType !== "admin") ? "self" : "on_behalf";
+          paymentMode =
+            invoice.agent_type === "primary" && userType !== "admin"
+              ? "self"
+              : "on_behalf";
         }
       }
 
@@ -428,12 +443,14 @@ const FileManager = () => {
     }
   };
 
-
-
   useEffect(() => {
     fetchOrder().then(() => {
       if (!serviceIdFromURL) {
-        if (activeTab === "tour" || activeTab === "CreateFeatureSheet" || activeTab === "download")
+        if (
+          activeTab === "tour" ||
+          activeTab === "CreateFeatureSheet" ||
+          activeTab === "download"
+        )
           return;
         setActiveTab("download");
       }
@@ -474,8 +491,13 @@ const FileManager = () => {
 
     if (activeTab === "tour") return;
 
-    const isUnauthorizedService = services.length > 0 && !groupedServices.has(activeTab) && activeTab !== "download" && activeTab !== "CreateFeatureSheet";
-    const isHiddenTab = activeTab === "download" || activeTab === "CreateFeatureSheet";
+    const isUnauthorizedService =
+      services.length > 0 &&
+      !groupedServices.has(activeTab) &&
+      activeTab !== "download" &&
+      activeTab !== "CreateFeatureSheet";
+    const isHiddenTab =
+      activeTab === "download" || activeTab === "CreateFeatureSheet";
 
     if (isHiddenTab || isUnauthorizedService) {
       const firstServiceUuid = Array.from(groupedServices.keys())[0];
@@ -495,42 +517,52 @@ const FileManager = () => {
         toast.error("You are not authorized to view this service.");
       }
     }
-  }, [activeTab, services, groupedServices, orderData, userType, searchParams, router]);
+  }, [
+    activeTab,
+    services,
+    groupedServices,
+    orderData,
+    userType,
+    searchParams,
+    router,
+  ]);
 
   const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
   const activeSlot = orderData?.slots?.find(
-    (slot) => slot.service_id === activeService?.id
+    (slot) => slot.service_id === activeService?.id,
   );
 
   let rawReviewFiles;
-  if (userType === 'vendor') {
+  if (userType === "vendor") {
     // Prefer live order/slot data over potentially-stale localStorage value.
     // The slot vendor reflects the current review_files setting from the API.
     const liveVendorReviewFiles =
       activeSlot?.vendor?.review_files ??
       orderData?.slots?.find((s: any) => s.vendor)?.vendor?.review_files;
-    rawReviewFiles = liveVendorReviewFiles !== undefined
-      ? liveVendorReviewFiles
-      : currentUser?.review_files;
+    rawReviewFiles =
+      liveVendorReviewFiles !== undefined
+        ? liveVendorReviewFiles
+        : currentUser?.review_files;
   } else {
-    rawReviewFiles = activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files;
+    rawReviewFiles =
+      activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files;
   }
-  const reviewFilesEnabled = rawReviewFiles === true || rawReviewFiles === 1 || rawReviewFiles === "1" || rawReviewFiles === "true";
-
-
+  const reviewFilesEnabled =
+    rawReviewFiles === true ||
+    rawReviewFiles === 1 ||
+    rawReviewFiles === "1" ||
+    rawReviewFiles === "true";
 
   // Compute the media date boundary for the current service + sub-tab index
   type OrderServiceEntry = NonNullable<typeof orderData>["services"][0];
   const computeMediaBoundary = (
     group: OrderServiceEntry[] | undefined,
-    index: number
+    index: number,
   ): MediaDateBoundary => {
     if (!group || group.length <= 1) return { from: null, to: null };
     const from = index === 0 ? null : new Date(group[index].created_at);
     const to =
-      index < group.length - 1
-        ? new Date(group[index + 1].created_at)
-        : null;
+      index < group.length - 1 ? new Date(group[index + 1].created_at) : null;
     return { from, to };
   };
 
@@ -538,10 +570,12 @@ const FileManager = () => {
   const hasSubTabs = activeServiceGroup && activeServiceGroup.length > 1;
   const stickyOffset = isListing
     ? 145 // 55 (header) + 40 (property links) + 50 (tabs)
-    : (hasSubTabs ? 141 : 105); // 55 (header) + 50 (tabs) + (36 subtabs if present)
+    : hasSubTabs
+      ? 141
+      : 105; // 55 (header) + 50 (tabs) + (36 subtabs if present)
   const mediaDateBoundary = computeMediaBoundary(
     activeServiceGroup,
-    activeServiceIndex
+    activeServiceIndex,
   );
 
   const syncExtraItemsToInvoice = async (invoice: any): Promise<any> => {
@@ -549,16 +583,26 @@ const FileManager = () => {
 
     const baseItems = invoice.items || [];
     // Filter out previously injected extra media to recalculate accurately
-    const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
+    const cleanedBaseItems = baseItems.filter(
+      (i: any) =>
+        !i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i),
+    );
 
-    const extraItems: { order_service_id: number; description: string; quantity: number; unit_price: number; }[] = [];
+    const extraItems: {
+      order_service_id: number;
+      description: string;
+      quantity: number;
+      unit_price: number;
+    }[] = [];
 
     cleanedBaseItems.forEach((item: any) => {
       let os = item.order_service || item.orderService;
 
       // If the invoice item's order_service lacks the option data, fetch it from orderData.services
       if (!os || !os.option) {
-        const matchedService = orderData.services?.find((s: any) => s.id === (item.order_service_id || os?.id));
+        const matchedService = orderData.services?.find(
+          (s: any) => s.id === (item.order_service_id || os?.id),
+        );
         if (matchedService) {
           os = matchedService;
         } else {
@@ -569,11 +613,14 @@ const FileManager = () => {
       const serviceId = os.service_id || os.service?.id;
       const currentLimit = Number(os.option.quantity) || 1;
 
-      const selectedCount = filesData.files.filter((f: any) =>
-        (Number(f.service?.id) === Number(serviceId) || Number(f.service_id) === Number(serviceId) || f.service?.uuid === os.service?.uuid)
-        && f.is_agent_approved
-        && !f.is_complimentary
-        && !f.is_deleted
+      const selectedCount = filesData.files.filter(
+        (f: any) =>
+          (Number(f.service?.id) === Number(serviceId) ||
+            Number(f.service_id) === Number(serviceId) ||
+            f.service?.uuid === os.service?.uuid) &&
+          f.is_agent_approved &&
+          !f.is_complimentary &&
+          !f.is_deleted,
       ).length;
 
       if (selectedCount > currentLimit) {
@@ -586,13 +633,18 @@ const FileManager = () => {
           extraLabel = "Videos";
         } else if (catName.includes("floor")) {
           extraLabel = "Floor Plans";
-        } else if (catName.includes("drone") || catName.includes("render") || catName.includes("staging") || catName.includes("tour")) {
+        } else if (
+          catName.includes("drone") ||
+          catName.includes("render") ||
+          catName.includes("staging") ||
+          catName.includes("tour")
+        ) {
           extraLabel = "Files";
         }
 
         extraItems.push({
           order_service_id: os.id,
-          description: `${extraCount} Extra ${extraLabel} (${item.description || os.option?.title || 'Service'})`,
+          description: `${extraCount} Extra ${extraLabel} (${item.description || os.option?.title || "Service"})`,
           quantity: extraCount,
           unit_price: parseFloat(unitPrice.toFixed(2)),
         });
@@ -610,10 +662,24 @@ const FileManager = () => {
     } catch (err) {
       console.error("Failed to sync extra items:", err);
       // Fallback: manually calculate and update the object to return
-      if (extraItems.length > 0 || cleanedBaseItems.length !== baseItems.length) {
-        const newItems = [...cleanedBaseItems, ...extraItems.map(item => ({...item, amount: (item.quantity * item.unit_price).toFixed(2)}))];
-        const subtotal = newItems.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0), 0);
-        const taxAmount = subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
+      if (
+        extraItems.length > 0 ||
+        cleanedBaseItems.length !== baseItems.length
+      ) {
+        const newItems = [
+          ...cleanedBaseItems,
+          ...extraItems.map((item) => ({
+            ...item,
+            amount: (item.quantity * item.unit_price).toFixed(2),
+          })),
+        ];
+        const subtotal = newItems.reduce(
+          (sum: number, i: any) =>
+            sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0),
+          0,
+        );
+        const taxAmount =
+          subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
         const newTotal = subtotal + taxAmount;
 
         return {
@@ -621,7 +687,7 @@ const FileManager = () => {
           items: newItems,
           subtotal: subtotal.toFixed(2),
           tax_amount: taxAmount.toFixed(2),
-          total: newTotal.toFixed(2)
+          total: newTotal.toFixed(2),
         };
       }
     }
@@ -629,20 +695,30 @@ const FileManager = () => {
     return invoice;
   };
 
-  const handleOpenInvoice = async (serviceName?: string, orderServiceUuid?: string) => {
+  const handleOpenInvoice = async (
+    serviceName?: string,
+    orderServiceUuid?: string,
+  ) => {
     let serviceInv;
 
     if (orderServiceUuid) {
-      const matchedBooking = services.find(s => s.uuid === orderServiceUuid);
+      const matchedBooking = services.find((s) => s.uuid === orderServiceUuid);
       const bookingId = matchedBooking?.id;
 
-      serviceInv = invoices.find(inv => {
-        const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+      serviceInv = invoices.find((inv) => {
+        const isConsolidated = inv.notes
+          ?.toLowerCase()
+          .includes("consolidated");
         if (isConsolidated) return false;
         return inv.items?.some((i: any) => {
           const os = i.order_service || i.orderService;
           if (os?.uuid === orderServiceUuid) return true;
-          if (bookingId && (Number(os?.id) === Number(bookingId) || Number(i.order_service_id) === Number(bookingId) || Number(i.orderServiceId) === Number(bookingId))) {
+          if (
+            bookingId &&
+            (Number(os?.id) === Number(bookingId) ||
+              Number(i.order_service_id) === Number(bookingId) ||
+              Number(i.orderServiceId) === Number(bookingId))
+          ) {
             return true;
           }
           return false;
@@ -651,8 +727,10 @@ const FileManager = () => {
     }
 
     if (!serviceInv && serviceName) {
-      serviceInv = invoices.find(inv => {
-        const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+      serviceInv = invoices.find((inv) => {
+        const isConsolidated = inv.notes
+          ?.toLowerCase()
+          .includes("consolidated");
         if (isConsolidated) return false;
         return inv.items?.some((i: any) => {
           const desc = i.description?.toLowerCase() || "";
@@ -669,7 +747,7 @@ const FileManager = () => {
         const synced = await syncExtraItemsToInvoice(finalInv);
         setViewingInvoice(synced);
       } catch (err) {
-         console.error("Failed to sync extra items:", err);
+        console.error("Failed to sync extra items:", err);
       }
     } else {
       setShowInvoicesModal(true);
@@ -678,37 +756,61 @@ const FileManager = () => {
 
   const renderContent = () => {
     if (activeTab === "tour") {
-      return <TourTabs orderData={orderData} setOrderData={setOrderData} onRefresh={fetchOrder} />;
+      return (
+        <TourTabs
+          orderData={orderData}
+          setOrderData={setOrderData}
+          onRefresh={fetchOrder}
+        />
+      );
     }
 
     if (activeTab === "download") {
-      return <DownloadTab orderData={orderData} groupedOrderServices={groupedServices} onOpenInvoice={handleOpenInvoice} />;
+      return (
+        <DownloadTab
+          orderData={orderData}
+          groupedOrderServices={groupedServices}
+          onOpenInvoice={handleOpenInvoice}
+        />
+      );
     }
 
     if (activeTab === "CreateFeatureSheet") {
       const sheetUuid = searchParams.get("sheetUuid");
-      return <CreateFeatureSheet ref={featureSheetRef} orderData={orderData} previewSheetUuid={sheetUuid || undefined} />;
+      return (
+        <CreateFeatureSheet
+          ref={featureSheetRef}
+          orderData={orderData}
+          previewSheetUuid={sheetUuid || undefined}
+        />
+      );
     }
     const category = activeService?.category?.name;
 
-    const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
+    const primaryInvoice =
+      invoices.find(
+        (inv) =>
+          inv.agent_type === "primary" || (inv.agent && !inv.split_details),
+      ) || invoices[0];
     const gstRate = parseFloat(primaryInvoice?.tax_rate || "0") / 100;
 
     let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
     if (currentBookedService) {
-      const squareFootage = orderData?.property?.square_footage ? parseFloat(orderData.property.square_footage.toString()) : 0;
+      const squareFootage = orderData?.property?.square_footage
+        ? parseFloat(orderData.property.square_footage.toString())
+        : 0;
       const displayPrice = resolveServicePrice({
         orderService: currentBookedService,
         catalogService: activeService,
         squareFootage,
-        invoices
+        invoices,
       });
       currentBookedService = {
         ...currentBookedService,
         option: {
           ...currentBookedService.option,
-          amount: displayPrice.toString()
-        }
+          amount: displayPrice.toString(),
+        },
       };
     }
 
@@ -722,7 +824,10 @@ const FileManager = () => {
               currentBookedService={currentBookedService}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
-              onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+              onShowHiddenMedia={() => {
+                setIsHiddenMediaModalOpen(true);
+                setIncludeHidden(true);
+              }}
               onSave={handleSave}
               mediaDateBoundary={mediaDateBoundary}
               onOpenInvoice={handleOpenInvoice}
@@ -741,7 +846,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -758,7 +866,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -775,7 +886,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
@@ -791,7 +905,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -801,19 +918,14 @@ const FileManager = () => {
           />
         );
       case "Staging":
+      case "staging":
         return (
-          <FileTab2
-            currentService={activeService}
+          <QuoteServiceTab
             orderData={orderData}
+            currentService={activeService}
             currentBookedService={currentBookedService}
-            isListing={false}
-            reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onOpenInvoice={handleOpenInvoice}
-            gstRate={gstRate}
             onSave={handleSave}
-            isScrolled={isScrolled}
-            stickyOffset={stickyOffset}
           />
         );
       case "Standard Photos":
@@ -824,7 +936,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -841,7 +956,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -858,7 +976,10 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
+            onShowHiddenMedia={() => {
+              setIsHiddenMediaModalOpen(true);
+              setIncludeHidden(true);
+            }}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
@@ -911,13 +1032,22 @@ const FileManager = () => {
       }
       if (includeHidden) setIsHiddenMediaFetching(true);
       try {
-        const filesData = await GetFilesData(token, orderData?.uuid || "", includeHidden);
+        const filesData = await GetFilesData(
+          token,
+          orderData?.uuid || "",
+          includeHidden,
+        );
         if (filesData.data && filesData.data.length > 0) {
           const updatedTour = filesData.data[0];
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing: f.status === 'processing' || f.is_processing || (f.type === 'photo' && (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
+              is_processing:
+                f.status === "processing" ||
+                f.is_processing ||
+                (f.type === "photo" &&
+                  (!f.variant_urls ||
+                    Object.keys(f.variant_urls).length === 0)),
             }));
           }
           setFilesData(updatedTour);
@@ -925,21 +1055,20 @@ const FileManager = () => {
 
           setSelectedAudioTrack(
             filesData.data[0].slide_show &&
-            (filesData.data[0].slide_show.background_audio || "none")
+              (filesData.data[0].slide_show.background_audio || "none"),
           );
           setTransition(
             filesData.data[0].slide_show &&
-            (filesData.data[0].slide_show.transitions || "fade-in")
+              (filesData.data[0].slide_show.transitions || "fade-in"),
           );
           setDelay(
             filesData.data[0].slide_show &&
-            (filesData.data[0].slide_show.slide_delay || 3000)
+              (filesData.data[0].slide_show.slide_delay || 3000),
           );
         } else {
           // If no data found, set to an empty object to stop the loader in children
           setFilesData({ files: [], links: [], snapshots: [] } as any);
         }
-
       } catch (error) {
         console.error("Error fetching files data:", error);
         // Also set to empty state on error to prevent infinite loader
@@ -952,120 +1081,163 @@ const FileManager = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData, includeHidden]);
 
+  const handleUpload = React.useCallback(
+    async (overrideChangedFiles?: Files[]) => {
+      setFileManagerMode("upload");
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
+      // Get all files to upload
+      const allFiles = [
+        ...selectedFiles,
+        ...floorFiles,
+        ...selectedVideoFiles,
+      ].filter((f) => !f.is_deleted);
 
-  const handleUpload = React.useCallback(async (overrideChangedFiles?: Files[]) => {
-    setFileManagerMode('upload');
-    const token = localStorage.getItem("token");
-    if (!token) return;
+      let changedFiles: Files[] = [];
+      if (overrideChangedFiles) {
+        changedFiles = overrideChangedFiles;
+      } else if (filesData) {
+        // Filter only the files that have changed (featured status changed)
+        changedFiles = filesData.files.filter((file) =>
+          changedFileUuids.has(file.uuid),
+        );
+      }
 
-    // Get all files to upload
-    const allFiles = [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted);
+      // Merge existing snapshots (excluding those marked for deletion) with new ones
+      const activeSnapshots = [
+        ...(filesData?.snapshots || [])
+          .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+          .map((snap) => ({
+            uuid: snap.uuid,
+            x: Number(snap.x_axis),
+            y: Number(snap.y_axis),
+            floorImageUrl: snap.file_name,
+            isApi: true,
+            name: snap.name ?? undefined,
+            description: snap.description ?? undefined,
+            file_path: snap.file_path,
+            url: snap.url,
+            thumbnail_url: snap.thumbnail_url,
+            variant_urls: snap.variant_urls,
+          })),
+        ...droppedMarkers,
+      ];
 
-    let changedFiles: Files[] = [];
-    if (overrideChangedFiles) {
-      changedFiles = overrideChangedFiles;
-    } else if (filesData) {
-      // Filter only the files that have changed (featured status changed)
-      changedFiles = filesData.files.filter((file) =>
-        changedFileUuids.has(file.uuid)
-      );
-    }
+      const response = await startUpload({
+        token,
+        orderUuid: orderData?.uuid,
+        filesDataUuid: filesData?.uuid,
+        files: allFiles,
+        links,
+        droppedMarkers: activeSnapshots,
+        delay,
+        transition,
+        selectedAudioTrack: selectedAudioTrack || "none",
+        changedFiles,
+        isUpdate: !!filesData,
+      });
 
-    // Merge existing snapshots (excluding those marked for deletion) with new ones
-    const activeSnapshots = [
-      ...(filesData?.snapshots || [])
-        .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
-        .map(snap => ({
-          uuid: snap.uuid,
-          x: Number(snap.x_axis),
-          y: Number(snap.y_axis),
-          floorImageUrl: snap.file_name,
-          isApi: true,
-          name: snap.name ?? undefined,
-          description: snap.description ?? undefined,
-          file_path: snap.file_path,
-          url: snap.url,
-          thumbnail_url: snap.thumbnail_url,
-          variant_urls: snap.variant_urls
-        })),
-      ...droppedMarkers
-    ];
+      // If we're here, the upload was successful
+      if (response) {
+        console.log("Upload successful. Fetching fresh data...");
 
-    const response = await startUpload({
-      token,
-      orderUuid: orderData?.uuid,
-      filesDataUuid: filesData?.uuid,
-      files: allFiles,
-      links,
-      droppedMarkers: activeSnapshots,
-      delay,
-      transition,
-      selectedAudioTrack: selectedAudioTrack || "none",
-      changedFiles,
-      isUpdate: !!filesData
-    });
+        try {
+          const freshFilesData = await GetFilesData(
+            token,
+            orderData?.uuid || "",
+          );
 
-    // If we're here, the upload was successful
-    if (response) {
-      console.log("Upload successful. Fetching fresh data...");
+          if (freshFilesData.data && freshFilesData.data[0]) {
+            const updatedTour = freshFilesData.data[0];
 
-      try {
-        const freshFilesData = await GetFilesData(token, orderData?.uuid || "");
+            // Map status='processing' to is_processing=true
+            if (updatedTour.files) {
+              updatedTour.files = updatedTour.files.map((f: any) => ({
+                ...f,
+                is_processing:
+                  f.status === "processing" ||
+                  f.is_processing ||
+                  (f.type === "photo" &&
+                    (!f.variant_urls ||
+                      Object.keys(f.variant_urls).length === 0)),
+              }));
+            }
 
-        if (freshFilesData.data && freshFilesData.data[0]) {
-          const updatedTour = freshFilesData.data[0];
-
-          // Map status='processing' to is_processing=true
-          if (updatedTour.files) {
-            updatedTour.files = updatedTour.files.map((f: any) => ({
-              ...f,
-              is_processing: f.status === 'processing' || f.is_processing || (f.type === 'photo' && (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
-            }));
+            setFilesData(updatedTour);
           }
 
-          setFilesData(updatedTour);
-        }
-
-        // Clear local pending files
-        setSelectedFiles([]);
-        setFloorFiles([]);
-        setSelectedVideoFiles([]);
-        setChangedFileUuids(new Set());
-        setSelectionChangedUuids(new Set());
-        setDeletedSnapshotUuids(new Set());
-        setDroppedMarkers([]);
-
-      } catch (err) {
-        console.error("Error fetching fresh data:", err);
-        // Fallback or toast error? For now just log it, as the upload itself succeeded.
-      }
-    } else {
-      console.log("Upload finished but response is falsy:", response);
-    }
-  }, [selectedFiles, floorFiles, selectedVideoFiles, filesData, changedFileUuids, startUpload, orderData?.uuid, links, droppedMarkers, delay, transition, selectedAudioTrack, setSelectedFiles, setFloorFiles, setSelectedVideoFiles, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFileManagerMode, deletedSnapshotUuids, setDeletedSnapshotUuids, setDroppedMarkers]);
-
-  const handleSave = React.useCallback(async (overrideChangedFiles?: Files[]) => {
-    setIsSaving(true);
-    try {
-      if (activeTab === "CreateFeatureSheet") {
-        if (featureSheetRef.current) {
-          await featureSheetRef.current.handleSave();
+          // Clear local pending files
+          setSelectedFiles([]);
+          setFloorFiles([]);
+          setSelectedVideoFiles([]);
+          setChangedFileUuids(new Set());
+          setSelectionChangedUuids(new Set());
+          setDeletedSnapshotUuids(new Set());
+          setDroppedMarkers([]);
+        } catch (err) {
+          console.error("Error fetching fresh data:", err);
+          // Fallback or toast error? For now just log it, as the upload itself succeeded.
         }
       } else {
-        await handleUpload(overrideChangedFiles);
+        console.log("Upload finished but response is falsy:", response);
       }
-    } catch (error) {
-      console.error("Error during save:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [activeTab, handleUpload, setIsSaving]);
+    },
+    [
+      selectedFiles,
+      floorFiles,
+      selectedVideoFiles,
+      filesData,
+      changedFileUuids,
+      startUpload,
+      orderData?.uuid,
+      links,
+      droppedMarkers,
+      delay,
+      transition,
+      selectedAudioTrack,
+      setSelectedFiles,
+      setFloorFiles,
+      setSelectedVideoFiles,
+      setChangedFileUuids,
+      setSelectionChangedUuids,
+      setFilesData,
+      setFileManagerMode,
+      deletedSnapshotUuids,
+      setDeletedSnapshotUuids,
+      setDroppedMarkers,
+    ],
+  );
+
+  const handleSave = React.useCallback(
+    async (overrideChangedFiles?: Files[]) => {
+      setIsSaving(true);
+      try {
+        if (activeTab === "CreateFeatureSheet") {
+          if (featureSheetRef.current) {
+            await featureSheetRef.current.handleSave();
+          }
+        } else {
+          await handleUpload(overrideChangedFiles);
+        }
+      } catch (error) {
+        console.error("Error during save:", error);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [activeTab, handleUpload, setIsSaving],
+  );
 
   const { setIsDirty, confirmNavigation } = useUnsaved();
 
   const unsavedCount = React.useMemo(() => {
-    return selectedFiles.length + floorFiles.length + selectedVideoFiles.length + changedFileUuids.size;
+    return (
+      selectedFiles.length +
+      floorFiles.length +
+      selectedVideoFiles.length +
+      changedFileUuids.size
+    );
   }, [selectedFiles, floorFiles, selectedVideoFiles, changedFileUuids]);
 
   React.useEffect(() => {
@@ -1074,7 +1246,7 @@ const FileManager = () => {
         title: "Unsaved Changes",
         description: `You have ${unsavedCount} file(s) unsaved. Are you sure you want to leave? Your changes will not be saved.`,
         confirmLabel: "Leave Anyway",
-        onSave: handleSave
+        onSave: handleSave,
       });
     } else {
       setIsDirty(false);
@@ -1100,17 +1272,28 @@ const FileManager = () => {
       {/* Upload Progress Overlay */}
       <div
         ref={headerRef}
-        className={`w-full font-alexandria sticky top-0 z-50 flex flex-row justify-between items-center transition-all duration-300 px-2 md:pr-5 md:pl-0 gap-2 md:gap-y-0 ${isScrolled ? "min-h-[55px] shadow-md py-1" : "min-h-[60px] md:min-h-[80px] py-2 md:py-0"
-          }`}
-        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+        className={`w-full font-alexandria sticky top-0 z-50 flex flex-row justify-between items-center transition-all duration-300 px-2 md:pr-5 md:pl-0 gap-2 md:gap-y-0 ${
+          isScrolled
+            ? "min-h-[55px] shadow-md py-1"
+            : "min-h-[60px] md:min-h-[80px] py-2 md:py-0"
+        }`}
+        style={{
+          backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+        }}
       >
         {/* Invoices List Modal */}
         <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
           <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
             <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
-              <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
+              <DialogTitle
+                className="flex items-center justify-between text-[18px] font-[600] uppercase"
+                style={{ color: `var(--${userType}-page-tab-color)` }}
+              >
                 Order Invoices
-                <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setShowInvoicesModal(false)}>
+                <Button
+                  className="border-none !shadow-none bg-transparent hover:bg-transparent p-0"
+                  onClick={() => setShowInvoicesModal(false)}
+                >
                   <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                 </Button>
               </DialogTitle>
@@ -1119,94 +1302,118 @@ const FileManager = () => {
             <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-10 bg-white">
               {invoicesLoading ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
+                  <Loader2
+                    className="h-8 w-8 animate-spin"
+                    style={{ color: `var(--${userType}-page-tab-color)` }}
+                  />
                 </div>
-              ) : (() => {
-                const filteredList = invoices;
+              ) : (
+                (() => {
+                  const filteredList = invoices;
 
-                if (filteredList.length === 0) {
+                  if (filteredList.length === 0) {
+                    return (
+                      <div className="text-center py-10 italic text-[#666666]">
+                        No invoices found for this order.
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div className="text-center py-10 italic text-[#666666]">
-                      No invoices found for this order.
-                    </div>
-                  );
-                }
+                    <div className="flex flex-col gap-4">
+                      {filteredList.map((invoice) => {
+                        const status = (
+                          invoice.status || "unpaid"
+                        ).toUpperCase();
+                        let badgeBg = "#E06D5E";
+                        if (status === "PAID") badgeBg = "#6BAE41";
+                        else if (status === "ISSUED") badgeBg = "#4A90E2";
+                        else if (status === "VOID") badgeBg = "#A0A0A0";
+                        else if (
+                          status === "PARTIAL_PAID" ||
+                          status === "PARTIALLY_PAID" ||
+                          status === "PARTIAL"
+                        )
+                          badgeBg = "#F5A623";
+                        else if (status === "REFUNDED") badgeBg = "#D0021B";
 
-                return (
-                  <div className="flex flex-col gap-4">
-                    {filteredList.map((invoice) => {
-                      const status = (invoice.status || "unpaid").toUpperCase();
-                      let badgeBg = "#E06D5E";
-                      if (status === "PAID") badgeBg = "#6BAE41";
-                      else if (status === "ISSUED") badgeBg = "#4A90E2";
-                      else if (status === "VOID") badgeBg = "#A0A0A0";
-                      else if (
-                        status === "PARTIAL_PAID" ||
-                        status === "PARTIALLY_PAID" ||
-                        status === "PARTIAL"
-                      ) badgeBg = "#F5A623";
-                      else if (status === "REFUNDED") badgeBg = "#D0021B";
-
-                      return (
-                        <div
-                          key={invoice.uuid}
-                          className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-[6px] border border-[#E4E4E4] gap-4"
-                          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)` }}
-                        >
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-alexandria text-[16px] font-[500] text-[#1C1C1C]">
-                                Invoice #{invoice.invoice_number || invoice.id}
-                              </p>
-                              <span
-                                className="text-white px-[12px] py-[2px] rounded-[100px] text-[10px] font-bold"
-                                style={{ backgroundColor: badgeBg }}
-                              >
-                                {status}
-                              </span>
-                              {invoice.agent_type && (
-                                <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
-                                  {invoice.agent_type}
+                        return (
+                          <div
+                            key={invoice.uuid}
+                            className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-[6px] border border-[#E4E4E4] gap-4"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)`,
+                            }}
+                          >
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-alexandria text-[16px] font-[500] text-[#1C1C1C]">
+                                  Invoice #
+                                  {invoice.invoice_number || invoice.id}
+                                </p>
+                                <span
+                                  className="text-white px-[12px] py-[2px] rounded-[100px] text-[10px] font-bold"
+                                  style={{ backgroundColor: badgeBg }}
+                                >
+                                  {status}
                                 </span>
-                              )}
-                            </div>
-                            <div className="text-[13px] text-[#666666]">
-                              <p>
-                                Agent: {invoice.agent?.first_name} {invoice.agent?.last_name} ({invoice.agent?.email})
-                              </p>
-                              <p>
-                                Issued: {new Date(invoice.issued_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            {invoice.items && invoice.items.length > 0 && (
-                              <p className="text-[12px] text-gray-400">
-                                Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex flex-col md:items-end gap-2.5 min-w-[200px]">
-                            <div className="flex flex-col md:items-end">
-                              <p className="font-alexandria text-[20px] font-[500] text-[#1C1C1C]">
-                                ${parseFloat(invoice.total).toFixed(2)}
-                              </p>
-                              {parseFloat(invoice.paid_amount) > 0 && (
-                                <p className="text-[12px] text-[#6BAE41] font-[500]">
-                                  Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                                {invoice.agent_type && (
+                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
+                                    {invoice.agent_type}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[13px] text-[#666666]">
+                                <p>
+                                  Agent: {invoice.agent?.first_name}{" "}
+                                  {invoice.agent?.last_name} (
+                                  {invoice.agent?.email})
+                                </p>
+                                <p>
+                                  Issued:{" "}
+                                  {new Date(
+                                    invoice.issued_at,
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
+                              {invoice.items && invoice.items.length > 0 && (
+                                <p className="text-[12px] text-gray-400">
+                                  Services:{" "}
+                                  {invoice.items
+                                    .map(
+                                      (i: any) =>
+                                        i.description || "Service Item",
+                                    )
+                                    .join(", ")}
                                 </p>
                               )}
                             </div>
-                            <div className="flex gap-2 flex-wrap justify-start md:justify-end">
-                              <Button
-                                variant="outline"
-                                onClick={() => setViewingInvoice(invoice)}
-                                className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-border ${userType}-text hover-${userType}-bg hover:!text-white transition-all bg-transparent`}
-                              >
-                                View
-                              </Button>
-                              {userType !== "vendor" &&
-                                status !== "PAID" &&
-                                status !== "VOID" && (
-                                  currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                            <div className="flex flex-col md:items-end gap-2.5 min-w-[200px]">
+                              <div className="flex flex-col md:items-end">
+                                <p className="font-alexandria text-[20px] font-[500] text-[#1C1C1C]">
+                                  ${parseFloat(invoice.total).toFixed(2)}
+                                </p>
+                                {parseFloat(invoice.paid_amount) > 0 && (
+                                  <p className="text-[12px] text-[#6BAE41] font-[500]">
+                                    Paid: $
+                                    {parseFloat(invoice.paid_amount).toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex gap-2 flex-wrap justify-start md:justify-end">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setViewingInvoice(invoice)}
+                                  className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-border ${userType}-text hover-${userType}-bg hover:!text-white transition-all bg-transparent`}
+                                >
+                                  View
+                                </Button>
+                                {userType !== "vendor" &&
+                                  status !== "PAID" &&
+                                  status !== "VOID" &&
+                                  (currentUser?.uuid ===
+                                  (invoice.agent?.uuid ||
+                                    invoice.agent_uuid) ? (
                                     <Button
                                       onClick={() => {
                                         setShowInvoicesModal(false);
@@ -1218,11 +1425,16 @@ const FileManager = () => {
                                     </Button>
                                   ) : (
                                     <div className="flex gap-2">
-                                      {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                      {(userType === "admin" ||
+                                        (invoice.agent_type === "co-agent" &&
+                                          invoice.split_details)) && (
                                         <Button
                                           onClick={() => {
                                             setShowInvoicesModal(false);
-                                            handlePayInvoice(invoice, "on_behalf");
+                                            handlePayInvoice(
+                                              invoice,
+                                              "on_behalf",
+                                            );
                                           }}
                                           className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
                                         >
@@ -1241,19 +1453,17 @@ const FileManager = () => {
                                         </Button>
                                       )}
                                     </div>
-                                  )
-                                )}
+                                  ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
             </div>
-
-
           </DialogContent>
         </Dialog>
 
@@ -1274,117 +1484,158 @@ const FileManager = () => {
                 <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
                   <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
                     <div className="flex flex-col items-start w-full md:w-auto">
-                        <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: `var(--${userType}-page-tab-color)` }}>
-                            Invoice
-                        </span>
-                        <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
-                            #{viewingInvoice.invoice_number || viewingInvoice.id}
-                        </span>
+                      <span
+                        className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none"
+                        style={{ color: `var(--${userType}-page-tab-color)` }}
+                      >
+                        Invoice
+                      </span>
+                      <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                        #{viewingInvoice.invoice_number || viewingInvoice.id}
+                      </span>
                     </div>
-                    
-                    <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
+
+                    <div
+                      className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === "admin" ? "flex-row" : "flex-col md:flex-row items-start"}`}
+                    >
                       {userType === "admin" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                        viewingInvoice.status?.toUpperCase() !== "VOID" && (
-                          isEditingInvoice ? (
-                            <div className="flex gap-2 w-full md:w-auto flex-1">
-                              <Button
-                                onClick={async () => {
-                                  try {
-                                    await UpdateInvoice(viewingInvoice.uuid, {
-                                      notes: editingInvoiceData.notes,
-                                      tax_rate: editingInvoiceData.tax_rate,
-                                      items: editingInvoiceData.items.map((item: any) => ({
+                        viewingInvoice.status?.toUpperCase() !== "VOID" &&
+                        (isEditingInvoice ? (
+                          <div className="flex gap-2 w-full md:w-auto flex-1">
+                            <Button
+                              onClick={async () => {
+                                try {
+                                  await UpdateInvoice(viewingInvoice.uuid, {
+                                    notes: editingInvoiceData.notes,
+                                    tax_rate: editingInvoiceData.tax_rate,
+                                    items: editingInvoiceData.items.map(
+                                      (item: any) => ({
                                         uuid: item.uuid,
                                         description: item.description,
-                                        quantity: parseInt(item.quantity || "1", 10),
-                                        unit_price: parseFloat(item.unit_price || "0"),
-                                        order_service_uuid: item.order_service?.uuid || item.orderService?.uuid || item.order_service_uuid
-                                      }))
-                                    });
-                                    toast.success("Invoice updated successfully!");
-                                    setIsEditingInvoice(false);
-                                    
-                                    if (orderData?.uuid) {
-                                      const updatedInvoices = await GetInvoicesByOrder(orderData.uuid);
-                                      setInvoices(Array.isArray(updatedInvoices.data) ? updatedInvoices.data : []);
-                                      const updatedInvoice = Array.isArray(updatedInvoices.data) ? updatedInvoices.data.find((i: any) => i.uuid === viewingInvoice.uuid) : null;
-                                      if (updatedInvoice) setViewingInvoice(updatedInvoice);
-                                    }
-                                  } catch (error) {
-                                    console.error("Error updating invoice:", error);
-                                    toast.error("Failed to update invoice");
+                                        quantity: parseInt(
+                                          item.quantity || "1",
+                                          10,
+                                        ),
+                                        unit_price: parseFloat(
+                                          item.unit_price || "0",
+                                        ),
+                                        order_service_uuid:
+                                          item.order_service?.uuid ||
+                                          item.orderService?.uuid ||
+                                          item.order_service_uuid,
+                                      }),
+                                    ),
+                                  });
+                                  toast.success(
+                                    "Invoice updated successfully!",
+                                  );
+                                  setIsEditingInvoice(false);
+
+                                  if (orderData?.uuid) {
+                                    const updatedInvoices =
+                                      await GetInvoicesByOrder(orderData.uuid);
+                                    setInvoices(
+                                      Array.isArray(updatedInvoices.data)
+                                        ? updatedInvoices.data
+                                        : [],
+                                    );
+                                    const updatedInvoice = Array.isArray(
+                                      updatedInvoices.data,
+                                    )
+                                      ? updatedInvoices.data.find(
+                                          (i: any) =>
+                                            i.uuid === viewingInvoice.uuid,
+                                        )
+                                      : null;
+                                    if (updatedInvoice)
+                                      setViewingInvoice(updatedInvoice);
                                   }
-                                }}
-                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                              >
-                                Save Changes
-                              </Button>
-                              <Button
-                                onClick={() => setIsEditingInvoice(false)}
-                                variant="outline"
-                                className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              onClick={() => {
-                                setIsEditingInvoice(true);
-                                setEditingInvoiceData(JSON.parse(JSON.stringify(viewingInvoice)));
+                                } catch (error) {
+                                  console.error(
+                                    "Error updating invoice:",
+                                    error,
+                                  );
+                                  toast.error("Failed to update invoice");
+                                }
                               }}
                               className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
                             >
-                              Update Invoice
+                              Save Changes
                             </Button>
-                          )
-                      )}
+                            <Button
+                              onClick={() => setIsEditingInvoice(false)}
+                              variant="outline"
+                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              setIsEditingInvoice(true);
+                              setEditingInvoiceData(
+                                JSON.parse(JSON.stringify(viewingInvoice)),
+                              );
+                            }}
+                            className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                          >
+                            Update Invoice
+                          </Button>
+                        ))}
                       {userType !== "vendor" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
                         viewingInvoice.status?.toUpperCase() !== "VOID" &&
                         viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
-                        viewingInvoice.status?.toUpperCase() !== "PARTIALLY_REFUNDED" && (
-                          currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
-                            <Button
-                              onClick={() => {
-                                handlePayInvoice(viewingInvoice);
-                                setViewingInvoice(null);
-                              }}
-                              className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                            >
-                              Pay Now
-                            </Button>
-                          ) : (
-                              <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
-                                {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
-                                <Button
-                                  onClick={() => {
-                                    handlePayInvoice(viewingInvoice, "on_behalf");
-                                    setViewingInvoice(null);
-                                  }}
-                                  className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                                >
-                                  Pay on Behalf
-                                </Button>
-                              )}
-                              {userType !== "admin" && (
-                                <Button
-                                  onClick={() => {
-                                    handlePayInvoice(viewingInvoice, "self");
-                                    setViewingInvoice(null);
-                                  }}
-                                  className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                                >
-                                  Pay Self
-                                </Button>
-                              )}
-                            </div>
-                          )
-                        )}
+                        viewingInvoice.status?.toUpperCase() !==
+                          "PARTIALLY_REFUNDED" &&
+                        (currentUser?.uuid ===
+                        (viewingInvoice.agent?.uuid ||
+                          viewingInvoice.agent_uuid) ? (
+                          <Button
+                            onClick={() => {
+                              handlePayInvoice(viewingInvoice);
+                              setViewingInvoice(null);
+                            }}
+                            className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                          >
+                            Pay Now
+                          </Button>
+                        ) : (
+                          <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
+                            {(userType === "admin" ||
+                              (viewingInvoice.agent_type === "co-agent" &&
+                                viewingInvoice.split_details)) && (
+                              <Button
+                                onClick={() => {
+                                  handlePayInvoice(viewingInvoice, "on_behalf");
+                                  setViewingInvoice(null);
+                                }}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                              >
+                                Pay on Behalf
+                              </Button>
+                            )}
+                            {userType !== "admin" && (
+                              <Button
+                                onClick={() => {
+                                  handlePayInvoice(viewingInvoice, "self");
+                                  setViewingInvoice(null);
+                                }}
+                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                              >
+                                Pay Self
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                     </div>
-                    
-                    <Button className="absolute right-0 top-0 md:static border-none !shadow-none bg-transparent hover:bg-transparent p-0 md:ml-4 shrink-0 transition-opacity hover:opacity-70" onClick={() => setViewingInvoice(null)}>
+
+                    <Button
+                      className="absolute right-0 top-0 md:static border-none !shadow-none bg-transparent hover:bg-transparent p-0 md:ml-4 shrink-0 transition-opacity hover:opacity-70"
+                      onClick={() => setViewingInvoice(null)}
+                    >
                       <X className="!w-[22px] !h-[22px] cursor-pointer text-[#7D7D7D]" />
                     </Button>
                   </DialogTitle>
@@ -1400,36 +1651,77 @@ const FileManager = () => {
                         setEditingInvoiceData((prev: any) => {
                           const newItems = [...prev.items];
                           newItems[index][field] = value;
-                          newItems[index].amount = (parseFloat(newItems[index].quantity || "0") * parseFloat(newItems[index].unit_price || "0")).toFixed(2);
-                          
-                          const subtotal = newItems.reduce((acc: number, item: any) => acc + parseFloat(item.amount || '0'), 0);
-                          const taxAmount = subtotal * (parseFloat(prev.tax_rate || "0") / 100);
+                          newItems[index].amount = (
+                            parseFloat(newItems[index].quantity || "0") *
+                            parseFloat(newItems[index].unit_price || "0")
+                          ).toFixed(2);
+
+                          const subtotal = newItems.reduce(
+                            (acc: number, item: any) =>
+                              acc + parseFloat(item.amount || "0"),
+                            0,
+                          );
+                          const taxAmount =
+                            subtotal * (parseFloat(prev.tax_rate || "0") / 100);
                           const total = subtotal + taxAmount;
 
-                          return { ...prev, items: newItems, subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                          return {
+                            ...prev,
+                            items: newItems,
+                            subtotal: subtotal.toFixed(2),
+                            tax_amount: taxAmount.toFixed(2),
+                            total: total.toFixed(2),
+                          };
                         });
                       }}
                       addItem={() => {
                         setEditingInvoiceData((prev: any) => ({
                           ...prev,
-                          items: [...prev.items, { description: '', quantity: 1, unit_price: 0, amount: 0 }]
+                          items: [
+                            ...prev.items,
+                            {
+                              description: "",
+                              quantity: 1,
+                              unit_price: 0,
+                              amount: 0,
+                            },
+                          ],
                         }));
                       }}
                       removeItem={(index) => {
                         setEditingInvoiceData((prev: any) => {
-                          const newItems = prev.items.filter((_: any, i: number) => i !== index);
-                          const subtotal = newItems.reduce((acc: number, item: any) => acc + parseFloat(item.amount || '0'), 0);
-                          const taxAmount = subtotal * (parseFloat(prev.tax_rate || "0") / 100);
+                          const newItems = prev.items.filter(
+                            (_: any, i: number) => i !== index,
+                          );
+                          const subtotal = newItems.reduce(
+                            (acc: number, item: any) =>
+                              acc + parseFloat(item.amount || "0"),
+                            0,
+                          );
+                          const taxAmount =
+                            subtotal * (parseFloat(prev.tax_rate || "0") / 100);
                           const total = subtotal + taxAmount;
-                          return { ...prev, items: newItems, subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                          return {
+                            ...prev,
+                            items: newItems,
+                            subtotal: subtotal.toFixed(2),
+                            tax_amount: taxAmount.toFixed(2),
+                            total: total.toFixed(2),
+                          };
                         });
                       }}
                       updateTaxRate={(val) => {
                         setEditingInvoiceData((prev: any) => {
                           const subtotal = parseFloat(prev.subtotal || "0");
-                          const taxAmount = subtotal * (parseFloat(val || "0") / 100);
+                          const taxAmount =
+                            subtotal * (parseFloat(val || "0") / 100);
                           const total = subtotal + taxAmount;
-                          return { ...prev, tax_rate: val, tax_amount: taxAmount.toFixed(2), total: total.toFixed(2) };
+                          return {
+                            ...prev,
+                            tax_rate: val,
+                            tax_amount: taxAmount.toFixed(2),
+                            total: total.toFixed(2),
+                          };
                         });
                       }}
                       setEditData={setEditingInvoiceData}
@@ -1448,32 +1740,49 @@ const FileManager = () => {
         <div className="flex items-center gap-x-1 md:gap-x-4 min-w-0 flex-1">
           {!isListing && (
             <div
-              className={`flex items-center gap-x-2 ${userType}-bg shrink-0 transition-all duration-300 ${isScrolled ? "px-3 py-1" : "p-3 md:p-4"
-                } hidden md:flex`}
-              style={{ width: isScrolled ? undefined : '200px', minWidth: isScrolled ? '120px' : '160px' }}
+              className={`flex items-center gap-x-2 ${userType}-bg shrink-0 transition-all duration-300 ${
+                isScrolled ? "px-3 py-1" : "p-3 md:p-4"
+              } hidden md:flex`}
+              style={{
+                width: isScrolled ? undefined : "200px",
+                minWidth: isScrolled ? "120px" : "160px",
+              }}
             >
-              <Avatar className={`transition-all duration-300 shrink-0 ${isScrolled ? "h-6 w-6" : "h-8 w-8"}`}>
+              <Avatar
+                className={`transition-all duration-300 shrink-0 ${isScrolled ? "h-6 w-6" : "h-8 w-8"}`}
+              >
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
               <div className="min-w-0 overflow-hidden">
-                <p className={`font-normal text-white font-alexandria leading-4 truncate transition-all duration-300 ${isScrolled ? "text-[11px]" : "text-[13px]"
-                  }`}>
+                <p
+                  className={`font-normal text-white font-alexandria leading-4 truncate transition-all duration-300 ${
+                    isScrolled ? "text-[11px]" : "text-[13px]"
+                  }`}
+                >
                   {orgName}
                 </p>
-                <p className={`font-normal text-white font-alexandria leading-4 truncate transition-all duration-300 ${isScrolled ? "text-[10px]" : "text-[11px]"
-                  }`}>
+                <p
+                  className={`font-normal text-white font-alexandria leading-4 truncate transition-all duration-300 ${
+                    isScrolled ? "text-[10px]" : "text-[11px]"
+                  }`}
+                >
                   {(() => {
                     const vendor = activeSlot?.vendor || orderData?.vendor;
-                    return vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
+                    return vendor
+                      ? `${vendor.first_name} ${vendor.last_name}`
+                      : "Taylor Tayburn";
                   })()}
                 </p>
               </div>
             </div>
           )}
           <p
-            className={`font-[400] truncate ${userType}-text transition-all duration-300 ${isScrolled ? "text-[10px] md:text-[16px]" : "text-[11px] md:text-[22px]"
-              } pl-1 md:pl-5`}
+            className={`font-[400] truncate ${userType}-text transition-all duration-300 ${
+              isScrolled
+                ? "text-[10px] md:text-[16px]"
+                : "text-[11px] md:text-[22px]"
+            } pl-1 md:pl-5`}
           >
             {isListing
               ? `Listings › ${currentListing?.address || ""}`
@@ -1513,9 +1822,20 @@ const FileManager = () => {
         className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
         style={{
           backgroundImage: `url('${(() => {
-            const featured = filesData?.files.find(f => f.is_featured) || filesData?.files[0];
+            const featured =
+              filesData?.files.find((f) => f.is_featured) ||
+              filesData?.files[0];
             if (!featured) return "";
-            return featured.variant_urls?.landing || featured.variant_urls?.popup || featured.url || (featured.file_path ? (featured.file_path.startsWith('http') ? featured.file_path : `${API_URL}/${featured.file_path}`) : "");
+            return (
+              featured.variant_urls?.landing ||
+              featured.variant_urls?.popup ||
+              featured.url ||
+              (featured.file_path
+                ? featured.file_path.startsWith("http")
+                  ? featured.file_path
+                  : `${API_URL}/${featured.file_path}`
+                : "")
+            );
           })()}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -1536,9 +1856,9 @@ const FileManager = () => {
                   ? `${currentListing?.address}, ${currentListing?.province}, ${currentListing?.postal_code}, ${currentListing?.country}`
                   : `Create Your Property Listing`
                 : orderData?.property?.address &&
-                  orderData?.property?.province &&
-                  orderData?.property?.postal_code &&
-                  orderData?.property?.country
+                    orderData?.property?.province &&
+                    orderData?.property?.postal_code &&
+                    orderData?.property?.country
                   ? `${orderData?.property?.address}, ${orderData?.property?.province}, ${orderData?.property?.postal_code}, ${orderData?.property?.country}`
                   : orderData?.property?.address || "Property Details"}
             </p>
@@ -1552,38 +1872,47 @@ const FileManager = () => {
       </div>
       {isListing && (
         <div
-          className={`w-full font-alexandria px-0 sticky z-40 flex items-center border-b border-[#BBBBBB] transition-all duration-300 ${isScrolled ? "top-[55px] h-[40px]" : "top-[80px] h-[60px]"
-            }`}
-          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+          className={`w-full font-alexandria px-0 sticky z-40 flex items-center border-b border-[#BBBBBB] transition-all duration-300 ${
+            isScrolled ? "top-[55px] h-[40px]" : "top-[80px] h-[60px]"
+          }`}
+          style={{
+            backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+          }}
         >
           <div className="flex items-center justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none px-2 md:px-4">
             <div className="flex items-center justify-center gap-x-2 md:gap-x-6 shrink-0 w-full md:w-auto">
               <div
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
-                  } ${true
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${
+                  isScrolled
+                    ? "h-[26px] w-full md:w-[120px]"
+                    : "h-[30px] w-full md:w-[150px]"
+                } ${
+                  true
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `text-[#666666] font-[700]`
-                  }`}
+                }`}
                 style={{
-                  backgroundColor: true
-                    ? undefined
-                    : "#FFFFFF",
+                  backgroundColor: true ? undefined : "#FFFFFF",
                 }}
               >
                 Media
               </div>
-              {userType !== 'vendor' && (
+              {userType !== "vendor" && (
                 <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
-                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
-                    } ${false
+                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${
+                    isScrolled
+                      ? "h-[26px] w-full md:w-[120px]"
+                      : "h-[30px] w-full md:w-[150px]"
+                  } ${
+                    false
                       ? `${userType}-bg text-white font-[700] ${userType}-border`
                       : `text-[#666666] font-[700]`
-                    }`}
+                  }`}
                   style={{
                     backgroundColor: true
                       ? `var(--${userType}-page-bg, #FFFFFF)`
-                      : "#FFFFFF", 
+                      : "#FFFFFF",
                   }}
                 >
                   Property details
@@ -1591,11 +1920,15 @@ const FileManager = () => {
               )}
               <SafeLink
                 href={`/dashboard/orders/${orderId}`}
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${isScrolled ? "h-[26px] w-full md:w-[120px]" : "h-[30px] w-full md:w-[150px]"
-                  } ${false
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${
+                  isScrolled
+                    ? "h-[26px] w-full md:w-[120px]"
+                    : "h-[30px] w-full md:w-[150px]"
+                } ${
+                  false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `text-[#666666] font-[700]`
-                  }`}
+                }`}
                 style={{
                   backgroundColor: true
                     ? `var(--${userType}-page-bg, #FFFFFF)`
@@ -1612,142 +1945,170 @@ const FileManager = () => {
         <div className="w-full flex items-center justify-center py-20 font-alexandria px-4">
           <div className="flex flex-col items-center justify-center p-8 border border-gray-200 bg-gray-50 rounded-lg max-w-md text-center shadow-sm">
             <span className="text-[40px] mb-4 opacity-70">🚫</span>
-            <h2 className="text-[20px] font-bold text-gray-800 mb-2">Order Cancelled</h2>
+            <h2 className="text-[20px] font-bold text-gray-800 mb-2">
+              Order Cancelled
+            </h2>
             <p className="text-[14px] text-gray-600">
-              The file manager is unavailable because this order has been cancelled. 
-              No media can be managed for cancelled orders.
+              The file manager is unavailable because this order has been
+              cancelled. No media can be managed for cancelled orders.
             </p>
           </div>
         </div>
       ) : (
         <>
           <div
-            className={`w-full font-alexandria px-0 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${isScrolled
-              ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
-              : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
-              }`}
-            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+            className={`w-full font-alexandria px-0 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${
+              isScrolled
+                ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
+                : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
+            }`}
+            style={{
+              backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+            }}
           >
-        {!isListing && (
-          <div className="px-[26px]">
-            <div
-              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"
-                }`}
-              onClick={handleBackNavigation}
-            >
-              <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
-                <BackArrow />
-                <p className="text-[16px] font-semibold text-white font-alexandria">
-                  BACK
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="flex items-center justify-start md:justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none py-2 px-2 md:px-4">
-          <div className="flex items-center gap-x-2 md:gap-x-6 shrink-0 w-max mx-auto md:w-auto">
-            {userType !== 'vendor' && (
-              <div
-                key="download"
-                onClick={() => {
-                  setActiveTab("download");
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.delete("serviceId"); // remove serviceId param
-                  router.replace(`?${params.toString()}`);
-                }}
-                className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                  } ${activeTab === "download"
-                    ? `bg-[#DC9600] text-white border-[#DC9600]`
-                    : `text-[#DC9600] border-[#DC9600] hover:!bg-[#DC9600] hover:!text-white`
+            {!isListing && (
+              <div className="px-[26px]">
+                <div
+                  className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg transition-all duration-300 ${
+                    isScrolled ? "scale-90" : "scale-100"
                   }`}
-                style={{
-                  backgroundColor:
-                    activeTab === "download"
-                      ? undefined
-                      : `var(--${userType}-page-bg, #F2F2F2)`,
-                }}
-              >
-                Download
+                  onClick={handleBackNavigation}
+                >
+                  <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
+                    <BackArrow />
+                    <p className="text-[16px] font-semibold text-white font-alexandria">
+                      BACK
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
-            {/* Render one tab per unique service uuid */}
-            {Array.from(groupedServices.entries()).map(([serviceUuid, group]) => {
-              const isActive = serviceUuid === activeTab;
-              return (
+            <div className="flex items-center justify-start md:justify-center w-full overflow-x-auto whitespace-nowrap scrollbar-none py-2 px-2 md:px-4">
+              <div className="flex items-center gap-x-2 md:gap-x-6 shrink-0 w-max mx-auto md:w-auto">
+                {userType !== "vendor" && (
+                  <div
+                    key="download"
+                    onClick={() => {
+                      setActiveTab("download");
+                      const params = new URLSearchParams(
+                        searchParams.toString(),
+                      );
+                      params.delete("serviceId"); // remove serviceId param
+                      router.replace(`?${params.toString()}`);
+                    }}
+                    className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                      isScrolled
+                        ? "h-[32px] md:h-[36px]"
+                        : "h-[45px] md:h-[60px]"
+                    } ${
+                      activeTab === "download"
+                        ? `bg-[#DC9600] text-white border-[#DC9600]`
+                        : `text-[#DC9600] border-[#DC9600] hover:!bg-[#DC9600] hover:!text-white`
+                    }`}
+                    style={{
+                      backgroundColor:
+                        activeTab === "download"
+                          ? undefined
+                          : `var(--${userType}-page-bg, #F2F2F2)`,
+                    }}
+                  >
+                    Download
+                  </div>
+                )}
+                {/* Render one tab per unique service uuid */}
+                {Array.from(groupedServices.entries()).map(
+                  ([serviceUuid, group]) => {
+                    const isActive = serviceUuid === activeTab;
+                    return (
+                      <div
+                        key={serviceUuid}
+                        onClick={() => {
+                          setActiveTab(serviceUuid);
+                          setActiveServiceIndex(0);
+                          const params = new URLSearchParams(
+                            searchParams.toString(),
+                          );
+                          params.set("serviceId", serviceUuid);
+                          router.replace(`?${params.toString()}`);
+                        }}
+                        className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                          isScrolled
+                            ? "h-[32px] md:h-[36px]"
+                            : "h-[45px] md:h-[60px]"
+                        } ${
+                          isActive
+                            ? `${userType}-bg text-white ${userType}-border`
+                            : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                        }`}
+                        style={{
+                          backgroundColor: isActive
+                            ? undefined
+                            : `var(--${userType}-page-bg, #F2F2F2)`,
+                        }}
+                      >
+                        {group[0].service.name}
+                      </div>
+                    );
+                  },
+                )}
+
                 <div
-                  key={serviceUuid}
+                  key="tour"
                   onClick={() => {
-                    setActiveTab(serviceUuid);
-                    setActiveServiceIndex(0);
+                    setActiveTab("tour");
                     const params = new URLSearchParams(searchParams.toString());
-                    params.set("serviceId", serviceUuid);
+                    params.delete("serviceId"); // remove serviceId param
                     router.replace(`?${params.toString()}`);
                   }}
-                  className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                    } ${isActive
+                  className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                    isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
+                  } ${
+                    activeTab === "tour"
                       ? `${userType}-bg text-white ${userType}-border`
                       : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                    }`}
+                  }`}
                   style={{
-                    backgroundColor: isActive
-                      ? undefined
-                      : `var(--${userType}-page-bg, #F2F2F2)`,
+                    backgroundColor:
+                      activeTab === "tour"
+                        ? undefined
+                        : `var(--${userType}-page-bg, #F2F2F2)`,
                   }}
                 >
-                  {group[0].service.name}
+                  Tour
                 </div>
-              );
-            })}
-
-            <div
-              key="tour"
-              onClick={() => {
-                setActiveTab("tour");
-                const params = new URLSearchParams(searchParams.toString());
-                params.delete("serviceId"); // remove serviceId param
-                router.replace(`?${params.toString()}`);
-              }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                } ${activeTab === "tour"
-                  ? `${userType}-bg text-white ${userType}-border`
-                  : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                }`}
-              style={{
-                backgroundColor:
-                  activeTab === "tour"
-                    ? undefined
-                    : `var(--${userType}-page-bg, #F2F2F2)`,
-              }}
-            >
-              Tour
-            </div>
-            {userType !== 'vendor' && (
-              <div
-                key="CreateFeatureSheet"
-                onClick={() => {
-                  setActiveTab("CreateFeatureSheet");
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.delete("serviceId"); // remove serviceId param
-                  router.replace(`?${params.toString()}`);
-                }}
-                className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                  } ${activeTab === "CreateFeatureSheet"
-                    ? `${userType}-bg text-white ${userType}-border`
-                    : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                  }`}
-                style={{
-                  backgroundColor:
-                    activeTab === "CreateFeatureSheet"
-                      ? undefined
-                      : `var(--${userType}-page-bg, #F2F2F2)`,
-                }}
-              >
-                Create Feature Sheet
+                {userType !== "vendor" && (
+                  <div
+                    key="CreateFeatureSheet"
+                    onClick={() => {
+                      setActiveTab("CreateFeatureSheet");
+                      const params = new URLSearchParams(
+                        searchParams.toString(),
+                      );
+                      params.delete("serviceId"); // remove serviceId param
+                      router.replace(`?${params.toString()}`);
+                    }}
+                    className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                      isScrolled
+                        ? "h-[32px] md:h-[36px]"
+                        : "h-[45px] md:h-[60px]"
+                    } ${
+                      activeTab === "CreateFeatureSheet"
+                        ? `${userType}-bg text-white ${userType}-border`
+                        : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                    }`}
+                    style={{
+                      backgroundColor:
+                        activeTab === "CreateFeatureSheet"
+                          ? undefined
+                          : `var(--${userType}-page-bg, #F2F2F2)`,
+                    }}
+                  >
+                    Create Feature Sheet
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-        {/* {userType !== 'vendor' && (
+            </div>
+            {/* {userType !== 'vendor' && (
           <div className="flex items-center gap-x-4 pr-6">
             <Button
               onClick={() => {
@@ -1762,212 +2123,273 @@ const FileManager = () => {
             </Button>
           </div>
         )} */}
-      </div>
+          </div>
 
-      {/* Sub-tabs for duplicate service bookings */}
-      {activeServiceGroup && activeServiceGroup.length > 1 && (
-        <div
-          className={`w-full flex flex-col gap-0 border-b border-[#BBBBBB] transition-all duration-300 sticky z-20 ${isScrolled
-            ? `${isListing ? "top-[145px] h-[36px] shadow-sm" : "top-[105px] h-[36px] shadow-sm"}`
-            : `${isListing ? "top-[230px] h-[45px]" : "top-[170px] h-[45px]"}`
-            }`}
-          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), white 40%)` }}
-        >
-          <div className={`flex items-stretch transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[45px]"}`}>
-            {activeServiceGroup.map((booking, idx) => {
-              const isSubActive = idx === activeServiceIndex;
-              const bookingDate = new Date(booking.created_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              });
-              const isRefunded =
-                booking.payment_status === "REFUNDED" ||
-                orderData?.payment_status === "REFUNDED";
-              const isPaid =
-                orderData?.payment_status === "PAID" ||
-                booking.payment_status === "PAID";
+          {/* Sub-tabs for duplicate service bookings */}
+          {activeServiceGroup && activeServiceGroup.length > 1 && (
+            <div
+              className={`w-full flex flex-col gap-0 border-b border-[#BBBBBB] transition-all duration-300 sticky z-20 ${
+                isScrolled
+                  ? `${isListing ? "top-[145px] h-[36px] shadow-sm" : "top-[105px] h-[36px] shadow-sm"}`
+                  : `${isListing ? "top-[230px] h-[45px]" : "top-[170px] h-[45px]"}`
+              }`}
+              style={{
+                backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), white 40%)`,
+              }}
+            >
+              <div
+                className={`flex items-stretch transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[45px]"}`}
+              >
+                {activeServiceGroup.map((booking, idx) => {
+                  const isSubActive = idx === activeServiceIndex;
+                  const bookingDate = new Date(
+                    booking.created_at,
+                  ).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+                  const isRefunded =
+                    booking.payment_status === "REFUNDED" ||
+                    orderData?.payment_status === "REFUNDED";
+                  const isPaid =
+                    orderData?.payment_status === "PAID" ||
+                    booking.payment_status === "PAID";
 
-              return (
-                <div
-                  key={booking.uuid}
-                  onClick={() => setActiveServiceIndex(idx)}
-                  className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${isSubActive
-                    ? `${userType}-bg shadow-inner`
-                    : "bg-white/50 hover:bg-white/80"
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-[13px] font-bold tracking-tight ${isSubActive ? "text-white" : `${userType}-text`
-                        }`}
+                  return (
+                    <div
+                      key={booking.uuid}
+                      onClick={() => setActiveServiceIndex(idx)}
+                      className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${
+                        isSubActive
+                          ? `${userType}-bg shadow-inner`
+                          : "bg-white/50 hover:bg-white/80"
+                      }`}
                     >
-                      Booking #{idx + 1}
-                    </span>
-                    <span
-                      className={`text-[11px] font-medium ${isSubActive ? "text-white/80" : "text-[#7D7D7D]"
-                        }`}
-                    >
-                      {bookingDate}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`text-[13px] font-bold tracking-tight ${
+                            isSubActive ? "text-white" : `${userType}-text`
+                          }`}
+                        >
+                          Booking #{idx + 1}
+                        </span>
+                        <span
+                          className={`text-[11px] font-medium ${
+                            isSubActive ? "text-white/80" : "text-[#7D7D7D]"
+                          }`}
+                        >
+                          {bookingDate}
+                        </span>
+                      </div>
 
-                  {/* Status Badge */}
-                  {userType !== "vendor" && (
-                    <div className="flex items-center gap-2">
-                      {isRefunded ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenInvoice(booking.service?.name);
-                          }}
-                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#D0021B] text-white hover:bg-[#b00217] transition-colors"
-                        >
-                          REFUNDED
-                        </button>
-                      ) : isPaid ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenInvoice(booking.service?.name);
-                          }}
-                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border-2 ${userType}-border ${userType}-text bg-white hover-${userType}-bg hover:!text-white transition-all`}
-                        >
-                          View
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenInvoice(booking.service?.name);
-                          }}
-                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
-                        >
-                          UNPAID
-                        </button>
+                      {/* Status Badge */}
+                      {userType !== "vendor" && (
+                        <div className="flex items-center gap-2">
+                          {isRefunded ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenInvoice(booking.service?.name);
+                              }}
+                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#D0021B] text-white hover:bg-[#b00217] transition-colors"
+                            >
+                              REFUNDED
+                            </button>
+                          ) : isPaid ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenInvoice(booking.service?.name);
+                              }}
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border-2 ${userType}-border ${userType}-text bg-white hover-${userType}-bg hover:!text-white transition-all`}
+                            >
+                              View
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenInvoice(booking.service?.name);
+                              }}
+                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
+                            >
+                              UNPAID
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Admin Approval Widget */}
-      {userType === 'admin' && reviewFilesEnabled && activeService && (() => {
-        const unapprovedFiles = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
-        if (unapprovedFiles.length === 0) return null;
-
-        return (
-          <div className="mx-[25px] my-4 p-4 border border-amber-200 bg-amber-50 rounded-[8px] flex flex-col md:flex-row justify-between items-center gap-4 font-alexandria shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="text-[20px]">⚠️</span>
-              <div>
-                <p className="text-[14px] font-bold text-amber-800">Admin Approval Required</p>
-                <p className="text-[12px] text-amber-700">This vendor requires your approval. {unapprovedFiles.length} file(s) are currently locked and hidden from the client/agent. Check the box on the thumbnail for specific files to approve them.</p>
+                  );
+                })}
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-              {approvalSelectedUuids.size > 0 && (
-                <Button
-                  onClick={async () => {
-                    if (approvalSelectedUuids.size === 0) return;
+          )}
 
-                    const filesToApprove = filesData?.files?.filter(f => approvalSelectedUuids.has(f.uuid) && !f.is_admin_approved) || [];
-                    if (filesToApprove.length === 0) return;
-                    
-                    const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
+          {/* Admin Approval Widget */}
+          {userType === "admin" &&
+            reviewFilesEnabled &&
+            activeService &&
+            (() => {
+              const unapprovedFiles =
+                filesData?.files?.filter(
+                  (f) =>
+                    f.service?.uuid === activeService.uuid &&
+                    !f.is_admin_approved,
+                ) || [];
+              if (unapprovedFiles.length === 0) return null;
 
-                    setFilesData(prev => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        files: prev.files.map(f => {
-                          if (approvalSelectedUuids.has(f.uuid) && !f.is_admin_approved) {
-                            return { ...f, is_admin_approved: true };
-                          }
-                          return f;
-                        })
-                      };
-                    });
+              return (
+                <div className="mx-[25px] my-4 p-4 border border-amber-200 bg-amber-50 rounded-[8px] flex flex-col md:flex-row justify-between items-center gap-4 font-alexandria shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[20px]">⚠️</span>
+                    <div>
+                      <p className="text-[14px] font-bold text-amber-800">
+                        Admin Approval Required
+                      </p>
+                      <p className="text-[12px] text-amber-700">
+                        This vendor requires your approval.{" "}
+                        {unapprovedFiles.length} file(s) are currently locked
+                        and hidden from the client/agent. Check the box on the
+                        thumbnail for specific files to approve them.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                    {approvalSelectedUuids.size > 0 && (
+                      <Button
+                        onClick={async () => {
+                          if (approvalSelectedUuids.size === 0) return;
 
-                    setChangedFileUuids(prevSet => {
-                      const newSet = new Set(prevSet);
-                      filesToApprove.forEach(f => newSet.add(f.uuid));
-                      return newSet;
-                    });
+                          const filesToApprove =
+                            filesData?.files?.filter(
+                              (f) =>
+                                approvalSelectedUuids.has(f.uuid) &&
+                                !f.is_admin_approved,
+                            ) || [];
+                          if (filesToApprove.length === 0) return;
 
-                    setApprovalSelectedUuids(new Set());
-                    await handleSave(approvedFiles);
-                    toast.success(`${filesToApprove.length} file(s) approved and released successfully!`);
-                  }}
-                  className="bg-[#6BAE41] hover:bg-[#5fa43a] text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
-                >
-                  Approve Selected Media ({approvalSelectedUuids.size})
-                </Button>
-              )}
-              <Button
-                onClick={async () => {
-                  const filesToApprove = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
-                  if (filesToApprove.length === 0) return;
+                          const approvedFiles = filesToApprove.map((f) => ({
+                            ...f,
+                            is_admin_approved: true,
+                          }));
 
-                  const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
+                          setFilesData((prev) => {
+                            if (!prev) return prev;
+                            return {
+                              ...prev,
+                              files: prev.files.map((f) => {
+                                if (
+                                  approvalSelectedUuids.has(f.uuid) &&
+                                  !f.is_admin_approved
+                                ) {
+                                  return { ...f, is_admin_approved: true };
+                                }
+                                return f;
+                              }),
+                            };
+                          });
 
-                  setFilesData(prev => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      files: prev.files.map(f => {
-                        if (f.service?.uuid === activeService.uuid && !f.is_admin_approved) {
-                          return { ...f, is_admin_approved: true };
-                        }
-                        return f;
-                      })
-                    };
-                  });
+                          setChangedFileUuids((prevSet) => {
+                            const newSet = new Set(prevSet);
+                            filesToApprove.forEach((f) => newSet.add(f.uuid));
+                            return newSet;
+                          });
 
-                  setChangedFileUuids(prevSet => {
-                    const newSet = new Set(prevSet);
-                    filesToApprove.forEach(f => newSet.add(f.uuid));
-                    return newSet;
-                  });
+                          setApprovalSelectedUuids(new Set());
+                          await handleSave(approvedFiles);
+                          toast.success(
+                            `${filesToApprove.length} file(s) approved and released successfully!`,
+                          );
+                        }}
+                        className="bg-[#6BAE41] hover:bg-[#5fa43a] text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
+                      >
+                        Approve Selected Media ({approvalSelectedUuids.size})
+                      </Button>
+                    )}
+                    <Button
+                      onClick={async () => {
+                        const filesToApprove =
+                          filesData?.files?.filter(
+                            (f) =>
+                              f.service?.uuid === activeService.uuid &&
+                              !f.is_admin_approved,
+                          ) || [];
+                        if (filesToApprove.length === 0) return;
 
-                  setApprovalSelectedUuids(new Set());
-                  await handleSave(approvedFiles);
-                  toast.success("All files approved and released successfully!");
-                }}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
-              >
-                Approve All Media
-              </Button>
-            </div>
-          </div>
-        );
-      })()}
+                        const approvedFiles = filesToApprove.map((f) => ({
+                          ...f,
+                          is_admin_approved: true,
+                        }));
 
-      {/* Vendor Pending Approval Notice */}
-      {userType === 'vendor' && reviewFilesEnabled && (() => {
-        const pendingFiles = filesData?.files?.filter(f =>
-          !f.is_admin_approved &&
-          !f.is_deleted &&
-          (activeService ? f.service?.uuid === activeService.uuid : true)
-        ) || [];
-        if (pendingFiles.length === 0) return null;
+                        setFilesData((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            files: prev.files.map((f) => {
+                              if (
+                                f.service?.uuid === activeService.uuid &&
+                                !f.is_admin_approved
+                              ) {
+                                return { ...f, is_admin_approved: true };
+                              }
+                              return f;
+                            }),
+                          };
+                        });
 
-        return (
-          <div className="mx-[25px] my-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm">
-            <span className="text-[20px] shrink-0 mt-0.5">🕐</span>
-            <div>
-              <p className="text-[14px] font-bold text-blue-800">Uploads Pending Admin Approval</p>
-              <p className="text-[12px] text-blue-700 mt-0.5">
-                Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
-              </p>
-            </div>
-          </div>
-        );
-      })()}
+                        setChangedFileUuids((prevSet) => {
+                          const newSet = new Set(prevSet);
+                          filesToApprove.forEach((f) => newSet.add(f.uuid));
+                          return newSet;
+                        });
+
+                        setApprovalSelectedUuids(new Set());
+                        await handleSave(approvedFiles);
+                        toast.success(
+                          "All files approved and released successfully!",
+                        );
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
+                    >
+                      Approve All Media
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+
+          {/* Vendor Pending Approval Notice */}
+          {userType === "vendor" &&
+            reviewFilesEnabled &&
+            (() => {
+              const pendingFiles =
+                filesData?.files?.filter(
+                  (f) =>
+                    !f.is_admin_approved &&
+                    !f.is_deleted &&
+                    (activeService
+                      ? f.service?.uuid === activeService.uuid
+                      : true),
+                ) || [];
+              if (pendingFiles.length === 0) return null;
+
+              return (
+                <div className="mx-[25px] my-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm">
+                  <span className="text-[20px] shrink-0 mt-0.5">🕐</span>
+                  <div>
+                    <p className="text-[14px] font-bold text-blue-800">
+                      Uploads Pending Admin Approval
+                    </p>
+                    <p className="text-[12px] text-blue-700 mt-0.5">
+                      Your uploads are undergoing Admin Approval. Once approved
+                      by the administrator, they will be released to the booking
+                      agent.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
           <div className="pb-24 md:pb-0">{renderContent()}</div>
         </>
@@ -1980,7 +2402,7 @@ const FileManager = () => {
         mediaDateBoundary={mediaDateBoundary}
         isFetching={isHiddenMediaFetching}
       />
-    </div >
+    </div>
   );
 };
 

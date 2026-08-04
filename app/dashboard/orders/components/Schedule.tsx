@@ -77,7 +77,11 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     // Vendors with force_service_area=false whose property is OUTSIDE their geofence.
     // These are hidden by default but become available when the admin enables Schedule Override.
     const [overridableVendorsByService, setOverridableVendorsByService] = useState<Record<string, VendorData[]>>({});
-    const [masterDate, setMasterDate] = useState<Date>(new Date());
+    const [masterDate, setMasterDate] = useState<Date>(() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 1);
+        return date;
+    });
     const [serviceDates, setServiceDates] = useState<Record<string, Date | null>>({});
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
     const [orgContact, setOrgContact] = useState<{ phone: string, email: string } | null>(null);
@@ -522,7 +526,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                             productOption?.service_duration,
                                                             squareFootage
                                                         );
-                                                        const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0;
+                                                        const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
 
                                                         return (
                                                             <>

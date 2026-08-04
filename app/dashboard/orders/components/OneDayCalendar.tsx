@@ -481,7 +481,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const isUnderScheduled = hasSelectedSlotsForBorder && currentServiceSlotsCountForBorder < requiredSlotsCountForBorder;
 
   const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid);
-  const initialDateStr = existingSlot ? existingSlot.date : dayjs().format('YYYY-MM-DD');
+  const initialDateStr = existingSlot ? existingSlot.date : dayjs(masterDate).format('YYYY-MM-DD');
 
   const [events, setEvents] = useState<Slots[]>([]);
   const [currentDate, setCurrentDate] = useState<string>(initialDateStr);
@@ -1009,6 +1009,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     // The lastAutoJumpDate ref already prevents re-running on the same date.
     hasCheckedForNextAvailableDay.current = false;
   }, [vendorsKey, recommendVal]); // intentionally exclude currentDate
+
+  useEffect(() => {
+    hasScrolledToFirstSlot.current = false;
+  }, [currentDate]);
 
   // ── Hover preview computation ──────────────────────────────────────────────
   // Determines which slots to highlight and whether the preview is valid

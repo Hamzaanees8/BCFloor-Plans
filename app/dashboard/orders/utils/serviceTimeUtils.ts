@@ -1,29 +1,35 @@
 
 import { addMinutes, format, parse, differenceInMinutes } from 'date-fns';
 
-export function calculateServiceDuration(squareFootage: number | undefined): number {
-    if (!squareFootage || squareFootage <= 2000) {
-        return 60;
+export function calculateServiceDuration(
+    squareFootage: number | string | undefined,
+    baseDuration: number = 60
+): number {
+    const sqFtNum = typeof squareFootage === 'string'
+        ? parseFloat(squareFootage.replace(/,/g, ''))
+        : Number(squareFootage);
+
+    const base = (baseDuration && baseDuration > 0) ? baseDuration : 60;
+
+    if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= 2000) {
+        return base;
     }
 
-    const additionalSqFt = squareFootage - 2000;
-    const additionalTime = Math.ceil(additionalSqFt / 1000) * 30;
+    const additionalSqFt = sqFtNum - 2000;
+    const additionalTime = Math.ceil(additionalSqFt / 500) * 30;
 
-    return 60 + additionalTime;
+    return base + additionalTime;
 }
 
 
 export function getEffectiveServiceDuration(
     serviceDuration: number | string | undefined,
-    squareFootage: number | undefined
+    squareFootage: number | string | undefined
 ): number {
     const duration = typeof serviceDuration === 'string' ? parseInt(serviceDuration, 10) : serviceDuration;
+    const validDuration = (duration && !isNaN(duration) && duration > 0) ? duration : 60;
 
-    if (duration && duration > 0) {
-        return duration;
-    }
-
-    return calculateServiceDuration(squareFootage);
+    return calculateServiceDuration(squareFootage, validDuration);
 }
 
 

@@ -79,49 +79,36 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
     const finished: Field[] = [];
     const subtotal: Field[] = [];
     const other: Field[] = [];
-
-    tourSettings.forEach((setting) => {
-      const label = setting.area;
-      const key = label.trim().toLowerCase();
-      const existing = orderAreaMap.get(key);
-
-      const category: "Finished" | "Subtotal" | "Other" =
-        setting.type === "Finished Area"
-          ? "Finished"
-          : setting.type === "Sub Area"
-            ? "Subtotal"
-            : "Other";
-
+    // 1. Add all existing areas from current order
+    currentOrder?.areas?.forEach((area: Area) => {
+      const category = (area.category || area.type) as "Finished" | "Subtotal" | "Other";
+      const label = area.custom_title || area.type;
+      
       const field: Field = {
         id: uniqueId++,
         label,
-        value: existing?.footage ?? 0,
-        custom_title: label,
-        category,
+        value: area.footage || 0,
+        custom_title: area.custom_title,
+        category: ["Finished", "Subtotal", "Other"].includes(category) ? category : "Other",
       };
 
-      if (category === "Finished") finished.push(field);
-      else if (category === "Subtotal") subtotal.push(field);
+      if (field.category === "Finished") finished.push(field);
+      else if (field.category === "Subtotal") subtotal.push(field);
       else other.push(field);
     });
 
-    // Also include any order subtotal areas not covered by tour settings
-    currentOrder?.areas?.forEach((area: Area) => {
-      if ((area.type as string) === "Subtotal") {
-        const alreadyAdded = subtotal.some(
-          (s) => s.label.trim().toLowerCase() === (area.custom_title || area.type).trim().toLowerCase()
-        );
-        if (!alreadyAdded) {
-          subtotal.push({
-            id: uniqueId++,
-            label: area.custom_title || area.type,
-            value: area.footage,
-            custom_title: area.custom_title,
-            category: "Subtotal",
-          });
-        }
-      }
-    });
+    // 2. Add default finished area (Main Level) if empty
+    const finishedSettings = tourSettings.filter(s => s.type === "Finished Area");
+    if (finished.length === 0 && finishedSettings.length > 0) {
+      const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === "main level") || finishedSettings[0];
+      finished.push({
+        id: uniqueId++,
+        label: mainLevelSetting.area,
+        value: 0,
+        custom_title: mainLevelSetting.area,
+        category: "Finished"
+      });
+    }
 
     setFinishedAreas(finished);
     setSubtotalAreas(subtotal);
@@ -261,7 +248,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
                   +Add area
                 </Button>
               )}
-              {showTotal && <div className="font-semibold">TOTAL <span className="ml-[80px]">{total(list)} Sq.ft</span></div>}
+              {showTotal && list.length > 0 && <div className="font-semibold">TOTAL <span className="ml-[80px]">{total(list)} Sq.ft</span></div>}
             </div>
           </div>
         )}
@@ -275,12 +262,13 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
       {renderSection('finished', finishedAreas, setFinishedAreas)}
       {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
-      {renderSection('other', otherAreas, setOtherAreas)}
 
-      <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
+      <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded my-2">
         <span className="font-bold pl-2">Grand Total</span>
         <span className="font-bold">{grandTotal} Sq.ft</span>
       </div>
+
+      {renderSection('other', otherAreas, setOtherAreas)}
 
       <AddExtraDialog
         open={openAddDialog}

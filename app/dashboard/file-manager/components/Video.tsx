@@ -476,7 +476,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
                             {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                 <span
-                                    className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                    className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setFilesToHide(prev => {
@@ -514,7 +514,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedVideoFiles(prev =>
@@ -563,7 +563,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                                 thumbnailUpdateRef.current?.click();
                                             }}
                                             disabled={uploadingThumbnailUuid === file.uuid}
-                                            className="absolute top-2 left-2 z-20 bg-white/90 hover:bg-white text-[10px] font-semibold px-2 py-1 rounded shadow-sm text-gray-700 transition-colors flex items-center gap-1 disabled:opacity-70 disabled:cursor-not-allowed"
+                                            className={`absolute top-2 left-2 z-20 bg-white/90 hover:bg-white text-[10px] font-semibold px-2 py-1 rounded shadow-sm text-gray-700 transition-colors ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center gap-1 disabled:opacity-70 disabled:cursor-not-allowed`}
                                         >
                                             {uploadingThumbnailUuid === file.uuid ? (
                                                 <>
@@ -601,7 +601,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     )}
                                     {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                         <span
-                                            className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                            className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === 'reorder' ? 'hidden' : 'block'}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setFilesToHide(prev => {
@@ -620,7 +620,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
                             {userType === 'admin' && (
                                 <div
-                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200"
+                                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (file.is_admin_approved) {

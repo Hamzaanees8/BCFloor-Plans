@@ -27,6 +27,12 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 //import CloseDialog from '@/components/CloseDialog'
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   // connectGoogleCalendar,
   connectStripe,
   Create,
@@ -42,7 +48,7 @@ import {
 } from "../vendors";
 import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 
-import { Plus, X, Loader2, ArrowLeft } from "lucide-react";
+import { Plus, X, Loader2, ArrowLeft, Wrench, ArrowRight } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
 import VendorEarningsHistory from "@/components/VendorEarningsHistory";
@@ -206,7 +212,7 @@ const VendorForm = () => {
   const [paymentPerKm, setPaymentPerKm] = useState<string | number>("");
   const [billingAddress1, setBillingAddress1] = useState("");
   const [billingAddress2, setBillingAddress2] = useState("");
-  const [startLocation, setStartLocation] = useState("");
+  const [startLocation, setStartLocation] = useState("Main Office");
   const [emailType, setEmailType] = useState("primary");
   const [primaryPhone, setPrimaryPhone] = useState("");
   const [secondaryPhone, setSecondaryPhone] = useState("");
@@ -314,6 +320,7 @@ const VendorForm = () => {
 
   const [useHeadquarterForStart, setUseHeadquarterForStart] = useState<boolean>(!params?.id);
   const [useHeadquarterForBilling, setUseHeadquarterForBilling] = useState<boolean>(!params?.id);
+  const [showServicePromptDialog, setShowServicePromptDialog] = useState(false);
 
   const handleReset = () => {
     setPassword("");
@@ -521,7 +528,7 @@ const VendorForm = () => {
       }
 
       if (startLocationAddress) {
-        setStartLocation(startLocationAddress.address_line_1 || "");
+        setStartLocation(startLocationAddress.address_line_1 || "Main Office");
         setBillingAddress(startLocationAddress.address_line_2 || "");
         setBillingCity(startLocationAddress.city || "");
         setBillingProvince(startLocationAddress.province || "");
@@ -809,37 +816,50 @@ const VendorForm = () => {
       validationErrors.map_coordinates = ["Map coordinates are required and must have at least 3 points"];
     }
 
+    const profileValidationErrors: Record<string, string[]> = { ...validationErrors };
+
+    if (primaryPhone.trim() && !isValidPhoneNumber(primaryPhone)) {
+      profileValidationErrors.primary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
+    }
+
+    if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
+      profileValidationErrors.secondary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
+    }
+
+    if (displayCompanyWebsite?.trim() && !isValidWebsite(displayCompanyWebsite)) {
+      profileValidationErrors.company_website = ["Invalid website URL"];
+    }
+
+    // Check if there are profile/details tab errors first
+    if (Object.keys(profileValidationErrors).length > 0) {
+      setFieldErrors(profileValidationErrors);
+      // Switch active tab to details so user sees the errors
+      setActive("details");
+      const firstError = Object.values(profileValidationErrors).flat()[0];
+      toast.error(firstError || "Please fill in all required profile fields correctly.");
+      return;
+    }
+
+    // Now validate services for new vendor creation
+    const serviceValidationErrors: Record<string, string[]> = {};
     if (!userId && userType !== "vendor") {
       if (selectedServices.length === 0) {
-        validationErrors.services = ["At least one service must be selected"];
+        serviceValidationErrors.services = ["At least one service must be selected"];
       } else {
         selectedServices.forEach((service, index) => {
           if (!service.service_id) {
-            validationErrors[`services[${index}].service_id`] = ["Service ID is required"];
+            serviceValidationErrors[`services[${index}].service_id`] = ["Service ID is required"];
           }
           if (!service.options || service.options.length === 0) {
-            validationErrors[`services[${index}].options`] = [`Options are required for selected service`];
+            serviceValidationErrors[`services[${index}].options`] = [`Options are required for selected service`];
           }
         });
       }
     }
 
-    if (primaryPhone.trim() && !isValidPhoneNumber(primaryPhone)) {
-      validationErrors.primary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
-    }
-
-    if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
-      validationErrors.secondary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
-    }
-
-    if (displayCompanyWebsite?.trim() && !isValidWebsite(displayCompanyWebsite)) {
-      validationErrors.company_website = ["Invalid website URL"];
-    }
-
-    if (Object.keys(validationErrors).length > 0) {
-      setFieldErrors(validationErrors);
-      const firstError = Object.values(validationErrors).flat()[0];
-      toast.error(firstError || "Please fill in all required fields correctly.");
+    if (Object.keys(serviceValidationErrors).length > 0) {
+      setFieldErrors(serviceValidationErrors);
+      setShowServicePromptDialog(true);
       return;
     }
 
@@ -1787,7 +1807,15 @@ const VendorForm = () => {
                           </label>
                           <GooglePlacesAutocomplete
                             value={companyAddress}
-                            onChange={(val) => setCompanyAddress(val)}
+                            onChange={(val) => {
+                              setCompanyAddress(val);
+                              if (useHeadquarterForBilling) {
+                                setBillingAddress1(val);
+                              }
+                              if (useHeadquarterForStart) {
+                                setBillingAddress(val);
+                              }
+                            }}
                             onAddressComponents={(components) => {
                               setCompanyAddress(components.address_line_1);
                               setCompanyCity(components.city);
@@ -1959,27 +1987,13 @@ const VendorForm = () => {
                     <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                       <div className="grid grid-cols-2 gap-[16px] text-sm font-normal text-[#424242]">
                         <div className="col-span-2">
-                          <div className="flex items-center justify-between mt-[12px]">
-                            <label htmlFor="">
-                              Start Location{" "}
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                id="useHeadquarterForStart"
-                                checked={useHeadquarterForStart}
-                                onChange={(e) => setUseHeadquarterForStart(e.target.checked)}
-                                className="h-4 w-4"
-                              />
-                              <label htmlFor="useHeadquarterForStart" className="text-xs text-[#666666]">Same as Headquarter</label>
-                            </div>
-                          </div>
+                          <label htmlFor="">
+                            Start Location Title <span className="text-red-500">*</span>
+                          </label>
                           <Input
                             value={startLocation}
                             onChange={(e) => {
                               setStartLocation(e.target.value);
-                              setUseHeadquarterForStart(false);
                               if (fieldErrors[`addresses.1.address_line_1`]) {
                                 const newErrors = { ...fieldErrors };
                                 delete newErrors[`addresses.1.address_line_1`];
@@ -2000,9 +2014,31 @@ const VendorForm = () => {
                           )}
                         </div>
                         <div className="col-span-2">
-                          <label htmlFor="">
-                            Address <span className="text-red-500">*</span>
-                          </label>
+                          <div className="flex items-center justify-between mt-[12px]">
+                            <label htmlFor="">
+                              Address <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="useHeadquarterForStart"
+                                checked={useHeadquarterForStart}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setUseHeadquarterForStart(checked);
+                                  if (checked) {
+                                    setBillingAddress(companyAddress);
+                                    setBillingCity(companyCity);
+                                    setBillingProvince(companyProvince);
+                                    setBillingCountry(companyCountry);
+                                    setBillingPostalCode(companyPostalCode);
+                                  }
+                                }}
+                                className="h-4 w-4"
+                              />
+                              <label htmlFor="useHeadquarterForStart" className="text-xs text-[#666666]">Same as Headquarter</label>
+                            </div>
+                          </div>
                           <GooglePlacesAutocomplete
                             value={billingAddress}
                             onChange={(val) => {
@@ -2154,7 +2190,13 @@ const VendorForm = () => {
                                 type="checkbox"
                                 id="useHeadquarterForBilling"
                                 checked={useHeadquarterForBilling}
-                                onChange={(e) => setUseHeadquarterForBilling(e.target.checked)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setUseHeadquarterForBilling(checked);
+                                  if (checked) {
+                                    setBillingAddress1(companyAddress);
+                                  }
+                                }}
                                 className="h-4 w-4"
                               />
                               <label htmlFor="useHeadquarterForBilling" className="text-xs text-[#666666]">Same as Headquarter</label>
@@ -2620,7 +2662,8 @@ const VendorForm = () => {
                         <div className="col-span-2">
                           <div>
                             <Label htmlFor="">
-                              Payment per {inkilometers ? "kilometer" : "mile"}
+                              Payment per {inkilometers ? "kilometer" : "mile"}{" "}
+                              <span className="text-red-500">*</span>
                             </Label>
                             <Input
                               type="number"
@@ -2899,7 +2942,73 @@ const VendorForm = () => {
           />
         )}
       </div>
-    </div >
+
+      <Dialog open={showServicePromptDialog} onOpenChange={setShowServicePromptDialog}>
+        <DialogContent className="max-w-[460px] p-0 overflow-hidden bg-white rounded-2xl shadow-2xl border border-gray-100">
+          <div className="p-6">
+            <div className="flex items-start gap-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner"
+                style={{
+                  backgroundColor: `var(--${userType}-page-bg, #F3F4F6)`,
+                }}
+              >
+                <Wrench
+                  className="w-6 h-6"
+                  style={{ color: `var(--${userType}-color, #3B82F6)` }}
+                />
+              </div>
+
+              <div className="space-y-1 pt-0.5">
+                <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
+                  At least one service required
+                </DialogTitle>
+                <p className="text-sm text-gray-500 font-normal leading-relaxed">
+                  Vendor profile details look good! Next, you need to add at least one service to complete the setup.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 p-3.5 bg-blue-50/60 rounded-xl border border-blue-100/80 flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+              <p className="text-xs font-medium text-blue-900">
+                Would you like to navigate to the Services section on the Work Hours tab now?
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 bg-gray-50/80 border-t border-gray-100 flex items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowServicePromptDialog(false)}
+              className="h-10 px-5 text-sm font-medium border-gray-300 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 transition-colors rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowServicePromptDialog(false);
+                setActive("work hours");
+                setTimeout(() => {
+                  const servicesAccordion = document.getElementById("services-accordion-item");
+                  if (servicesAccordion) {
+                    const yOffset = -140; // Accounts for sticky headers so section isn't hidden under header
+                    const y = servicesAccordion.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: "smooth" });
+                  }
+                }, 120);
+              }}
+              className={`h-10 px-5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all rounded-lg flex items-center gap-2 ${userType}-bg`}
+            >
+              <span>Go to Services</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
