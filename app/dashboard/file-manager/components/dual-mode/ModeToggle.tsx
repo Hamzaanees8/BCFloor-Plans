@@ -20,7 +20,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
             {isUpload ? (
                 <>
                     <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
-                    Reorder
+                    Sort Images
                 </>
             ) : (
                 <>

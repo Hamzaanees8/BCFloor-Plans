@@ -224,10 +224,12 @@ const OrderForm = () => {
                 return (currentUser.services || []).map((s: OrderService) => ({
                     title: s.service.name,
                     uuid: s.service.uuid, // Service template UUID
+                    id: String(s.service.id),
                     service_uuid: s.uuid, // Order service UUID for updates
                     price: Number(s.amount),
                     quantity: s.option?.quantity ?? 1,
-                    option_id: s.option?.uuid,
+                    option_id: s.option?.uuid || (s.option_id ? String(s.option_id) : (s.option?.id ? String(s.option.id) : undefined)),
+                    service_duration: s.option?.service_duration,
                     custom: s.custom,
                     optionName: s.option?.title ?? s.custom ?? '',
                     payment_status: s.payment_status,
@@ -351,28 +353,36 @@ const OrderForm = () => {
             let firstErrorToastShown = false;
 
             const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
+            const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
 
             for (const service of servicesToSchedule) {
                 const serviceUuid = typeof service === 'string' ? service : service.uuid;
                 if (!serviceUuid) continue;
 
-                const globalService = servicesData?.find(s => s.uuid === serviceUuid);
-                const productOption = globalService?.product_options?.find(opt => opt.uuid === service.option_id);
+                const globalService = servicesData?.find(s => s.uuid === serviceUuid || (service.id && String(s.id) === String(serviceUuid)));
+                const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
 
-                const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
                 const requiredDuration = getEffectiveServiceDuration(
-                    productOption?.service_duration,
+                    productOption?.service_duration || (service as any).service_duration,
                     squareFootage
                 );
 
-                const serviceSlots = selectedSlots.filter(s => s.service_id === serviceUuid);
+                const serviceSlots = selectedSlots.filter(s =>
+                    s.service_id === serviceUuid ||
+                    String(s.service_id) === String(serviceUuid) ||
+                    (service.id && String(s.service_id) === String(service.id))
+                );
                 const currentDuration = serviceSlots.length * 15;
 
-                if (currentDuration < requiredDuration) {
+                const isInvalid = isEdit
+                    ? serviceSlots.length === 0
+                    : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
+
+                if (isInvalid) {
                     newInvalidServices.push(serviceUuid);
                     if (!firstErrorToastShown) {
                         const slotsNeeded = Math.ceil((requiredDuration - currentDuration) / 15);
-                        toast.error(`Please add ${slotsNeeded} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
+                        toast.error(`Please add ${slotsNeeded > 0 ? slotsNeeded : 1} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
                         firstErrorToastShown = true;
                     }
                 }
@@ -397,13 +407,25 @@ const OrderForm = () => {
             const serviceId = typeof service === 'string' ? service : service.uuid;
             if (!serviceId) return;
 
-            const globalService = servicesData?.find(s => s.uuid === serviceId);
-            const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id);
-            const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, squareFootage);
-            const serviceSlots = selectedSlots.filter(slot => slot.service_id === serviceId);
+            const globalService = servicesData?.find(s => s.uuid === serviceId || (service.id && String(s.id) === String(serviceId)));
+            const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
+            const requiredDuration = getEffectiveServiceDuration(
+                productOption?.service_duration || (service as any).service_duration,
+                squareFootage
+            );
+            const serviceSlots = selectedSlots.filter(slot =>
+                slot.service_id === serviceId ||
+                String(slot.service_id) === String(serviceId) ||
+                (service.id && String(slot.service_id) === String(service.id))
+            );
             const currentDuration = serviceSlots.length * 15;
 
-            if (currentDuration < requiredDuration) {
+            // In edit mode, if slots exist for the service, consider it valid (matching Schedule.tsx isFullyScheduled logic)
+            const isInvalid = isEdit
+                ? serviceSlots.length === 0
+                : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
+
+            if (isInvalid) {
                 if (!invalidServiceIds.includes(serviceId)) {
                     invalidServiceIds.push(serviceId);
                 }

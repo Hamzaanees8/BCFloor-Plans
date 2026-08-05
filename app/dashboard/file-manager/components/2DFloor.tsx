@@ -19,6 +19,7 @@ import { Check, Loader2, Eye, EyeOff } from 'lucide-react';
 import { DownloadFile, ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { S3UploadService } from '@/lib/upload/s3-service';
 import FilePreviewModal from './FilePreviewModal';
+import { naturalSortFiles } from '../utils/naturalSort';
 import { Services } from '../../services/page';
 import { Files, SelectedFiles, useFileManagerContext } from "../FileManagerContext";
 import { DownloadIcon } from '@/components/Icons';
@@ -248,7 +249,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
             return;
         }
 
-        setFiles(renamedFiles);
+        setFiles(naturalSortFiles(renamedFiles));
     };
 
     useEffect(() => {

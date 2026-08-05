@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
+import { naturalSortFiles } from '../utils/naturalSort';
 import { Check, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DownloadIcon } from '@/components/Icons';
@@ -189,7 +190,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 e.target.value = "";
                 return;
             }
-            setFiles(videoFiles);
+            setFiles(naturalSortFiles(videoFiles));
         }
         e.target.value = "";
     };

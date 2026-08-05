@@ -197,7 +197,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
     const token = localStorage.getItem("token");
     if (!token || !orderData) {
-      toast.error("Could not save reorder. Missing data.");
+      toast.error("Could not save image order. Missing data.");
       return;
     }
 
@@ -231,12 +231,12 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles: newlyChangedFiles,
         isUpdate: true,
-        successMessage: "Media reordered successfully."
+        successMessage: "Images sorted successfully."
       });
       setIsReorderMode(false);
     } catch (error) {
-      console.error("Failed to save reorder", error);
-      toast.error("Failed to save reorder.");
+      console.error("Failed to save image order", error);
+      toast.error("Failed to save image order.");
     } finally {
       setGlobalSaving(false);
     }
@@ -503,7 +503,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                     className="flex md:flex h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
                     onClick={() => setIsReorderMode(true)}
                   >
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Sort Images
                   </Button>
                 )}
               </div>

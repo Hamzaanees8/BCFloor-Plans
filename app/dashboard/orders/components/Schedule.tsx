@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -7,7 +7,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
-import { CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
+import { AlertTriangle, CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -153,6 +153,20 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const serviceCount = servicesToSchedule?.length || 0;
 
     const minDate = React.useMemo(() => {
+        if (selectedSlots.length > 0) {
+            const slotDates = selectedSlots.map(s => s.date).filter(Boolean);
+            if (slotDates.length > 0) {
+                const earliestSlotDate = [...slotDates].sort()[0];
+                const [y, m, d] = earliestSlotDate.split('-').map(Number);
+                const slotDateObj = new Date(y, m - 1, d);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (slotDateObj < today) {
+                    return slotDateObj;
+                }
+            }
+        }
+
         const date = new Date();
         date.setHours(0, 0, 0, 0);
 
@@ -169,11 +183,20 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
             }
         }
         return date;
-    }, [portalSettings]);
+    }, [portalSettings, selectedSlots]);
 
     const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
     const lastAddressRef = React.useRef<string>('');
     const isRunningRef = React.useRef<boolean>(false);
+    // Capture the initial selected slots once for edit-mode vendor force-injection.
+    // Using a ref avoids adding selectedSlots to loadAndCalculate's deps, which would
+    // trigger the heavy vendor/geofence recalculation on every slot selection.
+    const initialEditSlotsRef = React.useRef<Slot[]>([]);
+    useEffect(() => {
+        if (isEdit && selectedSlots.length > 0 && initialEditSlotsRef.current.length === 0) {
+            initialEditSlotsRef.current = selectedSlots;
+        }
+    }, [isEdit, selectedSlots]);
 
     const addressString = React.useMemo(() => {
         if (selectedCurrentListing) {
@@ -273,6 +296,34 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     .map(r => r.vendor);
             }
 
+            // ── Edit-mode fix: force-include previously-booked vendors ──────────
+            // When editing an existing order, ensure the vendor who was booked
+            // always appears in the dropdown — even if they no longer pass the
+            // service / geofence filters. Use the ref snapshot (captured once
+            // on load) so this logic does NOT re-run on every slot selection.
+            if (isEdit && initialEditSlotsRef.current.length > 0) {
+                for (const service of servicesData) {
+                    const bookedVendorIds = new Set(
+                        initialEditSlotsRef.current
+                            .filter(s => String(s.service_id) === String(service.uuid))
+                            .map(s => s.vendor?.uuid || s.vendor_id)
+                            .filter(Boolean)
+                    );
+
+                    bookedVendorIds.forEach(vendorId => {
+                        const alreadyInResult = (result[service.uuid] ?? []).some(v => v.uuid === vendorId);
+                        const alreadyInOverridable = (overridable[service.uuid] ?? []).some(v => v.uuid === vendorId);
+                        if (!alreadyInResult && !alreadyInOverridable) {
+                            const vendorData = vendorsData.find(v => v.uuid === vendorId);
+                            if (vendorData) {
+                                if (!result[service.uuid]) result[service.uuid] = [];
+                                result[service.uuid].push(vendorData);
+                            }
+                        }
+                    });
+                }
+            }
+
             setFilteredVendorsByService(result);
             setOverridableVendorsByService(overridable);
 
@@ -284,12 +335,11 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 console.error('Failed to fetch property timezone');
             }
 
-            // 3. Calculate distances for unique vendors
+            // 3. Calculate distances for ALL vendors (not just in-area/overridable)
+            // so that vendors shown in the "Not Offering This Service" group and the
+            // calendar slot popup also have correct travel times.
             const uniqueVendorsMap = new Map<string, VendorData>();
-            Object.values(result).flat().forEach(v => {
-                if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
-            });
-            Object.values(overridable).flat().forEach(v => {
+            vendorsData.forEach(v => {
                 if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
             });
 
@@ -308,33 +358,61 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         }
 
         loadAndCalculate();
-    }, [addressString, fullAddress, vendorsData, servicesData, googleReady]);
+    // NOTE: selectedSlots intentionally omitted from deps — see initialEditSlotsRef above.
+    // Adding selectedSlots would cause the heavy vendor/geofence recalculation to run on
+    // every single slot click, showing a loading spinner on ALL service calendars.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [addressString, fullAddress, vendorsData, servicesData, googleReady, isEdit]);
 
     useEffect(() => {
-        if (!isEdit || !selectedSlots.length || !servicesData.length) return;
+        if (!selectedSlots.length || !servicesData.length) return;
 
         const newShowAllVendorsMap: Record<string, 0 | 1> = {};
         const newScheduleOverrideMap: Record<string, 0 | 1> = {};
         const newRecommendTimeMap: Record<string, 0 | 1> = {};
+        const newServiceDates: Record<string, Date> = {};
+        const newSelectedVendorMap: Record<string, string> = {};
+        let earliestDateObj: Date | null = null;
 
         servicesToSchedule.forEach((service, idx) => {
             const serviceKey = service.uuid || `service-${idx}`;
             const slot = selectedSlots.find(
-                (s) => String(s.service_id) === String(service.uuid)
+                (s) => String(s.service_id) === String(service.uuid) || s.service_id === service.uuid
             );
 
             if (slot) {
                 newShowAllVendorsMap[serviceKey] = slot.show_all_vendors ? 1 : 0;
                 newScheduleOverrideMap[serviceKey] = slot.schedule_override ? 1 : 0;
                 newRecommendTimeMap[serviceKey] = slot.recommend_time ? 1 : 0;
+
+                if (slot.date) {
+                    const [y, m, d] = slot.date.split('-').map(Number);
+                    const slotDate = new Date(y, m - 1, d);
+                    newServiceDates[serviceKey] = slotDate;
+                    if (!earliestDateObj || slotDate < earliestDateObj) {
+                        earliestDateObj = slotDate;
+                    }
+                }
+
+                const vendorId = slot.vendor?.uuid || slot.vendor_id;
+                if (vendorId) {
+                    newSelectedVendorMap[serviceKey] = vendorId;
+                }
             }
         });
 
         setShowAllVendorsMap((prev) => ({ ...prev, ...newShowAllVendorsMap }));
         setScheduleOverrideMap((prev) => ({ ...prev, ...newScheduleOverrideMap }));
         setRecommendTimeMap((prev) => ({ ...prev, ...newRecommendTimeMap }));
+        setServiceDates((prev) => ({ ...prev, ...newServiceDates }));
+        if (Object.keys(newSelectedVendorMap).length > 0) {
+            setSelectedVendorMap((prev) => ({ ...prev, ...newSelectedVendorMap }));
+        }
+        if (earliestDateObj) {
+            setMasterDate(earliestDateObj);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEdit, selectedSlots, servicesToSchedule, servicesData]);
+    }, [isEdit, selectedSlots, servicesData]);
 
     const formatTravelTime = (minutes: number) => {
         if (minutes < 60) return `${minutes} min`;
@@ -461,20 +539,24 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
                         const recommendTime = recommendTimeMap[serviceKey] ?? 0;
 
-                        const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid);
+                        const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)));
                         const productOption = currentService?.product_options?.find(
-                            (option: CleanedProductOption) => option.uuid === service.option_id
+                            (option: CleanedProductOption) =>
+                                (service.option_id && option.uuid === service.option_id) ||
+                                (service.option_id && String(option.id) === String(service.option_id))
                         );
 
                         const squareFootage = selectedCurrentListing?.square_footage || tempPropertyData?.square_footage;
                         const requiredDuration = getEffectiveServiceDuration(
-                            productOption?.service_duration,
+                            productOption?.service_duration || (service as any).service_duration,
                             squareFootage
                         );
 
-                        const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.uuid);
+                        const serviceSlots = selectedSlots.filter(
+                            (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
+                        );
                         const currentDuration = serviceSlots.length * 15;
-                        const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
+                        const isFullyScheduled = isEdit ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0);
                         const isInvalid = invalidServices.includes(service.uuid || '');
 
                         const today = new Date();
@@ -641,17 +723,35 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 ]
                                                 : [];
                                             const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
-                                            const noVendors = !isCalculating && !!service.uuid && visibleVendors.length === 0;
+                                            const visibleUUIDs = new Set(visibleVendors.map(v => v.uuid));
+
+                                            // Issue 2: When Schedule Override is ON, compute vendors who don't
+                                            // offer this service at all (not in filteredVendors or overridable).
+                                            const nonServiceVendors: VendorData[] = scheduleOverride === 1
+                                                ? vendorsData.filter(v => v.uuid && !visibleUUIDs.has(v.uuid))
+                                                : [];
+
+                                            const noVendors = !isCalculating && !!service.uuid && visibleVendors.length === 0 && nonServiceVendors.length === 0;
 
                                             return (
                                                 <>
-                                                    {/* Show override hint when there are overridable vendors */}
+                                                    {/* Show override hint when there are overridable vendors and override is OFF */}
                                                     {!isCalculating && hasOverridable && scheduleOverride === 0 && userType === 'admin' && (filteredVendorsByService[service.uuid ?? ''] ?? []).length === 0 && (
                                                         <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
                                                             <Info className="w-4 h-4 text-amber-600 shrink-0" />
                                                             <p className="text-[11px] text-amber-700 leading-snug">
                                                                 <span className="font-semibold">{overridableVendors.length} vendor{overridableVendors.length > 1 ? 's are' : ' is'} available outside their service area.</span>{' '}
                                                                 Enable <span className="font-semibold">Schedule Override</span> to include them.
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {/* Show hint that override will reveal non-service vendors */}
+                                                    {!isCalculating && scheduleOverride === 0 && userType === 'admin' && visibleVendors.length === 0 && !hasOverridable && vendorsData.length > 0 && (
+                                                        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                                                            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                                                            <p className="text-[11px] text-amber-700 leading-snug">
+                                                                <span className="font-semibold">No vendors offer this service in the area.</span>{' '}
+                                                                Enable <span className="font-semibold">Schedule Override</span> to assign any vendor.
                                                             </p>
                                                         </div>
                                                     )}
@@ -677,38 +777,102 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                                         <span>Calculating travel times &amp; vendors...</span>
                                                                     </div>
                                                                 </SelectItem>
-                                                            ) : visibleVendors.length > 0 ? (
-                                                                [...visibleVendors]
-                                                                    .sort((a, b) => {
-                                                                        const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
-                                                                        const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
-                                                                        return timeA - timeB;
-                                                                    })
-                                                                    .map((vendor, vidx) => {
-                                                                        const travelTime = vendorDistances[vendor.uuid ?? ''];
-                                                                        const color = getDistanceColor(travelTime);
-                                                                        const isOverride = overridableUUIDs.has(vendor.uuid);
-                                                                        return (
-                                                                            <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
-                                                                                <div className="flex items-center gap-2 text-nowrap truncate">
-                                                                                    <span className="w-2 h-4" style={{ backgroundColor: color }} />
-                                                                                    <span>{vendor.first_name} {vendor.last_name}</span>
-                                                                                    {isOverride && (
-                                                                                        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 rounded px-1 py-0.5 leading-none">Override</span>
-                                                                                    )}
-                                                                                    {travelTime !== undefined && (
-                                                                                        <span className="text-gray-500 text-[12px] ml-1">
-                                                                                            ({formatTravelTime(travelTime)})
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        );
-                                                                    })
                                                             ) : (
-                                                                <SelectItem value="none" disabled>
-                                                                    No vendors available for this service in the selected area
-                                                                </SelectItem>
+                                                                <>
+                                                                    {/* Group 1: vendors offering the service (in-area + overridable) */}
+                                                                    {visibleVendors.length > 0 && (
+                                                                        <SelectGroup>
+                                                                            {scheduleOverride === 1 && (
+                                                                                <SelectLabel className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide px-2 py-1">
+                                                                                    Offering This Service
+                                                                                </SelectLabel>
+                                                                            )}
+                                                                            {[...visibleVendors]
+                                                                                .sort((a, b) => {
+                                                                                    const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                                                                                    const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                                                                                    return timeA - timeB;
+                                                                                })
+                                                                                .map((vendor, vidx) => {
+                                                                                    const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                                                    const color = getDistanceColor(travelTime);
+                                                                                    const isOverride = overridableUUIDs.has(vendor.uuid);
+                                                                                    // Check if vendor actually offers this service (for edit-mode force-injected vendors)
+                                                                                    const offersService = vendor.vendor_services?.some(
+                                                                                        (vs: any) => vs.service?.uuid === service.uuid
+                                                                                    ) ?? false;
+                                                                                    return (
+                                                                                        <SelectItem className='flex justify-between text-nowrap' key={`svc-${vidx}`} value={vendor.uuid ?? ''}>
+                                                                                            <div className="flex items-center gap-2 text-nowrap truncate">
+                                                                                                <span className="w-2 h-4" style={{ backgroundColor: color }} />
+                                                                                                {!offersService && (
+                                                                                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                                                                                )}
+                                                                                                <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                                                {isOverride && (
+                                                                                                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 rounded px-1 py-0.5 leading-none">Outside Area</span>
+                                                                                                )}
+                                                                                                {!offersService && (
+                                                                                                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 rounded px-1 py-0.5 leading-none">Not Offering</span>
+                                                                                                )}
+                                                                                                {travelTime !== undefined && (
+                                                                                                    <span className="text-gray-500 text-[12px] ml-1">
+                                                                                                        ({formatTravelTime(travelTime)})
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </SelectItem>
+                                                                                    );
+                                                                                })
+                                                                            }
+                                                                        </SelectGroup>
+                                                                    )}
+
+                                                                    {/* Group 2: vendors NOT offering this service (only when Override is ON) */}
+                                                                    {nonServiceVendors.length > 0 && (
+                                                                        <>
+                                                                            {visibleVendors.length > 0 && <SelectSeparator />}
+                                                                            <SelectGroup>
+                                                                                <SelectLabel className="text-[10px] text-amber-600 font-semibold uppercase tracking-wide px-2 py-1 flex items-center gap-1">
+                                                                                    <AlertTriangle className="w-3 h-3" />
+                                                                                    Not Offering This Service
+                                                                                </SelectLabel>
+                                                                                {[...nonServiceVendors]
+                                                                                    .sort((a, b) => {
+                                                                                        const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                                                                                        const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                                                                                        return timeA - timeB;
+                                                                                    })
+                                                                                    .map((vendor, vidx) => {
+                                                                                        const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                                                        const color = getDistanceColor(travelTime);
+                                                                                        return (
+                                                                                            <SelectItem className='flex justify-between text-nowrap' key={`nsvc-${vidx}`} value={vendor.uuid ?? ''}>
+                                                                                                <div className="flex items-center gap-2 text-nowrap truncate">
+                                                                                                    <span className="w-2 h-4" style={{ backgroundColor: color }} />
+                                                                                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                                                                                    <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                                                    {travelTime !== undefined && (
+                                                                                                        <span className="text-gray-500 text-[12px] ml-1">
+                                                                                                            ({formatTravelTime(travelTime)})
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </SelectItem>
+                                                                                        );
+                                                                                    })
+                                                                                }
+                                                                            </SelectGroup>
+                                                                        </>
+                                                                    )}
+
+                                                                    {/* Fallback when truly no vendors */}
+                                                                    {visibleVendors.length === 0 && nonServiceVendors.length === 0 && (
+                                                                        <SelectItem value="none" disabled>
+                                                                            No vendors available for this service in the selected area
+                                                                        </SelectItem>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </SelectContent>
                                                     </Select>
@@ -874,93 +1038,108 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         )}
 
                                         <div className="mt-[20px]">
-                                            {(!isCalculating && !!service.uuid && (
-                                                [
-                                                    ...(filteredVendorsByService[service.uuid] ?? []),
-                                                    ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
-                                                ].length === 0
-                                            )) ? (
-                                                <div className="flex flex-col items-center justify-center p-6 border border-red-200 bg-red-50/50 rounded-lg text-center gap-4">
-                                                    <Info className="w-8 h-8 text-red-500 animate-bounce" />
-                                                    <div className="text-[14px] text-red-800 font-medium font-alexandria">
-                                                        This service currently has no available vendors. Please remove the service from selection.
-                                                    </div>
-                                                    <Button
-                                                        variant="destructive"
-                                                        onClick={() => {
-                                                            if (isEdit) {
-                                                                // Check if service has an ID (was saved before)
-                                                                if (service.id) {
-                                                                    if (window.confirm("Are you sure you want to remove this service?")) {
+                                            {(() => {
+                                                // Issue 1 Fix: For past-date bookings, always render the calendar
+                                                // so previously-booked slots show as selected (read-only).
+                                                // For current/future dates with no vendors, show the error block.
+                                                const svcUuid = service.uuid ?? '';
+                                                const hasAnyVendor = !svcUuid ? false : (
+                                                    (filteredVendorsByService[svcUuid] ?? []).length > 0 ||
+                                                    (scheduleOverride === 1 && (overridableVendorsByService[svcUuid] ?? []).length > 0) ||
+                                                    (scheduleOverride === 1 && vendorsData.some(v => {
+                                                        const visUUIDs = new Set([
+                                                            ...(filteredVendorsByService[svcUuid] ?? []),
+                                                            ...(overridableVendorsByService[svcUuid] ?? [])
+                                                        ].map(x => x.uuid));
+                                                        return v.uuid && !visUUIDs.has(v.uuid);
+                                                    }))
+                                                );
+
+                                                if (!isPastDate && !isCalculating && svcUuid && !hasAnyVendor) return (
+                                                    <div className="flex flex-col items-center justify-center p-6 border border-red-200 bg-red-50/50 rounded-lg text-center gap-4">
+                                                        <Info className="w-8 h-8 text-red-500 animate-bounce" />
+                                                        <div className="text-[14px] text-red-800 font-medium font-alexandria">
+                                                            This service currently has no available vendors. Please remove the service from selection.
+                                                        </div>
+                                                        <Button
+                                                            variant="destructive"
+                                                            onClick={() => {
+                                                                if (isEdit) {
+                                                                    if (service.id) {
+                                                                        if (window.confirm("Are you sure you want to remove this service?")) {
+                                                                            setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
+                                                                        }
+                                                                    } else {
                                                                         setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
                                                                     }
                                                                 } else {
-                                                                    // If it doesn't have an ID, it was just added in this session, so just remove it from state
                                                                     setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
                                                                 }
-                                                            } else {
-                                                                setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
+                                                            }}
+                                                            className="w-full max-w-[200px] h-[40px] font-alexandria font-semibold"
+                                                        >
+                                                            Remove Service
+                                                        </Button>
+                                                        {portalSettings?.show_org_details_on_empty_schedule && (
+                                                            <div className="text-[13px] text-red-700 mt-2 font-alexandria">
+                                                                Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} &amp; {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+
+                                                return (
+                                                    <OneDayCalendar
+                                                        selectedVendors={
+                                                            selectedVendor === 'all'
+                                                                ? (
+                                                                    service.uuid
+                                                                        ? (() => {
+                                                                            // Issue 2: When Override is ON include non-service vendors too;
+                                                                            // Issue 1: For past dates, also include the previously-booked vendor
+                                                                            const normalVendors = [
+                                                                                ...(filteredVendorsByService[service.uuid] ?? []),
+                                                                                ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
+                                                                            ];
+                                                                            const normalUUIDs = new Set(normalVendors.map(v => v.uuid));
+                                                                            const extraVendors = scheduleOverride === 1
+                                                                                ? vendorsData.filter(v => v.uuid && !normalUUIDs.has(v.uuid))
+                                                                                : [];
+                                                                            return [...normalVendors, ...extraVendors]
+                                                                                .map((v) => v.uuid)
+                                                                                .filter((uuid): uuid is string => typeof uuid === 'string');
+                                                                        })()
+                                                                        : []
+                                                                )
+                                                                : [selectedVendor].filter(
+                                                                    (uuid): uuid is string => typeof uuid === 'string'
+                                                                )
+                                                        }
+                                                        service={service}
+                                                        calendarIdx={idx}
+                                                        serviceKey={serviceKey}
+                                                        showAllVendorsMap={showAllVendorsMap}
+                                                        scheduleOverrideMap={scheduleOverrideMap}
+                                                        recommendTimeMap={recommendTimeMap}
+                                                        recommendTime={recommendTime}
+                                                        showAllVendors={showAllVendors}
+                                                        scheduleOverride={scheduleOverride}
+                                                        setSelectedDate={(date) => {
+                                                            if (date) {
+                                                                const [y, m, d] = date.split('-').map(Number);
+                                                                const newDate = new Date(y, m - 1, d);
+                                                                setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
                                                             }
                                                         }}
-                                                        className="w-full max-w-[200px] h-[40px] font-alexandria font-semibold"
-                                                    >
-                                                        Remove Service
-                                                    </Button>
-                                                    {portalSettings?.show_org_details_on_empty_schedule && (
-                                                        <div className="text-[13px] text-red-700 mt-2 font-alexandria">
-                                                            Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} & {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <OneDayCalendar
-                                                    selectedVendors={
-                                                        selectedVendor === 'all'
-                                                            ? (
-                                                                service.uuid
-                                                                    ? [
-                                                                        ...(filteredVendorsByService[service.uuid] ?? []),
-                                                                        ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
-                                                                    ]
-                                                                        .filter((v) =>
-                                                                            v.vendor_services?.some(
-                                                                                (vs) => vs.service?.uuid === service.uuid
-                                                                            )
-                                                                        )
-                                                                        .map((v) => v.uuid)
-                                                                        .filter(
-                                                                            (uuid): uuid is string => typeof uuid === 'string'
-                                                                        )
-                                                                    : []
-                                                            )
-                                                            : [selectedVendor].filter(
-                                                                (uuid): uuid is string => typeof uuid === 'string'
-                                                            )
-                                                    }
-                                                    service={service}
-                                                    calendarIdx={idx}
-                                                    serviceKey={serviceKey}
-                                                    showAllVendorsMap={showAllVendorsMap}
-                                                    scheduleOverrideMap={scheduleOverrideMap}
-                                                    recommendTimeMap={recommendTimeMap}
-                                                    recommendTime={recommendTime}
-                                                    showAllVendors={showAllVendors}
-                                                    scheduleOverride={scheduleOverride}
-                                                    setSelectedDate={(date) => {
-                                                        if (date) {
-                                                            const [y, m, d] = date.split('-').map(Number);
-                                                            const newDate = new Date(y, m - 1, d);
-                                                            setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
-                                                        }
-                                                    }}
-                                                    vendorDistances={vendorDistances}
-                                                    propertyTimezone={propertyLocation?.timeZoneId}
-                                                    masterDate={serviceDates[serviceKey] || masterDate}
-                                                    onVendorSelected={handleVendorChange}
-                                                    isCalculating={isCalculating}
-                                                    twilightData={twilightData}
-                                                />
-                                            )}
+                                                        vendorDistances={vendorDistances}
+                                                        propertyTimezone={propertyLocation?.timeZoneId}
+                                                        masterDate={serviceDates[serviceKey] || masterDate}
+                                                        onVendorSelected={handleVendorChange}
+                                                        isCalculating={isCalculating}
+                                                        twilightData={twilightData}
+                                                    />
+                                                );
+                                            })()}
                                         </div>
 
                                         {/* Twilight display moved to OneDayCalendar */}

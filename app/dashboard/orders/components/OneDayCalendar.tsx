@@ -445,6 +445,22 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const { id } = useParams();
 
   const minDate = React.useMemo(() => {
+    const serviceSlotDates = selectedSlots
+      ?.filter(s => s.service_id === service.uuid || String(s.service_id) === String(service.id))
+      .map(s => s.date)
+      .filter(Boolean) || [];
+
+    if (serviceSlotDates.length > 0) {
+      const earliest = [...serviceSlotDates].sort()[0];
+      const [y, m, d] = earliest.split('-').map(Number);
+      const earliestObj = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (earliestObj < today) {
+        return earliestObj;
+      }
+    }
+
     const date = new Date();
     date.setHours(0, 0, 0, 0);
 
@@ -461,7 +477,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       }
     }
     return date;
-  }, [portalSettings]);
+  }, [portalSettings, selectedSlots, service.uuid, service.id]);
 
   const currentServiceForBorder = servicesData?.find((s) => s.uuid === service.uuid);
   const productOptionForBorder = currentServiceForBorder?.product_options?.find(
@@ -480,7 +496,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   ).length;
   const isUnderScheduled = hasSelectedSlotsForBorder && currentServiceSlotsCountForBorder < requiredSlotsCountForBorder;
 
-  const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid);
+  const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.id));
   const initialDateStr = existingSlot ? existingSlot.date : dayjs(masterDate).format('YYYY-MM-DD');
 
   const [events, setEvents] = useState<Slots[]>([]);
@@ -503,7 +519,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const containerRef = React.useRef<HTMLDivElement>(null);
   const hasJumpedToInitialDate = React.useRef(false);
   const hasScrolledToFirstSlot = React.useRef(false);
-  const lastMasterDateStr = React.useRef(dayjs(masterDate).format('YYYY-MM-DD'));
+  const lastMasterDateStr = React.useRef(initialDateStr);
 
   useEffect(() => {
     if (existingSlot && !hasJumpedToInitialDate.current && calendarRef.current) {
@@ -560,8 +576,50 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid)
     );
 
-    if (filteredVendors.length === 0) {
+    // ── Issue 1 Fix: Always show previously-selected slots even when no vendor
+    // passes the current filter. This happens for past-date bookings because
+    // generateMarkedSlots excludes past-time slots so filteredVendors produces
+    // zero available slots and we'd return [] before reaching matchingSelected.
+    // Solution: if filteredVendors is empty but there ARE selected slots for
+    // this service on the current date, we skip the early return and let the
+    // matchingSelected check below render them as slot-selected events.
+    const selectedSlotsOnCurrentDate = selectedSlots.filter((s: Slot) => {
+      const sidMatch = s.service_id === service.uuid || String(s.service_id) === String(service.id);
+      return sidMatch && s.date === date;
+    });
+
+    if (filteredVendors.length === 0 && selectedSlotsOnCurrentDate.length === 0) {
       return [];
+    }
+
+    // When filteredVendors is empty but there are selected slots to display,
+    // generate a full-day slot grid so matchingSelected can find the right
+    // time positions and mark them as slot-selected.
+    if (filteredVendors.length === 0 && selectedSlotsOnCurrentDate.length > 0) {
+      const fullDaySlots = generateAllDaySlots(date, 15);
+      const currentServiceData = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
+      return fullDaySlots.map((slot) => {
+        const matchingSelected = selectedSlotsOnCurrentDate.find(s => {
+          const sStart = dayjs(`${s.date} ${s.start_time}`);
+          const sEnd = dayjs(`${s.date} ${s.end_time}`);
+          const slotStart = dayjs(slot.start);
+          const slotEnd = dayjs(slot.end);
+          return sStart.isSame(slotStart, 'minute') && sEnd.isSame(slotEnd, 'minute');
+        });
+        if (matchingSelected) {
+          const vendorId = matchingSelected.vendor?.uuid || matchingSelected.vendor_id;
+          const matchedVendor = vendorsData.find(v => v.uuid === vendorId);
+          const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown';
+          const isTwilightService = currentServiceData?.category?.name === 'Twilight Photos' || service?.title?.includes('Twilight');
+          return {
+            ...slot,
+            title: `${vendorName}\n${service.title}`,
+            className: `slot-selected vendor-${vendorId}`,
+            extendedProps: { availableVendorIds: [], twilightRecommended: isTwilightService },
+          };
+        }
+        return { ...slot, title: 'Unavailable', className: 'slot-unavailable', extendedProps: { availableVendorIds: [] } };
+      });
     }
 
     const fullDaySlots = generateAllDaySlots(date, 15);
@@ -574,9 +632,11 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
     const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
     const squareFootageForSlots = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
-    const productOptionForSlots = currentServiceDataForSlots?.product_options?.find((option) => option.uuid === service.option_id);
+    const productOptionForSlots = currentServiceDataForSlots?.product_options?.find(
+      (option) => (service.option_id && option.uuid === service.option_id) || (service.option_id && String(option.id) === String(service.option_id))
+    );
     const requiredDurationForSlots = getEffectiveServiceDuration(
-      productOptionForSlots?.service_duration,
+      productOptionForSlots?.service_duration || (service as any).service_duration,
       squareFootageForSlots
     );
     const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
@@ -1199,13 +1259,13 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
     // SERVICE DURATION VALIDATION
     // Get the service duration (either defined or calculated from square footage)
-    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+    const currentService = servicesData?.find((s) => s.uuid === service.uuid || String(s.id) === String(service.id));
     const productOption = currentService?.product_options?.find(
-      (option) => option.uuid === service.option_id
+      (option) => (service.option_id && option.uuid === service.option_id) || (service.option_id && String(option.id) === String(service.option_id))
     );
     const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
     const requiredDuration = getEffectiveServiceDuration(
-      productOption?.service_duration,
+      productOption?.service_duration || (service as any).service_duration,
       squareFootage
     );
     const requiredSlots = Math.ceil(requiredDuration / 15);
@@ -2110,9 +2170,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
                     .map((vendor: VendorData) => {
                       const travelTime = vendor.uuid ? vendorDistances[vendor.uuid] : undefined;
                       const color = getDistanceColor(travelTime);
-                      const formatTravelTime = (seconds: number) => {
-                        const h = Math.floor(seconds / 3600);
-                        const m = Math.floor((seconds % 3600) / 60);
+                      const formatTravelTime = (minutes: number) => {
+                        const h = Math.floor(minutes / 60);
+                        const m = Math.round(minutes % 60);
                         if (h > 0) return `${h}h ${m}m`;
                         return `${m}m`;
                       };

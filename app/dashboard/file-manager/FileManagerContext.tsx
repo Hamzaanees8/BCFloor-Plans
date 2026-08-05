@@ -67,6 +67,7 @@ export type Files = {
     is_agent_approved?: boolean;
     is_show?: boolean;
     is_processing?: boolean;
+    status?: string;
     is_deleted?: boolean;
     is_paid?: boolean;
     is_complimentary?: boolean;

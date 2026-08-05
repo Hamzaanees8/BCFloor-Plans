@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
     const { links, setLinks, filesData, tourSettings } = useFileManagerContext();
-    const isUnpaidAgent = userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID');
+    const isUnpaidAgent = userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s?.service?.name?.toLowerCase().includes('matterport') || s?.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID');
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
 

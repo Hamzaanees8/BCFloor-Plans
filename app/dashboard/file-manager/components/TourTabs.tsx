@@ -21,10 +21,10 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
   const [activeTab, setActiveTab] = useState('Settings');
   const { userType } = useAppContext()
 
-  const hasPhotos = orderData?.services.some(s => s.service.name.toLowerCase().includes('photo'));
-  const hasVideos = orderData?.services.some(s => s.service.name.toLowerCase().includes('video') || s.service.name.toLowerCase().includes('reel'));
-  const hasMatterport = orderData?.services.some(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'));
-  const hasFloorPlans = orderData?.services.some(s => s.service.name.toLowerCase().includes('floor plan'));
+  const hasPhotos = orderData?.services?.some(s => s?.service?.name?.toLowerCase().includes('photo'));
+  const hasVideos = orderData?.services?.some(s => s?.service?.name?.toLowerCase().includes('video') || s?.service?.name?.toLowerCase().includes('reel'));
+  const hasMatterport = orderData?.services?.some(s => s?.service?.name?.toLowerCase().includes('matterport') || s?.service?.name?.toLowerCase().includes('3d tour'));
+  const hasFloorPlans = orderData?.services?.some(s => s?.service?.name?.toLowerCase().includes('floor plan'));
 
   const visibleTabs = useMemo(() => {
     const tabs = ['Settings'];

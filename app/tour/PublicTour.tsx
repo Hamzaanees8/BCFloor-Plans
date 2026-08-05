@@ -43,7 +43,8 @@ const PublicTour = () => {
     
     const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
     const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
-    const orgSlug = (params.org_slug as string | undefined) || resolvedWhitelabelSlug || undefined;
+    const queryOrgSlug = searchParams.get('org_slug');
+    const orgSlug = queryOrgSlug || resolvedWhitelabelSlug || undefined;
     
     const tourType = searchParams.get('type');
     const isPreview = searchParams.get('preview') === 'true';
@@ -144,7 +145,7 @@ const PublicTour = () => {
                 file.service.category.name !== '2D Floor Plans' &&
                 file.service.category.name !== '3D Floor Plans' &&
                 file.is_show !== false &&
-                ((file as any).is_agent_approved || (file as any).is_complimentary) &&
+                ((file as any).is_admin_approved || (file as any).is_agent_approved || (file as any).is_complimentary || isPreview) &&
                 (file as any).variant_urls &&
                 Object.keys((file as any).variant_urls).length > 0;
             return isPhoto;
@@ -155,10 +156,12 @@ const PublicTour = () => {
             if (orderDiff !== 0) return orderDiff;
             return ((a as any).service_id ?? 0) - ((b as any).service_id ?? 0);
         });
-    }, [orderData]);
+    }, [orderData, isPreview]);
 
     const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isVideo = file.service.category.name === "video" && file.is_show !== false && ((file as any).is_agent_approved || (file as any).is_complimentary);
+        const isVideo = file.service.category.name === "video" &&
+            file.is_show !== false &&
+            ((file as any).is_admin_approved || (file as any).is_agent_approved || (file as any).is_complimentary || isPreview);
         if (!isVideo) return false;
 
         // Date check
@@ -167,10 +170,12 @@ const PublicTour = () => {
         if (createdDate < cutoffDate) return false;
 
         return true;
-    }) || [], [orderData]);
+    }) || [], [orderData, isPreview]);
 
     const floorPlanFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isFloorPlan = file.service.category.name === "Floor Plan" && file.is_show !== false && ((file as any).is_agent_approved || (file as any).is_complimentary);
+        const isFloorPlan = file.service.category.name === "Floor Plan" &&
+            file.is_show !== false &&
+            ((file as any).is_admin_approved || (file as any).is_agent_approved || (file as any).is_complimentary || isPreview);
         if (!isFloorPlan) return false;
 
         // Date check
@@ -179,7 +184,7 @@ const PublicTour = () => {
         if (createdDate < cutoffDate) return false;
 
         return true;
-    }) || [], [orderData]);
+    }) || [], [orderData, isPreview]);
     const matterportLinks = useMemo(() => orderData?.tours?.[0]?.links || [], [orderData]);
 
     const visibleTabs = useMemo(() => {

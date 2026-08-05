@@ -1081,6 +1081,57 @@ const FileManager = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData, includeHidden]);
 
+  // ------------------------------------------------------------------
+  // SILENT BACKGROUND POLLING FOR PROCESSING MEDIA (EVERY 30 SECONDS)
+  // ------------------------------------------------------------------
+  const hasProcessingFiles = React.useMemo(() => {
+    return filesData?.files?.some(
+      (f) =>
+        (f as any).status === "processing" ||
+        f.is_processing === true ||
+        (f.type === "photo" &&
+          (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
+    );
+  }, [filesData?.files]);
+
+  React.useEffect(() => {
+    if (!hasProcessingFiles || !orderData?.uuid) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await GetFilesData(
+          token,
+          orderData.uuid,
+          includeHidden
+        );
+        if (res.data && res.data.length > 0) {
+          const updatedTour = res.data[0];
+          if (updatedTour.files) {
+            updatedTour.files = updatedTour.files.map((f: any) => ({
+              ...f,
+              is_processing:
+                f.status === "processing" ||
+                f.is_processing ||
+                (f.type === "photo" &&
+                  (!f.variant_urls ||
+                    Object.keys(f.variant_urls).length === 0)),
+            }));
+          }
+          setFilesData(updatedTour);
+        }
+      } catch (err) {
+        console.error("Silent background polling error for processing media:", err);
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [hasProcessingFiles, orderData?.uuid, includeHidden, setFilesData]);
+
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
       setFileManagerMode("upload");

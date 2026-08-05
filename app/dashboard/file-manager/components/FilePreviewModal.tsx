@@ -3,16 +3,34 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { X, Check, ArrowUp, FileText, Image as ImageIcon, Video, File as FileIcon } from "lucide-react";
+import { X, Check, ArrowUp, FileText, Image as ImageIcon, Video, File as FileIcon, GripVertical, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
 import { OptimizedImagePreview } from "./OptimizedPreview";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { naturalSortFiles } from "../utils/naturalSort";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 /* ------------------------------------------------------------------ */
-/* CONSTANTS */
+/* CONSTANTS & TYPES */
 /* ------------------------------------------------------------------ */
 
 const mediaOptions = [
@@ -46,63 +64,77 @@ const floorPlans = [
   "Additional Files",
 ];
 
-/* ------------------------------------------------------------------ */
-/* 🔥 OPTIMIZED PREVIEW — SAME UI, FIXED PERFORMANCE */
-/* ------------------------------------------------------------------ */
+export interface PreviewItem {
+  id: string;
+  file: File;
+  mediaType: string;
+  thumbnailFile?: File;
+  isComplimentary: boolean;
+  isSelected: boolean;
+}
 
-
 /* ------------------------------------------------------------------ */
-/* FILE ROW — UNCHANGED UI */
+/* FILE ROW COMPONENT */
 /* ------------------------------------------------------------------ */
 
 interface FileRowProps {
-  file: File;
+  item: PreviewItem;
   idx: number;
-  mediaType: string;
   onMediaTypeChange: (idx: number, value: string) => void;
   onRemove: (idx: number) => void;
   onToggleSelect: (idx: number) => void;
-  isSelected: boolean;
   type: string;
   openDropdown: number | null;
   setOpenDropdown: (idx: number | null) => void;
   allSuggestions: string[];
   totalFiles: number;
   userType: string;
-  isComplimentary: boolean;
   onToggleComplimentary: (idx: number) => void;
   onCopyFromAbove: (idx: number) => void;
   onTabNext: (idx: number, value: string) => void;
-  thumbnailFile?: File;
-  onThumbnailChange?: (idx: number, file: File | undefined) => void;
+  onThumbnailChange: (idx: number, file: File | undefined) => void;
 }
 
-const FileRow = React.memo(({
-  file,
-  idx,
-  mediaType,
-  onMediaTypeChange,
-  onRemove,
-  onToggleSelect,
-  isSelected,
-  type,
-  openDropdown,
-  setOpenDropdown,
-  allSuggestions,
-  totalFiles,
-  isComplimentary,
-  onToggleComplimentary,
-  onCopyFromAbove,
-  onTabNext,
-  thumbnailFile,
-  onThumbnailChange,
-}: FileRowProps) => {
+const SortableFileRow = React.memo((props: FileRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.item.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.7 : 1,
+  };
+
+  const {
+    item,
+    idx,
+    onMediaTypeChange,
+    onRemove,
+    onToggleSelect,
+    type,
+    openDropdown,
+    setOpenDropdown,
+    allSuggestions,
+    totalFiles,
+    onToggleComplimentary,
+    onCopyFromAbove,
+    onTabNext,
+    onThumbnailChange,
+  } = props;
+
   const [isCopied, setIsCopied] = useState(false);
   const [focusedOptionIndex, setFocusedOptionIndex] = useState(-1);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredSuggestions = allSuggestions.filter(item =>
-    !mediaType || item.toLowerCase().includes(mediaType.toLowerCase())
+  const filteredSuggestions = allSuggestions.filter(s =>
+    !item.mediaType || s.toLowerCase().includes(item.mediaType.toLowerCase())
   );
 
   const handleCopy = () => {
@@ -112,10 +144,36 @@ const FileRow = React.memo(({
   };
 
   const isLast = idx === totalFiles - 1;
+  const file = item.file;
 
   return (
-    <div className={`flex flex-col pb-6 ${isLast ? '' : 'border-b border-[#E4E4E4]'}`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex flex-col pb-6 ${isLast ? '' : 'border-b border-[#E4E4E4]'} ${
+        isDragging ? 'bg-blue-50/50 rounded-lg shadow-md border border-blue-200 p-2' : ''
+      }`}
+    >
       <div className="flex flex-col md:flex-row gap-4 md:gap-[10px] md:pr-[10px]">
+        {/* DRAG HANDLE & POSITION NUMBER */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors touch-none"
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical size={20} />
+          </button>
+
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border border-gray-300 text-gray-700 font-semibold text-xs shrink-0">
+            {idx + 1}
+          </div>
+        </div>
+
+        {/* THUMBNAIL */}
         <div className="w-full md:w-auto">
           <div className="w-full md:w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative" style={{ aspectRatio: '16/9' }}>
             <OptimizedImagePreview file={file} className="w-full h-full object-contain" />
@@ -123,28 +181,29 @@ const FileRow = React.memo(({
             <span
               className="flex items-center justify-center w-[28px] h-[28px] bg-white/90 hover:bg-white rounded-full absolute top-2 left-2 z-10 cursor-pointer shadow-md transition-all"
               onClick={() => onRemove(idx)}
+              title="Remove file"
             >
               <X color={'#E06D5E'} size={20} strokeWidth={2.5} />
             </span>
 
             <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded z-10 flex items-center justify-center pointer-events-none">
-              {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-white" /> : 
+              {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-white" /> :
                file.type.startsWith('video/') ? <Video size={16} className="text-white" /> :
                file.type === 'application/pdf' ? <FileText size={16} className="text-white" /> :
                <FileIcon size={16} className="text-white" />}
             </div>
 
-            {type === 'floor_plan' && (
+            {type === 'floor_plans' && (
               <Input
                 className="absolute bottom-2 right-12 w-[14px] h-[14px] cursor-pointer z-10"
                 type="checkbox"
-                checked={isSelected}
+                checked={item.isSelected}
                 onChange={() => onToggleSelect(idx)}
               />
             )}
           </div>
           
-          {file.type.startsWith('video/') && onThumbnailChange && (
+          {file.type.startsWith('video/') && (
             <div className="mt-2 w-full md:w-[200px] flex flex-col gap-2">
               <Button 
                 variant="outline" 
@@ -152,13 +211,13 @@ const FileRow = React.memo(({
                 className="w-full text-xs h-7"
                 onClick={() => thumbnailInputRef.current?.click()}
               >
-                {thumbnailFile ? "Change Thumbnail" : "Add Thumbnail"}
+                {item.thumbnailFile ? "Change Thumbnail" : "Add Thumbnail"}
               </Button>
-              {thumbnailFile && (
+              {item.thumbnailFile && (
                 <div className="flex flex-col gap-1">
                   <Label className="text-[12px] text-[#7d7d7d] font-semibold">Thumbnail</Label>
                   <div className="w-full md:w-[200px] aspect-video bg-black rounded-[6px] overflow-hidden relative border border-dashed border-[#7d7d7d]" style={{ aspectRatio: '16/9' }}>
-                    <OptimizedImagePreview file={thumbnailFile} className="w-full h-full object-contain" />
+                    <OptimizedImagePreview file={item.thumbnailFile} className="w-full h-full object-contain" />
                     <span
                       className="flex items-center justify-center w-[20px] h-[20px] bg-white/90 hover:bg-white rounded-full absolute top-1.5 right-1.5 z-10 cursor-pointer shadow-md transition-all"
                       onClick={(e) => {
@@ -169,8 +228,8 @@ const FileRow = React.memo(({
                       <X color={'#E06D5E'} size={12} strokeWidth={2.5} />
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={thumbnailFile.name}>
-                    {thumbnailFile.name}
+                  <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={item.thumbnailFile.name}>
+                    {item.thumbnailFile.name}
                   </p>
                 </div>
               )}
@@ -189,6 +248,7 @@ const FileRow = React.memo(({
           )}
         </div>
 
+        {/* INPUTS & DETAILS */}
         <div className="w-full flex flex-col gap-[10px]">
           <div className="flex justify-between items-center">
             <Label className="text-[#7d7d7d] text-[14px]">
@@ -197,11 +257,11 @@ const FileRow = React.memo(({
             <div className="flex items-center gap-4">
               <div
                 onClick={() => onToggleComplimentary(idx)}
-                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${item.isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
                 title="Mark as Complimentary"
               >
-                <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
-                  {isComplimentary && <Check color="white" size={14} />}
+                <div className={`border-2 rounded flex items-center justify-center ${item.isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
+                  {item.isComplimentary && <Check color="white" size={14} />}
                 </div>
                 <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
               </div>
@@ -211,7 +271,7 @@ const FileRow = React.memo(({
           <div className="relative">
             <Input
               id={`media-input-${idx}`}
-              value={mediaType}
+              value={item.mediaType}
               onChange={(e) => {
                 onMediaTypeChange(idx, e.target.value);
                 setOpenDropdown(idx);
@@ -239,7 +299,7 @@ const FileRow = React.memo(({
                 }
                 if (e.key === 'Tab') {
                   e.preventDefault();
-                  onTabNext(idx, mediaType);
+                  onTabNext(idx, item.mediaType);
                   setTimeout(() => {
                     document.getElementById(`media-input-${idx + 1}`)?.focus();
                   }, 0);
@@ -269,17 +329,16 @@ const FileRow = React.memo(({
 
             {openDropdown === idx && (
               <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
-                {filteredSuggestions.map((item, i) => (
+                {filteredSuggestions.map((suggestion, i) => (
                   <div
                     key={i}
-                    className={`px-4 py-2 cursor-pointer text-[#696868] text-[14px] ${focusedOptionIndex === i ? 'bg-gray-100' : 'hover:bg-gray-100'
-                      }`}
+                    className={`px-4 py-2 cursor-pointer text-[#696868] text-[14px] ${focusedOptionIndex === i ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
                     onClick={() => {
-                      onMediaTypeChange(idx, item);
+                      onMediaTypeChange(idx, suggestion);
                       setOpenDropdown(null);
                     }}
                   >
-                    {item}
+                    {suggestion}
                   </div>
                 ))}
               </div>
@@ -306,10 +365,10 @@ const FileRow = React.memo(({
   );
 });
 
-FileRow.displayName = 'FileRow';
+SortableFileRow.displayName = 'SortableFileRow';
 
 /* ------------------------------------------------------------------ */
-/* MAIN MODAL — UNCHANGED UI */
+/* MAIN MODAL */
 /* ------------------------------------------------------------------ */
 
 interface Props {
@@ -333,22 +392,32 @@ export default function FilePreviewModal({
   reviewFilesEnabled,
   onSave,
 }: Props) {
-  const [localFiles, setLocalFiles] = useState<File[]>(files);
-  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
-  const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
-  const [thumbnailFiles, setThumbnailFiles] = useState<{ [key: number]: File }>({});
+  const [localItems, setLocalItems] = useState<PreviewItem[]>([]);
   const [groupLabel, setGroupLabel] = useState("");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-  const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showAgain, setShowAgain] = useState(true);
+  const addFilesInputRef = useRef<HTMLInputElement>(null);
 
   const onSaveRef = React.useRef(onSave);
   React.useEffect(() => {
     onSaveRef.current = onSave;
   }, [onSave]);
 
-  // LOAD FROM LOCALSTORAGE ON MOUNT
+  const { userType } = useAppContext();
+  const { filesData } = useFileManagerContext();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
     const saved = localStorage.getItem('confirmation_dialog_file_upload_cancel_show_again');
     if (saved !== null) {
@@ -360,9 +429,6 @@ export default function FilePreviewModal({
     setShowAgain(prev => !prev);
   };
 
-  const { userType } = useAppContext();
-  const { filesData } = useFileManagerContext();
-
   const existingGroups = Array.from(
     new Set(filesData?.files?.map(f => f.group).filter((g): g is string => Boolean(g)) || [])
   );
@@ -372,35 +438,92 @@ export default function FilePreviewModal({
     new Set([...baseSuggestions, ...existingGroups])
   );
 
+  // Initialize and naturally sort incoming files when modal opens / files change
   useEffect(() => {
-    setLocalFiles(files);
-    setMediaTypes({});
-    setSelectedIndexes([]);
-    setComplimentaryIndexes([]);
-    setThumbnailFiles({});
-    setGroupLabel("");
-  }, [files, type]);
+    if (open) {
+      const sorted = naturalSortFiles(files);
+      const items: PreviewItem[] = sorted.map((file, idx) => ({
+        id: `file-${file.name}-${file.size}-${file.lastModified}-${idx}-${Date.now()}`,
+        file,
+        mediaType: "",
+        thumbnailFile: undefined,
+        isComplimentary: false,
+        isSelected: false,
+      }));
+      setLocalItems(items);
+      setGroupLabel("");
+      setOpenDropdown(null);
+    }
+  }, [files, open]);
+
+  // Requirement 6: Additional uploads handling — sort newly selected batch naturally before appending
+  const handleAddMoreFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFilesBatch = Array.from(e.target.files);
+      const sortedBatch = naturalSortFiles(newFilesBatch);
+      const newItems: PreviewItem[] = sortedBatch.map((file, idx) => ({
+        id: `file-${file.name}-${file.size}-${file.lastModified}-${idx}-${Date.now()}`,
+        file,
+        mediaType: "",
+        thumbnailFile: undefined,
+        isComplimentary: false,
+        isSelected: false,
+      }));
+      setLocalItems(prev => [...prev, ...newItems]);
+      e.target.value = "";
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setLocalItems((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   const removeFile = useCallback((index: number) => {
-    setLocalFiles(prev => prev.filter((_, i) => i !== index));
-    setSelectedIndexes(prev => prev.filter(i => i !== index));
-    setComplimentaryIndexes(prev => prev.filter(i => i !== index));
+    setLocalItems(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleMediaTypeChange = useCallback((index: number, value: string) => {
+    setLocalItems(prev => prev.map((item, i) => i === index ? { ...item, mediaType: value } : item));
+  }, []);
+
+  const handleToggleSelect = useCallback((index: number) => {
+    setLocalItems(prev => prev.map((item, i) => i === index ? { ...item, isSelected: !item.isSelected } : item));
+  }, []);
+
+  const handleToggleComplimentary = useCallback((index: number) => {
+    setLocalItems(prev => prev.map((item, i) => i === index ? { ...item, isComplimentary: !item.isComplimentary } : item));
+  }, []);
+
+  const handleThumbnailChange = useCallback((index: number, thumbnailFile: File | undefined) => {
+    setLocalItems(prev => prev.map((item, i) => i === index ? { ...item, thumbnailFile } : item));
   }, []);
 
   const handleCopyFromAbove = useCallback((index: number) => {
     if (index > 0) {
-      const valueAbove = mediaTypes[index - 1];
-      if (valueAbove) {
-        setMediaTypes(prev => ({ ...prev, [index]: valueAbove }));
-      }
+      setLocalItems(prev => {
+        const valueAbove = prev[index - 1]?.mediaType;
+        if (valueAbove) {
+          return prev.map((item, i) => i === index ? { ...item, mediaType: valueAbove } : item);
+        }
+        return prev;
+      });
     }
-  }, [mediaTypes]);
+  }, []);
 
   const handleTabNext = useCallback((index: number, value: string) => {
-    if (index + 1 < localFiles.length) {
-      setMediaTypes(prev => ({ ...prev, [index + 1]: value }));
+    if (index + 1 < localItems.length) {
+      setLocalItems(prev => prev.map((item, i) => i === index + 1 ? { ...item, mediaType: value } : item));
     }
-  }, [localFiles.length]);
+  }, [localItems.length]);
+
+  const selectedCount = localItems.filter(item => item.isSelected).length;
 
   const handleAdd = useCallback(() => {
     const existingServiceFilesCount = filesData?.files?.filter(f => f.service?.uuid === serviceUuid).length || 0;
@@ -409,45 +532,40 @@ export default function FilePreviewModal({
       const unuploadedServiceFilesCount = prev.filter(f => f.service_id === serviceUuid).length;
       const totalExistingForService = existingServiceFilesCount + unuploadedServiceFilesCount;
 
-      const filesToAdd = localFiles.map((file, index) => ({
-        file,
-        type: mediaTypes[index] || "",
-        group: selectedIndexes.includes(index) ? groupLabel : "",
+      const filesToAdd = localItems.map((item, index) => ({
+        file: item.file,
+        type: item.mediaType || "",
+        group: item.isSelected ? groupLabel : "",
         upload: true,
         service_id: serviceUuid,
         is_admin_approved: userType === 'admin' ? true : !reviewFilesEnabled,
         is_show: true,
-        sort_order: totalExistingForService + index,
-        is_complimentary: complimentaryIndexes.includes(index),
-        thumbnailFile: thumbnailFiles[index],
+        sort_order: totalExistingForService + index + 1,
+        is_complimentary: item.isComplimentary,
+        thumbnailFile: item.thumbnailFile,
       }));
 
       return [...prev, ...filesToAdd];
     });
 
-    // Close the modal and trigger the upload saving function
     onOpenChange(false);
     setTimeout(() => {
       if (onSaveRef.current) onSaveRef.current();
     }, 200);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    localFiles,
-    mediaTypes,
-    selectedIndexes,
+    localItems,
     groupLabel,
     serviceUuid,
     reviewFilesEnabled,
     setSelectedFiles,
     onOpenChange,
-    onSave,
     filesData,
-    complimentaryIndexes,
+    userType,
   ]);
 
   const handleOpenChange = (val: boolean) => {
     if (!val) {
-      if (localFiles.length > 0 && showAgain) {
+      if (localItems.length > 0 && showAgain) {
         setConfirmOpen(true);
       } else {
         onOpenChange(false);
@@ -463,7 +581,7 @@ export default function FilePreviewModal({
         <DialogContent
           className="w-[95vw] md:w-[700px] max-w-none h-[90vh] md:h-[95vh] flex flex-col font-alexandria gap-0 p-4 md:p-6"
           onPointerDownOutside={(e) => {
-            if (localFiles.length > 0) {
+            if (localItems.length > 0) {
               e.preventDefault();
               if (showAgain) {
                 setConfirmOpen(true);
@@ -473,7 +591,7 @@ export default function FilePreviewModal({
             }
           }}
           onEscapeKeyDown={(e) => {
-            if (localFiles.length > 0) {
+            if (localItems.length > 0) {
               e.preventDefault();
               if (showAgain) {
                 setConfirmOpen(true);
@@ -483,13 +601,30 @@ export default function FilePreviewModal({
             }
           }}
         >
-          <DialogHeader className="border-b pb-4 border-[#7d7d7d] flex-shrink-0">
+          <DialogHeader className="border-b pb-4 border-[#7d7d7d] flex-shrink-0 flex flex-row items-center justify-between">
             <DialogTitle className={`text-[18px] ${userType}-text font-[600]`}>
               FILE UPLOAD
             </DialogTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex items-center gap-1.5"
+                onClick={() => addFilesInputRef.current?.click()}
+              >
+                <Plus size={14} /> Add More Files
+              </Button>
+              <input
+                type="file"
+                multiple
+                ref={addFilesInputRef}
+                className="hidden"
+                onChange={handleAddMoreFiles}
+              />
+            </div>
           </DialogHeader>
 
-          {selectedIndexes.length >= 2 && (
+          {selectedCount >= 2 && (
             <div className="mb-4 mt-4 flex-shrink-0">
               <Label className="text-[#7d7d7d] text-[14px] mb-[10px] block">
                 Group Label
@@ -504,48 +639,37 @@ export default function FilePreviewModal({
           )}
 
           <div className="flex-1 overflow-y-auto space-y-4 py-4 min-h-0 custom-scroll pr-[10px]">
-            {localFiles.map((file, idx) => (
-              <FileRow
-                key={idx}
-                file={file}
-                idx={idx}
-                mediaType={mediaTypes[idx] || ""}
-                onMediaTypeChange={(i, v) =>
-                  setMediaTypes(p => ({ ...p, [i]: v }))
-                }
-                onRemove={removeFile}
-                onToggleSelect={(i) =>
-                  setSelectedIndexes(p =>
-                    p.includes(i) ? p.filter(x => x !== i) : [...p, i]
-                  )
-                }
-                isSelected={selectedIndexes.includes(idx)}
-                type={type}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                allSuggestions={allSuggestions}
-                totalFiles={localFiles.length}
-                userType={userType}
-                isComplimentary={complimentaryIndexes.includes(idx)}
-                onToggleComplimentary={(i) =>
-                  setComplimentaryIndexes(p =>
-                    p.includes(i) ? p.filter(x => x !== i) : [...p, i]
-                  )
-                }
-                onCopyFromAbove={handleCopyFromAbove}
-                onTabNext={handleTabNext}
-                thumbnailFile={thumbnailFiles[idx]}
-                onThumbnailChange={(i, file) => {
-                  if (file) {
-                    setThumbnailFiles(p => ({ ...p, [i]: file }));
-                  } else {
-                    const newFiles = { ...thumbnailFiles };
-                    delete newFiles[i];
-                    setThumbnailFiles(newFiles);
-                  }
-                }}
-              />
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={localItems.map(item => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {localItems.map((item, idx) => (
+                  <SortableFileRow
+                    key={item.id}
+                    item={item}
+                    idx={idx}
+                    onMediaTypeChange={handleMediaTypeChange}
+                    onRemove={removeFile}
+                    onToggleSelect={handleToggleSelect}
+                    type={type}
+                    openDropdown={openDropdown}
+                    setOpenDropdown={setOpenDropdown}
+                    allSuggestions={allSuggestions}
+                    totalFiles={localItems.length}
+                    userType={userType}
+                    onToggleComplimentary={handleToggleComplimentary}
+                    onCopyFromAbove={handleCopyFromAbove}
+                    onTabNext={handleTabNext}
+                    onThumbnailChange={handleThumbnailChange}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#7d7d7d] flex-shrink-0 mt-2">
@@ -553,7 +677,7 @@ export default function FilePreviewModal({
               className={`w-full ${userType}-text ${userType}-border h-[44px]`}
               variant="outline"
               onClick={() => {
-                if (localFiles.length > 0 && showAgain) {
+                if (localItems.length > 0 && showAgain) {
                   setConfirmOpen(true);
                 } else {
                   onOpenChange(false);
@@ -565,7 +689,7 @@ export default function FilePreviewModal({
             <Button
               className={`w-full ${userType}-bg text-white h-[44px]`}
               onClick={handleAdd}
-              disabled={localFiles.length === 0}
+              disabled={localItems.length === 0}
             >
               Upload
             </Button>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
+import { naturalSortFiles } from '../utils/naturalSort';
 import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
@@ -172,13 +173,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 e.target.value = "";
                 return;
             }
-            setFiles(validFiles);
+            setFiles(naturalSortFiles(validFiles));
         }
         e.target.value = "";
     };
 
     const handleFilesChange = (selectedFiles: File[]) => {
-        setFiles(selectedFiles);
+        setFiles(naturalSortFiles(selectedFiles));
     };
 
     useEffect(() => {

@@ -243,7 +243,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
     const token = localStorage.getItem("token");
     if (!token || !orderData) {
-      toast.error("Could not save reorder. Missing data.");
+      toast.error("Could not save image order. Missing data.");
       return;
     }
 
@@ -279,7 +279,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles: newlyChangedFiles,
         isUpdate: true,
-        successMessage: "Media reordered successfully."
+        successMessage: "Images sorted successfully."
       });
       setIsReorderMode(false);
     } catch (error) {
@@ -470,7 +470,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                     className={`h-8 text-[12px] gap-1.5 font-medium ${userType}-bg hover:opacity-90 text-white transition-all`}
                     onClick={() => setIsReorderMode(true)}
                   >
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Sort Images
                   </Button>
                 )}
                 {isSaving && (
@@ -484,7 +484,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               {(selectedFiles?.length > 0 || globalSortedPhotos.length > 0) && (
                 <div className="flex items-center justify-between px-4 pt-3 pb-2">
                   <p className="text-[#666666] text-[13px] font-medium">
-                    Note: The reorder will be shown in public tour and MLS sync.
+                    Note: The sorted images will be shown in public tour and MLS sync.
                   </p>
                   <GridSizeToggle />
                 </div>
