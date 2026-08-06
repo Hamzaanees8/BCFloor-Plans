@@ -1982,9 +1982,9 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                 {/* Page 2 Right Column */}
                 <div className="w-1/2 flex gap-4">
                   <div className="w-[40%]">
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 gap-3 h-full">
                       {/* image11 */}
-                      <div className="h-[165px] relative z-10 group overflow-hidden">
+                      <div className="h-[206px] relative z-10 group overflow-hidden">
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image11", e)}
@@ -2078,7 +2078,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image12 */}
-                      <div className="h-[165px] relative z-10 group overflow-hidden">
+                      <div className="h-[206px] relative z-10 group overflow-hidden">
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image12", e)}
@@ -2172,7 +2172,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image13 */}
-                      <div className="h-[165px] relative z-10 group overflow-hidden">
+                      <div className="h-[206px] relative z-10 group overflow-hidden">
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image13", e)}
@@ -2266,7 +2266,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image14 */}
-                      <div className="h-[165px] relative z-10 group overflow-hidden">
+                      <div className="h-[206px] relative z-10 group overflow-hidden">
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image14", e)}
@@ -2361,9 +2361,9 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     </div>
                   </div>
 
-                  <div className="w-[60%] flex flex-col justify-between gap-[190px]">
+                  <div className="w-[60%] flex flex-col justify-between gap-[100px]">
                     {/* image15 */}
-                    <div className="w-full h-[500px] mb-4 place-self-center border-2 z-10 border-[#fff] relative overflow-hidden group">
+                    <div className="w-full h-[590px] mb-4 place-self-center border-2 z-10 border-[#fff] relative overflow-hidden group">
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image15", e)}

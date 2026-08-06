@@ -296,8 +296,8 @@ const CreateFeatureSheet = forwardRef<
     setIsDownloading(true);
     try {
       const propertyAddress = orderData?.property_address || "Property";
-      const sheetName = selectedTemplate.replace(/\.pdf$/i, "");
-      const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${sheetName}.pdf`;
+      const templateLabel = getTemplateLabel(selectedTemplate) || selectedTemplate;
+      const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${templateLabel}.pdf`;
 
       const currentTemplate = templateImages.find(
         (t) => t.id === selectedTemplate,

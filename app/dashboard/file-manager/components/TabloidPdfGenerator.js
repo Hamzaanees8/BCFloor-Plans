@@ -35,22 +35,35 @@ const TabloidPdfGenerator = async (
   const renderWidth = paperSize.width * 96; // 1632px
   const renderHeight = paperSize.height * 96; // 1056px
 
-  // ─── Capture image transforms from the live DOM BEFORE cloning ────────────
-  // The live page is zoomed (e.g. 0.55), so the ImageEditor's baseScale was
-  // computed for a smaller container. We need to re-derive the correct
-  // baseScale for the full-resolution (unzoomed) container and rebuild the
-  // transform so the PDF looks identical to the screen preview.
+  // ─── Capture image transforms & metrics from live DOM BEFORE cloning ───────
   const liveImages = Array.from(section.querySelectorAll('img[alt="uploaded"]'));
-  const capturedTransforms = liveImages.map(img => {
-    // Read the live computed transform (includes translate + scale + rotate from React state)
+  const capturedTransforms = liveImages.map((img, idx) => {
     const computedStyle = window.getComputedStyle(img);
-    const liveTransform = computedStyle.transform; // e.g. "matrix(a,b,c,d,tx,ty)"
-
-    // Walk up to find the ImageEditor container (first ancestor that has overflow:hidden and w-full h-full)
+    const liveTransform = computedStyle.transform;
     const container = img.closest('.relative.flex.items-center.justify-center');
-    const containerRect = container ? container.getBoundingClientRect() : null;
+    const page = img.closest('.pdf-page');
 
-    return { img, liveTransform, containerRect };
+    const metrics = {
+      index: idx,
+      sheetWidth: page ? page.clientWidth : section.clientWidth,
+      sheetHeight: page ? page.clientHeight : section.clientHeight,
+      containerWidth: container ? container.clientWidth : 0,
+      containerHeight: container ? container.clientHeight : 0,
+      imageRenderedWidth: img.clientWidth,
+      imageRenderedHeight: img.clientHeight,
+      imageBoundingClientRect: img.getBoundingClientRect(),
+      containerBoundingClientRect: container ? container.getBoundingClientRect() : null,
+      pageBoundingClientRect: page ? page.getBoundingClientRect() : section.getBoundingClientRect(),
+      offsetWidth: img.offsetWidth,
+      offsetHeight: img.offsetHeight,
+      scrollWidth: img.scrollWidth,
+      scrollHeight: img.scrollHeight,
+      computedTransform: liveTransform,
+    };
+
+    console.log(`[TabloidPdfGenerator Debug BEFORE] Image #${idx}:`, metrics);
+
+    return { img, liveTransform, container, metrics };
   });
 
   const clone = section.cloneNode(true);
@@ -58,8 +71,8 @@ const TabloidPdfGenerator = async (
   clone.style.top = "-9999px";
   clone.style.left = "-9999px";
   clone.style.width = `${renderWidth}px`;
-  clone.style.height = `${renderHeight}px`; // Force exact height for aspect ratio
-  clone.style.overflow = "hidden";
+  clone.style.height = "auto"; // Allow container to expand naturally for multi-page tabloid sheets
+  clone.style.overflow = "visible";
   clone.style.maxHeight = "none";
   // Remove zoom from the pdf-page wrappers so layout renders at true 17x11 size
   const pdfPages = clone.querySelectorAll('.pdf-page');
@@ -67,92 +80,118 @@ const TabloidPdfGenerator = async (
     page.style.zoom = '1';
     page.style.width = `${renderWidth}px`;
     page.style.height = `${renderHeight}px`;
+    page.style.flexShrink = '0';
   });
 
   document.body.appendChild(clone);
 
-  // ─── Re-apply corrected image transforms in the clone ──────────────────────
-  // The clone is now at full 17x11in resolution. We need to recalculate
-  // baseScale for each image at the full-res container size, then rebuild
-  // the transform using the same user scale/translate/rotate as on screen.
+  await preloadImages(clone);
+
+  // ─── Re-apply image transforms with explicit aspect ratio in clone ────────
+  // html2canvas ignores CSS object-fit: contain/cover on <img> elements and
+  // stretches them to fit 100% width/height. To prevent stretching, we calculate
+  // the exact natural aspect-ratio dimensions (drawnW x drawnH) for the image,
+  // set explicit element width and height, center it with translate(-50%, -50%),
+  // and apply user scale, base scale, and rotation.
   const cloneImages = Array.from(clone.querySelectorAll('img[alt="uploaded"]'));
-  capturedTransforms.forEach(({ img: origImg, liveTransform }, i) => {
+  capturedTransforms.forEach(({ img: origImg, liveTransform, container: origContainer, metrics: beforeMetrics }, i) => {
     const cloneImg = cloneImages[i];
     if (!cloneImg) return;
 
-    // Parse the live matrix to extract: scaleX, translateX, translateY, rotation
-    // matrix(a,b,c,d,tx,ty)  or  matrix3d(...)
+    const cloneContainer = cloneImg.closest('.relative.flex.items-center.justify-center');
+    const clonePage = cloneImg.closest('.pdf-page');
+
     const matrixMatch = liveTransform.match(/matrix\(([^)]+)\)/);
-    if (!matrixMatch) {
-      // No transform, just keep object-contain behaviour
-      cloneImg.style.transform = 'none';
-      return;
-    }
+    if (!matrixMatch) return;
+
     const parts = matrixMatch[1].split(',').map(v => parseFloat(v.trim()));
-    // [a, b, c, d, tx, ty]
     const [a, b, , , tx, ty] = parts;
-    // Extract scale magnitude and rotation from matrix
     const liveScale = Math.sqrt(a * a + b * b);
     const liveAngleDeg = Math.round(Math.atan2(b, a) * 180 / Math.PI);
 
-    // Find the clone container for this image to recalculate baseScale
-    const cloneContainer = cloneImg.closest('.relative.flex.items-center.justify-center');
-    if (!cloneContainer) {
-      cloneImg.style.transform = liveTransform;
-      return;
-    }
-
-    const cloneW = cloneContainer.clientWidth;
-    const cloneH = cloneContainer.clientHeight;
+    const cloneW = cloneContainer ? cloneContainer.clientWidth : 0;
+    const cloneH = cloneContainer ? cloneContainer.clientHeight : 0;
+    const origW = origContainer ? origContainer.clientWidth : cloneW;
+    const origH = origContainer ? origContainer.clientHeight : cloneH;
     const natW = cloneImg.naturalWidth;
     const natH = cloneImg.naturalHeight;
 
-    if (cloneW === 0 || cloneH === 0 || natW === 0 || natH === 0) {
-      cloneImg.style.transform = liveTransform;
-      return;
-    }
+    if (cloneW > 0 && cloneH > 0 && natW > 0 && natH > 0) {
+      const isRotated90 = Math.abs(liveAngleDeg) === 90 || Math.abs(liveAngleDeg) === 270;
+      const effW = isRotated90 ? natH : natW;
+      const effH = isRotated90 ? natW : natH;
+      const imageAR = effW / effH;
 
-    // Re-derive baseScale for the full-res container
-    const isRotated90 = Math.abs(liveAngleDeg) === 90 || Math.abs(liveAngleDeg) === 270;
-    const effW = isRotated90 ? natH : natW;
-    const effH = isRotated90 ? natW : natH;
-    const containerAR = cloneW / cloneH;
-    const imageAR = effW / effH;
-    let drawnW, drawnH;
-    if (imageAR > containerAR) { drawnW = cloneW; drawnH = cloneW / imageAR; }
-    else { drawnH = cloneH; drawnW = cloneH * imageAR; }
-    const newBaseScale = Math.max(cloneW / drawnW, cloneH / drawnH);
+      // 1. Calculate unscaled drawn dimensions preserving natural aspect ratio inside clone container
+      const containerAR = cloneW / cloneH;
+      let drawnW, drawnH;
+      if (imageAR > containerAR) {
+        drawnW = cloneW;
+        drawnH = cloneW / imageAR;
+      } else {
+        drawnH = cloneH;
+        drawnW = cloneH * imageAR;
+      }
 
-    // The user's zoom level on screen was: liveScale / liveBaseScale
-    // We don't know liveBaseScale directly, but we can get it from the original container
-    const origContainer = origImg.closest('.relative.flex.items-center.justify-center');
-    if (!origContainer) {
-      cloneImg.style.transform = `translate(${tx}px, ${ty}px) scale(${newBaseScale}) rotate(${liveAngleDeg}deg)`;
-      return;
-    }
-    const origW = origContainer.clientWidth;
-    const origH = origContainer.clientHeight;
-    let origBaseScale = 1;
-    if (origW > 0 && origH > 0 && natW > 0 && natH > 0) {
+      // 2. Base scale required to cover the container (matching ImageEditor behavior)
+      const newBaseScale = Math.max(cloneW / drawnW, cloneH / drawnH);
+
+      // 3. Re-derive origBaseScale from preview container
+      const origContainerAR = origW / (origH || 1);
       let oDrawnW, oDrawnH;
-      if (imageAR > origW / origH) { oDrawnW = origW; oDrawnH = origW / imageAR; }
-      else { oDrawnH = origH; oDrawnW = origH * imageAR; }
-      origBaseScale = Math.max(origW / oDrawnW, origH / oDrawnH);
+      if (imageAR > origContainerAR) {
+        oDrawnW = origW;
+        oDrawnH = origW / imageAR;
+      } else {
+        oDrawnH = origH;
+        oDrawnW = origH * imageAR;
+      }
+      const origBaseScale = Math.max(origW / (oDrawnW || 1), origH / (oDrawnH || 1));
+
+      // 4. User zoom level & translate scaling
+      const userScale = origBaseScale > 0 ? liveScale / origBaseScale : liveScale;
+      const scaleRatio = cloneW / (origW || 1);
+      const userTx = tx * scaleRatio;
+      const userTy = ty * scaleRatio;
+
+      // 5. Set explicit element width/height matching natural aspect ratio to eliminate html2canvas stretching
+      const imgW = isRotated90 ? drawnH : drawnW;
+      const imgH = isRotated90 ? drawnW : drawnH;
+
+      cloneImg.style.position = 'absolute';
+      cloneImg.style.left = '50%';
+      cloneImg.style.top = '50%';
+      cloneImg.style.width = `${imgW}px`;
+      cloneImg.style.height = `${imgH}px`;
+      cloneImg.style.maxWidth = 'none';
+      cloneImg.style.maxHeight = 'none';
+      cloneImg.style.objectFit = 'fill'; // Element aspect ratio matches image natural aspect ratio perfectly!
+      
+      const finalScale = userScale * newBaseScale;
+      cloneImg.style.transform = `translate(-50%, -50%) translate(${userTx}px, ${userTy}px) scale(${finalScale}) rotate(${liveAngleDeg}deg)`;
+      cloneImg.style.transition = 'none';
     }
 
-    // User's intended scale (the scale prop passed to ImageEditor)
-    const userScale = origBaseScale > 0 ? liveScale / origBaseScale : liveScale;
+    const afterMetrics = {
+      index: i,
+      sheetWidth: clonePage ? clonePage.clientWidth : clone.clientWidth,
+      sheetHeight: clonePage ? clonePage.clientHeight : clone.clientHeight,
+      containerWidth: cloneContainer ? cloneContainer.clientWidth : 0,
+      containerHeight: cloneContainer ? cloneContainer.clientHeight : 0,
+      imageRenderedWidth: cloneImg.clientWidth,
+      imageRenderedHeight: cloneImg.clientHeight,
+      imageBoundingClientRect: cloneImg.getBoundingClientRect(),
+      containerBoundingClientRect: cloneContainer ? cloneContainer.getBoundingClientRect() : null,
+      pageBoundingClientRect: clonePage ? clonePage.getBoundingClientRect() : clone.getBoundingClientRect(),
+      offsetWidth: cloneImg.offsetWidth,
+      offsetHeight: cloneImg.offsetHeight,
+      scrollWidth: cloneImg.scrollWidth,
+      scrollHeight: cloneImg.scrollHeight,
+      computedTransform: window.getComputedStyle(cloneImg).transform,
+    };
 
-    // Scale the translate proportionally to the container size ratio
-    const scaleRatio = cloneW / (origW || 1);
-    const newTx = tx * scaleRatio;
-    const newTy = ty * scaleRatio;
-
-    const finalScale = userScale * newBaseScale;
-    cloneImg.style.transform = `translate(${newTx}px, ${newTy}px) scale(${finalScale}) rotate(${liveAngleDeg}deg)`;
-    cloneImg.style.transition = 'none';
+    console.log(`[TabloidPdfGenerator Debug AFTER] Image #${i}:`, afterMetrics);
   });
-
 
   // Sync inputs, excluding file inputs entirely to avoid InvalidStateError
   const originalInputs = section.querySelectorAll("input:not([type='file']), textarea");
@@ -164,7 +203,7 @@ const TabloidPdfGenerator = async (
     const inputType = input.type.toLowerCase();
     
     if (inputType === 'file') {
-      return; // Skip setting value for file inputs as it throws InvalidStateError
+      return;
     } else if (inputType === 'checkbox' || inputType === 'radio') {
       try { cloneInput.checked = input.checked; } catch {}
     } else if (inputType === 'textarea' || input.tagName.toLowerCase() === 'textarea') {
@@ -177,14 +216,10 @@ const TabloidPdfGenerator = async (
     }
   });
 
-  await preloadImages(clone);
-
+  // Convert non-uploaded images (logos, icons) with object-fit cover/contain to div elements
   const imagesToConvert = clone.querySelectorAll("img");
   imagesToConvert.forEach(img => {
-    // Skip ImageEditor uploaded images — they are handled by our custom
-    // transform-sync logic above and must remain as <img> tags so the
-    // computed transform (translate/scale/rotate) is honoured by html2canvas.
-    if (img.alt === 'uploaded') return;
+    if (img.alt === 'uploaded') return; // Uploaded images are pre-fitted with explicit aspect ratios above
 
     const compStyle = window.getComputedStyle(img);
     const isCover = img.classList.contains('object-cover') || compStyle.objectFit === 'cover' || img.style.objectFit === 'cover';
