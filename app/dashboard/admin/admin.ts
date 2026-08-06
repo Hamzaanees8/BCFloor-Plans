@@ -5,6 +5,7 @@ export interface UserPayload {
     last_name?: string;
     email?: string;
     secondary_email?: string;
+    notification_email?: number | boolean | string;
     primary_phone?: string;
     secondary_phone?: string;
     company_name?: string;

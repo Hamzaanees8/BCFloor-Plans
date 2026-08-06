@@ -71,7 +71,7 @@ const AdminForm = () => {
     roles?: [{ id: number }];
     email?: string;
     secondary_email?: string;
-    notification_email?: string;
+    notification_email?: string | number | boolean;
     email_type?: string;
     primary_phone?: string;
     secondary_phone?: string;
@@ -325,7 +325,12 @@ const AdminForm = () => {
 
       setEmail(currentUser.email || "");
       setSecondaryEmail(currentUser.secondary_email || "");
-      setNotificationEmail(currentUser.notification_email ? true : false);
+      const isNotifChecked =
+        currentUser.notification_email === true ||
+        currentUser.notification_email === 1 ||
+        currentUser.notification_email === "1" ||
+        currentUser.notification_email === "true";
+      setNotificationEmail(isNotifChecked);
       setPrimaryPhone(currentUser.primary_phone || "");
       setSecondaryPhone(currentUser.secondary_phone || "");
       setCompanyName(currentUser.company_name || "");
@@ -549,6 +554,7 @@ const AdminForm = () => {
         last_name: lastName,
         email,
         secondary_email: secondaryEmail || undefined,
+        notification_email: notificationEmail,
         primary_phone: primaryPhone || undefined,
         secondary_phone: secondaryPhone || undefined,
         company_name: companyName || undefined,
