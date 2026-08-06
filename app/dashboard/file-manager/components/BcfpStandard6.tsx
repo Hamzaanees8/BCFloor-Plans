@@ -296,6 +296,12 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             ...(formData.imagePositions as typeof position),
           }));
         }
+        if (formData.imageRotations) {
+          setRotation((prev) => ({
+            ...prev,
+            ...(formData.imageRotations as unknown as typeof rotation),
+          }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -326,6 +332,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         images,
         imageScales: scale,
         imagePositions: position,
+        imageRotations: rotation,
       });
     }, [
       byLawRestrictions,
@@ -351,6 +358,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       images,
       scale,
       position,
+      rotation,
       updateFormData,
     ]);
 
@@ -580,6 +588,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           images,
           imageScales: scale,
           imagePositions: position,
+          imageRotations: rotation,
         });
         return payload;
       },
@@ -677,6 +686,11 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           setPosition((prev) => ({
             ...prev,
             ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.imageRotations)
+          setRotation((prev) => ({
+            ...prev,
+            ...(state.imageRotations as unknown as typeof rotation),
           }));
       },
     }));
@@ -1593,7 +1607,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     onChange={(e) => setAmount(e.target.value)}
                     onChangeStyle={(s) => updateFieldStyle("amount", s)}
                     inputStyle={fieldStyles.amount}
-                    className="font-semibold text-center text-[30px] h-[30px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                    className="font-semibold text-center text-[30px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
                     placeholder="$000,000"
                   />
                 </div>

@@ -1822,7 +1822,7 @@ export class FeatureSheetService {
 
     // Persist gallery image URLs in content so they survive a DB round-trip.
     const galleryImages: Record<string, string> = {};
-    const galleryImagesMeta: Record<string, { scale: number; position: { x: number; y: number } }> = {};
+    const galleryImagesMeta: Record<string, { scale: number; position: { x: number; y: number }; rotation: number }> = {};
     for (let i = 1; i <= 20; i++) {
       const key = `image${i}`;
       const url = params.images[key];
@@ -1833,11 +1833,12 @@ export class FeatureSheetService {
         }
       }
 
-      // Store meta for ALL images that exist (blob, gallery, or existing feature sheet images) to persist pan/zoom
+      // Store meta for ALL images that exist (blob, gallery, or existing feature sheet images) to persist pan/zoom/rotation
       if (url) {
         galleryImagesMeta[key] = {
           scale: params.imageScales[key] ?? 1,
           position: params.imagePositions[key] ?? { x: 0, y: 0 },
+          rotation: params.imageRotations ? params.imageRotations[key] ?? 0 : 0,
         };
       }
     }
