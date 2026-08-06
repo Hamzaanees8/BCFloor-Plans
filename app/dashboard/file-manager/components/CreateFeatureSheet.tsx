@@ -178,6 +178,39 @@ const CreateFeatureSheet = forwardRef<
   const [currentPreviewPage, setCurrentPreviewPage] = useState(1);
   const isScrollingRef = useRef(false);
 
+  // Tabloid Preview Mode states (Edit mode vs Preview mode)
+  const [previewMode, setPreviewMode] = useState<"edit" | "preview">("edit");
+  const [previewZoom, setPreviewZoom] = useState(1.0);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const startPanPos = useRef({ x: 0, y: 0 });
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  const handlePanMouseDown = (e: React.MouseEvent) => {
+    if (previewMode !== "preview") return;
+    // Only drag on left click
+    if (e.button !== 0) return;
+    setIsPanning(true);
+    startPanPos.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+  };
+
+  const handlePanMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning || previewMode !== "preview") return;
+    setPanOffset({
+      x: e.clientX - startPanPos.current.x,
+      y: e.clientY - startPanPos.current.y,
+    });
+  };
+
+  const handlePanMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const resetPanAndZoom = () => {
+    setPreviewZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
   const scrollToPage = (pageNumber: number) => {
     const pages = document.querySelectorAll(".pdf-page");
     const targetPage = pages[pageNumber - 1] as HTMLElement;
@@ -1657,6 +1690,65 @@ const CreateFeatureSheet = forwardRef<
                     <span className="flex items-center gap-2">
                       Feature Sheet Preview
                     </span>
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2.5 normal-case tracking-normal"
+                    >
+                      {/* Save Feature Sheet button */}
+                      <button
+                        type="button"
+                        onClick={handleSaveFeatureSheet}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                      >
+                        Save Sheet
+                      </button>
+
+                      {/* Download PDF Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={isDownloading}
+                            className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                          >
+                            {isDownloading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              "Download PDF"
+                            )}
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[220px]">
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(false, false)}
+                            className="cursor-pointer"
+                          >
+                            Download (No Bleed)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(true, false)}
+                            className="cursor-pointer"
+                          >
+                            Download (With Bleed)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(false, true)}
+                            className="cursor-pointer font-medium text-emerald-700"
+                          >
+                            Download (Safe Zone)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(true, true)}
+                            className="cursor-pointer font-medium text-emerald-700"
+                          >
+                            Download (Bleed + Safe Zone)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
@@ -1677,12 +1769,108 @@ const CreateFeatureSheet = forwardRef<
                         overflow: visible !important;
                         clip-path: none !important;
                       }
+                      /* Tabloid Preview Mode: convert scale from .55 to 1.0 & center canvas */
+                      .tabloid-preview-un-editable .pdf-page {
+                        zoom: 1 !important;
+                        margin-left: auto !important;
+                        margin-right: auto !important;
+                      }
+                      .tabloid-preview-un-editable div[data-html2canvas-ignore="true"] {
+                        zoom: 1 !important;
+                        margin: 0 auto 32px auto !important;
+                      }
+                      .tabloid-preview-un-editable > div {
+                        align-items: center !important;
+                        justify-content: center !important;
+                      }
+                      .tabloid-preview-un-editable input,
+                      .tabloid-preview-un-editable textarea,
+                      .tabloid-preview-un-editable button {
+                        pointer-events: none !important;
+                      }
                     `}</style>
                   <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
-                    <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-                      <div className="text-sm font-semibold text-gray-700">
-                        Preview Navigation
+                    <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm font-semibold text-gray-700">
+                          Preview Navigation
+                        </div>
+
+                        {/* Mode Toggle Button */}
+                        <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewMode("edit");
+                              resetPanAndZoom();
+                            }}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                              previewMode === "edit"
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-gray-600 hover:text-gray-900"
+                            }`}
+                          >
+                            Edit Mode
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewMode("preview");
+                              setPreviewZoom(1.0);
+                              setPanOffset({ x: 0, y: 0 });
+                              setTimeout(() => {
+                                if (previewContainerRef.current) {
+                                  const el = previewContainerRef.current;
+                                  el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+                                  el.scrollTop = 0;
+                                }
+                              }, 50);
+                            }}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                              previewMode === "preview"
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-gray-600 hover:text-gray-900"
+                            }`}
+                          >
+                            Preview Mode
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Controls when in Preview Mode */}
+                      {previewMode === "preview" && (
+                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 text-xs">
+                          <span className="text-gray-500 font-medium">Pan & Zoom:</span>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewZoom((z) => Math.max(0.4, z - 0.1))}
+                            className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
+                            title="Zoom Out"
+                          >
+                            -
+                          </button>
+                          <span className="font-semibold text-gray-800 min-w-[45px] text-center">
+                            {Math.round(previewZoom * 100)}%
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewZoom((z) => Math.min(2.5, z + 0.1))}
+                            className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
+                            title="Zoom In"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={resetPanAndZoom}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-100 font-medium ml-1"
+                            title="Reset View"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      )}
+
                       <div
                         className="items-center gap-4 hidden md:flex"
                         onClick={(e) => e.stopPropagation()}
@@ -1718,12 +1906,40 @@ const CreateFeatureSheet = forwardRef<
                         </div>
                       </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center p-8 pt-12">
-                      <div className="relative">
+                    <div
+                      ref={previewContainerRef}
+                      onMouseDown={handlePanMouseDown}
+                      onMouseMove={handlePanMouseMove}
+                      onMouseUp={handlePanMouseUp}
+                      onMouseLeave={handlePanMouseUp}
+                      className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
+                        previewMode === "preview"
+                          ? isPanning
+                            ? "cursor-grabbing select-none"
+                            : "cursor-grab select-none"
+                          : ""
+                      }`}
+                    >
+                      <div
+                        className="relative flex flex-col items-center justify-center transition-transform duration-75 mx-auto min-w-full w-max"
+                        style={
+                          previewMode === "preview"
+                            ? {
+                                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
+                                transformOrigin: "top center",
+                              }
+                            : {}
+                        }
+                      >
                         <div
                           id="pdf-section"
                           ref={pdfSectionRef}
                           style={pdfSectionStyle}
+                          className={`flex flex-col items-center justify-center ${
+                            previewMode === "preview"
+                              ? "pointer-events-none select-none tabloid-preview-un-editable"
+                              : ""
+                          }`}
                         >
                           {selectedTemplate === "BCFPStandard" && (
                             <BcfpStandard

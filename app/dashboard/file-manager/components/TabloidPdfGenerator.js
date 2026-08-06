@@ -94,7 +94,7 @@ const TabloidPdfGenerator = async (
   // set explicit element width and height, center it with translate(-50%, -50%),
   // and apply user scale, base scale, and rotation.
   const cloneImages = Array.from(clone.querySelectorAll('img[alt="uploaded"]'));
-  capturedTransforms.forEach(({ img: origImg, liveTransform, container: origContainer, metrics: beforeMetrics }, i) => {
+  capturedTransforms.forEach(({ liveTransform, container: origContainer }, i) => {
     const cloneImg = cloneImages[i];
     if (!cloneImg) return;
 
