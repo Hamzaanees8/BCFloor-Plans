@@ -164,7 +164,7 @@ const ServicesFrom = () => {
     return 0;
   };
 
-  const getSortedProductOptions = <T extends any>(opts: T[]): T[] => {
+  const getSortedProductOptions = <T,>(opts: T[]): T[] => {
     if (!opts || opts.length === 0) return opts;
 
     return [...opts].sort((a: any, b: any) => {

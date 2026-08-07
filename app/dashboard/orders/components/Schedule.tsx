@@ -361,7 +361,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     // NOTE: selectedSlots intentionally omitted from deps — see initialEditSlotsRef above.
     // Adding selectedSlots would cause the heavy vendor/geofence recalculation to run on
     // every single slot click, showing a loading spinner on ALL service calendars.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [addressString, fullAddress, vendorsData, servicesData, googleReady, isEdit]);
 
     useEffect(() => {

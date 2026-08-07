@@ -840,7 +840,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     });
 
     return finalSlots;
-  }, [vendorsData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, serviceKey, scheduleOverride, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
+  }, [vendorsData, currentDate, selectedVendors, selectedSlots, service, AllBookedSlots, propertyTimezone, recommendTimeMap, serviceKey, scheduleOverride, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
 
   // Sync computedEvents to state only when they actually change (reference-stable write)
   useEffect(() => {

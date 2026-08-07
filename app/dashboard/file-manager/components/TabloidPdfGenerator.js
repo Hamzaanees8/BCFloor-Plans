@@ -8,7 +8,6 @@ const TabloidPdfGenerator = async (
   withBleed = false,
   withSafeZone = false
 ) => {
-  const paperSize = { width: 17, height: 11 }; // Enforce Tabloid size
   const section = document.getElementById(elementId);
 
   if (!section) {
@@ -30,10 +29,13 @@ const TabloidPdfGenerator = async (
 
   const bgColor = getBackgroundColor(section);
 
-  // Reference width for consistent layout rendering
-  // We use 96 DPI as base browser reference (1 inch = 96px)
-  const renderWidth = paperSize.width * 96; // 1632px
-  const renderHeight = paperSize.height * 96; // 1056px
+  // Full render dimensions including 0.125" bleed zone on all 4 sides (17.25" x 11.25")
+  const fullWidth = 17.25;
+  const fullHeight = 11.25;
+
+  // Reference dimensions in px at 96 DPI
+  const renderWidth = fullWidth * 96;  // 1656px
+  const renderHeight = fullHeight * 96; // 1080px
 
   // ─── Capture image transforms & metrics from live DOM BEFORE cloning ───────
   const liveImages = Array.from(section.querySelectorAll('img[alt="uploaded"]'));
@@ -74,7 +76,7 @@ const TabloidPdfGenerator = async (
   clone.style.height = "auto"; // Allow container to expand naturally for multi-page tabloid sheets
   clone.style.overflow = "visible";
   clone.style.maxHeight = "none";
-  // Remove zoom from the pdf-page wrappers so layout renders at true 17x11 size
+  // Set zoom=1 and enforce full 17.25x11.25 rendering size so bleed area and elements render accurately
   const pdfPages = clone.querySelectorAll('.pdf-page');
   pdfPages.forEach(page => {
     page.style.zoom = '1';
@@ -88,18 +90,12 @@ const TabloidPdfGenerator = async (
   await preloadImages(clone);
 
   // ─── Re-apply image transforms with explicit aspect ratio in clone ────────
-  // html2canvas ignores CSS object-fit: contain/cover on <img> elements and
-  // stretches them to fit 100% width/height. To prevent stretching, we calculate
-  // the exact natural aspect-ratio dimensions (drawnW x drawnH) for the image,
-  // set explicit element width and height, center it with translate(-50%, -50%),
-  // and apply user scale, base scale, and rotation.
   const cloneImages = Array.from(clone.querySelectorAll('img[alt="uploaded"]'));
   capturedTransforms.forEach(({ liveTransform, container: origContainer }, i) => {
     const cloneImg = cloneImages[i];
     if (!cloneImg) return;
 
     const cloneContainer = cloneImg.closest('.relative.flex.items-center.justify-center');
-    const clonePage = cloneImg.closest('.pdf-page');
 
     const matrixMatch = liveTransform.match(/matrix\(([^)]+)\)/);
     if (!matrixMatch) return;
@@ -122,7 +118,6 @@ const TabloidPdfGenerator = async (
       const effH = isRotated90 ? natW : natH;
       const imageAR = effW / effH;
 
-      // 1. Calculate unscaled drawn dimensions preserving natural aspect ratio inside clone container
       const containerAR = cloneW / cloneH;
       let drawnW, drawnH;
       if (imageAR > containerAR) {
@@ -133,10 +128,8 @@ const TabloidPdfGenerator = async (
         drawnW = cloneH * imageAR;
       }
 
-      // 2. Base scale required to cover the container (matching ImageEditor behavior)
       const newBaseScale = Math.max(cloneW / drawnW, cloneH / drawnH);
 
-      // 3. Re-derive origBaseScale from preview container
       const origContainerAR = origW / (origH || 1);
       let oDrawnW, oDrawnH;
       if (imageAR > origContainerAR) {
@@ -148,13 +141,11 @@ const TabloidPdfGenerator = async (
       }
       const origBaseScale = Math.max(origW / (oDrawnW || 1), origH / (oDrawnH || 1));
 
-      // 4. User zoom level & translate scaling
       const userScale = origBaseScale > 0 ? liveScale / origBaseScale : liveScale;
       const scaleRatio = cloneW / (origW || 1);
       const userTx = tx * scaleRatio;
       const userTy = ty * scaleRatio;
 
-      // 5. Set explicit element width/height matching natural aspect ratio to eliminate html2canvas stretching
       const imgW = isRotated90 ? drawnH : drawnW;
       const imgH = isRotated90 ? drawnW : drawnH;
 
@@ -165,32 +156,12 @@ const TabloidPdfGenerator = async (
       cloneImg.style.height = `${imgH}px`;
       cloneImg.style.maxWidth = 'none';
       cloneImg.style.maxHeight = 'none';
-      cloneImg.style.objectFit = 'fill'; // Element aspect ratio matches image natural aspect ratio perfectly!
+      cloneImg.style.objectFit = 'fill';
       
       const finalScale = userScale * newBaseScale;
       cloneImg.style.transform = `translate(-50%, -50%) translate(${userTx}px, ${userTy}px) scale(${finalScale}) rotate(${liveAngleDeg}deg)`;
       cloneImg.style.transition = 'none';
     }
-
-    const afterMetrics = {
-      index: i,
-      sheetWidth: clonePage ? clonePage.clientWidth : clone.clientWidth,
-      sheetHeight: clonePage ? clonePage.clientHeight : clone.clientHeight,
-      containerWidth: cloneContainer ? cloneContainer.clientWidth : 0,
-      containerHeight: cloneContainer ? cloneContainer.clientHeight : 0,
-      imageRenderedWidth: cloneImg.clientWidth,
-      imageRenderedHeight: cloneImg.clientHeight,
-      imageBoundingClientRect: cloneImg.getBoundingClientRect(),
-      containerBoundingClientRect: cloneContainer ? cloneContainer.getBoundingClientRect() : null,
-      pageBoundingClientRect: clonePage ? clonePage.getBoundingClientRect() : clone.getBoundingClientRect(),
-      offsetWidth: cloneImg.offsetWidth,
-      offsetHeight: cloneImg.offsetHeight,
-      scrollWidth: cloneImg.scrollWidth,
-      scrollHeight: cloneImg.scrollHeight,
-      computedTransform: window.getComputedStyle(cloneImg).transform,
-    };
-
-    console.log(`[TabloidPdfGenerator Debug AFTER] Image #${i}:`, afterMetrics);
   });
 
   // Sync inputs, excluding file inputs entirely to avoid InvalidStateError
@@ -219,7 +190,7 @@ const TabloidPdfGenerator = async (
   // Convert non-uploaded images (logos, icons) with object-fit cover/contain to div elements
   const imagesToConvert = clone.querySelectorAll("img");
   imagesToConvert.forEach(img => {
-    if (img.alt === 'uploaded') return; // Uploaded images are pre-fitted with explicit aspect ratios above
+    if (img.alt === 'uploaded') return;
 
     const compStyle = window.getComputedStyle(img);
     const isCover = img.classList.contains('object-cover') || compStyle.objectFit === 'cover' || img.style.objectFit === 'cover';
@@ -241,8 +212,8 @@ const TabloidPdfGenerator = async (
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   try {
-    const pWidth = paperSize.width * 96;
-    const pHeight = paperSize.height * 96;
+    const pWidth = renderWidth;
+    const pHeight = renderHeight;
 
     const options = {
       scale: 3, // Premium quality (>300 DPI)
@@ -259,8 +230,8 @@ const TabloidPdfGenerator = async (
     const pages = clone.querySelectorAll(".tabloid-sheet, .pdf-page");
     const elementsToCapture = pages.length > 0 ? Array.from(pages) : [clone];
 
-    const finalPaperWidth = withBleed ? paperSize.width + 0.25 : paperSize.width;
-    const finalPaperHeight = withBleed ? paperSize.height + 0.25 : paperSize.height;
+    const finalPaperWidth = withBleed ? 17.25 : 17;
+    const finalPaperHeight = withBleed ? 11.25 : 11;
 
     const orientation = "landscape";
     const pdf = new jsPDF({
@@ -274,13 +245,12 @@ const TabloidPdfGenerator = async (
       
       const isExplicitPage = pages.length > 0;
       const totalHeight = isExplicitPage ? pHeight : Math.max(pHeight, el.scrollHeight);
-      const numPages = isExplicitPage ? 1 : Math.ceil(totalHeight / pHeight);
 
       // Ensure the page element is properly sized for capture
       el.style.width = `${pWidth}px`;
       el.style.height = `${totalHeight}px`;
       el.style.overflow = "hidden";
-      el.style.display = "flex"; // Changed from block to flex for tabloid sheets to keep side-by-side pages intact
+      el.style.display = "flex";
 
       const elOptions = {
         ...options,
@@ -290,94 +260,54 @@ const TabloidPdfGenerator = async (
 
       const canvas = await html2canvas(el, elOptions);
 
-      let finalImgData;
-      let finalImgHeightInches;
+      let finalCanvas = canvas;
 
-      if (withBleed) {
+      if (!withBleed) {
+        // Crop out the 0.125" outer bleed zone from all 4 edges (area outside red border)
         const scale = options.scale || 3;
-        const bleedPx = 0.125 * 96 * scale; // pixels for 0.125" at this scale
-        
-        const origWidth = canvas.width;
-        const origHeight = canvas.height;
-        const extWidth = origWidth + (bleedPx * 2);
-        const extHeight = origHeight + (bleedPx * 2);
-        
-        const extCanvas = document.createElement('canvas');
-        extCanvas.width = extWidth;
-        extCanvas.height = extHeight;
-        const ctx = extCanvas.getContext('2d');
-        
-        // Fill background
-        ctx.fillStyle = bgColor;
-        ctx.fillRect(0, 0, extWidth, extHeight);
-        
-        // Draw original centered
-        ctx.drawImage(canvas, bleedPx, bleedPx);
-        
-        // Stretch Top Edge
-        ctx.drawImage(canvas, 0, 0, origWidth, 1, bleedPx, 0, origWidth, bleedPx);
-        // Stretch Bottom Edge
-        ctx.drawImage(canvas, 0, origHeight - 1, origWidth, 1, bleedPx, extHeight - bleedPx, origWidth, bleedPx);
-        // Stretch Left Edge
-        ctx.drawImage(canvas, 0, 0, 1, origHeight, 0, bleedPx, bleedPx, origHeight);
-        // Stretch Right Edge
-        ctx.drawImage(canvas, origWidth - 1, 0, 1, origHeight, extWidth - bleedPx, bleedPx, bleedPx, origHeight);
-        
-        // Corner: Top-Left
-        ctx.drawImage(canvas, 0, 0, 1, 1, 0, 0, bleedPx, bleedPx);
-        // Corner: Top-Right
-        ctx.drawImage(canvas, origWidth - 1, 0, 1, 1, extWidth - bleedPx, 0, bleedPx, bleedPx);
-        // Corner: Bottom-Left
-        ctx.drawImage(canvas, 0, origHeight - 1, 1, 1, 0, extHeight - bleedPx, bleedPx, bleedPx);
-        // Corner: Bottom-Right
-        ctx.drawImage(canvas, origWidth - 1, origHeight - 1, 1, 1, extWidth - bleedPx, extHeight - bleedPx, bleedPx, bleedPx);
-        
-        finalImgData = extCanvas.toDataURL("image/png", 1.0);
-        finalImgHeightInches = (totalHeight / 96) + 0.25;
-      } else {
-        finalImgData = canvas.toDataURL("image/png", 1.0);
-        finalImgHeightInches = totalHeight / 96;
+        const cropPx = 0.125 * 96 * scale; // 0.125" bleed in canvas pixels
+        const cropWidth = canvas.width - (cropPx * 2);
+        const cropHeight = canvas.height - (cropPx * 2);
+
+        const croppedCanvas = document.createElement("canvas");
+        croppedCanvas.width = cropWidth;
+        croppedCanvas.height = cropHeight;
+        const ctx = croppedCanvas.getContext("2d");
+        ctx.drawImage(
+          canvas,
+          cropPx, cropPx, cropWidth, cropHeight,
+          0, 0, cropWidth, cropHeight
+        );
+        finalCanvas = croppedCanvas;
       }
 
-      for (let p = 0; p < numPages; p++) {
-        if (i > 0 || p > 0) {
-          pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);
-        }
+      const finalImgData = finalCanvas.toDataURL("image/png", 1.0);
 
-        if (withBleed) {
-          pdf.addImage(
-            finalImgData, 
-            "PNG", 
-            0, 
-            -(p * finalPaperHeight), 
-            finalPaperWidth, 
-            finalImgHeightInches
-          );
-        } else if (withSafeZone) {
-          // Safe zone: place the full captured image inset by 0.25" on all 4 sides.
-          // PDF page stays at standard 17"x11". The image is drawn at (0.25", 0.25")
-          // with size 16.5"×10.5" — leaving a clean 0.25" margin on every edge.
-          const safeMargin = 0.25;
-          const safeImgWidth = paperSize.width - safeMargin * 2;   // 16.5"
-          const safeImgHeight = paperSize.height - safeMargin * 2; // 10.5"
-          pdf.addImage(
-            finalImgData,
-            "PNG",
-            safeMargin,                              // x: 0.25" from left
-            safeMargin - (p * paperSize.height),     // y: 0.25" from top
-            safeImgWidth,                            // width: 16.5"
-            safeImgHeight                            // height: 10.5"
-          );
-        } else {
-          pdf.addImage(
-            finalImgData, 
-            "PNG", 
-            0, 
-            -(p * paperSize.height), 
-            paperSize.width, 
-            finalImgHeightInches
-          );
-        }
+      if (i > 0) {
+        pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);
+      }
+
+      if (withSafeZone && !withBleed) {
+        const safeMargin = 0.25;
+        const safeImgWidth = 17 - safeMargin * 2;   // 16.5"
+        const safeImgHeight = 11 - safeMargin * 2; // 10.5"
+        pdf.addImage(
+          finalImgData,
+          "PNG",
+          safeMargin,
+          safeMargin,
+          safeImgWidth,
+          safeImgHeight
+        );
+      } else {
+        pdf.addImage(
+          finalImgData,
+          "PNG",
+          0,
+          0,
+          finalPaperWidth,
+          finalPaperHeight
+        );
       }
     }
 
