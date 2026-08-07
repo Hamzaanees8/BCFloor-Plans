@@ -10,7 +10,8 @@ export const getExplicitSqftRate = (
 ): { rate: number; minPrice: number } | null => {
   if (!options || options.length === 0) return null;
   const opt = options.find(
-    (o) => o.sq_ft_rate && parseFloat(o.sq_ft_rate) > 0
+    (o) => (!o.sq_ft_range || typeof o.sq_ft_range !== 'string' || o.sq_ft_range.trim() === '') &&
+           o.sq_ft_rate && parseFloat(o.sq_ft_rate) > 0
   );
   if (!opt) return null;
   return {
@@ -20,50 +21,67 @@ export const getExplicitSqftRate = (
 };
 
 /**
- * Method B – find the nearest range option to the given sqft value.
- * "Nearest" means: prefer options whose range contains the value; if none
- * match, use the option whose MAX bound is closest to the value.
+ * Check if a square footage value falls within a sq_ft_range string.
+ * Supports formats: "0-1000", "2001-3000", "10001-+", "10001+".
  */
-export const getNearestSqftOption = (
-  options: any[],
-  sqft: number
-): any | null => {
-  if (!options || options.length === 0) return null;
-
-  const ranged = options.filter(
-    (o) => o.sq_ft_range && typeof o.sq_ft_range === 'string' && o.amount
-  );
-  if (ranged.length === 0) return null;
-
-  // Try exact match first
-  const exact = ranged.find((o) => {
-    const [minStr, maxStr] = o.sq_ft_range.split('-').map((s: string) => s.trim());
+export const isSqFtInRange = (sqFtRange: string | undefined | null, sqft: number): boolean => {
+  if (!sqFtRange || typeof sqFtRange !== 'string') return false;
+  const cleaned = sqFtRange.replace(/\s+/g, '');
+  
+  if (cleaned.includes('+')) {
+    const minStr = cleaned.replace(/\+|-/g, '');
     const min = parseInt(minStr, 10);
-    const max = parseInt(maxStr, 10);
-    return !isNaN(min) && !isNaN(max) && sqft >= min && sqft <= max;
-  });
-  if (exact) return exact;
+    return !isNaN(min) && sqft >= min;
+  }
 
-  // Fallback: nearest by distance of the MAX bound to the requested sqft
-  let closest: any = null;
-  let closestDist = Infinity;
+  const [minStr, maxStr] = cleaned.split('-').map((s: string) => s.trim());
+  const min = parseInt(minStr, 10);
+  const max = parseInt(maxStr, 10);
+
+  if (isNaN(min)) return false;
+  if (isNaN(max)) return sqft >= min;
+
+  return sqft >= min && sqft <= max;
+};
+
+/**
+ * Find the tier with the HIGHEST max sqft bound.
+ * Used for out-of-range extrapolation — always use the most expensive tier
+ * as the rate basis, never an arbitrary nearest tier.
+ */
+const getHighestSqftTier = (
+  ranged: any[]
+): { max: number; amount: number; minPrice: number } | null => {
+  let highMax = -Infinity;
+  let highTier: any = null;
   for (const o of ranged) {
-    const [, maxStr] = o.sq_ft_range.split('-').map((s: string) => s.trim());
-    const max = parseInt(maxStr, 10);
-    if (isNaN(max)) continue;
-    const dist = Math.abs(sqft - max);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closest = o;
+    const cleaned = (o.sq_ft_range as string).replace(/\s+/g, '');
+    let bound: number;
+    if (cleaned.includes('+')) {
+      // "10001+" style — treat the lower bound as the reference
+      bound = parseInt(cleaned.replace(/[^0-9]/g, ''), 10);
+    } else {
+      const parts = cleaned.split('-');
+      bound = parseInt(parts[parts.length - 1], 10);
+    }
+    if (!isNaN(bound) && bound > highMax) {
+      highMax = bound;
+      highTier = o;
     }
   }
-  return closest;
+  if (!highTier) return null;
+  return {
+    max: highMax,
+    amount: parseFloat(highTier.amount),
+    minPrice: highTier.min_price ? parseFloat(highTier.min_price) : 0,
+  };
 };
 
 /**
  * Calculate custom SqFt price using the priority system:
- *   1. Explicit sq_ft_rate option
- *   2. Nearest range-based division (amount / rangeMax)
+ *   1. Explicit sq_ft_rate option  (e.g. 2D Floor Plans: rate × sqft)
+ *   2. In-range exact tier match   (return flat amount)
+ *   3. Out-of-range extrapolation  (highest-tier rate × sqft)
  * Returns null if price cannot be determined.
  */
 export const calcCustomSqftPrice = (
@@ -72,25 +90,35 @@ export const calcCustomSqftPrice = (
 ): { price: number; rate: number; method: 'explicit' | 'range-division' } | null => {
   if (!options || options.length === 0 || sqft <= 0) return null;
 
-  // Priority 1 – explicit rate
+  // Priority 1 – explicit per-sqft rate (no range attached)
   const explicit = getExplicitSqftRate(options);
   if (explicit) {
     const price = Math.max(sqft * explicit.rate, explicit.minPrice);
     return { price, rate: explicit.rate, method: 'explicit' };
   }
 
-  // Priority 2 – nearest range
-  const nearest = getNearestSqftOption(options, sqft);
-  if (!nearest) return null;
+  // Collect all range-based tiers
+  const ranged = options.filter(
+    (o) => o.sq_ft_range && typeof o.sq_ft_range === 'string' && o.sq_ft_range.trim() !== '' && o.amount
+  );
+  if (ranged.length === 0) return null;
 
-  const [, maxStr] = nearest.sq_ft_range.split('-').map((s: string) => s.trim());
-  const rangeMax = parseInt(maxStr, 10);
-  if (isNaN(rangeMax) || rangeMax <= 0) return null;
+  // Priority 2 – exact in-range match → return flat amount
+  const exact = ranged.find((o) => isSqFtInRange(o.sq_ft_range, sqft));
+  if (exact) {
+    const price = parseFloat(exact.amount);
+    // Return a meaningful rate so formula hints display correctly
+    const rate = sqft > 0 ? price / sqft : 0;
+    return { price, rate, method: 'range-division' };
+  }
 
-  const rate = parseFloat(nearest.amount) / rangeMax;
+  // Priority 3 – out-of-range: extrapolate using the HIGHEST tier
+  const highest = getHighestSqftTier(ranged);
+  if (!highest || highest.max <= 0) return null;
+
+  const rate = highest.amount / highest.max;
   const rawPrice = sqft * rate;
-  const minPrice = nearest.min_price ? parseFloat(nearest.min_price) : 0;
-  const price = Math.max(rawPrice, minPrice);
+  const price = highest.minPrice > 0 ? Math.max(rawPrice, highest.minPrice) : rawPrice;
   return { price, rate, method: 'range-division' };
 };
 
@@ -106,7 +134,7 @@ export const getExplicitQtyRate = (
 ): { rate: number; minPrice: number } | null => {
   if (!options || options.length === 0) return null;
   const opt = options.find(
-    (o) => o.quantity_rate && parseFloat(o.quantity_rate) > 0
+    (o) => !o.quantity && o.quantity_rate && parseFloat(o.quantity_rate) > 0
   );
   if (!opt) return null;
   return {
@@ -143,8 +171,9 @@ export const getNearestQtyOption = (options: any[], qty: number): any | null => 
 
 /**
  * Calculate custom Quantity price using the priority system:
- *   1. Explicit quantity_rate option
- *   2. Nearest quantity-based division (amount / quantity)
+ *   1. Explicit quantity_rate option  (qty × explicit rate)
+ *   2. Exact tier match               (return flat amount)
+ *   3. Out-of-range extrapolation     (highest-tier rate × qty)
  * Returns null if price cannot be determined.
  */
 export const calcCustomQtyPrice = (
@@ -153,22 +182,36 @@ export const calcCustomQtyPrice = (
 ): { price: number; rate: number; method: 'explicit' | 'qty-division' } | null => {
   if (!options || options.length === 0 || qty <= 0) return null;
 
-  // Priority 1 – explicit rate
+  // Priority 1 – explicit per-unit rate
   const explicit = getExplicitQtyRate(options);
   if (explicit) {
     const price = Math.max(qty * explicit.rate, explicit.minPrice);
     return { price, rate: explicit.rate, method: 'explicit' };
   }
 
-  // Priority 2 – nearest quantity option
-  const nearest = getNearestQtyOption(options, qty);
-  if (!nearest) return null;
+  // Collect all quantity tiers
+  const quantified = options.filter((o) => o.quantity && o.amount);
+  if (quantified.length === 0) return null;
 
-  const baseQty = Number(nearest.quantity) || 1;
-  const rate = parseFloat(nearest.amount) / baseQty;
+  // Priority 2 – exact quantity match → return flat amount
+  const exact = quantified.find((o) => Number(o.quantity) === qty);
+  if (exact) {
+    const price = parseFloat(exact.amount);
+    const rate = qty > 0 ? price / qty : 0;
+    return { price, rate, method: 'qty-division' };
+  }
+
+  // Priority 3 – out-of-range: extrapolate using the HIGHEST quantity tier
+  const highest = quantified.reduce((best: any, o: any) => {
+    return Number(o.quantity) > Number(best?.quantity ?? -1) ? o : best;
+  }, null as any);
+  if (!highest) return null;
+
+  const baseQty = Number(highest.quantity) || 1;
+  const rate = parseFloat(highest.amount) / baseQty;
   const rawPrice = qty * rate;
-  const minPrice = nearest.min_price ? parseFloat(nearest.min_price) : 0;
-  const price = Math.max(rawPrice, minPrice);
+  const minPrice = highest.min_price ? parseFloat(highest.min_price) : 0;
+  const price = minPrice > 0 ? Math.max(rawPrice, minPrice) : rawPrice;
   return { price, rate, method: 'qty-division' };
 };
 

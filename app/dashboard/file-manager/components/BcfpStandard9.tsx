@@ -566,14 +566,15 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
     };
 
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
+      if (e.altKey) return;
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      const dx = e.clientX - lastPosition.current[key].x;
-      const dy = e.clientY - lastPosition.current[key].y;
+      const dx = (e.clientX - lastPosition.current[key].x) / 0.55;
+      const dy = (e.clientY - lastPosition.current[key].y) / 0.55;
 
       setPosition((prev) => ({
         ...prev,

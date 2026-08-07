@@ -23,6 +23,7 @@ import NotificationModal from "../../calendar/components/NotificationModal";
 import { useOrderContext } from "../context/OrderContext";
 import EditAppointmentTab from "../../calendar/components/EditAppointmentTab";
 import EditSquareFootage from "../../calendar/components/EditSquareFootage";
+import { isSqFtInRange } from "@/lib/pricingUtils";
 import { Services } from "../../services/page";
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from "../utils/serviceTimeUtils";
 import { UpdatePropertySquareFootage } from "../../listings/listing";
@@ -231,12 +232,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
                 let isCurrentValid = true;
                 if (currentOption?.sq_ft_range) {
-                    const [minStr, maxStr] = currentOption.sq_ft_range.split("-").map((s) => s.trim());
-                    const min = parseInt(minStr, 10);
-                    const max = parseInt(maxStr, 10);
-                    if (!isNaN(min) && !isNaN(max)) {
-                        isCurrentValid = grandTotal >= min && grandTotal <= max;
-                    }
+                    isCurrentValid = isSqFtInRange(currentOption.sq_ft_range, grandTotal);
                 }
 
                 if (isCurrentValid) {
@@ -249,11 +245,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 }
 
                 const correctOption = service.product_options?.find((opt) => {
-                    if (!opt.sq_ft_range) return false;
-                    const [minStr, maxStr] = opt.sq_ft_range.split("-").map((s) => s.trim());
-                    const min = parseInt(minStr, 10);
-                    const max = parseInt(maxStr, 10);
-                    return !isNaN(min) && !isNaN(max) && grandTotal >= min && grandTotal <= max;
+                    return isSqFtInRange(opt.sq_ft_range, grandTotal);
                 });
 
                 if (correctOption) {
@@ -296,12 +288,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
                 let isCurrentValid = true;
                 if (currentOption?.sq_ft_range) {
-                    const [minStr, maxStr] = currentOption.sq_ft_range.split("-").map((s) => s.trim());
-                    const min = parseInt(minStr, 10);
-                    const max = parseInt(maxStr, 10);
-                    if (!isNaN(min) && !isNaN(max)) {
-                        isCurrentValid = grandTotal >= min && grandTotal <= max;
-                    }
+                    isCurrentValid = isSqFtInRange(currentOption.sq_ft_range, grandTotal);
                 }
 
                 if (isCurrentValid) {
@@ -314,11 +301,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 }
 
                 const correctOption = service.product_options?.find((opt) => {
-                    if (!opt.sq_ft_range) return false;
-                    const [minStr, maxStr] = opt.sq_ft_range.split("-").map((s) => s.trim());
-                    const min = parseInt(minStr, 10);
-                    const max = parseInt(maxStr, 10);
-                    return !isNaN(min) && !isNaN(max) && grandTotal >= min && grandTotal <= max;
+                    return isSqFtInRange(opt.sq_ft_range, grandTotal);
                 });
 
                 if (correctOption) {

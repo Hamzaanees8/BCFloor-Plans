@@ -187,15 +187,43 @@ const CreateFeatureSheet = forwardRef<
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const handlePanMouseDown = (e: React.MouseEvent) => {
-    if (previewMode !== "preview") return;
-    // Only drag on left click
-    if (e.button !== 0) return;
-    setIsPanning(true);
-    startPanPos.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+    // Only respond to left click (0) or middle click (1)
+    if (e.button !== 0 && e.button !== 1) return;
+
+    const isMiddleClick = e.button === 1;
+
+    if (previewMode === "preview") {
+      // Read-Only Preview Mode: left or middle drag anywhere pans the canvas
+      setIsPanning(true);
+      startPanPos.current = {
+        x: e.clientX - panOffset.x,
+        y: e.clientY - panOffset.y,
+      };
+      return;
+    }
+
+    // Interactive Edit Mode:
+    const target = e.target as HTMLElement;
+    const isInsidePdfSection =
+      target && (target.id === "pdf-section" || target.closest("#pdf-section"));
+
+    // Alt + Drag (e.altKey) or Middle Click explicitly activates canvas panning even over the sheet
+    const isAltPan = e.altKey && e.button === 0;
+
+    if (isMiddleClick || isAltPan || !isInsidePdfSection) {
+      setIsPanning(true);
+      startPanPos.current = {
+        x: e.clientX - panOffset.x,
+        y: e.clientY - panOffset.y,
+      };
+      if (isAltPan) {
+        e.preventDefault();
+      }
+    }
   };
 
   const handlePanMouseMove = (e: React.MouseEvent) => {
-    if (!isPanning || previewMode !== "preview") return;
+    if (!isPanning) return;
     setPanOffset({
       x: e.clientX - startPanPos.current.x,
       y: e.clientY - startPanPos.current.y,
@@ -205,6 +233,25 @@ const CreateFeatureSheet = forwardRef<
   const handlePanMouseUp = () => {
     setIsPanning(false);
   };
+
+  // Ctrl / Cmd + Mouse Wheel canvas zooming listener (attached to window with passive: false to prevent browser whole-page zoom)
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        setPreviewZoom((prev) => {
+          const nextZoom = Number((prev + delta).toFixed(2));
+          return Math.min(3.0, Math.max(0.25, nextZoom));
+        });
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   const resetPanAndZoom = () => {
     setPreviewZoom(1.0);
@@ -329,7 +376,8 @@ const CreateFeatureSheet = forwardRef<
     setIsDownloading(true);
     try {
       const propertyAddress = orderData?.property_address || "Property";
-      const templateLabel = getTemplateLabel(selectedTemplate) || selectedTemplate;
+      const templateLabel =
+        getTemplateLabel(selectedTemplate) || selectedTemplate;
       const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${templateLabel}.pdf`;
 
       const currentTemplate = templateImages.find(
@@ -1793,83 +1841,133 @@ const CreateFeatureSheet = forwardRef<
                     <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="text-sm font-semibold text-gray-700">
-                          Preview Navigation
+                          Canvas Mode:
                         </div>
 
-                        {/* Mode Toggle Button */}
+                        {/* Mode Toggle Buttons */}
                         <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
                           <button
                             type="button"
                             onClick={() => {
                               setPreviewMode("edit");
-                              resetPanAndZoom();
                             }}
-                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                               previewMode === "edit"
                                 ? "bg-blue-600 text-white shadow-sm"
                                 : "text-gray-600 hover:text-gray-900"
                             }`}
                           >
-                            Edit Mode
+                            <span>✏️</span> Editable Canvas
                           </button>
                           <button
                             type="button"
                             onClick={() => {
                               setPreviewMode("preview");
-                              setPreviewZoom(1.0);
-                              setPanOffset({ x: 0, y: 0 });
                               setTimeout(() => {
                                 if (previewContainerRef.current) {
                                   const el = previewContainerRef.current;
-                                  el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+                                  el.scrollLeft =
+                                    (el.scrollWidth - el.clientWidth) / 2;
                                   el.scrollTop = 0;
                                 }
                               }, 50);
                             }}
-                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                               previewMode === "preview"
-                                ? "bg-blue-600 text-white shadow-sm"
+                                ? "bg-emerald-600 text-white shadow-sm"
                                 : "text-gray-600 hover:text-gray-900"
                             }`}
                           >
-                            Preview Mode
+                            <span>🔒</span> Read-Only Preview
                           </button>
                         </div>
+
+                        {/* Tip Badge for Edit Mode Canvas Panning & Zooming */}
+                        {previewMode === "edit" && (
+                          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] rounded-md font-medium">
+                            <span>💡</span>{" "}
+                            <kbd className="px-1 py-0.5 bg-amber-100 border border-amber-300 rounded text-[10px] font-mono shadow-xs">
+                              Alt
+                            </kbd>{" "}
+                            + Drag to Pan |{" "}
+                            <kbd className="px-1 py-0.5 bg-amber-100 border border-amber-300 rounded text-[10px] font-mono shadow-xs">
+                              Ctrl
+                            </kbd>{" "}
+                            + Scroll to Zoom
+                          </div>
+                        )}
                       </div>
 
-                      {/* Controls when in Preview Mode */}
-                      {previewMode === "preview" && (
-                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 text-xs">
-                          <span className="text-gray-500 font-medium">Pan & Zoom:</span>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewZoom((z) => Math.max(0.4, z - 0.1))}
-                            className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
-                            title="Zoom Out"
-                          >
-                            -
-                          </button>
-                          <span className="font-semibold text-gray-800 min-w-[45px] text-center">
-                            {Math.round(previewZoom * 100)}%
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewZoom((z) => Math.min(2.5, z + 0.1))}
-                            className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
-                            title="Zoom In"
-                          >
-                            +
-                          </button>
-                          <button
-                            type="button"
-                            onClick={resetPanAndZoom}
-                            className="px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-100 font-medium ml-1"
-                            title="Reset View"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      )}
+                      {/* Pan & Zoom Controls (Active in BOTH Edit and Read-Only Modes) */}
+                      <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
+                        <span className="text-gray-500 font-medium">Zoom:</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewZoom((z) =>
+                              Math.max(0.25, Number((z - 0.1).toFixed(2))),
+                            )
+                          }
+                          className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
+                          title="Zoom Out"
+                        >
+                          -
+                        </button>
+                        <span className="font-bold text-gray-800 min-w-[44px] text-center select-none">
+                          {Math.round(previewZoom * 100)}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewZoom((z) =>
+                              Math.min(3.0, Number((z + 0.1).toFixed(2))),
+                            )
+                          }
+                          className="w-6 h-6 bg-white border border-gray-300 rounded font-bold hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-sm"
+                          title="Zoom In"
+                        >
+                          +
+                        </button>
+                        <select
+                          value={
+                            [
+                              0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
+                            ].includes(previewZoom)
+                              ? previewZoom
+                              : ""
+                          }
+                          onChange={(e) => {
+                            if (e.target.value)
+                              setPreviewZoom(parseFloat(e.target.value));
+                          }}
+                          className="bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          {![
+                            0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
+                          ].includes(previewZoom) && (
+                            <option value="">
+                              {Math.round(previewZoom * 100)}%
+                            </option>
+                          )}
+                          <option value={0.25}>25%</option>
+                          <option value={0.5}>50%</option>
+                          <option value={0.75}>75%</option>
+                          <option value={1.0}>100%</option>
+                          <option value={1.25}>125%</option>
+                          <option value={1.5}>150%</option>
+                          <option value={2.0}>200%</option>
+                          <option value={2.5}>250%</option>
+                          <option value={3.0}>300%</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={resetPanAndZoom}
+                          className="px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-100 font-medium ml-1"
+                          title="Reset View (100%)"
+                        >
+                          Reset
+                        </button>
+                      </div>
 
                       <div
                         className="items-center gap-4 hidden md:flex"
@@ -1913,23 +2011,23 @@ const CreateFeatureSheet = forwardRef<
                       onMouseUp={handlePanMouseUp}
                       onMouseLeave={handlePanMouseUp}
                       className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
-                        previewMode === "preview"
-                          ? isPanning
-                            ? "cursor-grabbing select-none"
-                            : "cursor-grab select-none"
-                          : ""
+                        isPanning
+                          ? "cursor-grabbing select-none"
+                          : previewMode === "preview"
+                            ? "cursor-grab select-none"
+                            : ""
                       }`}
                     >
                       <div
-                        className="relative flex flex-col items-center justify-center transition-transform duration-75 mx-auto min-w-full w-max"
-                        style={
-                          previewMode === "preview"
-                            ? {
-                                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
-                                transformOrigin: "top center",
-                              }
-                            : {}
-                        }
+                        className={`relative flex flex-col items-center justify-center ${
+                          isPanning
+                            ? "transition-none"
+                            : "transition-transform duration-75"
+                        } mx-auto min-w-full w-max`}
+                        style={{
+                          transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
+                          transformOrigin: "top center",
+                        }}
                       >
                         <div
                           id="pdf-section"

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { SaveModal } from "@/components/SaveModal";
@@ -84,12 +84,12 @@ const ServicesFrom = () => {
   const [currentService, setCurrentService] = useState<Services | null>(null);
   const [services, setServices] = useState<Services[] | null>(null);
   const [categoriesData, setCategoriesData] = useState<CategoriesData[] | null>(
-    null
+    null,
   );
   const [openCaegoryDialog, setOpenCaegoryDialog] = useState(false);
   const [category, setCategory] = useState<string>("");
   const [categoryObject, setCategoryObject] = useState<CategoriesData | null>(
-    null
+    null,
   );
   const [border, setBorder] = useState("");
   const [serviceName, setServiceName] = useState("");
@@ -117,6 +117,99 @@ const ServicesFrom = () => {
       min_price: 0,
     },
   ]);
+  const [optionSortDirection, setOptionSortDirection] = useState<
+    "asc" | "desc"
+  >("asc");
+
+  // Helper to extract numerical starting square footage from sq_ft_range, sq_ft_rate, or title
+  const getMinSqFtValue = (opt: any) => {
+    // Determine if option is truly a Sq. Ft. Rate option (has sq_ft_rate and NO sq_ft_range)
+    const hasRange = !!(
+      (opt.sq_ft_range && String(opt.sq_ft_range).trim() !== "") ||
+      opt.isSqFtRange
+    );
+    const isRate =
+      !hasRange &&
+      !!(
+        opt.isSqFtRate ||
+        (opt.sq_ft_rate !== undefined &&
+          opt.sq_ft_rate !== null &&
+          String(opt.sq_ft_rate).trim() !== "" &&
+          String(opt.sq_ft_rate).trim() !== "0")
+      );
+
+    if (isRate) {
+      const val = parseFloat(String(opt.sq_ft_rate));
+      return isNaN(val) ? 0 : val;
+    }
+
+    // 1. Try sq_ft_range property if available (e.g., "0-1000", "1001-2000", "2001-3000")
+    if (opt.sq_ft_range && String(opt.sq_ft_range).trim() !== "") {
+      const cleanRange = String(opt.sq_ft_range).replace(/,/g, "").trim();
+      const match = cleanRange.match(/\d+/g);
+      if (match && match.length > 0) {
+        return parseInt(match[0], 10);
+      }
+    }
+
+    // 2. Fallback to extracting starting range from title (e.g. "2,001 Sq. Ft.- 3,000 Sq. Ft.", "0 - 1,000 Sq. Ft.")
+    if (opt.title) {
+      const cleanTitle = String(opt.title).replace(/,/g, "").trim();
+      const match = cleanTitle.match(/\d+/g);
+      if (match && match.length > 0) {
+        return parseInt(match[0], 10);
+      }
+    }
+
+    return 0;
+  };
+
+  const getSortedProductOptions = <T extends any>(opts: T[]): T[] => {
+    if (!opts || opts.length === 0) return opts;
+
+    return [...opts].sort((a: any, b: any) => {
+      const aHasRange = !!(
+        (a.sq_ft_range && String(a.sq_ft_range).trim() !== "") ||
+        a.isSqFtRange
+      );
+      const aIsRate =
+        !aHasRange &&
+        !!(
+          a.isSqFtRate ||
+          (a.sq_ft_rate !== undefined &&
+            a.sq_ft_rate !== null &&
+            String(a.sq_ft_rate).trim() !== "" &&
+            String(a.sq_ft_rate).trim() !== "0")
+        );
+
+      const bHasRange = !!(
+        (b.sq_ft_range && String(b.sq_ft_range).trim() !== "") ||
+        b.isSqFtRange
+      );
+      const bIsRate =
+        !bHasRange &&
+        !!(
+          b.isSqFtRate ||
+          (b.sq_ft_rate !== undefined &&
+            b.sq_ft_rate !== null &&
+            String(b.sq_ft_rate).trim() !== "" &&
+            String(b.sq_ft_rate).trim() !== "0")
+        );
+
+      let cmp = 0;
+      if (aIsRate && !bIsRate) {
+        cmp = -1; // rate comes before range
+      } else if (!aIsRate && bIsRate) {
+        cmp = 1; // range comes after rate
+      } else {
+        const valA = getMinSqFtValue(a);
+        const valB = getMinSqFtValue(b);
+        cmp = valA - valB;
+      }
+
+      return optionSortDirection === "asc" ? cmp : -cmp;
+    });
+  };
   const [addOns, setAddOns] = useState<AddOns[]>([
     {
       title: "",
@@ -125,8 +218,10 @@ const ServicesFrom = () => {
   ]);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string) || 'admin';
-  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const role = (userType as string) || "admin";
+  const roleSettings =
+    appliedSettings[role as keyof typeof appliedSettings] ||
+    appliedSettings["admin"];
 
   const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
@@ -148,14 +243,17 @@ const ServicesFrom = () => {
     let ancestor = header.parentElement;
     while (ancestor) {
       const style = window.getComputedStyle(ancestor);
-      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
-        ancestor.style.setProperty('overflow-x', 'visible', 'important');
-        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+      if (
+        style.overflowX === "hidden" ||
+        ancestor.classList.contains("overflow-x-hidden")
+      ) {
+        ancestor.style.setProperty("overflow-x", "visible", "important");
+        ancestor.style.setProperty("overflow-y", "visible", "important");
 
         const target = ancestor;
         return () => {
-          target.style.removeProperty('overflow-x');
-          target.style.removeProperty('overflow-y');
+          target.style.removeProperty("overflow-x");
+          target.style.removeProperty("overflow-y");
         };
       }
       ancestor = ancestor.parentElement;
@@ -256,15 +354,19 @@ const ServicesFrom = () => {
 
           setServiceName(data.name);
           setDiscount(data.discount);
-          setIsTravelRequired(data.is_travel_required === true || data.is_travel_required === 1);
+          setIsTravelRequired(
+            data.is_travel_required === true || data.is_travel_required === 1,
+          );
 
           if (data.services && Array.isArray(data.services)) {
-            setSelectedServices(data.services.map((s: { uuid: string }) => s.uuid));
+            setSelectedServices(
+              data.services.map((s: { uuid: string }) => s.uuid),
+            );
           }
 
           if (categoriesData) {
             const packageCat = categoriesData.find(
-              (c) => c.name.toLowerCase() === "package"
+              (c) => c.name.toLowerCase() === "package",
             );
             if (packageCat) {
               setCategory(packageCat.id.toString());
@@ -294,7 +396,9 @@ const ServicesFrom = () => {
           // setOptions(data.product_options)
           setThumbnailName(data.thumbnail);
           setServiceDescription(data.description);
-          setIsTravelRequired(data.is_travel_required === true || data.is_travel_required === 1);
+          setIsTravelRequired(
+            data.is_travel_required === true || data.is_travel_required === 1,
+          );
           // Use setTimeout to ensure all state updates and DOM updates complete
           setTimeout(() => {
             isPopulatingData.current = false;
@@ -349,7 +453,7 @@ const ServicesFrom = () => {
     const updatedOptions = (currentService.product_options || []).filter(
       (option) => {
         return !(uuid && option.uuid === uuid);
-      }
+      },
     );
 
     setCurrentService((prev) => {
@@ -366,7 +470,7 @@ const ServicesFrom = () => {
     const updatedOptions = (currentService.service_add_ons || []).filter(
       (option) => {
         return !(uuid && option.uuid === uuid);
-      }
+      },
     );
 
     setCurrentService((prev) => {
@@ -461,7 +565,8 @@ const ServicesFrom = () => {
 
         const cleanedAddOns = combinedAddOns.filter(
           (addon) =>
-            addon.title?.trim() !== "" || addon.amount?.toString().trim() !== ""
+            addon.title?.trim() !== "" ||
+            addon.amount?.toString().trim() !== "",
         );
 
         const payload = {
@@ -517,14 +622,33 @@ const ServicesFrom = () => {
     }
   };
 
-
   return (
-    <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
+    <div
+      style={{
+        backgroundColor: roleSettings.pageBg,
+        minHeight: "100vh",
+        color: roleSettings.pageText,
+      }}
+    >
       <div className="font-alexandria pb-[80px]">
-
-        <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
-          <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
-            {isPackage ? "Package" : "Services"} › {ServiceId ? (isPackage ? `Edit › ${serviceName}` : `Edit ${serviceName}`) : `Create`}
+        <div
+          ref={headerRef}
+          className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
+          style={{
+            backgroundColor: headerBg,
+            boxShadow: "0px 4px 4px #0000001F",
+          }}
+        >
+          <p
+            className={`text-[16px] md:text-[24px] font-[400]`}
+            style={{ color: roleSettings.pageTabColor }}
+          >
+            {isPackage ? "Package" : "Services"} ›{" "}
+            {ServiceId
+              ? isPackage
+                ? `Edit › ${serviceName}`
+                : `Edit ${serviceName}`
+              : `Create`}
           </p>
           <div className="flex gap-[18px] f">
             <Button
@@ -533,7 +657,10 @@ const ServicesFrom = () => {
                 handleSubmit(e);
               }}
               className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110 cursor-pointer"
-              style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+              style={{
+                backgroundColor: roleSettings.pageTabColor,
+                borderColor: roleSettings.pageTabColor,
+              }}
             >
               {isLoading ? (
                 <div role="status">
@@ -588,7 +715,10 @@ const ServicesFrom = () => {
                 <div className="grid grid-cols-2 gap-[16px]">
                   <div className="col-span-2 grid grid-cols-5 gap-2 items-start">
                     <div className="col-span-3 flex flex-col">
-                      <label className="col-span-1 text-sm mt-[18px]" style={{ color: roleSettings.pageText }}>
+                      <label
+                        className="col-span-1 text-sm mt-[18px]"
+                        style={{ color: roleSettings.pageText }}
+                      >
                         Category <span className="text-red-500">*</span>
                       </label>
                       <div className="">
@@ -597,7 +727,7 @@ const ServicesFrom = () => {
                           onValueChange={(value) => {
                             setCategory(value);
                             const selected = categoriesData?.find(
-                              (cat) => cat.id.toString() === value
+                              (cat) => cat.id.toString() === value,
                             );
                             if (selected) setCategoryObject(selected);
                           }}
@@ -662,7 +792,9 @@ const ServicesFrom = () => {
                       {/* Right-side color circle */}
                       <div
                         className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-gray-400"
-                        style={{ backgroundColor: `#${background || "ffffff"}` }}
+                        style={{
+                          backgroundColor: `#${background || "ffffff"}`,
+                        }}
                       />
                     </div>
 
@@ -754,7 +886,10 @@ const ServicesFrom = () => {
               <AccordionItem value="property">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none`}
-                  style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+                  style={{
+                    backgroundColor: headerBg,
+                    color: roleSettings.pageTabColor,
+                  }}
                 >
                   Service Detail
                 </AccordionTrigger>
@@ -763,7 +898,10 @@ const ServicesFrom = () => {
                     <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                       <div className="grid grid-cols-2 gap-[16px]">
                         <div className="col-span-2">
-                          <label htmlFor="" style={{ color: roleSettings.pageText }}>
+                          <label
+                            htmlFor=""
+                            style={{ color: roleSettings.pageText }}
+                          >
                             Service Name <span className="text-red-500">*</span>
                           </label>
                           <Input
@@ -807,7 +945,7 @@ const ServicesFrom = () => {
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       // Hide the image on error
-                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.style.display = "none";
                                     }}
                                   />
                                 ) : null}
@@ -850,7 +988,12 @@ const ServicesFrom = () => {
                         </div>
 
                         <div className="col-span-2">
-                          <label htmlFor="" style={{ color: roleSettings.pageText }}>Description</label>
+                          <label
+                            htmlFor=""
+                            style={{ color: roleSettings.pageText }}
+                          >
+                            Description
+                          </label>
                           <Textarea
                             value={ServiceDescription}
                             onChange={(e) =>
@@ -885,48 +1028,48 @@ const ServicesFrom = () => {
                         )}
                         {categoryObject?.name.toLocaleLowerCase() ===
                           "package" && (
-                            <div className="w-full col-span-2">
+                          <div className="w-full col-span-2">
+                            <div className="w-full">
+                              <label htmlFor="">
+                                Discount <span className="text-red-500">*</span>
+                              </label>
+                              <Input
+                                type="number"
+                                min={-1} // allows clearing the input without defaulting to 0
+                                placeholder="Discount (Percentage)"
+                                className="px-3  w-full h-[42px] bg-[#eee] border border-[#BBBBBB] mt-[10px]"
+                                value={discount <= 0 ? "" : discount} // use your discount state here
+                                onChange={(e) => {
+                                  const val = e.target.value;
+
+                                  if (val === "") {
+                                    setDiscount(0); // or null depending on your logic
+                                    return;
+                                  }
+
+                                  const parsed = parseInt(val, 10);
+                                  if (!isNaN(parsed) && parsed > 0) {
+                                    setDiscount(parsed);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="w-full mt-[16px] ">
+                              <label htmlFor="">
+                                Add Services{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+
                               <div className="w-full">
-                                <label htmlFor="">
-                                  Discount <span className="text-red-500">*</span>
-                                </label>
-                                <Input
-                                  type="number"
-                                  min={-1} // allows clearing the input without defaulting to 0
-                                  placeholder="Discount (Percentage)"
-                                  className="px-3  w-full h-[42px] bg-[#eee] border border-[#BBBBBB] mt-[10px]"
-                                  value={discount <= 0 ? "" : discount} // use your discount state here
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-
-                                    if (val === "") {
-                                      setDiscount(0); // or null depending on your logic
-                                      return;
-                                    }
-
-                                    const parsed = parseInt(val, 10);
-                                    if (!isNaN(parsed) && parsed > 0) {
-                                      setDiscount(parsed);
-                                    }
-                                  }}
+                                <ServicesSelector
+                                  servicesData={services}
+                                  services={selectedServices}
+                                  setServices={setSelectedServices}
                                 />
                               </div>
-                              <div className="w-full mt-[16px] ">
-                                <label htmlFor="">
-                                  Add Services{" "}
-                                  <span className="text-red-500">*</span>
-                                </label>
-
-                                <div className="w-full">
-                                  <ServicesSelector
-                                    servicesData={services}
-                                    services={selectedServices}
-                                    setServices={setSelectedServices}
-                                  />
-                                </div>
-                              </div>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -934,19 +1077,51 @@ const ServicesFrom = () => {
               </AccordionItem>
               {categoryObject?.name.toLocaleLowerCase() !== "package" && (
                 <AccordionItem value="options" className="relative group !mt-0">
-                  <p
-                    onClick={addOption}
-                    className="flex gap-[10px] cursor-pointer items-center absolute right-[75px] top-[20px] group-data-[state=closed]:hidden font-semibold"
-                    style={{ color: roleSettings.pageTabColor }}
-                  >
-                    Add
-                    <span className="flex w-[18px] h-[18px] rounded-[3px] justify-center items-center" style={{ backgroundColor: roleSettings.pageTabColor }}>
-                      <Plus className="text-[#F2F2F2] w-[12px]" />
-                    </span>{" "}
-                  </p>
+                  <div className="absolute right-[75px] top-[14px] group-data-[state=closed]:hidden flex items-center gap-[12px]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setOptionSortDirection((prev) =>
+                          prev === "asc" ? "desc" : "asc",
+                        )
+                      }
+                      className="flex items-center gap-1.5 text-xs font-semibold h-[32px] px-3 bg-white border border-[#BBBBBB] hover:bg-gray-100 shadow-sm"
+                      title="Sort by Sq. Ft. (Rate first, then Range)"
+                    >
+                      {optionSortDirection === "asc" ? (
+                        <>
+                          <ArrowUp className="w-3.5 h-3.5 text-[#4290E9]" />
+                          <span>Top to Bottom</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDown className="w-3.5 h-3.5 text-[#4290E9]" />
+                          <span>Bottom to Top</span>
+                        </>
+                      )}
+                    </Button>
+                    <p
+                      onClick={addOption}
+                      className="flex gap-[10px] cursor-pointer items-center font-semibold"
+                      style={{ color: roleSettings.pageTabColor }}
+                    >
+                      Add
+                      <span
+                        className="flex w-[18px] h-[18px] rounded-[3px] justify-center items-center"
+                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                      >
+                        <Plus className="text-[#F2F2F2] w-[12px]" />
+                      </span>{" "}
+                    </p>
+                  </div>
                   <AccordionTrigger
                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none`}
-                    style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+                    style={{
+                      backgroundColor: headerBg,
+                      color: roleSettings.pageTabColor,
+                    }}
                   >
                     Product Options{" "}
                   </AccordionTrigger>
@@ -983,7 +1158,9 @@ const ServicesFrom = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {currentService?.product_options.map((opt, idx) => (
+                          {getSortedProductOptions(
+                            currentService?.product_options || [],
+                          ).map((opt, idx) => (
                             <TableRow className="py-4" key={idx}>
                               <TableCell>
                                 <Label className=" text-[15px] font-[400] text-[#666666] pl-[7px]">
@@ -1001,14 +1178,17 @@ const ServicesFrom = () => {
                                 <TableCell className="">
                                   <div className="flex justify-start items-center">
                                     <Label className=" flex text-[15px] font-[400] text-[#666666] w-1/2">
-                                      {opt.sq_ft_range
+                                      {opt.sq_ft_range &&
+                                      String(opt.sq_ft_range).trim() !== ""
                                         ? opt.sq_ft_range
-                                        : opt.sq_ft_rate !== undefined
-                                          ? Number(opt.sq_ft_rate).toFixed(0)
+                                        : opt.sq_ft_rate !== undefined &&
+                                            opt.sq_ft_rate !== null
+                                          ? opt.sq_ft_rate
                                           : ""}
                                     </Label>
                                     <Label className=" flex text-[15px] font-[400] text-[#666666]">
-                                      {opt.sq_ft_range
+                                      {opt.sq_ft_range &&
+                                      String(opt.sq_ft_range).trim() !== ""
                                         ? "Sq. ft. Range"
                                         : "Sq. ft. Rate"}
                                     </Label>
@@ -1020,7 +1200,7 @@ const ServicesFrom = () => {
                                 <TableCell>
                                   <Label className=" text-[15px] font-[400] text-[#666666]">
                                     {opt.service_duration &&
-                                      opt.service_duration != 0
+                                    opt.service_duration != 0
                                       ? opt.service_duration + " Min"
                                       : "-"}
                                   </Label>
@@ -1060,7 +1240,7 @@ const ServicesFrom = () => {
                                                 (!row.sq_ft_rate ||
                                                   row.sq_ft_rate === "") &&
                                                 (!row.sq_ft_range ||
-                                                  row.sq_ft_range === "")
+                                                  row.sq_ft_range === ""),
                                             );
 
                                             const newOption = {
@@ -1072,9 +1252,11 @@ const ServicesFrom = () => {
                                               service_duration:
                                                 opt.service_duration ?? 0,
                                               sq_ft_rate:
-                                                opt.sq_ft_rate?.toString() ?? "",
+                                                opt.sq_ft_rate?.toString() ??
+                                                "",
                                               sq_ft_range:
-                                                opt.sq_ft_range?.toString() ?? "",
+                                                opt.sq_ft_range?.toString() ??
+                                                "",
                                               isSqFtRate: !!opt.sq_ft_rate,
                                               isSqFtRange: !!opt.sq_ft_range,
                                             };
@@ -1091,10 +1273,11 @@ const ServicesFrom = () => {
                                           });
 
                                           const updatedOptions = (
-                                            currentService.product_options || []
+                                            currentService?.product_options || []
                                           ).filter((option) => {
                                             return !(
-                                              opt.uuid && option.uuid === opt.uuid
+                                              opt.uuid &&
+                                              option.uuid === opt.uuid
                                             );
                                           });
 
@@ -1119,7 +1302,7 @@ const ServicesFrom = () => {
                             </TableRow>
                           ))}
 
-                          {options.map((opt, idx) => (
+                          {getSortedProductOptions(options).map((opt, idx) => (
                             <TableRow
                               key={idx}
                               className="text-[#666666] text-[14px] !border-b-0 "
@@ -1137,26 +1320,28 @@ const ServicesFrom = () => {
                                   }
                                 />
                                 {fieldErrors[
-                                  `product_options.${(currentService?.product_options?.length ??
-                                    0) > 0
-                                    ? currentService?.product_options?.length ??
-                                    0
-                                    : idx
+                                  `product_options.${
+                                    (currentService?.product_options?.length ??
+                                      0) > 0
+                                      ? (currentService?.product_options
+                                          ?.length ?? 0)
+                                      : idx
                                   }.title`
                                 ] && (
-                                    <p className="text-red-500 text-[10px] mt-1">
-                                      {
-                                        fieldErrors[
-                                        `product_options.${(currentService?.product_options
-                                          ?.length ?? 0) > 0
-                                          ? currentService?.product_options
-                                            ?.length ?? 0
-                                          : idx
+                                  <p className="text-red-500 text-[10px] mt-1">
+                                    {
+                                      fieldErrors[
+                                        `product_options.${
+                                          (currentService?.product_options
+                                            ?.length ?? 0) > 0
+                                            ? (currentService?.product_options
+                                                ?.length ?? 0)
+                                            : idx
                                         }.title`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
+                                      ][0]
+                                    }
+                                  </p>
+                                )}
                               </TableCell>
                               {categoryObject?.type.includes("quantity") && (
                                 <TableCell>
@@ -1165,7 +1350,9 @@ const ServicesFrom = () => {
                                     type="number"
                                     min="0"
                                     className="w-[192px] h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[10px]"
-                                    value={opt.quantity === 0 ? "" : opt.quantity}
+                                    value={
+                                      opt.quantity === 0 ? "" : opt.quantity
+                                    }
                                     onChange={(e) => {
                                       const val = e.target.value;
 
@@ -1188,26 +1375,28 @@ const ServicesFrom = () => {
                                     }}
                                   />
                                   {fieldErrors[
-                                    `product_options.${(currentService?.product_options?.length ??
-                                      0) > 0
-                                      ? currentService?.product_options
-                                        ?.length ?? 0
-                                      : idx
+                                    `product_options.${
+                                      (currentService?.product_options
+                                        ?.length ?? 0) > 0
+                                        ? (currentService?.product_options
+                                            ?.length ?? 0)
+                                        : idx
                                     }.quantity`
                                   ] && (
-                                      <p className="text-red-500 text-[10px] mt-1">
-                                        {
-                                          fieldErrors[
-                                          `product_options.${(currentService?.product_options
-                                            ?.length ?? 0) > 0
-                                            ? currentService?.product_options
-                                              ?.length ?? 0
-                                            : idx
+                                    <p className="text-red-500 text-[10px] mt-1">
+                                      {
+                                        fieldErrors[
+                                          `product_options.${
+                                            (currentService?.product_options
+                                              ?.length ?? 0) > 0
+                                              ? (currentService?.product_options
+                                                  ?.length ?? 0)
+                                              : idx
                                           }.quantity`
-                                          ][0]
-                                        }
-                                      </p>
-                                    )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                                 </TableCell>
                               )}
                               {categoryObject?.type.includes("area") && (
@@ -1230,26 +1419,29 @@ const ServicesFrom = () => {
                                       />
                                     )}
                                     {fieldErrors[
-                                      `product_options.${(currentService?.product_options
-                                        ?.length ?? 0) > 0
-                                        ? currentService?.product_options
-                                          ?.length ?? 0
-                                        : idx
+                                      `product_options.${
+                                        (currentService?.product_options
+                                          ?.length ?? 0) > 0
+                                          ? (currentService?.product_options
+                                              ?.length ?? 0)
+                                          : idx
                                       }.sq_ft_range`
                                     ] && (
-                                        <p className="text-red-500 text-[10px] mt-1">
-                                          {
-                                            fieldErrors[
-                                            `product_options.${(currentService?.product_options
-                                              ?.length ?? 0) > 0
-                                              ? currentService?.product_options
-                                                ?.length ?? 0
-                                              : idx
+                                      <p className="text-red-500 text-[10px] mt-1">
+                                        {
+                                          fieldErrors[
+                                            `product_options.${
+                                              (currentService?.product_options
+                                                ?.length ?? 0) > 0
+                                                ? (currentService
+                                                    ?.product_options?.length ??
+                                                  0)
+                                                : idx
                                             }.sq_ft_range`
-                                            ][0]
-                                          }
-                                        </p>
-                                      )}
+                                          ][0]
+                                        }
+                                      </p>
+                                    )}
                                     {opt.isSqFtRate && (
                                       <Input
                                         type="text"
@@ -1265,26 +1457,29 @@ const ServicesFrom = () => {
                                       />
                                     )}
                                     {fieldErrors[
-                                      `product_options.${(currentService?.product_options
-                                        ?.length ?? 0) > 0
-                                        ? currentService?.product_options
-                                          ?.length ?? 0
-                                        : idx
+                                      `product_options.${
+                                        (currentService?.product_options
+                                          ?.length ?? 0) > 0
+                                          ? (currentService?.product_options
+                                              ?.length ?? 0)
+                                          : idx
                                       }.sq_ft_rate`
                                     ] && (
-                                        <p className="text-red-500 text-[10px] mt-1">
-                                          {
-                                            fieldErrors[
-                                            `product_options.${(currentService?.product_options
-                                              ?.length ?? 0) > 0
-                                              ? currentService?.product_options
-                                                ?.length ?? 0
-                                              : idx
+                                      <p className="text-red-500 text-[10px] mt-1">
+                                        {
+                                          fieldErrors[
+                                            `product_options.${
+                                              (currentService?.product_options
+                                                ?.length ?? 0) > 0
+                                                ? (currentService
+                                                    ?.product_options?.length ??
+                                                  0)
+                                                : idx
                                             }.sq_ft_rate`
-                                            ][0]
-                                          }
-                                        </p>
-                                      )}
+                                          ][0]
+                                        }
+                                      </p>
+                                    )}
                                     <div className=" flex flex-col gap-0">
                                       <label className="flex items-center gap-1 text-[14px] font-[700]">
                                         <Input
@@ -1360,26 +1555,28 @@ const ServicesFrom = () => {
                                   />
 
                                   {fieldErrors[
-                                    `product_options.${(currentService?.product_options?.length ??
-                                      0) > 0
-                                      ? currentService?.product_options
-                                        ?.length ?? 0
-                                      : idx
+                                    `product_options.${
+                                      (currentService?.product_options
+                                        ?.length ?? 0) > 0
+                                        ? (currentService?.product_options
+                                            ?.length ?? 0)
+                                        : idx
                                     }.service_duration`
                                   ] && (
-                                      <p className="text-red-500 text-[10px] mt-1">
-                                        {
-                                          fieldErrors[
-                                          `product_options.${(currentService?.product_options
-                                            ?.length ?? 0) > 0
-                                            ? currentService?.product_options
-                                              ?.length ?? 0
-                                            : idx
+                                    <p className="text-red-500 text-[10px] mt-1">
+                                      {
+                                        fieldErrors[
+                                          `product_options.${
+                                            (currentService?.product_options
+                                              ?.length ?? 0) > 0
+                                              ? (currentService?.product_options
+                                                  ?.length ?? 0)
+                                              : idx
                                           }.service_duration`
-                                          ][0]
-                                        }
-                                      </p>
-                                    )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                                 </TableCell>
                               )}
                               <TableCell>
@@ -1388,7 +1585,9 @@ const ServicesFrom = () => {
                                   min={0} // optional, change if negative allowed
                                   step="0.001" // allows decimal input
                                   className="w-[100px] h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[10px]"
-                                  value={opt.min_price <= 0 ? "" : opt.min_price}
+                                  value={
+                                    opt.min_price <= 0 ? "" : opt.min_price
+                                  }
                                   onChange={(e) => {
                                     const val = e.target.value;
 
@@ -1449,7 +1648,7 @@ const ServicesFrom = () => {
                                         label: "Delete",
                                         onClick: () => {
                                           const updatedOptions = options.filter(
-                                            (_, i) => i !== idx
+                                            (_, i) => i !== idx,
                                           );
                                           setOptions(updatedOptions);
                                         },
@@ -1462,26 +1661,28 @@ const ServicesFrom = () => {
                                                         )} */}
 
                                 {fieldErrors[
-                                  `product_options.${(currentService?.product_options?.length ??
-                                    0) > 0
-                                    ? currentService?.product_options?.length ??
-                                    0
-                                    : idx
+                                  `product_options.${
+                                    (currentService?.product_options?.length ??
+                                      0) > 0
+                                      ? (currentService?.product_options
+                                          ?.length ?? 0)
+                                      : idx
                                   }.amount`
                                 ] && (
-                                    <p className="text-red-500 text-[10px]">
-                                      {
-                                        fieldErrors[
-                                        `product_options.${(currentService?.product_options
-                                          ?.length ?? 0) > 0
-                                          ? currentService?.product_options
-                                            ?.length ?? 0
-                                          : idx
+                                  <p className="text-red-500 text-[10px]">
+                                    {
+                                      fieldErrors[
+                                        `product_options.${
+                                          (currentService?.product_options
+                                            ?.length ?? 0) > 0
+                                            ? (currentService?.product_options
+                                                ?.length ?? 0)
+                                            : idx
                                         }.amount`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
+                                      ][0]
+                                    }
+                                  </p>
+                                )}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1497,7 +1698,10 @@ const ServicesFrom = () => {
                         <div className="w-full">
                           <hr />
                           <div className="flex justify-between items-center px-[20px]">
-                            <h1 className="flex text-center text-[18px] my-[20px] font-semibold" style={{ color: roleSettings.pageTabColor }}>
+                            <h1
+                              className="flex text-center text-[18px] my-[20px] font-semibold"
+                              style={{ color: roleSettings.pageTabColor }}
+                            >
                               ADD ONS
                             </h1>
                             <p
@@ -1506,13 +1710,21 @@ const ServicesFrom = () => {
                               style={{ color: roleSettings.pageTabColor }}
                             >
                               Add
-                              <span className="flex w-[18px] h-[18px] rounded-[3px] justify-center items-center" style={{ backgroundColor: roleSettings.pageTabColor }}>
+                              <span
+                                className="flex w-[18px] h-[18px] rounded-[3px] justify-center items-center"
+                                style={{
+                                  backgroundColor: roleSettings.pageTabColor,
+                                }}
+                              >
                                 <Plus className="text-[#F2F2F2] w-[12px]" />
                               </span>{" "}
                             </p>
                           </div>
                           <Table>
-                            <TableHeader className="text-[#666666]" style={{ backgroundColor: headerBg }}>
+                            <TableHeader
+                              className="text-[#666666]"
+                              style={{ backgroundColor: headerBg }}
+                            >
                               <TableRow>
                                 <TableCell className="text-[14px] font-bold pl-[15px]">
                                   TITLE
@@ -1544,7 +1756,8 @@ const ServicesFrom = () => {
                                             const emptyIndex = prev.findIndex(
                                               (row) =>
                                                 !row.title &&
-                                                (!row.amount || row.amount === 0)
+                                                (!row.amount ||
+                                                  row.amount === 0),
                                             );
 
                                             const newOption = {
@@ -1568,7 +1781,8 @@ const ServicesFrom = () => {
                                             currentService.service_add_ons || []
                                           ).filter((option) => {
                                             return !(
-                                              opt.uuid && option.uuid === opt.uuid
+                                              opt.uuid &&
+                                              option.uuid === opt.uuid
                                             );
                                           });
 
@@ -1605,26 +1819,28 @@ const ServicesFrom = () => {
                                     }}
                                   />
                                   {fieldErrors[
-                                    `add_ons.${(currentService?.service_add_ons?.length ??
-                                      0) > 0
-                                      ? currentService?.service_add_ons
-                                        ?.length ?? 0
-                                      : index
+                                    `add_ons.${
+                                      (currentService?.service_add_ons
+                                        ?.length ?? 0) > 0
+                                        ? (currentService?.service_add_ons
+                                            ?.length ?? 0)
+                                        : index
                                     }.title`
                                   ] && (
-                                      <p className="text-red-500 text-[10px] mt-1">
-                                        {
-                                          fieldErrors[
-                                          `add_ons.${(currentService?.service_add_ons
-                                            ?.length ?? 0) > 0
-                                            ? currentService?.service_add_ons
-                                              ?.length ?? 0
-                                            : index
+                                    <p className="text-red-500 text-[10px] mt-1">
+                                      {
+                                        fieldErrors[
+                                          `add_ons.${
+                                            (currentService?.service_add_ons
+                                              ?.length ?? 0) > 0
+                                              ? (currentService?.service_add_ons
+                                                  ?.length ?? 0)
+                                              : index
                                           }.title`
-                                          ][0]
-                                        }
-                                      </p>
-                                    )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                                 </TableCell>
                                 <TableCell className="">
                                   <div className="w-full flex justify-between items-center">
@@ -1662,7 +1878,7 @@ const ServicesFrom = () => {
                                             onClick: () => {
                                               const updatedAddons =
                                                 addOns?.filter(
-                                                  (_, i) => i !== index
+                                                  (_, i) => i !== index,
                                                 );
                                               setAddOns(updatedAddons);
                                             },
@@ -1672,26 +1888,28 @@ const ServicesFrom = () => {
                                     )}
                                   </div>
                                   {fieldErrors[
-                                    `add_ons.${(currentService?.service_add_ons?.length ??
-                                      0) > 0
-                                      ? currentService?.service_add_ons
-                                        ?.length ?? 0
-                                      : index
+                                    `add_ons.${
+                                      (currentService?.service_add_ons
+                                        ?.length ?? 0) > 0
+                                        ? (currentService?.service_add_ons
+                                            ?.length ?? 0)
+                                        : index
                                     }.amount`
                                   ] && (
-                                      <p className="text-red-500 text-[10px] mt-1">
-                                        {
-                                          fieldErrors[
-                                          `add_ons.${(currentService?.service_add_ons
-                                            ?.length ?? 0) > 0
-                                            ? currentService?.service_add_ons
-                                              ?.length ?? 0
-                                            : index
+                                    <p className="text-red-500 text-[10px] mt-1">
+                                      {
+                                        fieldErrors[
+                                          `add_ons.${
+                                            (currentService?.service_add_ons
+                                              ?.length ?? 0) > 0
+                                              ? (currentService?.service_add_ons
+                                                  ?.length ?? 0)
+                                              : index
                                           }.amount`
-                                          ][0]
-                                        }
-                                      </p>
-                                    )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))}

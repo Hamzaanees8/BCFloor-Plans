@@ -13,7 +13,7 @@ import { useOrderContext } from "../context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useSearchParams } from 'next/navigation';
-import { calcCustomSqftPrice, calcCustomQtyPrice } from "@/lib/pricingUtils";
+import { calcCustomSqftPrice, calcCustomQtyPrice, isSqFtInRange } from "@/lib/pricingUtils";
 
 interface PricingCardProps {
   title: string;
@@ -96,13 +96,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   const { hasAreaType, hasQuantityType, isLegacyPhotoService, isFloorplanOrTour } = useMemo(() => {
     const name = service.name?.toLowerCase() || '';
     const cat = service.category?.name?.toLowerCase() || '';
-    const photoKeywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano'];
-    const fpKeywords = ['floorplan', 'floor plan', '3d tour', 'matterport'];
+    const photoKeywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'pano'];
+    const fpKeywords = ['floorplan', 'floor plan', '3d tour', 'matterport', 'video'];
 
     return {
       hasAreaType: service.category?.type?.includes('area') || false,
       hasQuantityType: service.category?.type?.includes('quantity') || false,
-      isLegacyPhotoService: photoKeywords.some(k => name.includes(k) || cat.includes(k)),
+      isLegacyPhotoService: photoKeywords.some(k => name.includes(k) || cat.includes(k)) && !name.includes('video'),
       isFloorplanOrTour: fpKeywords.some(k => name.includes(k) || cat.includes(k))
     };
   }, [service.name, service.category?.name, service.category?.type]);
@@ -119,11 +119,15 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const customCalcResult = useMemo(() => {
     if (!pricingOptions || pricingOptions.length === 0) return null;
-    const inputVal = parseInt(customServiceNames[service.uuid]) || 0;
+    // Bug 4 fixed: use parseFloat so decimal sqft values (e.g. "1500.5") are not truncated
+    const inputVal = parseFloat(customServiceNames[service.uuid] ?? '') || 0;
+
     if (currentCalcMode === 'quantity') {
-      const qty = inputVal > 0 ? inputVal : 1;
-      return calcCustomQtyPrice(pricingOptions, qty);
+      // Bug 6 fixed: do NOT fall back to qty=1 when field is empty — return null instead
+      if (inputVal <= 0) return null;
+      return calcCustomQtyPrice(pricingOptions, inputVal);
     } else {
+      // SqFt mode: prefer what the user typed, fall back to property sqft
       const sqft = inputVal > 0 ? inputVal : squareFootage;
       if (sqft <= 0) return null;
       return calcCustomSqftPrice(pricingOptions, sqft);
@@ -145,7 +149,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
 
     const found = pricingOptions?.find(opt => opt.title === option);
-    if (found?.sq_ft_rate && parseFloat(found.sq_ft_rate) > 0) {
+    if (!found?.sq_ft_range && found?.sq_ft_rate && parseFloat(found.sq_ft_rate) > 0) {
       const calculated = parseFloat(found.sq_ft_rate) * squareFootage;
       return found.min_price ? Math.max(calculated, found.min_price) : calculated;
     }
@@ -165,6 +169,20 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   useEffect(() => {
     if (!pricingOptions || pricingOptions.length === 0) return;
+
+    if (title.toLowerCase().includes("matterport") || service.name?.toLowerCase().includes("matterport")) {
+      console.log("=== MATTERPORT PRICING DEBUG ===");
+      console.log("Service Name:", service.name);
+      console.log("Property Square Footage:", squareFootage);
+      console.log("All Pricing Options:", pricingOptions);
+      console.log("Current Selected Option:", selectedOption);
+      console.log("Current Calc Mode:", currentCalcMode);
+      
+      pricingOptions.forEach(opt => {
+        console.log(`Option: "${opt.title}" | Range: "${opt.sq_ft_range}" | Amount: ${opt.amount} | Is In Range? ->`, isSqFtInRange(opt.sq_ft_range, squareFootage));
+      });
+    }
+
     if (selectedOption === "custom" && !isHybrid) return;
 
     let FilteredOptions = [];
@@ -172,22 +190,25 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     if (showAll) {
       FilteredOptions = pricingOptions;
     } else {
-      if (currentCalcMode === 'quantity' || !squareFootage) {
+      if (currentCalcMode === 'quantity' || !squareFootage || !isFloorplanOrTour) {
         FilteredOptions = pricingOptions;
       } else {
         FilteredOptions = pricingOptions.filter((option) => {
+          if (option.sq_ft_range && typeof option.sq_ft_range === "string" && option.sq_ft_range.trim() !== "") {
+            return isSqFtInRange(option.sq_ft_range, squareFootage);
+          }
           if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
-          if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-          const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-          const min = parseInt(minStr, 10);
-          const max = parseInt(maxStr, 10);
-          if (isNaN(min) || isNaN(max)) return false;
-          return squareFootage >= min && squareFootage <= max;
+          return false;
         });
       }
     }
 
     const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
+
+    if (title.toLowerCase().includes("matterport") || service.name?.toLowerCase().includes("matterport")) {
+      console.log("Filtered Options matching sqft:", FilteredOptions);
+      console.log("Is current selected option valid for sqft?:", isValid);
+    }
 
     if (FilteredOptions.length === 0 && pricingOptions.length > 0) {
       if (selectedOption !== "custom") {
@@ -209,6 +230,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       }
     } else if (!isValid && FilteredOptions.length > 0 && selectedOption !== "custom") {
       const defaultVal = FilteredOptions[0].title ?? '';
+      console.log("Auto-selecting valid matching option:", defaultVal);
       setSelectedOptions(prev => ({
         ...prev,
         [service.uuid]: defaultVal,
@@ -216,6 +238,17 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, currentCalcMode, isHybrid]);
+
+  // Sync the recalculated price into selectedServices whenever squareFootage changes
+  // so the right-panel "Order" section always reflects the current price.
+  useEffect(() => {
+    if (!isEffectivelySelected) return;
+    if (!selectedOption || selectedOption === "custom") return;
+    if (squareFootage <= 0) return;
+    handleSelectService(selectedOption);
+    // Only re-run when squareFootage changes — intentionally narrow to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [squareFootage]);
 
   const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string) => {
     const currentOption = optionTitle ?? selectedOption;
@@ -241,12 +274,21 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         custom = `${quantity} Units`;
         optionName = custom;
       } else {
-        const sqftValue = parseInt(currentCustomName) || squareFootage;
-        const result = calcCustomSqftPrice(pricingOptions || [], sqftValue > 0 ? sqftValue : squareFootage);
-        price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
+        // Bug 5 fixed: only fall back to squareFootage when it is actually > 0
+        const sqftValue = parseFloat(currentCustomName) > 0
+          ? parseFloat(currentCustomName)
+          : (squareFootage > 0 ? squareFootage : 0);
+        if (sqftValue > 0) {
+          const result = calcCustomSqftPrice(pricingOptions || [], sqftValue);
+          price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
+        } else {
+          price = currentCustom ? Number(currentCustom) : undefined;
+        }
         quantity = 1;
         option_id = undefined;
-        custom = currentCustomName ? `${currentCustomName} sqft` : (sqftValue ? `${sqftValue} sqft` : 'Custom');
+        custom = parseFloat(currentCustomName) > 0
+          ? `${currentCustomName} sqft`
+          : (squareFootage > 0 ? `${squareFootage} sqft` : 'Custom');
         optionName = custom;
       }
     } else {
@@ -320,12 +362,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const noTierMatch = currentCalcMode === 'area' && pricingOptions && pricingOptions.length > 0 && !pricingOptions.some((option) => {
     if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
-    if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-    const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-    const min = parseInt(minStr, 10);
-    const max = parseInt(maxStr, 10);
-    if (isNaN(min) || isNaN(max)) return false;
-    return squareFootage >= min && squareFootage <= max;
+    return isSqFtInRange(option.sq_ft_range, squareFootage);
   });
 
   return (
@@ -430,14 +467,19 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                     className="flex flex-col ">
                     <div className="flex flex-col items-center justify-between gap-[10px]">
                       {pricingOptions?.filter((option) => {
-                        if (showAll || currentCalcMode === 'quantity' || !squareFootage) return true;
+                        // Photos, Staging, and all non-sqft-gated services: always show every option
+                        if (!isFloorplanOrTour) return true;
+                        // Admin showAll override
+                        if (showAll) return true;
+                        // No sqft entered yet: show all so the user can see available tiers
+                        if (!squareFootage) return true;
+                        // If option has a sq_ft_range string, test against range
+                        if (option.sq_ft_range && typeof option.sq_ft_range === "string" && option.sq_ft_range.trim() !== "") {
+                          return isSqFtInRange(option.sq_ft_range, squareFootage);
+                        }
+                        // Pure sq_ft_rate option without range (e.g. 2D/3D Floor Plans): always visible
                         if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
-                        if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-                        const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-                        const min = parseInt(minStr, 10);
-                        const max = parseInt(maxStr, 10);
-                        if (isNaN(min) || isNaN(max)) return false;
-                        return squareFootage >= min && squareFootage <= max;
+                        return false;
                       }).map((option, idx) => (
                         <div key={idx} className="w-full flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -468,9 +510,19 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             </label>
                           </div>
                           <span className="">${
-                            option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0
-                              ? (option.min_price ? Math.max(parseFloat(option.sq_ft_rate) * squareFootage, option.min_price) : parseFloat(option.sq_ft_rate) * squareFootage).toFixed(2)
-                              : Number(option?.amount).toFixed(2)
+                            (() => {
+                              // If option has sq_ft_range (e.g. "2001-3000"), it is a tier-based fixed price option.
+                              // sq_ft_rate in DB for ranges is often set to the flat amount (e.g. "235.00"), not a per-sqft multiplier.
+                              const isPerSqFtRate = !option.sq_ft_range && option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0;
+                              const calculatedPrice = isPerSqFtRate
+                                ? (option.min_price ? Math.max(parseFloat(option.sq_ft_rate!) * squareFootage, option.min_price) : parseFloat(option.sq_ft_rate!) * squareFootage).toFixed(2)
+                                : Number(option?.amount).toFixed(2);
+                              
+                              if (title.toLowerCase().includes("matterport") || service.name?.toLowerCase().includes("matterport")) {
+                                console.log(`[MATTERPORT RENDER OPTION] Title: "${option.title}" | amount:`, option.amount, "| sq_ft_rate:", option.sq_ft_rate, "| output: $", calculatedPrice);
+                              }
+                              return calculatedPrice;
+                            })()
                           }</span>
                         </div>
                       ))}
