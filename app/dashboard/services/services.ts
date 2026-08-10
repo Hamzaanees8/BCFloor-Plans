@@ -91,21 +91,18 @@ function payloadToFormData(payload: ServicePayload): FormData {
                 if (typeof item === 'object' && item !== null) {
                     if (key === 'product_options') {
                         for (const [subKey, subValue] of Object.entries(item)) {
-                            if (subValue !== undefined && subValue !== null && subValue !== '' && subValue != 0) {
+                            if (subValue !== undefined && subValue !== null && subValue !== '') {
                                 formData.append(`product_options[${index}][${subKey}]`, subValue as string | Blob);
                             }
                         }
                     } else if (key === 'add_ons') {
                         const { title, amount } = item as { title?: string; amount?: string | number };
 
-                        const isTitleFilled = title?.trim() !== '';
-                        const isAmountFilled = amount !== undefined && amount !== null && amount !== 0 && amount.toString().trim() !== '';
+                        const isTitleFilled = title !== undefined && title !== null && title.trim() !== '';
 
-                        if (isTitleFilled || isAmountFilled) {
-                            if (isTitleFilled) {
-                                formData.append(`add_ons[${index}][title]`, title!);
-                            }
-                            if (isAmountFilled) {
+                        if (isTitleFilled) {
+                            formData.append(`add_ons[${index}][title]`, title!);
+                            if (amount !== undefined && amount !== null && amount.toString().trim() !== '') {
                                 formData.append(`add_ons[${index}][amount]`, String(amount));
                             }
                         }

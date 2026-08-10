@@ -53,3 +53,30 @@ export async function MarkNotificationAsRead(token: string, uuid: string) {
     throw error;
   }
 }
+
+export async function MarkAllNotificationsAsRead(token: string) {
+  try {
+    const response = await api.put(
+      `/notifications/mark-all-read`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (response.status !== 200) {
+      throw new Error(
+        response.data?.message ||
+          `Request failed with status ${response.status}`,
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("Failed to mark all notifications as read:", error);
+    throw error;
+  }
+}

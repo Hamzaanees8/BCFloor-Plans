@@ -14,10 +14,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
-import { GetNotifications, MarkNotificationAsRead } from "./notification";
+import { GetNotifications, MarkNotificationAsRead, MarkAllNotificationsAsRead } from "./notification";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileNotificationsList from "@/components/mobile/notifications/MobileNotificationsList";
+import { CheckCheck, Loader2 } from "lucide-react";
 
 const Page = () => {
   const isMobile = useIsMobile();
@@ -180,6 +181,47 @@ const Page = () => {
     }
   };
 
+  const [markingAllRead, setMarkingAllRead] = React.useState(false);
+
+  const handleMarkAllAsRead = async () => {
+    const unreadNotifications = notificationData.filter((n) => !n.is_read);
+    if (unreadNotifications.length === 0) {
+      toast.info("No unread notifications");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setMarkingAllRead(true);
+    try {
+      try {
+        await MarkAllNotificationsAsRead(token);
+      } catch {
+        // Fallback to updating individually in parallel if API endpoint differs
+        await Promise.all(
+          unreadNotifications.map(
+            (n) => n.uuid && MarkNotificationAsRead(token, n.uuid),
+          ),
+        );
+      }
+
+      const updated = notificationData.map((n) => ({
+        ...n,
+        is_read: true,
+        read_at: n.read_at || new Date().toISOString(),
+      }));
+      setNotificationData(updated);
+      setUnreadNotificationCount(0);
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      toast.error("Failed to mark all notifications as read");
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
+
   const filteredNotifications = notificationData.filter((notification) => {
     const addressSearch = searchAddress.toLowerCase().trim();
     const nameSearch = searchName.toLowerCase().trim();
@@ -306,6 +348,20 @@ const Page = () => {
           <p className={`text-base font-medium ${userType}-text`}>
             Notifications ({unreadCount > 0 ? `${unreadCount} unread` : filteredNotifications.length})
           </p>
+          <Button
+            onClick={handleMarkAllAsRead}
+            disabled={markingAllRead || unreadCount === 0}
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5 text-xs font-medium border-[#BBBBBB] bg-white hover:bg-gray-50 text-[#333333] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {markingAllRead ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>Mark all as read</span>
+          </Button>
         </div>
 
         {/* Filters */}
@@ -388,6 +444,19 @@ const Page = () => {
             : filteredNotifications.length}
           )
         </p>
+        <Button
+          onClick={handleMarkAllAsRead}
+          disabled={markingAllRead || unreadCount === 0}
+          variant="outline"
+          className="h-[38px] px-4 text-xs md:text-sm font-medium border-[#BBBBBB] bg-white hover:bg-gray-50 text-[#333333] shadow-sm rounded-[6px] flex items-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          {markingAllRead ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CheckCheck className="w-4 h-4 text-emerald-600" />
+          )}
+          <span>Mark all as read</span>
+        </Button>
       </div>
 
       <div

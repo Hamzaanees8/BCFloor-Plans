@@ -512,7 +512,7 @@ const ServicesFrom = () => {
         const isOptionValid = (opt: any) => {
           return (
             opt.title?.trim() !== "" ||
-            !!opt.amount ||
+            (opt.amount !== undefined && opt.amount !== null && opt.amount !== "") ||
             !!opt.service_duration ||
             !!opt.quantity ||
             !!opt.sq_ft_rate ||
@@ -564,9 +564,7 @@ const ServicesFrom = () => {
         ];
 
         const cleanedAddOns = combinedAddOns.filter(
-          (addon) =>
-            addon.title?.trim() !== "" ||
-            addon.amount?.toString().trim() !== "",
+          (addon) => addon.title?.trim() !== ""
         );
 
         const payload = {
@@ -1618,7 +1616,7 @@ const ServicesFrom = () => {
                                   min={0} // allows 0 and up
                                   step="0.01" // allows decimals like 0.03
                                   className="w-[80px] h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[10px]"
-                                  value={opt.amount === 0 ? "" : opt.amount}
+                                  value={opt.amount === undefined || opt.amount === null ? "" : opt.amount}
                                   onChange={(e) => {
                                     const val = e.target.value;
 
@@ -1849,7 +1847,7 @@ const ServicesFrom = () => {
                                       type="number"
                                       placeholder="Enter Amount"
                                       value={
-                                        addOn.amount === 0 ? "" : addOn.amount
+                                        addOn.amount === undefined || addOn.amount === null ? "" : addOn.amount
                                       }
                                       onChange={(e) => {
                                         const val = e.target.value;

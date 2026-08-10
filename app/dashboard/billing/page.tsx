@@ -55,6 +55,13 @@ import {
   MarkPaid,
 } from "../invoice/invoice_api";
 import InvoiceDocument from "../invoice/components/InvoiceDocument";
+import { GetFilesData } from "../file-manager/file-manager";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -161,6 +168,14 @@ const Page = () => {
     [orderUuid: string]: any[];
   }>({});
   const [rowInvoicesLoading, setRowInvoicesLoading] = useState<{
+    [orderUuid: string]: boolean;
+  }>({});
+
+  // Tracks which service IDs have at least one media file, keyed by orderUuid
+  const [rowServiceMedia, setRowServiceMedia] = useState<{
+    [orderUuid: string]: Set<number | string>;
+  }>({});
+  const [rowMediaLoading, setRowMediaLoading] = useState<{
     [orderUuid: string]: boolean;
   }>({});
 
@@ -437,6 +452,45 @@ const Page = () => {
             ...prev,
             [billing.order_uuid]: false,
           }));
+        }
+      }
+
+      // Fetch media per service for agent restriction
+      if (
+        billing &&
+        !rowServiceMedia[billing.order_uuid] &&
+        !rowMediaLoading[billing.order_uuid]
+      ) {
+        setRowMediaLoading((prev) => ({ ...prev, [billing.order_uuid]: true }));
+        try {
+          const token = localStorage.getItem("token") || "";
+          const filesData = await GetFilesData(token, billing.order_uuid);
+          // API returns { data: Tour[] } where each Tour has .files[]
+          const tours: any[] = Array.isArray(filesData?.data) ? filesData.data : [];
+          const files: any[] = tours.flatMap((t: any) => Array.isArray(t.files) ? t.files : []);
+          const serviceIdsWithMedia = new Set<number | string>();
+          files.forEach((f: any) => {
+            if (f.service_id != null) {
+              serviceIdsWithMedia.add(f.service_id);
+            }
+            // Also check nested service object
+            if (f.service?.id != null) {
+              serviceIdsWithMedia.add(f.service.id);
+            }
+          });
+          setRowServiceMedia((prev) => ({
+            ...prev,
+            [billing.order_uuid]: serviceIdsWithMedia,
+          }));
+        } catch (err) {
+          console.error("Failed to load media for billing row:", err);
+          // On error, store empty set so we don't retry forever
+          setRowServiceMedia((prev) => ({
+            ...prev,
+            [billing.order_uuid]: new Set(),
+          }));
+        } finally {
+          setRowMediaLoading((prev) => ({ ...prev, [billing.order_uuid]: false }));
         }
       }
     }
@@ -1121,6 +1175,17 @@ const Page = () => {
                                 0,
                                 grandTotalVal - (billing.total_paid || 0),
                               );
+                        // Agent media restriction: for Pay All, ALL services must have media
+                        const serviceMediaSet = rowServiceMedia[billing.order_uuid];
+                        const agentMediaRestriction = userType === "agent" && serviceMediaSet !== undefined;
+                        const servicesWithoutMedia = agentMediaRestriction
+                          ? billing.services.filter((svc) => {
+                              const svcId = svc.service_id;
+                              return !serviceMediaSet.has(svcId) && !serviceMediaSet.has(String(svcId));
+                            })
+                          : [];
+                        const payAllBlockedByMedia = agentMediaRestriction && servicesWithoutMedia.length > 0;
+
                         const shouldShowPayAll =
                           displayRemaining > 0 &&
                           (!isOrderCancelledOrVoid || hasCancellationFee) &&
@@ -1134,7 +1199,7 @@ const Page = () => {
                               colSpan={isSuperAdmin ? 9 : 8}
                               className="p-0"
                             >
-                              <div className="overflow-hidden transition-all duration-300 p-6">
+                              <div className="overflow-visible transition-all duration-300 p-6">
                                 <div className="space-y-4">
                                   {/* Order Summary */}
                                   <div className="bg-white p-6 rounded-[6px] border border-[#BBBBBB]">
@@ -1212,34 +1277,93 @@ const Page = () => {
                                           )}
 
                                           {shouldShowPayAll && (
-                                            <Button
-                                              onClick={() =>
-                                                handleInvoiceAction(
-                                                  billing,
-                                                  "pay",
-                                                )
-                                              }
-                                              disabled={actionLoading !== null}
-                                              className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                              style={{
-                                                backgroundColor:
-                                                  roleSettings.pageTabColor,
-                                              }}
-                                            >
-                                              {actionLoading?.id ===
-                                                billing.order_id &&
-                                              actionLoading?.action ===
-                                                "pay" ? (
-                                                <>
-                                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                  Processing...
-                                                </>
-                                              ) : hasCancellationFee ? (
-                                                "Pay Cancellation Fee"
-                                              ) : (
-                                                "Pay All"
-                                              )}
-                                            </Button>
+                                            payAllBlockedByMedia ? (
+                                              <TooltipProvider delayDuration={0}>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <span className="inline-block cursor-not-allowed">
+                                                      <Button
+                                                        disabled
+                                                        className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal opacity-50 cursor-not-allowed min-w-[100px]"
+                                                        style={{
+                                                          backgroundColor:
+                                                            roleSettings.pageTabColor,
+                                                        }}
+                                                      >
+                                                        {hasCancellationFee
+                                                          ? "Pay Cancellation Fee"
+                                                          : "Pay All"}
+                                                      </Button>
+                                                    </span>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent
+                                                    side="left"
+                                                    align="center"
+                                                    className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                                  >
+                                                    <span className="font-semibold block mb-1 text-amber-400">
+                                                      ⚠ Payment Unavailable
+                                                    </span>
+                                                    {servicesWithoutMedia.length === 1 ? (
+                                                      <span>
+                                                        Media for{" "}
+                                                        {servicesWithoutMedia[0].service_name}{" "}
+                                                        has not been uploaded by the vendor
+                                                        yet. Payment will be available once the
+                                                        media is added.
+                                                      </span>
+                                                    ) : (
+                                                      <div>
+                                                        <span className="block mb-1">
+                                                          Media has not yet been uploaded for
+                                                          the following services:
+                                                        </span>
+                                                        <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                                          {servicesWithoutMedia.map((s) => (
+                                                            <li key={s.service_id}>
+                                                              {s.service_name}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                        <span className="block mt-1">
+                                                          Payment will be available once the
+                                                          required media has been added.
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            ) : (
+                                              <Button
+                                                onClick={() =>
+                                                  handleInvoiceAction(
+                                                    billing,
+                                                    "pay",
+                                                  )
+                                                }
+                                                disabled={actionLoading !== null}
+                                                className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                style={{
+                                                  backgroundColor:
+                                                    roleSettings.pageTabColor,
+                                                }}
+                                              >
+                                                {actionLoading?.id ===
+                                                  billing.order_id &&
+                                                actionLoading?.action ===
+                                                  "pay" ? (
+                                                  <>
+                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                    Processing...
+                                                  </>
+                                                ) : hasCancellationFee ? (
+                                                  "Pay Cancellation Fee"
+                                                ) : (
+                                                  "Pay All"
+                                                )}
+                                              </Button>
+                                            )
                                           )}
 
                                           {role === "admin" &&
@@ -1352,18 +1476,20 @@ const Page = () => {
                                           {computeCombinedTime(billing.slots)}
                                         </p>
                                       </div>
-                                      <div>
-                                        <p className="text-gray-600">Vendors</p>
-                                        <p className="font-medium">
-                                          {Array.from(
-                                            new Set(
-                                              billing.slots.map(
-                                                (slot) => slot.vendor_name,
+                                      {role !== "agent" && (
+                                        <div>
+                                          <p className="text-gray-600">Vendors</p>
+                                          <p className="font-medium">
+                                            {Array.from(
+                                              new Set(
+                                                billing.slots.map(
+                                                  (slot) => slot.vendor_name,
+                                                ),
                                               ),
-                                            ),
-                                          ).join(", ")}
-                                        </p>
-                                      </div>
+                                            ).join(", ")}
+                                          </p>
+                                        </div>
+                                      )}
                                       <div>
                                         <p className="text-gray-600">
                                           Created Date
@@ -1546,6 +1672,18 @@ const Page = () => {
                                       const isServiceVoid =
                                         serviceTargetInvoice === null;
 
+                                      // Agent media restriction per service
+                                      const serviceNumericId = service.service_id;
+                                      const svcMediaSet = rowServiceMedia[billing.order_uuid];
+                                      const serviceHasMedia =
+                                        svcMediaSet === undefined ||
+                                        svcMediaSet.has(serviceNumericId) ||
+                                        svcMediaSet.has(String(serviceNumericId));
+                                      const servicePayBlockedByMedia =
+                                        userType === "agent" &&
+                                        svcMediaSet !== undefined &&
+                                        !serviceHasMedia;
+
                                       const shouldHideServicePay =
                                         actualOrderCancelled ||
                                         isServiceVoid ||
@@ -1644,36 +1782,72 @@ const Page = () => {
 
                                                   {!shouldHideServicePay && (
                                                     <>
-                                                      <Button
-                                                        onClick={() =>
-                                                          handleInvoiceAction(
-                                                            billing,
-                                                            "pay",
-                                                            serviceUuid,
-                                                            service.amount,
-                                                          )
-                                                        }
-                                                        disabled={
-                                                          actionLoading !== null
-                                                        }
-                                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                                        style={{
-                                                          backgroundColor:
-                                                            roleSettings.pageTabColor,
-                                                        }}
-                                                      >
-                                                        {actionLoading?.id ===
-                                                          serviceUuid &&
-                                                        actionLoading?.action ===
-                                                          "pay" ? (
-                                                          <>
-                                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                            Processing...
-                                                          </>
-                                                        ) : (
-                                                          "Pay Now"
-                                                        )}
-                                                      </Button>
+                                                      {servicePayBlockedByMedia ? (
+                                                        <TooltipProvider delayDuration={0}>
+                                                          <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                              <span className="inline-block cursor-not-allowed">
+                                                                <Button
+                                                                  disabled
+                                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal opacity-50 cursor-not-allowed min-w-[90px]"
+                                                                  style={{
+                                                                    backgroundColor:
+                                                                      roleSettings.pageTabColor,
+                                                                  }}
+                                                                >
+                                                                  Pay Now
+                                                                </Button>
+                                                              </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                              side="left"
+                                                              align="center"
+                                                              className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                                            >
+                                                              <span className="font-semibold block mb-1 text-amber-400">
+                                                                ⚠ Payment Unavailable
+                                                              </span>
+                                                              <span>
+                                                                Media for {service.service_name}{" "}
+                                                                has not been uploaded by the
+                                                                vendor yet. Payment will be
+                                                                available once the media is added.
+                                                              </span>
+                                                            </TooltipContent>
+                                                          </Tooltip>
+                                                        </TooltipProvider>
+                                                      ) : (
+                                                        <Button
+                                                          onClick={() =>
+                                                            handleInvoiceAction(
+                                                              billing,
+                                                              "pay",
+                                                              serviceUuid,
+                                                              service.amount,
+                                                            )
+                                                          }
+                                                          disabled={
+                                                            actionLoading !== null
+                                                          }
+                                                          className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                          style={{
+                                                            backgroundColor:
+                                                              roleSettings.pageTabColor,
+                                                          }}
+                                                        >
+                                                          {actionLoading?.id ===
+                                                            serviceUuid &&
+                                                          actionLoading?.action ===
+                                                            "pay" ? (
+                                                            <>
+                                                              <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                              Processing...
+                                                            </>
+                                                          ) : (
+                                                            "Pay Now"
+                                                          )}
+                                                        </Button>
+                                                      )}
 
                                                       {role === "admin" && (
                                                         <Button
@@ -2180,22 +2354,92 @@ const Page = () => {
                                 selectedBilling && (
                                   <>
                                     {isOwner ? (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(
-                                            invoice,
-                                            selectedBilling,
+                                      (() => {
+                                        const mediaSet = rowServiceMedia[selectedBilling.order_uuid];
+                                        const hasAnyMissingMedia =
+                                          userType === "agent" &&
+                                          mediaSet !== undefined &&
+                                          selectedBilling.services.some((svc) =>
+                                            !mediaSet.has(svc.service_id) &&
+                                            !mediaSet.has(String(svc.service_id))
                                           );
-                                        }}
-                                        className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
-                                        style={{
-                                          backgroundColor:
-                                            roleSettings.pageTabColor,
-                                        }}
-                                      >
-                                        Pay Now
-                                      </Button>
+                                        if (hasAnyMissingMedia) {
+                                          const missingServices = selectedBilling.services.filter((svc) => !mediaSet.has(svc.service_id) && !mediaSet.has(String(svc.service_id)));
+                                          return (
+                                            <TooltipProvider delayDuration={0}>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <span className="inline-block cursor-not-allowed">
+                                                    <Button
+                                                      disabled
+                                                      className="h-[30px] text-xs px-3 font-normal text-white opacity-50 cursor-not-allowed rounded-[6px]"
+                                                      style={{
+                                                        backgroundColor:
+                                                          roleSettings.pageTabColor,
+                                                      }}
+                                                    >
+                                                      Pay Now
+                                                    </Button>
+                                                  </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent
+                                                  side="left"
+                                                  align="center"
+                                                  className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                                >
+                                                  <span className="font-semibold block mb-1 text-amber-400">
+                                                    ⚠ Payment Unavailable
+                                                  </span>
+                                                  {missingServices.length === 1 ? (
+                                                    <span>
+                                                      Media for {missingServices[0].service_name}{" "}
+                                                      has not been uploaded by the vendor
+                                                      yet. Payment will be available once the
+                                                      media is added.
+                                                    </span>
+                                                  ) : (
+                                                    <div>
+                                                      <span className="block mb-1">
+                                                        Media has not yet been uploaded for
+                                                        the following services:
+                                                      </span>
+                                                      <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                                        {missingServices.map((s) => (
+                                                          <li key={s.service_id}>
+                                                            {s.service_name}
+                                                          </li>
+                                                        ))}
+                                                      </ul>
+                                                      <span className="block mt-1">
+                                                        Payment will be available once the
+                                                        required media has been added.
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          );
+                                        }
+                                        return (
+                                          <Button
+                                            onClick={() => {
+                                              setShowInvoicesModal(false);
+                                              handlePayInvoice(
+                                                invoice,
+                                                selectedBilling,
+                                              );
+                                            }}
+                                            className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
+                                            style={{
+                                              backgroundColor:
+                                                roleSettings.pageTabColor,
+                                            }}
+                                          >
+                                            Pay Now
+                                          </Button>
+                                        );
+                                      })()
                                     ) : (
                                       <div className="flex gap-2">
                                         {(userType === "admin" ||
@@ -2297,16 +2541,86 @@ const Page = () => {
                   !isRefunded(viewingInvoice.status) &&
                   selectedBilling && (
                     <div className="flex gap-2 w-full sm:w-auto justify-end">
-                      <Button
-                        onClick={() => {
-                          setViewingInvoice(null);
-                          handlePayInvoice(viewingInvoice, selectedBilling);
-                        }}
-                        className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                      >
-                        Pay Now
-                      </Button>
+                      {(() => {
+                        const mediaSet = rowServiceMedia[selectedBilling.order_uuid];
+                        const hasAnyMissingMedia =
+                          userType === "agent" &&
+                          mediaSet !== undefined &&
+                          selectedBilling.services.some((svc) =>
+                            !mediaSet.has(svc.service_id) &&
+                            !mediaSet.has(String(svc.service_id))
+                          );
+                        if (hasAnyMissingMedia) {
+                          const missingServices = selectedBilling.services.filter(
+                            (svc) =>
+                              !mediaSet.has(svc.service_id) &&
+                              !mediaSet.has(String(svc.service_id)),
+                          );
+                          return (
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block cursor-not-allowed w-full sm:w-auto">
+                                    <Button
+                                      disabled
+                                      className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white opacity-50 cursor-not-allowed rounded-[6px] w-full sm:w-auto"
+                                      style={{
+                                        backgroundColor: roleSettings.pageTabColor,
+                                      }}
+                                    >
+                                      Pay Now
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="left"
+                                  align="center"
+                                  className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                >
+                                  <span className="font-semibold block mb-1 text-amber-400">
+                                    ⚠ Payment Unavailable
+                                  </span>
+                                  {missingServices.length === 1 ? (
+                                    <span>
+                                      Media for {missingServices[0].service_name} has not
+                                      been uploaded by the vendor yet. Payment will be
+                                      available once the media is added.
+                                    </span>
+                                  ) : (
+                                    <div>
+                                      <span className="block mb-1">
+                                        Media has not yet been uploaded for the following
+                                        services:
+                                      </span>
+                                      <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                        {missingServices.map((s) => (
+                                          <li key={s.service_id}>{s.service_name}</li>
+                                        ))}
+                                      </ul>
+                                      <span className="block mt-1">
+                                        Payment will be available once the required media has
+                                        been added.
+                                      </span>
+                                    </div>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        }
+                        return (
+                          <Button
+                            onClick={() => {
+                              setViewingInvoice(null);
+                              handlePayInvoice(viewingInvoice, selectedBilling);
+                            }}
+                            className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                          >
+                            Pay Now
+                          </Button>
+                        );
+                      })()}
 
                       {role === "admin" && (
                         <Button
@@ -2423,41 +2737,130 @@ const Page = () => {
                   serviceInvoicePopup.invoice.status?.toUpperCase() || "",
                 ) && (
                   <div className="flex gap-2 w-full sm:w-auto justify-end">
-                    <Button
-                      onClick={async () => {
-                        try {
-                          setActionLoading({
-                            id:
-                              serviceInvoicePopup.serviceId ||
-                              serviceInvoicePopup.billing.order_id,
-                            action: "pay",
-                          });
-                          await handlePayInvoice(
-                            serviceInvoicePopup.invoice,
-                            serviceInvoicePopup.billing,
-                            undefined,
-                            serviceInvoicePopup.serviceId,
-                          );
-                        } finally {
-                          setActionLoading(null);
-                        }
-                      }}
-                      disabled={actionLoading !== null}
-                      className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
-                      style={{ backgroundColor: roleSettings.pageTabColor }}
-                    >
-                      {actionLoading?.id ===
-                        (serviceInvoicePopup.serviceId ||
-                          serviceInvoicePopup.billing.order_id) &&
-                      actionLoading?.action === "pay" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                          Processing...
-                        </>
-                      ) : (
-                        "Pay Now"
-                      )}
-                    </Button>
+                    {(() => {
+                       const mediaSet = rowServiceMedia[serviceInvoicePopup.billing.order_uuid];
+                       const svcId = serviceInvoicePopup.serviceId
+                         ? (serviceInvoicePopup.billing.services.find(
+                             (s) =>
+                               s.order_service_uuid === serviceInvoicePopup.serviceId ||
+                               s.uuid === serviceInvoicePopup.serviceId,
+                           )?.service_id ?? null)
+                         : null;
+                       const hasAnyMissingMedia =
+                         userType === "agent" &&
+                         mediaSet !== undefined &&
+                         (svcId !== null
+                           ? !mediaSet.has(svcId) && !mediaSet.has(String(svcId))
+                           : serviceInvoicePopup.billing.services.some(
+                               (svc) =>
+                                 !mediaSet.has(svc.service_id) &&
+                                 !mediaSet.has(String(svc.service_id)),
+                             ));
+                       if (hasAnyMissingMedia) {
+                         const targetService = serviceInvoicePopup.serviceId
+                           ? serviceInvoicePopup.billing.services.find(
+                               (s) =>
+                                 s.order_service_uuid === serviceInvoicePopup.serviceId ||
+                                 s.uuid === serviceInvoicePopup.serviceId,
+                             )
+                           : null;
+                         const missingServices = serviceInvoicePopup.billing.services.filter(
+                           (svc) =>
+                             !mediaSet.has(svc.service_id) &&
+                             !mediaSet.has(String(svc.service_id)),
+                         );
+                         return (
+                           <TooltipProvider delayDuration={0}>
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className="inline-block cursor-not-allowed w-full sm:w-auto">
+                                   <Button
+                                     disabled
+                                     className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white opacity-50 cursor-not-allowed rounded-[6px] w-full sm:w-auto"
+                                     style={{
+                                       backgroundColor: roleSettings.pageTabColor,
+                                     }}
+                                   >
+                                     Pay Now
+                                   </Button>
+                                 </span>
+                               </TooltipTrigger>
+                               <TooltipContent
+                                 side="left"
+                                 align="center"
+                                 className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                               >
+                                 <span className="font-semibold block mb-1 text-amber-400">
+                                   ⚠ Payment Unavailable
+                                 </span>
+                                 {targetService || missingServices.length === 1 ? (
+                                   <span>
+                                     Media for{" "}
+                                     {targetService?.service_name ||
+                                       missingServices[0]?.service_name}{" "}
+                                     has not been uploaded by the vendor yet. Payment will be
+                                     available once the media is added.
+                                   </span>
+                                 ) : (
+                                   <div>
+                                     <span className="block mb-1">
+                                       Media has not yet been uploaded for the following
+                                       services:
+                                     </span>
+                                     <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                       {missingServices.map((s) => (
+                                         <li key={s.service_id}>{s.service_name}</li>
+                                       ))}
+                                     </ul>
+                                     <span className="block mt-1">
+                                       Payment will be available once the required media has
+                                       been added.
+                                     </span>
+                                   </div>
+                                 )}
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
+                         );
+                       }
+                       return (
+                         <Button
+                           onClick={async () => {
+                             try {
+                               setActionLoading({
+                                 id:
+                                   serviceInvoicePopup.serviceId ||
+                                   serviceInvoicePopup.billing.order_id,
+                                 action: "pay",
+                               });
+                               await handlePayInvoice(
+                                 serviceInvoicePopup.invoice,
+                                 serviceInvoicePopup.billing,
+                                 undefined,
+                                 serviceInvoicePopup.serviceId,
+                               );
+                             } finally {
+                               setActionLoading(null);
+                             }
+                           }}
+                           disabled={actionLoading !== null}
+                           className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
+                           style={{ backgroundColor: roleSettings.pageTabColor }}
+                         >
+                           {actionLoading?.id ===
+                             (serviceInvoicePopup.serviceId ||
+                               serviceInvoicePopup.billing.order_id) &&
+                           actionLoading?.action === "pay" ? (
+                             <>
+                               <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                               Processing...
+                             </>
+                           ) : (
+                             "Pay Now"
+                           )}
+                         </Button>
+                       );
+                     })()}
 
                     {role === "admin" && (
                       <Button

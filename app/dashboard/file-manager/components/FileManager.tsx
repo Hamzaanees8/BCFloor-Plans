@@ -38,6 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { GetFilesData, GetTourSettings } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
@@ -442,6 +448,51 @@ const FileManager = () => {
       toast.error("Failed to initiate payment.");
     }
   };
+
+  // --- Agent media restriction ---
+  // Build a set of service IDs that have at least one file uploaded
+  const serviceIdsWithMedia = React.useMemo(() => {
+    const set = new Set<number | string>();
+    const files = filesData?.files ?? [];
+    files.forEach((f) => {
+      if (f.service_id != null) set.add(f.service_id);
+      if (f.service?.id != null) set.add(f.service.id);
+    });
+    return set;
+  }, [filesData]);
+
+  // Array of services without media for agent payment restriction
+  const agentMissingServices = React.useMemo(() => {
+    if (userType !== "agent") return [];
+    if (!filesData) return []; // media not loaded yet
+    return services.filter((svc) => {
+      const id = svc.service_id;
+      return !serviceIdsWithMedia.has(id) && !serviceIdsWithMedia.has(String(id));
+    });
+  }, [userType, filesData, services, serviceIdsWithMedia]);
+
+  const renderAgentBlockedTooltipContent = () => {
+    if (agentMissingServices.length === 0) return null;
+    return (
+      <TooltipContent side="left" align="center" className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed">
+        <span className="font-semibold block mb-1 text-amber-400">⚠ Payment Unavailable</span>
+        {agentMissingServices.length === 1 ? (
+          <span>Media for {agentMissingServices[0].service?.name || `Service #${agentMissingServices[0].service_id}`} has not been uploaded by the vendor yet. Payment will be available once the media is added.</span>
+        ) : (
+          <div>
+            <span className="block mb-1">Media has not yet been uploaded for the following services:</span>
+            <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+              {agentMissingServices.map((s) => (
+                <li key={s.service_id}>{s.service?.name || `Service #${s.service_id}`}</li>
+              ))}
+            </ul>
+            <span className="block mt-1">Payment will be available once the required media has been added.</span>
+          </div>
+        )}
+      </TooltipContent>
+    );
+  };
+
 
   useEffect(() => {
     fetchOrder().then(() => {
@@ -1465,15 +1516,33 @@ const FileManager = () => {
                                   (currentUser?.uuid ===
                                   (invoice.agent?.uuid ||
                                     invoice.agent_uuid) ? (
-                                    <Button
-                                      onClick={() => {
-                                        setShowInvoicesModal(false);
-                                        handlePayInvoice(invoice);
-                                      }}
-                                      className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
-                                    >
-                                      Pay Now
-                                    </Button>
+                                    agentMissingServices.length > 0 ? (
+                                      <TooltipProvider delayDuration={0}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="inline-block cursor-not-allowed">
+                                              <Button
+                                                disabled
+                                                className="h-[35px] text-[13px] px-4 font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] agent-bg border-none"
+                                              >
+                                                Pay Now
+                                              </Button>
+                                            </span>
+                                          </TooltipTrigger>
+                                          {renderAgentBlockedTooltipContent()}
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ) : (
+                                      <Button
+                                        onClick={() => {
+                                          setShowInvoicesModal(false);
+                                          handlePayInvoice(invoice);
+                                        }}
+                                        className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
+                                      >
+                                        Pay Now
+                                      </Button>
+                                    )
                                   ) : (
                                     <div className="flex gap-2">
                                       {(userType === "admin" ||
@@ -1635,7 +1704,7 @@ const FileManager = () => {
                             Update Invoice
                           </Button>
                         ))}
-                      {userType !== "vendor" &&
+                        {userType !== "vendor" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
                         viewingInvoice.status?.toUpperCase() !== "VOID" &&
                         viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
@@ -1644,15 +1713,33 @@ const FileManager = () => {
                         (currentUser?.uuid ===
                         (viewingInvoice.agent?.uuid ||
                           viewingInvoice.agent_uuid) ? (
-                          <Button
-                            onClick={() => {
-                              handlePayInvoice(viewingInvoice);
-                              setViewingInvoice(null);
-                            }}
-                            className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                          >
-                            Pay Now
-                          </Button>
+                          agentMissingServices.length > 0 ? (
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block cursor-not-allowed w-full md:w-auto">
+                                    <Button
+                                      disabled
+                                      className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] ${userType}-bg border-none w-full md:w-auto shadow-sm`}
+                                    >
+                                      Pay Now
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                {renderAgentBlockedTooltipContent()}
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                handlePayInvoice(viewingInvoice);
+                                setViewingInvoice(null);
+                              }}
+                              className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                            >
+                              Pay Now
+                            </Button>
+                          )
                         ) : (
                           <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
                             {(userType === "admin" ||
