@@ -9,7 +9,15 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, Phone, MapPin } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Video,
+  FileText,
+  Box,
+  ImageIcon,
+} from "lucide-react";
 import { useOptionalFileManagerContext } from "../FileManagerContext";
 import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
 import {
@@ -203,14 +211,22 @@ const TourConfirm = ({
           file.type === "photo",
       );
 
+  const isMediaApprovedByAgent = (file: any) => {
+    return (
+      file?.is_agent_approved === true ||
+      file?.is_agent_approved === 1 ||
+      file?.is_agent_approved === "1" ||
+      file?.is_agent_approved === "true" ||
+      file?.is_complimentary === true ||
+      file?.is_complimentary === 1 ||
+      file?.is_complimentary === "1" ||
+      file?.is_complimentary === "true"
+    );
+  };
+
   if (currentTourPhotos) {
     currentTourPhotos = getGlobalPhotoOrder(currentTourPhotos as any);
-  }
-
-  if (!isPublicView && userType === "agent") {
-    currentTourPhotos = currentTourPhotos?.filter(
-      (file) => file.is_agent_approved || file.is_complimentary,
-    );
+    currentTourPhotos = currentTourPhotos?.filter(isMediaApprovedByAgent);
   }
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -220,13 +236,11 @@ const TourConfirm = ({
       ? publicVideoFiles
       : filesData?.files?.filter((file) => file.type === "video");
 
-    if (!isPublicView && userType === "agent") {
-      files = files?.filter(
-        (file) => file.is_agent_approved || file.is_complimentary,
-      );
+    if (!isPublicView) {
+      files = files?.filter(isMediaApprovedByAgent);
     }
     return files;
-  }, [isPublicView, publicVideoFiles, filesData?.files, userType]);
+  }, [isPublicView, publicVideoFiles, filesData?.files]);
   const currentPath = window.location.href;
 
   function getMainURL(url: string) {
@@ -346,7 +360,7 @@ const TourConfirm = ({
       ) && displayMatterportLinks.length > 0;
 
   const previewTabs = React.useMemo(() => {
-    const tabs = ["Home"];
+    const tabs = ["Home", "Overview", "Contact"];
     if (hasPhotos) tabs.push("Photos");
     if (hasVideos) tabs.push("Videos");
     if (hasFloorPlans) tabs.push("Floorplan");
@@ -561,19 +575,60 @@ const TourConfirm = ({
             >
               {/* Tabs */}
               <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-[95%] md:max-w-none px-4 gap-2 py-2 absolute top-3 z-30 left-1/2 -translate-x-1/2 w-full md:w-auto justify-start md:justify-center">
-                {previewTabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[179px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all ${
-                      activeTab === tab
-                        ? `${userType}-bg text-white`
-                        : "bg-gray-200 text-[#666666]"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+                {previewTabs.map((tab) => {
+                  const getTabIcon = (name: string) => {
+                    switch (name) {
+                      case "Home":
+                        return (
+                          <span
+                            className={`inline-block w-3.5 h-3.5 mr-1.5 [&>svg]:w-full [&>svg]:h-full [&>svg_path]:stroke-current [&>svg_path]:stroke-[4]`}
+                          >
+                            <HomeIcon />
+                          </span>
+                        );
+                      case "Overview":
+                        return (
+                          <svg
+                            className="w-3.5 h-3.5 inline mr-1.5 fill-current"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                          </svg>
+                        );
+                      case "Contact":
+                        return <Mail size={14} className="inline mr-1.5" />;
+                      case "Photos":
+                        return (
+                          <ImageIcon size={14} className="inline mr-1.5" />
+                        );
+                      case "Videos":
+                        return <Video size={14} className="inline mr-1.5" />;
+                      case "Floorplan":
+                      case "Floor Plan":
+                        return <FileText size={14} className="inline mr-1.5" />;
+                      case "Matterport":
+                      case "3D Tour":
+                        return <Box size={14} className="inline mr-1.5" />;
+                      default:
+                        return null;
+                    }
+                  };
+
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[160px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all flex items-center justify-center ${
+                        activeTab === tab
+                          ? `${userType}-bg text-white shadow-md`
+                          : "bg-gray-200 text-[#666666] hover:bg-gray-300"
+                      }`}
+                    >
+                      {getTabIcon(tab)}
+                      <span>{tab}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {activeTab === "Home" && (
@@ -628,8 +683,13 @@ const TourConfirm = ({
                       )}
                     </div>
                   )}
+                </div>
+              )}
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 px-4 py-12 mt-3 text-center text-sm">
+              {activeTab === "Overview" && (
+                <div className="pt-[80px] px-4 md:px-12 flex flex-col gap-10 max-w-5xl mx-auto w-full pb-12">
+                  {/* Property Stats Icons */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 py-6 text-center text-sm">
                     {[
                       {
                         label: "PRICE",
@@ -709,7 +769,10 @@ const TourConfirm = ({
                       ))}
                   </div>
 
-                  <div className="flex flex-col md:flex-row gap-6 md:gap-10 px-4 md:px-6">
+                  <hr className="border-gray-200" />
+
+                  {/* Agent Contact + About Property */}
+                  <div className="flex flex-col md:flex-row gap-6 md:gap-10">
                     {activeTourType !== "unbranded" && (
                       <div className="flex flex-col gap-5 items-start w-full md:w-[350px]">
                         {orderData?.agent.logo_url ? (
@@ -760,18 +823,12 @@ const TourConfirm = ({
                           )}
                           <div className="flex gap-3 justify-center md:justify-start">
                             {orderData?.agent.primary_phone && (
-                              <a
-                                href={`tel:${orderData.agent.primary_phone}`}
-                                className=""
-                              >
+                              <a href={`tel:${orderData.agent.primary_phone}`}>
                                 <Phone className="text-[#7D7D7D]" />
                               </a>
                             )}
                             {orderData?.agent.email && (
-                              <a
-                                href={`mailto:${orderData.agent.email}`}
-                                className=" "
-                              >
+                              <a href={`mailto:${orderData.agent.email}`}>
                                 <Mail className="text-[#7D7D7D]" />
                               </a>
                             )}
@@ -788,7 +845,6 @@ const TourConfirm = ({
                           {orderData?.property.description ||
                             "No description available."}
                         </p>
-
                         <div className="flex flex-wrap gap-3 justify-center md:justify-start">
                           {(() => {
                             const listingSheets = featureSheets.filter(
@@ -806,7 +862,6 @@ const TourConfirm = ({
                                 );
                               },
                             );
-
                             const tabloidSheets = featureSheets.filter(
                               (sheet) => {
                                 const template = templateImages.find(
@@ -822,7 +877,6 @@ const TourConfirm = ({
                                 );
                               },
                             );
-
                             return (
                               <>
                                 {listingSheets.length > 0 && (
@@ -834,7 +888,7 @@ const TourConfirm = ({
                                     }}
                                     onClick={() => {
                                       const sheet =
-                                        listingSheets[listingSheets.length - 1]; // get latest
+                                        listingSheets[listingSheets.length - 1];
                                       if (
                                         sheet.type === "pdf" &&
                                         sheet.pdf_url
@@ -869,7 +923,7 @@ const TourConfirm = ({
                                     }}
                                     onClick={() => {
                                       const sheet =
-                                        tabloidSheets[tabloidSheets.length - 1]; // get latest
+                                        tabloidSheets[tabloidSheets.length - 1];
                                       if (
                                         sheet.type === "pdf" &&
                                         sheet.pdf_url
@@ -900,14 +954,182 @@ const TourConfirm = ({
                           })()}
                         </div>
                       </div>
+                    </div>
+                  </div>
 
-                      <div className="w-full h-[300px]">
-                        <DynamicMap
-                          address={orderData?.property.address}
-                          city={orderData?.property.city}
-                          province={orderData?.property.province}
-                          country={orderData?.property.country}
+                  <hr className="border-gray-200" />
+
+                  {/* Share icons */}
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-500 italic">
+                      Share
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={`mailto:?subject=${encodeURIComponent(orderData?.property_address || "")}&body=${encodeURIComponent(currentPath)}`}
+                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        title="Share via Email"
+                      >
+                        <Mail size={18} />
+                      </a>
+                      <a
+                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentPath)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        title="Share on Facebook"
+                      >
+                        <svg
+                          className="w-4 h-4 fill-current"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                        </svg>
+                      </a>
+                      <a
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(currentPath)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        title="Share on Twitter"
+                      >
+                        <svg
+                          className="w-4 h-4 fill-current"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.936 9.936 0 0024 4.59z" />
+                        </svg>
+                      </a>
+                      <button
+                        onClick={() => {
+                          if (navigator.share) {
+                            navigator
+                              .share({
+                                title:
+                                  orderData?.property_address || "Public Tour",
+                                url: currentPath,
+                              })
+                              .catch(() => {});
+                          } else {
+                            navigator.clipboard.writeText(currentPath);
+                            toast.success("Link copied to clipboard!");
+                          }
+                        }}
+                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        title="Share"
+                      >
+                        <span className="text-xl font-bold">+</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Neighborhood */}
+                  <div className="flex flex-col gap-4">
+                    <h3 className="text-center text-xl font-semibold text-[#424242]">
+                      Neighborhood
+                    </h3>
+                    <div className="w-full h-[350px] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 relative">
+                      <iframe
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(`${orderData?.property.address || ""}, ${orderData?.property.city || ""}, ${orderData?.property.province || ""}`)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                        className="w-full h-full border-0"
+                        allowFullScreen
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Map */}
+                  <div className="flex flex-col gap-4">
+                    <h3 className="text-center text-xl font-semibold text-[#424242]">
+                      Map
+                    </h3>
+                    <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                      <DynamicMap
+                        address={orderData?.property.address}
+                        city={orderData?.property.city}
+                        province={orderData?.property.province}
+                        country={orderData?.property.country}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "Contact" && (
+                <div className="pt-[80px] px-4 md:px-12 flex flex-col items-center gap-8 max-w-4xl mx-auto w-full pb-16">
+                  <h2 className="text-2xl font-semibold text-[#424242]">
+                    Contact
+                  </h2>
+
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-white p-6 sm:p-10 rounded-xl shadow-sm border border-gray-100 w-full justify-center">
+                    {/* Agent Image / Logo */}
+                    <div className="w-[200px] sm:w-[240px] aspect-square rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
+                      {orderData?.agent.logo_url || getAgentLogo() ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={getAgentLogo() || orderData?.agent.logo_url}
+                          alt="Agent photo"
+                          className="w-full h-full object-cover"
                         />
+                      ) : (
+                        <div className="text-gray-400 font-medium">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Agent Info */}
+                    <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-3 text-[#424242]">
+                      <h3 className="text-xl sm:text-2xl font-semibold">
+                        {orderData?.agent.first_name}{" "}
+                        {orderData?.agent.last_name}
+                      </h3>
+                      <p className="text-base italic text-gray-600">
+                        {orderData?.agent.company_name || ""}
+                      </p>
+
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toast.info("Showing all tours for this agent");
+                        }}
+                        className="text-sm text-gray-600 hover:underline underline"
+                      >
+                        View All My Tours
+                      </a>
+
+                      {/* Company name styled */}
+                      <div className="mt-1 flex items-center">
+                        <span className="text-base font-bold tracking-wider text-[#d92525]">
+                          {orderData?.agent.company_name?.toUpperCase() || ""}
+                        </span>
+                      </div>
+
+                      {/* Email + Phone action buttons */}
+                      <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                        {orderData?.agent.email && (
+                          <a
+                            href={`mailto:${orderData.agent.email}?subject=Inquiry about ${encodeURIComponent(orderData?.property_address || "Property")}`}
+                            className="inline-flex items-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full font-medium shadow-sm hover:bg-[#132744] transition-colors"
+                          >
+                            <Mail size={16} />
+                            <span>{orderData.agent.email}</span>
+                          </a>
+                        )}
+                        {orderData?.agent.primary_phone && (
+                          <a
+                            href={`tel:${orderData.agent.primary_phone}`}
+                            className="inline-flex items-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full font-medium shadow-sm hover:bg-[#132744] transition-colors"
+                          >
+                            <Phone size={16} />
+                            <span>{orderData.agent.primary_phone}</span>
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1039,7 +1261,7 @@ const TourConfirm = ({
 
               {activeTab === "Videos" && (
                 <div className="w-full ">
-                  <div className="p-4 pt-0">
+                  <div className="p-0 pt-0">
                     {/* Main video preview */}
                     {mainVideo && (
                       <div className="mb-6 h-[50vh] sm:h-[95vh] w-full bg-black overflow-hidden relative">

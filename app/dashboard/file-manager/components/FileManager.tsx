@@ -18,6 +18,8 @@ import CreateFeatureSheet, {
 import QuoteServiceTab from "./QuoteServiceTab";
 import DownloadTab from "./DownloadTab";
 import HiddenMediaModal from "./HiddenMediaModal";
+import PackageLimitWarningModal from "./PackageLimitWarningModal";
+import UpgradeServicePopup from "./UpgradeServicePopup";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
@@ -461,32 +463,92 @@ const FileManager = () => {
     return set;
   }, [filesData]);
 
-  // Array of services without media for agent payment restriction
-  const agentMissingServices = React.useMemo(() => {
-    if (userType !== "agent") return [];
-    if (!filesData) return []; // media not loaded yet
-    return services.filter((svc) => {
-      const id = svc.service_id;
-      return !serviceIdsWithMedia.has(id) && !serviceIdsWithMedia.has(String(id));
-    });
-  }, [userType, filesData, services, serviceIdsWithMedia]);
+  // Returns array of services without media for a given invoice (or order-wide if no invoice provided)
+  const getMissingServicesForInvoice = React.useCallback(
+    (invoice?: any) => {
+      if (userType !== "agent") return [];
+      if (!filesData) return []; // media not loaded yet
 
-  const renderAgentBlockedTooltipContent = () => {
-    if (agentMissingServices.length === 0) return null;
+      let targetServices = services;
+
+      if (invoice && invoice.items && invoice.items.length > 0) {
+        const itemSvcIds = new Set<string | number>();
+        invoice.items.forEach((item: any) => {
+          const sId =
+            item.order_service?.service_id ||
+            item.order_service?.service?.id ||
+            item.orderService?.service_id ||
+            item.orderService?.service?.id ||
+            item.service_id;
+          if (sId != null) {
+            itemSvcIds.add(sId);
+            itemSvcIds.add(String(sId));
+          }
+
+          const sUuid =
+            item.order_service?.service?.uuid ||
+            item.orderService?.service?.uuid ||
+            item.service_uuid;
+          if (sUuid) itemSvcIds.add(sUuid);
+        });
+
+        if (itemSvcIds.size > 0) {
+          const matched = services.filter(
+            (svc) =>
+              itemSvcIds.has(svc.service_id) ||
+              itemSvcIds.has(String(svc.service_id)) ||
+              (svc.service?.uuid && itemSvcIds.has(svc.service.uuid)),
+          );
+          if (matched.length > 0) {
+            targetServices = matched;
+          }
+        }
+      }
+
+      return targetServices.filter((svc) => {
+        const id = svc.service_id;
+        return (
+          !serviceIdsWithMedia.has(id) && !serviceIdsWithMedia.has(String(id))
+        );
+      });
+    },
+    [userType, filesData, services, serviceIdsWithMedia],
+  );
+
+  const renderAgentBlockedTooltipContent = (missingSvcs: any[]) => {
+    if (!missingSvcs || missingSvcs.length === 0) return null;
     return (
-      <TooltipContent side="left" align="center" className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed">
-        <span className="font-semibold block mb-1 text-amber-400">⚠ Payment Unavailable</span>
-        {agentMissingServices.length === 1 ? (
-          <span>Media for {agentMissingServices[0].service?.name || `Service #${agentMissingServices[0].service_id}`} has not been uploaded by the vendor yet. Payment will be available once the media is added.</span>
+      <TooltipContent
+        side="left"
+        align="center"
+        className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+      >
+        <span className="font-semibold block mb-1 text-amber-400">
+          ⚠ Payment Unavailable
+        </span>
+        {missingSvcs.length === 1 ? (
+          <span>
+            Media for{" "}
+            {missingSvcs[0].service?.name ||
+              `Service #${missingSvcs[0].service_id}`}{" "}
+            has not been uploaded by the vendor yet. Payment will be available
+            once the media is added.
+          </span>
         ) : (
           <div>
-            <span className="block mb-1">Media has not yet been uploaded for the following services:</span>
+            <span className="block mb-1">
+              Media has not yet been uploaded for the following services:
+            </span>
             <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
-              {agentMissingServices.map((s) => (
-                <li key={s.service_id}>{s.service?.name || `Service #${s.service_id}`}</li>
+              {missingSvcs.map((s) => (
+                <li key={s.service_id}>
+                  {s.service?.name || `Service #${s.service_id}`}
+                </li>
               ))}
             </ul>
-            <span className="block mt-1">Payment will be available once the required media has been added.</span>
+            <span className="block mt-1">
+              Payment will be available once the required media has been added.
+            </span>
           </div>
         )}
       </TooltipContent>
@@ -812,6 +874,8 @@ const FileManager = () => {
           orderData={orderData}
           setOrderData={setOrderData}
           onRefresh={fetchOrder}
+          isScrolled={isScrolled}
+          isListing={isListing}
         />
       );
     }
@@ -1311,8 +1375,197 @@ const FileManager = () => {
     ],
   );
 
+  const [pkgWarningConfig, setPkgWarningConfig] = useState<{
+    open: boolean;
+    type: "over_limit" | "under_limit";
+    selectedCount: number;
+    packageLimit: number;
+    mediaLabel: string;
+    targetTab?: string;
+    onProceedCallback?: () => void;
+    currentService?: any;
+    currentOption?: any;
+    currentBookedService?: any;
+  }>({
+    open: false,
+    type: "over_limit",
+    selectedCount: 0,
+    packageLimit: 0,
+    mediaLabel: "photos",
+  });
+
+  const [openUpgradeFromWarning, setOpenUpgradeFromWarning] = useState(false);
+
+  const checkPackageLimitForTab = React.useCallback(
+    (tabUuidToCheck: string) => {
+      // Package limit warning applies to agent users when selected media exceeds package quantity
+      if (userType !== "agent") return null;
+
+      const group = groupedServices.get(tabUuidToCheck);
+      const bookingToUse =
+        group?.[activeServiceIndex] ||
+        orderData?.services?.find(
+          (s: any) =>
+            s.service?.uuid === tabUuidToCheck ||
+            s.service_id === tabUuidToCheck ||
+            s.uuid === tabUuidToCheck,
+        );
+      const packageLimit = bookingToUse?.option?.quantity;
+
+      if (packageLimit && packageLimit > 0) {
+        const serviceFiles =
+          filesData?.files?.filter(
+            (f) =>
+              (f.service?.uuid === tabUuidToCheck ||
+                String(f.service_id) === String(tabUuidToCheck) ||
+                (bookingToUse?.service_id && String(f.service?.id) === String(bookingToUse.service_id)) ||
+                (bookingToUse?.service?.id && String(f.service?.id) === String(bookingToUse.service.id))) &&
+              !f.is_deleted &&
+              !f.is_hidden,
+          ) || [];
+        const selectedCount = serviceFiles.filter(
+          (f) => f.is_agent_approved && !f.is_complimentary,
+        ).length;
+
+        const serviceName = bookingToUse?.service?.name?.toLowerCase() || "";
+        let mediaLabel = "photos";
+        if (serviceName.includes("video") || serviceName.includes("reel"))
+          mediaLabel = "videos";
+        else if (
+          serviceName.includes("floor") ||
+          serviceName.includes("plan")
+        )
+          mediaLabel = "floor plans";
+        else if (
+          serviceName.includes("matterport") ||
+          serviceName.includes("3d")
+        )
+          mediaLabel = "tours";
+
+        if (selectedCount > packageLimit) {
+          const fullService =
+            servicesData?.find(
+              (srv) =>
+                srv.uuid === tabUuidToCheck ||
+                srv.id === bookingToUse?.service_id ||
+                srv.id === bookingToUse?.service?.id,
+            ) || bookingToUse?.service;
+
+          return {
+            type: "over_limit" as const,
+            selectedCount,
+            packageLimit,
+            mediaLabel,
+            bookingToUse,
+            currentService: fullService,
+            currentOption: bookingToUse?.option,
+          };
+        }
+      }
+      return null;
+    },
+    [userType, groupedServices, activeServiceIndex, orderData, filesData, servicesData],
+  );
+
+  const executeNavigation = React.useCallback(
+    (targetTab?: string, customProceed?: () => void) => {
+      if (customProceed) {
+        customProceed();
+        return;
+      }
+      if (!targetTab) return;
+
+      setActiveTab(targetTab);
+      setActiveServiceIndex(0);
+      const params = new URLSearchParams(searchParams.toString());
+      if (
+        targetTab === "download" ||
+        targetTab === "tour" ||
+        targetTab === "CreateFeatureSheet"
+      ) {
+        params.delete("serviceId");
+      } else {
+        params.set("serviceId", targetTab);
+      }
+      router.replace(`?${params.toString()}`);
+    },
+    [searchParams, router],
+  );
+
+  const handleTabChange = React.useCallback(
+    (targetTab?: string, customProceed?: () => void) => {
+      if (targetTab && activeTab === targetTab) return;
+
+      const warning = checkPackageLimitForTab(activeTab);
+      if (warning) {
+        setPkgWarningConfig({
+          open: true,
+          type: warning.type,
+          selectedCount: warning.selectedCount,
+          packageLimit: warning.packageLimit,
+          mediaLabel: warning.mediaLabel,
+          targetTab,
+          onProceedCallback: customProceed,
+          currentService: warning.currentService,
+          currentOption: warning.currentOption,
+          currentBookedService: warning.bookingToUse,
+        });
+        return;
+      }
+
+      executeNavigation(targetTab, customProceed);
+    },
+    [activeTab, checkPackageLimitForTab, executeNavigation],
+  );
+
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const warning = checkPackageLimitForTab(activeTab);
+      if (warning) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [activeTab, checkPackageLimitForTab]);
+
   const handleSave = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
+      const warning = checkPackageLimitForTab(activeTab);
+      if (warning && !overrideChangedFiles) {
+        setPkgWarningConfig({
+          open: true,
+          type: warning.type,
+          selectedCount: warning.selectedCount,
+          packageLimit: warning.packageLimit,
+          mediaLabel: warning.mediaLabel,
+          onProceedCallback: async () => {
+            setIsSaving(true);
+            try {
+              if (activeTab === "CreateFeatureSheet") {
+                if (featureSheetRef.current) {
+                  await featureSheetRef.current.handleSave();
+                }
+              } else {
+                await handleUpload(overrideChangedFiles);
+              }
+            } catch (error) {
+              console.error("Error during save:", error);
+            } finally {
+              setIsSaving(false);
+            }
+          },
+          currentService: warning.currentService,
+          currentOption: warning.currentOption,
+          currentBookedService: warning.bookingToUse,
+        });
+        return;
+      }
+
       setIsSaving(true);
       try {
         if (activeTab === "CreateFeatureSheet") {
@@ -1328,7 +1581,7 @@ const FileManager = () => {
         setIsSaving(false);
       }
     },
-    [activeTab, handleUpload, setIsSaving],
+    [activeTab, checkPackageLimitForTab, handleUpload, setIsSaving],
   );
 
   const { setIsDirty, confirmNavigation } = useUnsaved();
@@ -1361,11 +1614,13 @@ const FileManager = () => {
 
   const handleBackNavigation = () => {
     confirmNavigation(() => {
-      if (isListing) {
-        router.back();
-      } else {
-        router.push(`/dashboard/orders/${orderData?.uuid}`);
-      }
+      handleTabChange(undefined, () => {
+        if (isListing) {
+          router.back();
+        } else {
+          router.push(`/dashboard/orders/${orderData?.uuid}`);
+        }
+      });
     });
   };
 
@@ -1514,35 +1769,40 @@ const FileManager = () => {
                                   status !== "PAID" &&
                                   status !== "VOID" &&
                                   (currentUser?.uuid ===
-                                  (invoice.agent?.uuid ||
-                                    invoice.agent_uuid) ? (
-                                    agentMissingServices.length > 0 ? (
-                                      <TooltipProvider delayDuration={0}>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="inline-block cursor-not-allowed">
-                                              <Button
-                                                disabled
-                                                className="h-[35px] text-[13px] px-4 font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] agent-bg border-none"
-                                              >
-                                                Pay Now
-                                              </Button>
-                                            </span>
-                                          </TooltipTrigger>
-                                          {renderAgentBlockedTooltipContent()}
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    ) : (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(invoice);
-                                        }}
-                                        className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
-                                      >
-                                        Pay Now
-                                      </Button>
-                                    )
+                                  (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                                    (() => {
+                                      const missingSvcs =
+                                        getMissingServicesForInvoice(invoice);
+                                      return missingSvcs.length > 0 ? (
+                                        <TooltipProvider delayDuration={0}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="inline-block cursor-not-allowed">
+                                                <Button
+                                                  disabled
+                                                  className="h-[35px] text-[13px] px-4 font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] agent-bg border-none"
+                                                >
+                                                  Pay Now
+                                                </Button>
+                                              </span>
+                                            </TooltipTrigger>
+                                            {renderAgentBlockedTooltipContent(
+                                              missingSvcs,
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(invoice);
+                                          }}
+                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none`}
+                                        >
+                                          Pay Now
+                                        </Button>
+                                      );
+                                    })()
                                   ) : (
                                     <div className="flex gap-2">
                                       {(userType === "admin" ||
@@ -1713,33 +1973,37 @@ const FileManager = () => {
                         (currentUser?.uuid ===
                         (viewingInvoice.agent?.uuid ||
                           viewingInvoice.agent_uuid) ? (
-                          agentMissingServices.length > 0 ? (
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-block cursor-not-allowed w-full md:w-auto">
-                                    <Button
-                                      disabled
-                                      className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] ${userType}-bg border-none w-full md:w-auto shadow-sm`}
-                                    >
-                                      Pay Now
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                {renderAgentBlockedTooltipContent()}
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <Button
-                              onClick={() => {
-                                handlePayInvoice(viewingInvoice);
-                                setViewingInvoice(null);
-                              }}
-                              className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                            >
-                              Pay Now
-                            </Button>
-                          )
+                          (() => {
+                            const missingSvcs =
+                              getMissingServicesForInvoice(viewingInvoice);
+                            return missingSvcs.length > 0 ? (
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-block cursor-not-allowed w-full md:w-auto">
+                                      <Button
+                                        disabled
+                                        className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white opacity-50 cursor-not-allowed rounded-[6px] ${userType}-bg border-none w-full md:w-auto shadow-sm`}
+                                      >
+                                        Pay Now
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {renderAgentBlockedTooltipContent(missingSvcs)}
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <Button
+                                onClick={() => {
+                                  handlePayInvoice(viewingInvoice);
+                                  setViewingInvoice(null);
+                                }}
+                                className={`h-[40px] md:h-[36px] px-6 text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                              >
+                                Pay Now
+                              </Button>
+                            );
+                          })()
                         ) : (
                           <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
                             {(userType === "admin" ||
@@ -2038,6 +2302,14 @@ const FileManager = () => {
               {userType !== "vendor" && (
                 <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleTabChange(undefined, () =>
+                      router.push(
+                        `/dashboard/listings/create/${currentListing?.uuid}`,
+                      ),
+                    );
+                  }}
                   className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${
                     isScrolled
                       ? "h-[26px] w-full md:w-[120px]"
@@ -2058,6 +2330,12 @@ const FileManager = () => {
               )}
               <SafeLink
                 href={`/dashboard/orders/${orderId}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTabChange(undefined, () =>
+                    router.push(`/dashboard/orders/${orderId}`),
+                  );
+                }}
                 className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[9px] md:text-[11px] border px-2 text-center rounded-[4px] transition-all duration-200 flex-1 md:flex-none md:min-w-[95px] ${
                   isScrolled
                     ? "h-[26px] w-full md:w-[120px]"
@@ -2126,14 +2404,7 @@ const FileManager = () => {
                 {userType !== "vendor" && (
                   <div
                     key="download"
-                    onClick={() => {
-                      setActiveTab("download");
-                      const params = new URLSearchParams(
-                        searchParams.toString(),
-                      );
-                      params.delete("serviceId"); // remove serviceId param
-                      router.replace(`?${params.toString()}`);
-                    }}
+                    onClick={() => handleTabChange("download")}
                     className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
                       isScrolled
                         ? "h-[32px] md:h-[36px]"
@@ -2160,15 +2431,7 @@ const FileManager = () => {
                     return (
                       <div
                         key={serviceUuid}
-                        onClick={() => {
-                          setActiveTab(serviceUuid);
-                          setActiveServiceIndex(0);
-                          const params = new URLSearchParams(
-                            searchParams.toString(),
-                          );
-                          params.set("serviceId", serviceUuid);
-                          router.replace(`?${params.toString()}`);
-                        }}
+                        onClick={() => handleTabChange(serviceUuid)}
                         className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
                           isScrolled
                             ? "h-[32px] md:h-[36px]"
@@ -2192,12 +2455,7 @@ const FileManager = () => {
 
                 <div
                   key="tour"
-                  onClick={() => {
-                    setActiveTab("tour");
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.delete("serviceId"); // remove serviceId param
-                    router.replace(`?${params.toString()}`);
-                  }}
+                  onClick={() => handleTabChange("tour")}
                   className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
                     isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
                   } ${
@@ -2217,14 +2475,7 @@ const FileManager = () => {
                 {userType !== "vendor" && (
                   <div
                     key="CreateFeatureSheet"
-                    onClick={() => {
-                      setActiveTab("CreateFeatureSheet");
-                      const params = new URLSearchParams(
-                        searchParams.toString(),
-                      );
-                      params.delete("serviceId"); // remove serviceId param
-                      router.replace(`?${params.toString()}`);
-                    }}
+                    onClick={() => handleTabChange("CreateFeatureSheet")}
                     className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
                       isScrolled
                         ? "h-[32px] md:h-[36px]"
@@ -2540,6 +2791,38 @@ const FileManager = () => {
         mediaDateBoundary={mediaDateBoundary}
         isFetching={isHiddenMediaFetching}
       />
+
+      <PackageLimitWarningModal
+        open={pkgWarningConfig.open}
+        onOpenChange={(open) =>
+          setPkgWarningConfig((prev) => ({ ...prev, open }))
+        }
+        type={pkgWarningConfig.type}
+        selectedCount={pkgWarningConfig.selectedCount}
+        packageLimit={pkgWarningConfig.packageLimit}
+        mediaLabel={pkgWarningConfig.mediaLabel}
+        onConfirmProceed={() => {
+          executeNavigation(
+            pkgWarningConfig.targetTab,
+            pkgWarningConfig.onProceedCallback,
+          );
+        }}
+        onUpgradePackage={() => {
+          setOpenUpgradeFromWarning(true);
+        }}
+      />
+
+      {pkgWarningConfig.currentService && (
+        <UpgradeServicePopup
+          open={openUpgradeFromWarning}
+          setOpen={setOpenUpgradeFromWarning}
+          currentService={pkgWarningConfig.currentService}
+          currentOption={pkgWarningConfig.currentOption}
+          orderData={orderData}
+          currentBookedService={pkgWarningConfig.currentBookedService}
+          onSuccess={() => fetchOrder()}
+        />
+      )}
     </div>
   );
 };

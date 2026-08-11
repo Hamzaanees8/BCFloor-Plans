@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
 import { naturalSortFiles } from '../utils/naturalSort';
-import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff } from 'lucide-react';
+import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff, MinusCircle } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -485,7 +485,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </Button>
                                 </div>
                             )}
-                            {userType !== 'vendor' && (
+                            {userType !== 'vendor' && (userType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -657,7 +657,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </div>
                                 </div>
                             )}
-                            {userType !== 'vendor' && (
+                            {userType !== 'vendor' && (userType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -1196,15 +1196,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const selectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
-                asChild
                 disabled={isHiding}
-                variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                    ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
-                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
-                    }`}
-            >
-                <div onClick={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
                     if (isHiding) return;
                     if (filesToHide.size > 0) {
@@ -1212,37 +1205,57 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     } else {
                         if (onShowHiddenMedia) onShowHiddenMedia();
                     }
-                }}>
-                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
-                </div>
+                }}
+                className={`h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold rounded-[6px] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
+                    filesToHide.size > 0
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white border-none'
+                        : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+            >
+                {isHiding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : filesToHide.size > 0 ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                    <Eye className="h-3.5 w-3.5 text-slate-500" />
+                )}
+                <span>{filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}</span>
             </Button>
+
             {!isBulkDeselecting ? (
                 <Button
-                    onClick={() => setIsBulkDeselecting(true)}
-                    variant="outline"
-                    className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsBulkDeselecting(true);
+                    }}
+                    className="h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold rounded-[6px] border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-600 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
-                    Bulk Remove
+                    <MinusCircle className="h-3.5 w-3.5 text-red-500" />
+                    <span>Bulk Remove</span>
                 </Button>
             ) : (
                 <div className="flex items-center gap-2">
                     <Button
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation();
                             setIsBulkDeselecting(false);
                             setBulkDeselectedIds(new Set());
                         }}
                         variant="ghost"
-                        className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+                        className="h-7 md:h-8 px-2.5 md:px-3 text-[11px] md:text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-[6px]"
                     >
                         Cancel
                     </Button>
                     <Button
                         disabled={bulkDeselectedIds.size === 0}
-                        onClick={handleBulkDeselectDone}
-                        className="h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleBulkDeselectDone();
+                        }}
+                        className="h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-[6px] shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
-                        Done ({bulkDeselectedIds.size})
+                        <MinusCircle className="h-3.5 w-3.5" />
+                        <span>Done ({bulkDeselectedIds.size})</span>
                     </Button>
                 </div>
             )}

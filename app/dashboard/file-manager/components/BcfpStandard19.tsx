@@ -458,7 +458,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
     const openModalForSlot = (slotKey: keyof typeof images) => {
       setCurrentImageSlot(slotKey);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     const handleImageSourceSelect = (source: "local" | "gallery") => {

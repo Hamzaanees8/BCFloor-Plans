@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import CopyableFileName from './CopyableFileName';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
-import { DownloadIcon } from "@/components/Icons";
+import { Check, Upload, Image as ImageIcon } from "lucide-react";
 import { useFileManagerContext } from '../FileManagerContext';
 import { PdfPlaceholder } from './OptimizedPreview';
 import { PanoramaBadge } from './PanoramaBadge';
@@ -48,15 +46,14 @@ export default function FileManagerGallery({
     }
   };
 
-  const handleDownload = (e: React.MouseEvent, filePath: string) => {
-    e.stopPropagation();
-    const downloadUrl = `${API_URL}/${filePath}`;
-    console.log("Downloading:", downloadUrl);
-    // Implement actual download logic here
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = filePath.split('/').pop() || 'download';
-    link.click();
+  const handleLocalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const imageUrl = URL.createObjectURL(file);
+      onImageSelect(imageUrl);
+      setIsOpen(false);
+      setSelected(null);
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -89,41 +86,82 @@ export default function FileManagerGallery({
         </DialogTrigger>
       )}
 
-      <DialogContent className="max-w-7xl h-[80vh] !rounded-none p-4 overflow-hidden bg-[#E4E4E4] font-alexandria">
-        <DialogHeader className="border-b border-gray-400 px-6 py-3">
-          <DialogTitle className="text-[#4290E9] font-semibold tracking-wide text-left">
-            SELECT PHOTO
-          </DialogTitle>
+      <DialogContent className="max-w-[75vw] w-[75vw] h-[80vh] rounded-2xl p-0 overflow-hidden bg-slate-50 font-alexandria border border-gray-200 shadow-2xl flex flex-col">
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 bg-white border-b border-gray-200 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 text-[#4290E9] flex items-center justify-center">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-gray-900 font-bold text-lg tracking-tight">
+                Photo Gallery
+              </DialogTitle>
+              <p className="text-xs text-gray-500 font-normal">Select a photo or upload a new file from your device</p>
+            </div>
+          </div>
+          {files.length > 0 && (
+            <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 mr-8">
+              {files.length} {files.length === 1 ? 'Photo' : 'Photos'} Available
+            </span>
+          )}
         </DialogHeader>
-        <div className="flex gap-3 justify-end">
-          {/* <Button
-            variant="outline"
-            className="text-[#4290E9] w-[160px] h-[40px] border-[#4290E9] hover:bg-[#4290E9] hover:text-white"
-            disabled={selected === null}
-          >
-            Edit
-          </Button> */}
-          <Button
-            className="bg-[#4290E9] w-[160px] h-[40px] hover:bg-[#4290E9]/90 text-white"
-            onClick={handleConfirmSelection}
-            disabled={selected === null}
-          >
-            Add Photo
-          </Button>
+
+        {/* Action Bar */}
+        <div className="px-6 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-xs">
+          <span className="text-xs text-gray-500 font-medium">
+            {selected !== null ? '1 photo selected' : 'Click any photo to select'}
+          </span>
+          <div className="flex items-center gap-3">
+            <label className="cursor-pointer">
+              <Button
+                type="button"
+                variant="outline"
+                className="text-[#4290E9] border-[#4290E9] h-[38px] px-4 hover:bg-[#4290E9] hover:text-white flex items-center gap-2 text-sm font-medium transition-all shadow-xs rounded-lg"
+                asChild
+              >
+                <span>
+                  <Upload className="w-4 h-4" />
+                  Upload Image
+                </span>
+              </Button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLocalFileUpload}
+              />
+            </label>
+            <Button
+              className="bg-[#4290E9] h-[38px] px-5 hover:bg-[#4290E9]/90 text-white flex items-center gap-2 text-sm font-medium shadow-xs rounded-lg disabled:opacity-40"
+              onClick={handleConfirmSelection}
+              disabled={selected === null}
+            >
+              <Check className="w-4 h-4" />
+              Add Photo
+            </Button>
+          </div>
         </div>
 
-        <div className="p-6 h-full overflow-y-auto">
+        {/* Gallery Content Area */}
+        <div className="p-6 flex-1 overflow-y-auto bg-slate-50">
           {files.length > 0 ? (
-            <div className="grid grid-cols-4 gap-4">
-              {files.map((file, idx) => (
-                <div
-                  key={file.id}
-                  className='justify-self-center cursor-pointer'
-                  onClick={() => handleImageSelect(idx)}
-                >
-                  <div className="relative">
-                    <div className={`relative w-[280px] h-[175px] border bg-black overflow-hidden transition-all ${selected === idx ? 'border-[#4290E9] border-2' : 'border-[#A8A8A8]'
-                      }`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {files.map((file, idx) => {
+                const displayName = file.group || file.name || file.file_path?.split('/').pop() || 'Untitled Image';
+                const isSelected = selected === idx;
+                
+                return (
+                  <div
+                    key={file.id}
+                    className={`group relative cursor-pointer flex flex-col bg-white rounded-xl overflow-hidden border transition-all duration-200 ${
+                      isSelected
+                        ? 'border-[#4290E9] ring-2 ring-[#4290E9] shadow-md'
+                        : 'border-gray-200 hover:border-[#4290E9]/60 hover:shadow-md'
+                    }`}
+                    onClick={() => handleImageSelect(idx)}
+                  >
+                    <div className="relative w-full aspect-video bg-black overflow-hidden flex items-center justify-center">
                       {isPanoramaFile(file) && <PanoramaBadge />}
                       {isPDF(file) ? (
                         (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
@@ -146,46 +184,62 @@ export default function FileManagerGallery({
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                          alt={file.name}
-                          className="object-contain w-full h-full"
+                          alt={displayName}
+                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300 ease-out"
                         />
                       )}
-                      {selected === idx && (
-                        <span
-                          className="cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"
-                          style={{
-                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                            backgroundColor: "#4290E9"
-                          }}
-                        >
-                          <Check color="#fff" size={14} />
-                        </span>
+
+                      {/* Selected Overlay */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-[#4290E9]/15 transition-all" />
+                      )}
+
+                      {/* Checkmark Badge */}
+                      {isSelected && (
+                        <div className="absolute top-2.5 right-2.5 w-7 h-7 bg-[#4290E9] text-white rounded-full flex items-center justify-center shadow-md animate-in zoom-in-75 duration-150">
+                          <Check size={16} strokeWidth={2.5} />
+                        </div>
                       )}
                     </div>
-                  </div>
-                  <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#ffffff] text-[14px]'>
-                    <p className="col-span-2 text-[#8E8E8E] mt-1 !text-[14px]">
-                      <CopyableFileName name={file.group || ''} />
-                    </p>
-                    <div className='col-span-2 flex items-center justify-between'>
-                      <p className='text-[#8E8E8E] mt-1'>
-                        {new Date(file.created_at).toLocaleDateString()}
-                      </p>
-                      <span
-                        className='flex w-[24px] h-[24px] cursor-pointer'
-                        onClick={(e) => handleDownload(e, file.file_path)}
+
+                    {/* Image Group/Name Footer */}
+                    <div className="px-3.5 py-2.5 bg-white border-t border-gray-100 flex items-center justify-between">
+                      <p
+                        className="text-xs font-medium text-gray-700 truncate w-full"
+                        title={displayName}
                       >
-                        <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                      </span>
+                        {displayName}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-20 text-gray-500 font-alexandria">
-              <p className="text-xl font-semibold mb-2">No media in your gallery</p>
-              {/* <p className="text-sm">Upload photos to see them here.</p> */}
+              <div className="w-16 h-16 rounded-full bg-blue-50 text-[#4290E9] flex items-center justify-center mb-4">
+                <ImageIcon className="w-8 h-8" />
+              </div>
+              <p className="text-lg font-bold text-gray-800 mb-1">No media in your gallery</p>
+              <p className="text-sm text-gray-500 mb-5 text-center max-w-sm">Upload a photo directly from your computer to use it in your feature sheet.</p>
+              <label className="cursor-pointer">
+                <Button
+                  type="button"
+                  className="bg-[#4290E9] hover:bg-[#4290E9]/90 text-white px-6 h-[40px] flex items-center gap-2 font-medium shadow-sm rounded-lg"
+                  asChild
+                >
+                  <span>
+                    <Upload className="w-4 h-4" />
+                    Upload Image
+                  </span>
+                </Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLocalFileUpload}
+                />
+              </label>
             </div>
           )}
         </div>

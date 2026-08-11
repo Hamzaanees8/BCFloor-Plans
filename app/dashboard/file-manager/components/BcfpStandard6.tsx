@@ -509,7 +509,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     // Expose methods to parent component via ref

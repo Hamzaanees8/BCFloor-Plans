@@ -620,7 +620,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     // Helper renderer for image slot to keep code clean while using 3-layer pattern

@@ -408,10 +408,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
-            // Count only agent approved files
-            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
+            const numberOfFiles = currentServiceFiles?.filter(f => !f.is_deleted).length ?? 0
 
-            if (numberOfApprovedFiles >= (bookingToUse?.option?.quantity ?? 1)) {
+            if (numberOfFiles >= (bookingToUse?.option?.quantity ?? 1)) {
                 if (token && bookingToUse?.uuid && orderData?.uuid && !bookingToUse?.is_completed) {
                     await ServiceCompletion(token, bookingToUse.uuid, true, orderData.uuid)
                 }
@@ -474,7 +473,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
                                 )}
-                                {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
+                                {(userType === 'admin' || userType === 'agent') && file.uuid && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <span
@@ -590,7 +589,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
                                 )}
-                                {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (!file.file || typeof file.file === 'string') && (
+                                {(userType === 'admin' || userType === 'agent') && file.uuid && (!file.file || typeof file.file === 'string') && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <span
@@ -697,53 +696,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </Tooltip>
                         )}
 
-                        {userType === 'agent' && !file.is_complimentary && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFilesData(prev => {
-                                                if (!prev) return prev;
-                                                return {
-                                                    ...prev,
-                                                    files: prev.files.map(f => {
-                                                        if (f.uuid === file.uuid) {
-                                                            setChangedFileUuids(prevSet => {
-                                                                const newSet = new Set(prevSet);
-                                                                newSet.add(f.uuid);
-                                                                return newSet;
-                                                            });
-                                                            setSelectionChangedUuids(prevSet => {
-                                                                const newSet = new Set(prevSet);
-                                                                newSet.add(f.uuid);
-                                                                return newSet;
-                                                            });
-                                                            return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                        }
-                                                        return f;
-                                                    })
-                                                };
-                                            });
-                                        }}
-                                    >
-                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                            {file.is_agent_approved && <Check color="white" size={12} />}
-                                        </div>
-                                        <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="max-w-[240px] text-xs leading-tight">
-                                        {file.is_agent_approved
-                                            ? "Agent Approved: Selected for final delivery & property website"
-                                            : "Approve Floor Plan: Click to select/approve this floor plan"}
-                                    </p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-
 
                     </div>
                 </div>
@@ -759,7 +711,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 : (file.created_at ? format(new Date(file.created_at), 'MM/dd/yyyy') : format(new Date(), 'MM/dd/yyyy'))
                             }
                         </p>
-                        {isLocal || (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : canDownloadFile({
+                        {isLocal ? null : canDownloadFile({
                             file: file as Files,
                             currentService,
                             orderData,
@@ -795,18 +747,12 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [API_URL, bookingToUse?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, bookingToUse?.option?.title, bookingToUse?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow, filesToHide, isHidingMode, setFilesToHide, onOpenInvoice, currentService?.name]);
 
-    const adminSavedFilesAction = userType === 'admin' ? (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _selectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
-                asChild
                 disabled={isHiding}
-                variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                        ? 'h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
-                        : 'h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
-                    }`}
-            >
-                <div onClick={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
                     if (isHiding) return;
                     if (filesToHide.size > 0) {
@@ -814,10 +760,52 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     } else {
                         if (onShowHiddenMedia) onShowHiddenMedia();
                     }
-                }}>
-                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}
-                </div>
+                }}
+                className={`h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold rounded-[6px] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
+                    filesToHide.size > 0
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white border-none'
+                        : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+            >
+                {isHiding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : filesToHide.size > 0 ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                    <Eye className="h-3.5 w-3.5 text-slate-500" />
+                )}
+                <span>{filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}</span>
+            </Button>
+        </div>
+    ) : null;
+
+    const adminSavedFilesAction = userType === 'admin' ? (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+                disabled={isHiding}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (isHiding) return;
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}
+                className={`h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold rounded-[6px] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
+                    filesToHide.size > 0
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white border-none'
+                        : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+            >
+                {isHiding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : filesToHide.size > 0 ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                    <Eye className="h-3.5 w-3.5 text-slate-500" />
+                )}
+                <span>{filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}</span>
             </Button>
         </div>
     ) : null;
@@ -1030,78 +1018,29 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
             {!isListing &&
                 <div className={`p-3 md:p-4 flex flex-row flex-wrap justify-between items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}>
                     <div className="flex items-center gap-2 w-auto">
-                        <div className="hidden md:block">
+                        <div>
                             <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                         </div>
                         <GridSizeToggle />
                     </div>
 
-                    {userType === 'agent' ? (
-                        (() => {
-                            const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
-                            const currentLimit = bookingToUse?.option?.quantity || 0;
-                            const isOverLimit = selectedCount > currentLimit;
-
-                            // Find next option
-                            const sortedOptions = [...(currentService?.product_options || [])].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-                            const nextOption = sortedOptions.find(opt => (opt.quantity || 0) > currentLimit);
-
-                            const currentAmount = parseFloat(String(bookingToUse?.option?.amount || '0'));
-                            const nextAmount = nextOption ? parseFloat(String(nextOption.amount || '0')) : 0;
-                            const diffAmount = nextAmount - currentAmount;
-
-                            return (
-                                <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
-                                    <div className="flex flex-col items-center">
-                                        <span className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
-                                            {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
-                                        </span>
-                                        <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
-                                            {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
-                                        </span>
-                                        <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
-                                    </div>
-                                    <div className="flex flex-col items-end">
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 md:mb-2 text-[11px] md:text-sm`}
-                                        >
-                                            Upgrade Plan
-                                        </Button>
-                                        {isOverLimit && nextOption && (
-                                            <div className="text-right text-[11px] md:text-[12px] text-[#666666] leading-[1.4]">
-                                                <div>{nextOption.quantity} Floor Plans</div>
-                                                <div>+{diffAmount.toFixed(2)}</div>
-                                                <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })()
-                    ) : (
-                        <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
-                            <div className="flex flex-col items-center">
-                                <span className="text-[20px] md:text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
-                                </span>
-                                <span className="text-[11px] md:text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
-                            </div>
-                            {userType !== 'vendor' && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setOpenUpgrade(true)}
-                                    className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center ml-2 border-none text-[11px] md:text-sm`}
-                                >
-                                    Upgrade Plan
-                                </Button>
-                            )}
+                    <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
+                                {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                            </span>
+                            <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Total Files</span>
                         </div>
-                    )}
+                        {userType !== 'vendor' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center ml-2 border-none text-[11px] md:text-sm`}
+                            >
+                                Upgrade Plan
+                            </Button>
+                        )}
+                    </div>
                 </div>}
             <div className='w-full px-4 md:px-[200px] pt-6 md:pt-[54px]'>
                 <div className='w-full px-2 md:px-[80px] pb-8 md:pb-[60px] gap-y-6'>

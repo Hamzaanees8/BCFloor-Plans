@@ -564,7 +564,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     // Helper to render an image slot container with controls UI and ImageEditor

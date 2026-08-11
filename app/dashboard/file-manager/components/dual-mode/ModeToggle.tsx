@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { DualMode } from './types';
-import { ArrowLeftRight, UploadCloud } from 'lucide-react';
+import { ArrowLeftRight, Check } from 'lucide-react';
 
 interface ModeToggleProps {
     mode: DualMode;
@@ -13,19 +13,25 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
 
     return (
         <Button
-            variant={isUpload ? "default" : "secondary"}
-            onClick={() => onModeChange(isUpload ? 'reorder' : 'upload')}
-            className={`transition-all duration-300 h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium flex items-center justify-center ${isUpload ? 'bg-[#DC9600] hover:bg-[#eda304] text-white' : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white'}`}
+            onClick={(e) => {
+                e.stopPropagation();
+                onModeChange(isUpload ? 'reorder' : 'upload');
+            }}
+            className={`transition-all duration-200 h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm rounded-[6px] cursor-pointer ${
+                isUpload
+                    ? 'bg-[#DC9600] hover:bg-[#b07800] text-white border-none'
+                    : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white border-none'
+            }`}
         >
             {isUpload ? (
                 <>
-                    <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+                    <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
                     Sort Images
                 </>
             ) : (
                 <>
-                    <UploadCloud className="w-3.5 h-3.5 mr-1" />
-                    Done
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    Done Sorting
                 </>
             )}
         </Button>

@@ -12,11 +12,20 @@ function TourVideos() {
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-    let currentServiceFiles = filesData?.files?.filter(file => file.type === "video");
+    const isMediaApprovedByAgent = (file: any) => {
+        return (
+            file?.is_agent_approved === true ||
+            file?.is_agent_approved === 1 ||
+            file?.is_agent_approved === "1" ||
+            file?.is_agent_approved === "true" ||
+            file?.is_complimentary === true ||
+            file?.is_complimentary === 1 ||
+            file?.is_complimentary === "1" ||
+            file?.is_complimentary === "true"
+        );
+    };
 
-    if (userType === 'agent') {
-        currentServiceFiles = currentServiceFiles?.filter(file => file.is_agent_approved || file.is_complimentary);
-    }
+    const currentServiceFiles = filesData?.files?.filter(file => file.type === "video" && isMediaApprovedByAgent(file));
 
     const defaultFile = currentServiceFiles?.[0];
     const defaultSrc = selectedVideoFiles[0]?.file

@@ -161,11 +161,20 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     ? getGlobalPhotoOrder(validPhotos)
     : [];
 
-  if (userType === 'agent') {
-    globalSortedPhotos = globalSortedPhotos.filter(
-      (file) => file.is_agent_approved || file.is_complimentary
+  const isMediaApprovedByAgent = (file: any) => {
+    return (
+      file?.is_agent_approved === true ||
+      file?.is_agent_approved === 1 ||
+      file?.is_agent_approved === "1" ||
+      file?.is_agent_approved === "true" ||
+      file?.is_complimentary === true ||
+      file?.is_complimentary === 1 ||
+      file?.is_complimentary === "1" ||
+      file?.is_complimentary === "true"
     );
-  }
+  };
+
+  globalSortedPhotos = globalSortedPhotos.filter(isMediaApprovedByAgent);
 
   // ─── Rebuild FileItem[] whenever the API files change ─────────────────────
   // We only rebuild from filesData, NOT on every fileItems setState, to avoid loops.
@@ -177,9 +186,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         file.type === "photo"
     ) || [];
     const globalPhotos = validPhotosForEffect.length > 0 ? getGlobalPhotoOrder(validPhotosForEffect) : [];
-    const agentFiltered = userType === 'agent'
-      ? globalPhotos.filter(f => f.is_agent_approved || f.is_complimentary)
-      : globalPhotos;
+    const agentFiltered = globalPhotos.filter(isMediaApprovedByAgent);
 
     setFileItems(
       agentFiltered.map((file, index) => ({

@@ -4,7 +4,7 @@ import { DualMode, FileItem } from './types';
 import { UploadDropzone } from './UploadDropzone';
 import { SortableGrid } from './SortableGrid';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Loader2, ArrowLeftRight } from 'lucide-react';
+import { Plus, Loader2, ArrowLeftRight, Check } from 'lucide-react';
 import { useFileManagerContext } from '../../FileManagerContext';
 import { Button } from '@/components/ui/button';
 
@@ -99,15 +99,18 @@ export function DualModeFileManager({
                 if (onSave) onSave();
             }}
             disabled={isSaving}
-            className="bg-[#DC9600] hover:bg-[#b07800] text-white h-8 px-4 text-sm normal-case font-medium rounded transition-colors ml-4 z-10 min-w-[120px]"
+            className="bg-[#DC9600] hover:bg-[#b07800] text-white h-7 md:h-8 px-2.5 md:px-3.5 text-xs font-semibold normal-case rounded-[6px] transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 ml-2 z-10 cursor-pointer"
         >
             {isSaving ? (
                 <div className="flex items-center justify-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     <span>Saving...</span>
                 </div>
             ) : (
-                "Save Selection"
+                <>
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Save Selection</span>
+                </>
             )}
         </Button>
     );
@@ -259,17 +262,17 @@ export function DualModeFileManager({
                             <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
                                 <AccordionItem value="selected" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] min-h-[44px] md:min-h-[52px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
-                                        <div className="flex items-center flex-1 justify-between pr-4">
-                                            <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center flex-1 justify-between gap-2 pr-2 md:pr-4">
+                                            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                                                 <span>Selected files ({selectedItems.length})</span>
                                                 {saveButton}
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {selectedAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{selectedAction}</div>}
-                                                {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
+                                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                                                {selectedAction && <div className="hidden md:flex items-center gap-2" onClick={e => e.stopPropagation()}>{selectedAction}</div>}
+                                                {modeToggleButton && <div className="hidden md:flex items-center" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
                                         </div>
                                     </AccordionTrigger>

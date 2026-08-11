@@ -193,7 +193,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
 
     const openImageSourceModal = (slot: string | null) => {
       setCurrentImageSlot(slot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);

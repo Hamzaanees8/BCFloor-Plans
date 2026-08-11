@@ -82,7 +82,14 @@ function PublicTourFloorPlans({
     // Filter out PDF files and sort by sort_order
     const filteredFloorPlanFiles = floorPlanFiles
         .filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'))
-        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        .sort((a, b) => {
+            const orderA = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : 999999;
+            const orderB = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : 999999;
+            if (orderA !== orderB) return orderA - orderB;
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateA - dateB;
+        });
 
     const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
         if (filteredFloorPlanFiles?.length > 0) {
@@ -90,6 +97,12 @@ function PublicTourFloorPlans({
         }
         return null;
     });
+
+    React.useEffect(() => {
+        if (!selectedImageId && filteredFloorPlanFiles?.length > 0) {
+            setSelectedImageId(filteredFloorPlanFiles[0].name);
+        }
+    }, [filteredFloorPlanFiles, selectedImageId]);
 
     const [draggedFile, setDraggedFile] = useState<any | null>(null);
     const [localMarkers, setLocalMarkers] = useState<any[]>([]);

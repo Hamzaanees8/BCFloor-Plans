@@ -322,7 +322,7 @@ const BcfpStandard = forwardRef<BcfpStandardRef, BcfpStandardProps>(({ orderData
 
   const openImageSourceModal = (imageSlot: string) => {
     setCurrentImageSlot(imageSlot);
-    setShowImageSourceModal(true);
+    setShowGallery(true);
   };
 
   // Icon map and highlight handlers

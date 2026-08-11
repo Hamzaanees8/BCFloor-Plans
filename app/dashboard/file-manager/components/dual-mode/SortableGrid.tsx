@@ -238,6 +238,8 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
         }
 
         onOrderChange(reorderedItems);
+        // Automatically unselect multi-selected items after drag completes so user can easily select other media
+        setSelectedIds(new Set());
     };
 
     const handleDragCancel = () => {

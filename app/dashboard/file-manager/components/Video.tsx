@@ -26,7 +26,51 @@ import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 import { MediaDateBoundary } from './FileManager';
 import { api } from '@/lib/api';
+const VideoThumbnailDisplay = ({
+    thumbUrl,
+    videoUrl,
+    isAdminApproved,
+    reviewFilesEnabled,
+    userType,
+    isDragging,
+    isHidden
+}: {
+    file: any;
+    thumbUrl?: string;
+    videoUrl?: string;
+    isAdminApproved?: boolean;
+    reviewFilesEnabled?: boolean;
+    userType?: string;
+    isDragging?: boolean;
+    isHidden?: boolean;
+}) => {
+    const [imgError, setImgError] = useState(false);
 
+    const hasValidThumb = thumbUrl && thumbUrl.trim() !== '' && !imgError;
+    const commonClass = `absolute inset-0 w-full h-full object-contain ${!isAdminApproved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${isHidden ? 'grayscale opacity-60' : ''}`;
+
+    if (hasValidThumb) {
+        return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={thumbUrl}
+                alt="Video thumbnail"
+                onError={() => setImgError(true)}
+                className={commonClass}
+            />
+        );
+    }
+
+    return (
+        <video
+            src={videoUrl ? `${videoUrl}#t=0.1` : undefined}
+            preload="metadata"
+            muted
+            playsInline
+            className={commonClass}
+        />
+    );
+};
 
 
 function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
@@ -598,22 +642,16 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                             )}
                                         </button>
                                     )}
-                                    {localThumbnailPreviews[file.uuid] || file.variant_urls?.thumb || file.thumbnail_url ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                            src={localThumbnailPreviews[file.uuid] || file.variant_urls?.thumb || file.thumbnail_url || ''}
-                                            alt="Video thumbnail"
-                                            className={`absolute inset-0 w-full h-full object-contain ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
-                                        />
-                                    ) : (
-                                        <video
-                                            src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
-                                            preload="metadata"
-                                            muted
-                                            playsInline
-                                            className={`absolute inset-0 w-full h-full object-contain ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
-                                        />
-                                    )}
+                                    <VideoThumbnailDisplay
+                                        file={file}
+                                        thumbUrl={localThumbnailPreviews[file.uuid] || file.variant_urls?.thumb || file.thumbnail_url}
+                                        videoUrl={file.url || `${API_URL}/${file.file_path}`}
+                                        isAdminApproved={file.is_admin_approved}
+                                        reviewFilesEnabled={reviewFilesEnabled}
+                                        userType={userType}
+                                        isDragging={isDragging}
+                                        isHidden={file.is_hidden}
+                                    />
                                     <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
                                         <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
                                     </div>
@@ -719,52 +757,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
 
 
-                            {userType === 'agent' && !file.is_complimentary && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div
-                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setFilesData(prev => {
-                                                    if (!prev) return prev;
-                                                    return {
-                                                        ...prev,
-                                                        files: prev.files.map(f => {
-                                                            if (f.uuid === file.uuid) {
-                                                                setChangedFileUuids(prevSet => {
-                                                                    const newSet = new Set(prevSet);
-                                                                    newSet.add(f.uuid);
-                                                                    return newSet;
-                                                                });
-                                                                setSelectionChangedUuids(prevSet => {
-                                                                    const newSet = new Set(prevSet);
-                                                                    newSet.add(f.uuid);
-                                                                    return newSet;
-                                                                });
-                                                                return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                            }
-                                                            return f;
-                                                        })
-                                                    };
-                                                });
-                                            }}
-                                        >
-                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                {file.is_agent_approved && <Check color="white" size={12} />}
-                                            </div>
-                                            <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="max-w-[220px] text-xs leading-tight">
-                                            {file.is_agent_approved
-                                                ? "Agent Approved: Selected for final delivery & property website"
-                                                : "Approve Video: Click to select/approve this video"}
-                                        </p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
+
+
 
                         </>
                     )}
@@ -781,7 +775,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
                             )}
                         </p>
-                        {isLocal || (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null : (
+                        {isLocal ? null : (
                             (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
@@ -917,15 +911,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const selectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
-                asChild
                 disabled={isHiding}
-                variant={filesToHide.size > 0 ? 'default' : 'outline'}
-                className={`h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium transition-all duration-300 ${filesToHide.size > 0
-                        ? 'bg-[#E06D5E] hover:bg-[#b54d42] text-white border-none'
-                        : 'border-[#E06D5E] text-[#E06D5E] hover:bg-[#b54d42] hover:text-white bg-white'
-                    }`}
-            >
-                <div onClick={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
                     if (isHiding) return;
                     if (filesToHide.size > 0) {
@@ -933,10 +920,21 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     } else {
                         if (onShowHiddenMedia) onShowHiddenMedia();
                     }
-                }}>
-                    {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
-                </div>
+                }}
+                className={`h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold rounded-[6px] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
+                    filesToHide.size > 0
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white border-none'
+                        : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+            >
+                {isHiding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : filesToHide.size > 0 ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                    <Eye className="h-3.5 w-3.5 text-slate-500" />
+                )}
+                <span>{filesToHide.size > 0 ? `Hide Media (${filesToHide.size})` : 'Show Hidden Media'}</span>
             </Button>
         </div>
     ) : null;
@@ -1168,72 +1166,21 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     <GridSizeToggle />
                 </div>
 
-                {userType === 'agent' ? (
-                    (() => {
-                        const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
-                        const currentLimit = bookingToUse?.option?.quantity || 1;
-                        const isOverLimit = selectedCount > currentLimit;
-
-                        // Find next option
-                        const sortedOptions = [...(currentService?.product_options || [])].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-                        const nextOption = sortedOptions.find(opt => (opt.quantity || 0) > currentLimit);
-
-                        const currentAmount = parseFloat(String(bookingToUse?.option?.amount || '0'));
-                        const nextAmount = nextOption ? parseFloat(String(nextOption.amount || '0')) : 0;
-                        const diffAmount = nextAmount - currentAmount;
-
-                        return (
-                            <div className="contents md:flex md:items-center md:gap-4 lg:gap-8 md:w-auto md:justify-end">
-                                <div className="flex items-center gap-4 md:gap-8 order-3 md:order-1 w-full md:w-auto justify-end md:justify-center mt-1 md:mt-0">
-                                    <div className="flex flex-col items-center">
-                                        <span className={`text-[16px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
-                                            {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
-                                        </span>
-                                        <span className={`text-[10px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-[16px] md:text-[26px] font-medium text-[#666666] leading-none">
-                                            {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
-                                        </span>
-                                        <span className="text-[10px] md:text-[12px] text-[#666666] mt-1">Available</span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setOpenUpgrade(true)}
-                                        className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 md:mb-2 text-[11px] md:text-sm`}
-                                    >
-                                        Upgrade Plan
-                                    </Button>
-                                    {isOverLimit && nextOption && (
-                                        <div className="text-right text-[11px] md:text-[12px] text-[#666666] leading-[1.4]">
-                                            <div>{nextOption.quantity} Files</div>
-                                            <div>+{diffAmount.toFixed(2)}</div>
-                                            <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })()
-                ) : (
-                    userType !== 'vendor' && (
-                        <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
-                            >
-                                Upgrade Plan
-                            </Button>
-                        </div>
-                    )
+                {userType !== 'vendor' && userType !== 'agent' && (
+                    <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => setOpenUpgrade(true)}
+                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
+                        >
+                            Upgrade Plan
+                        </Button>
+                    </div>
                 )}
             </div>
 
             <div className="py-4">
-                <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} onSave={onSave} />
+                <FilePreviewModal type='video' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} onSave={onSave} />
 
                 <div className="mt-4 flex flex-col items-center justify-center">
                     {userType === 'vendor' && reviewFilesEnabled && (
@@ -1255,6 +1202,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         onSave={onSave}
                         savedFilesAction={adminSavedFilesAction}
                         selectedAction={selectedAction}
+                        singleAccordionTitle="all videos"
+                        hideDashedBorder={true}
                         modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}
                     />
                 </div>

@@ -161,7 +161,7 @@ export const isPaymentAuthorizationValid = ({
  * @returns reason string or empty string if allowed
  */
 export const getDownloadBlockReason = (params: PermissionCheckParams): string => {
-  const { file, currentService, orderData, userType } = params;
+  const { file, currentService, orderData, userType, requiresAgentApproval = false } = params;
 
   if (!file) return 'File not found';
 
@@ -170,7 +170,7 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
   if (file.is_show === false) return 'File is hidden';
 
   if (userType === 'agent') {
-    if (file.is_agent_approved === false) return 'File requires approval';
+    if (requiresAgentApproval && file.is_agent_approved === false) return 'File requires approval';
 
     if (!file.is_paid && !file.is_complimentary) {
       return 'File is not available for download';

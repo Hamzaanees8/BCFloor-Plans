@@ -342,7 +342,7 @@ const BcfpStandard1 = ({ orderData }: BcfpStandard) => {
 
   const openImageSourceModal = (imageSlot: string) => {
     setCurrentImageSlot(imageSlot);
-    setShowImageSourceModal(true);
+    setShowGallery(true);
   };
 
   return (

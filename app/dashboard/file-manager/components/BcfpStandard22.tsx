@@ -561,7 +561,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     // Helper renderer for image slot containers

@@ -444,7 +444,7 @@ const BcfpStandard23 = forwardRef<BcfpStandard23Ref, BcfpStandard23Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     return (

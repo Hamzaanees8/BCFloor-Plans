@@ -456,7 +456,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     const renderImageSlot = (key: string, label: string = "Select Image") => (

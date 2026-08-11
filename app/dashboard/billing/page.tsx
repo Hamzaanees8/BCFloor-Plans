@@ -2738,37 +2738,56 @@ const Page = () => {
                 ) && (
                   <div className="flex gap-2 w-full sm:w-auto justify-end">
                     {(() => {
-                       const mediaSet = rowServiceMedia[serviceInvoicePopup.billing.order_uuid];
-                       const svcId = serviceInvoicePopup.serviceId
-                         ? (serviceInvoicePopup.billing.services.find(
-                             (s) =>
-                               s.order_service_uuid === serviceInvoicePopup.serviceId ||
-                               s.uuid === serviceInvoicePopup.serviceId,
-                           )?.service_id ?? null)
-                         : null;
-                       const hasAnyMissingMedia =
-                         userType === "agent" &&
-                         mediaSet !== undefined &&
-                         (svcId !== null
-                           ? !mediaSet.has(svcId) && !mediaSet.has(String(svcId))
-                           : serviceInvoicePopup.billing.services.some(
-                               (svc) =>
-                                 !mediaSet.has(svc.service_id) &&
-                                 !mediaSet.has(String(svc.service_id)),
-                             ));
-                       if (hasAnyMissingMedia) {
-                         const targetService = serviceInvoicePopup.serviceId
-                           ? serviceInvoicePopup.billing.services.find(
-                               (s) =>
-                                 s.order_service_uuid === serviceInvoicePopup.serviceId ||
-                                 s.uuid === serviceInvoicePopup.serviceId,
-                             )
-                           : null;
-                         const missingServices = serviceInvoicePopup.billing.services.filter(
-                           (svc) =>
-                             !mediaSet.has(svc.service_id) &&
-                             !mediaSet.has(String(svc.service_id)),
-                         );
+                        const mediaSet = rowServiceMedia[serviceInvoicePopup.billing.order_uuid];
+                        let targetServices = serviceInvoicePopup.billing.services;
+
+                        if (serviceInvoicePopup.serviceId) {
+                          const matchedSvc = serviceInvoicePopup.billing.services.find(
+                            (s) =>
+                              s.order_service_uuid === serviceInvoicePopup.serviceId ||
+                              s.uuid === serviceInvoicePopup.serviceId,
+                          );
+                          if (matchedSvc) targetServices = [matchedSvc];
+                        } else if (
+                          serviceInvoicePopup.invoice?.items &&
+                          serviceInvoicePopup.invoice.items.length > 0
+                        ) {
+                          const itemSvcIds = new Set<string | number>();
+                          serviceInvoicePopup.invoice.items.forEach((item: any) => {
+                            const sId =
+                              item.order_service?.service_id ||
+                              item.order_service?.service?.id ||
+                              item.orderService?.service_id ||
+                              item.orderService?.service?.id ||
+                              item.service_id;
+                            if (sId != null) {
+                              itemSvcIds.add(sId);
+                              itemSvcIds.add(String(sId));
+                            }
+                          });
+                          if (itemSvcIds.size > 0) {
+                            const matched = serviceInvoicePopup.billing.services.filter(
+                              (s) =>
+                                itemSvcIds.has(s.service_id) ||
+                                itemSvcIds.has(String(s.service_id)),
+                            );
+                            if (matched.length > 0) targetServices = matched;
+                          }
+                        }
+
+                        const missingServices = targetServices.filter(
+                          (svc) =>
+                            !mediaSet?.has(svc.service_id) &&
+                            !mediaSet?.has(String(svc.service_id)),
+                        );
+
+                        const hasAnyMissingMedia =
+                          userType === "agent" &&
+                          mediaSet !== undefined &&
+                          missingServices.length > 0;
+
+                        if (hasAnyMissingMedia) {
+                          const targetService = targetServices.length === 1 ? targetServices[0] : null;
                          return (
                            <TooltipProvider delayDuration={0}>
                              <Tooltip>

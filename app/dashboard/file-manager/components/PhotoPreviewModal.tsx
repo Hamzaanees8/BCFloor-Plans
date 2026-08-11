@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Copy, Check, Lock } from 'lucide-react';
+import { X, Copy, Check, Lock, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -63,6 +63,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const [showAgentWarning, setShowAgentWarning] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const [videoMessage, setVideoMessage] = useState<string>('');
+    const [isVideoLoading, setIsVideoLoading] = useState<boolean>(true);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -82,6 +83,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
         if (open) {
             setName(initialName);
             setVideoMessage('');
+            setIsVideoLoading(true);
         }
     }, [initialName, open]);
 
@@ -154,15 +156,26 @@ const PhotoPreviewModal: React.FC<Props> = ({
                 <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-black rounded-lg overflow-hidden">
                     {type === 'video' ? (
                         <div className="relative w-full h-full flex justify-center items-center">
+                            {isVideoLoading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 gap-2">
+                                    <Loader2 className="w-10 h-10 text-white animate-spin" />
+                                    <span className="text-white text-xs font-medium">Loading video...</span>
+                                </div>
+                            )}
                             <video
                                 ref={videoRef}
                                 src={mediaUrl}
                                 poster={poster}
                                 controls={!videoMessage}
                                 controlsList="nodownload"
+                                autoPlay
                                 preload="auto"
                                 playsInline
                                 className="max-w-full max-h-full rounded-md"
+                                onLoadStart={() => setIsVideoLoading(true)}
+                                onCanPlay={() => setIsVideoLoading(false)}
+                                onLoadedData={() => setIsVideoLoading(false)}
+                                onError={() => setIsVideoLoading(false)}
                                 onTimeUpdate={(e) => {
                                     if (isRestrictedVideo && e.currentTarget.currentTime >= 5) {
                                         e.currentTarget.pause();

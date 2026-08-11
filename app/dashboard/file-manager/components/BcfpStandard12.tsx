@@ -576,7 +576,7 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
 
     const openImageSourceModal = (imageSlot: string) => {
       setCurrentImageSlot(imageSlot);
-      setShowImageSourceModal(true);
+      setShowGallery(true);
     };
 
     return (
