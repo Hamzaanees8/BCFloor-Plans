@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Upload, Image as ImageIcon } from "lucide-react";
+import { Check, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useFileManagerContext } from '../FileManagerContext';
 import { PdfPlaceholder } from './OptimizedPreview';
 import { PanoramaBadge } from './PanoramaBadge';
@@ -40,7 +40,27 @@ export default function FileManagerGallery({
   const handleConfirmSelection = () => {
     if (selected !== null && files?.[selected]) {
       const selectedFile = files[selected];
-      const imageUrl = selectedFile.variant_urls?.landing || selectedFile.thumbnail_url || `${API_URL}/${selectedFile.file_path}`;
+      const isProcessing =
+        selectedFile.is_processing ||
+        selectedFile.status === "processing" ||
+        (!selectedFile.variant_urls && !selectedFile.thumbnail_url && !selectedFile.url && !selectedFile.file_path);
+
+      if (isProcessing) {
+        toast.error("This image is currently processing. Please wait until processing is complete.");
+        return;
+      }
+
+      const imageUrl =
+        selectedFile.variant_urls?.landing ||
+        selectedFile.thumbnail_url ||
+        selectedFile.url ||
+        (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : null);
+
+      if (!imageUrl) {
+        toast.error("Image URL is not available yet.");
+        return;
+      }
+
       onImageSelect(imageUrl);
       setIsOpen(false);
       setSelected(null);
@@ -181,7 +201,12 @@ export default function FileManagerGallery({
                   >
                     <div className="relative w-full aspect-video bg-black overflow-hidden flex items-center justify-center">
                       {isPanoramaFile(file) && <PanoramaBadge />}
-                      {isPDF(file) ? (
+                      {file.is_processing || file.status === "processing" ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900/90 text-white p-2">
+                          <Loader2 className="w-6 h-6 animate-spin mb-1 text-[#4290E9]" />
+                          <span className="text-xs font-medium text-gray-200">Processing...</span>
+                        </div>
+                      ) : isPDF(file) ? (
                         (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
                           <PdfPlaceholder
                             className="w-full h-full object-contain"

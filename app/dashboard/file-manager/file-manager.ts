@@ -1749,20 +1749,26 @@ export class FeatureSheetService {
         typeof params.logoFile === "string"
           ? params.logoFile
           : URL.createObjectURL(params.logoFile);
+      const isProcessing =
+        logoUrl === PROCESSING_PLACEHOLDER ||
+        logoUrl.startsWith("data:image/svg+xml") ||
+        logoUrl.includes("Processing...");
 
-      payload.images = payload.images || [];
-      payload.images.push({
-        slot: "logo",
-        type: "logo",
-        source: "upload",
-        file: logoUrl, // blob URL or http URL — resolved in upload step
-        meta: {
-          width: "193px",
-          height: "128px",
-          position: { x: 0, y: 0 },
-          scale: 1,
-        },
-      });
+      if (!isProcessing) {
+        payload.images = payload.images || [];
+        payload.images.push({
+          slot: "logo",
+          type: "logo",
+          source: "upload",
+          file: logoUrl, // blob URL or http URL — resolved in upload step
+          meta: {
+            width: "193px",
+            height: "128px",
+            position: { x: 0, y: 0 },
+            scale: 1,
+          },
+        });
+      }
     }
 
     // For realtor image — same approach
@@ -1771,21 +1777,27 @@ export class FeatureSheetService {
         typeof params.realtorImageFile === "string"
           ? params.realtorImageFile
           : URL.createObjectURL(params.realtorImageFile);
+      const isProcessing =
+        realtorUrl === PROCESSING_PLACEHOLDER ||
+        realtorUrl.startsWith("data:image/svg+xml") ||
+        realtorUrl.includes("Processing...");
 
-      payload.images = payload.images || [];
-      payload.images.push({
-        slot: "realtorImage",
-        type: "realtor",
-        source: "upload",
-        file: realtorUrl,
-        meta: {
-          width: "80px",
-          height: "80px",
-          borderRadius: "50%",
-          position: { x: 0, y: 0 },
-          scale: 1,
-        },
-      });
+      if (!isProcessing) {
+        payload.images = payload.images || [];
+        payload.images.push({
+          slot: "realtorImage",
+          type: "realtor",
+          source: "upload",
+          file: realtorUrl,
+          meta: {
+            width: "80px",
+            height: "80px",
+            borderRadius: "50%",
+            position: { x: 0, y: 0 },
+            scale: 1,
+          },
+        });
+      }
     }
 
     // Handle property images (image1 - image20) — store URLs as-is
@@ -1794,13 +1806,20 @@ export class FeatureSheetService {
       const imageUrl = params.images[imageKey];
 
       if (imageUrl) {
+        const isProcessing =
+          imageUrl === PROCESSING_PLACEHOLDER ||
+          imageUrl.startsWith("data:image/svg+xml") ||
+          imageUrl.includes("Processing...");
+
         const isGallery =
-          imageUrl.startsWith("http://") || imageUrl.startsWith("https://");
+          !isProcessing &&
+          (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"));
 
         const image: FeatureSheetImage = {
           slot: imageKey,
           type: "property",
           source: isGallery ? "gallery" : "upload",
+          is_processing: isProcessing || undefined,
           meta: {
             position: params.imagePositions[imageKey] || { x: 0, y: 0 },
             scale: params.imageScales[imageKey] || 1,
@@ -1809,7 +1828,9 @@ export class FeatureSheetService {
           },
         };
 
-        if (isGallery) {
+        if (isProcessing) {
+          // Do not set image.file for processing placeholders so uploadImagesToS3 won't try to upload it as a new S3 file!
+        } else if (isGallery) {
           image.file_path = imageUrl;
         } else {
           image.file = imageUrl; // blob URL — resolved in upload step
@@ -1872,6 +1893,9 @@ export class FeatureSheetService {
     const localImages = images.filter(
       (img) =>
         img.file &&
+        !img.is_processing &&
+        !img.file.startsWith("data:image/svg+xml") &&
+        !img.file.includes("Processing...") &&
         (img.file.startsWith("blob:") || img.file.startsWith("data:"))
     );
     const galleryImages = images
@@ -1951,9 +1975,9 @@ export class FeatureSheetService {
       throw new Error("Failed to confirm feature sheet image uploads");
     }
 
-    const imageUuids = confirmResponse.data.files.map(
-      (f: { uuid: string }) => f.uuid
-    );
+    const imageUuids = (confirmResponse.data?.files || [])
+      .map((f: { uuid?: string }) => f.uuid)
+      .filter((uuid): uuid is string => Boolean(uuid));
     console.log('[FeatureSheet] Confirmed uploads, imageUuids:', imageUuids);
 
     const newImagesForContent: { slot: string, s3_key: string, meta?: FeatureSheetImage['meta'] }[] = [];
@@ -2016,15 +2040,18 @@ export class FeatureSheetService {
     }
 
     // Step 3: Update the feature sheet with final content, theme, and image_uuids
-    const updatePayload = {
+    const updatePayload: Record<string, unknown> = {
       order_uuid: orderUuid,
       type: payload.type,
       uploaded_by: payload.uploaded_by,
       template_key: payload.template_key,
       theme: payload.theme,
       content: payload.content,
-      image_uuids: imageUuids,
     };
+
+    if (imageUuids.length > 0) {
+      updatePayload.image_uuids = imageUuids;
+    }
 
     const response = await api.put(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
