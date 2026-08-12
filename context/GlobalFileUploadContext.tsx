@@ -18,6 +18,7 @@ interface UploadParams {
     selectedAudioTrack: string;
     changedFiles?: Files[]; // Only for update
     isUpdate: boolean;
+    showToast?: boolean;
     successMessage?: string | null;
 }
 

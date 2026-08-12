@@ -241,7 +241,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     setShowPhotoSelector(true);
   };
 
-  const handleSelectPhotoForClick = (file: any) => {
+  const handleSelectPhotoForClick = async (file: any) => {
     if (!clickPos || !selectedImageId) return;
 
     const newMarker: DroppedMarker = {
@@ -270,24 +270,72 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       newMarker.isApi = true;
     }
 
-    setDroppedMarkers((prev) => {
-      const newArr = [...prev, newMarker];
-      const newIndex = newArr.length - 1;
-      setActiveMarkerIndex(newIndex);
-
-      setSnapshotFile(file.file || null);
-      setSnapshotName("");
-      setSnapshotDescription("");
-      setTempMarkerPos({ x: clickPos.x, y: clickPos.y });
-      setPreviewMarker(newMarker);
-      return newArr;
-    });
+    const updatedDroppedMarkers = [...droppedMarkers, newMarker];
 
     setShowPhotoSelector(false);
     setClickPos(null);
-    toast.success(
-      "Snapshot placed! Add a name and description, then click Add.",
-    );
+
+    const activeSnapshots = [
+      ...(filesData?.snapshots || [])
+        .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+        .map((snap) => ({
+          uuid: snap.uuid,
+          x: Number(snap.x_axis ?? 0),
+          y: Number(snap.y_axis ?? 0),
+          floorImageUrl: snap.file_name ?? "",
+          isApi: true as const,
+          name: snap.name ?? undefined,
+          description: snap.description ?? undefined,
+          file_path: snap.file_path,
+          url: snap.url,
+          thumbnail_url: snap.thumbnail_url,
+          variant_urls: snap.variant_urls,
+        })),
+      ...updatedDroppedMarkers,
+    ];
+
+    const success = await persistSnapshots(activeSnapshots, {
+      showToast: false,
+    });
+
+    if (success) {
+      // Find the saved snapshot matching our newly placed floorImageUrl and coordinates
+      const token = localStorage.getItem("token");
+      const orderUuid =
+        orderData?.uuid ||
+        ((filesData as any)?.tour_id ? String((filesData as any).tour_id) : "");
+      if (token && orderUuid) {
+        const fresh = await GetFilesData(token, orderUuid);
+        const freshSnapshots = fresh?.data?.[0]?.snapshots || [];
+        const found = freshSnapshots.find(
+          (s: any) =>
+            normalizeName(s.file_name) === normalizeName(selectedImageId) &&
+            Math.abs(Number(s.x_axis) - newMarker.x) < 0.1 &&
+            Math.abs(Number(s.y_axis) - newMarker.y) < 0.1,
+        );
+
+        if (found) {
+          setActiveApiSnapshotUuid(found.uuid);
+          setActiveMarkerIndex(null);
+          setSnapshotFile(null);
+          setSnapshotName(found.name || "");
+          setSnapshotDescription(found.description || "");
+          setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+          setPreviewMarker({
+            x: Number(found.x_axis),
+            y: Number(found.y_axis),
+            floorImageUrl: found.file_name,
+            name: found.name || "",
+            description: found.description || "",
+            file_path: found.file_path,
+            url: found.url,
+            thumbnail_url: found.thumbnail_url,
+            variant_urls: found.variant_urls,
+            isApi: true,
+          });
+        }
+      }
+    }
   };
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -330,7 +378,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (!draggedFile || !imgRef.current || !selectedImageId) return;
 
@@ -365,20 +413,69 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       newMarker.isApi = true;
     }
 
-    setDroppedMarkers((prev) => {
-      const newArr = [...prev, newMarker];
-      const newIndex = newArr.length - 1;
-      setActiveMarkerIndex(newIndex);
+    const updatedDroppedMarkers = [...droppedMarkers, newMarker];
+    setDraggedFile(null);
 
-      setSnapshotFile(draggedFile.file || null);
-      setSnapshotName("");
-      setSnapshotDescription("");
-      setTempMarkerPos({ x: xPercent, y: yPercent });
-      setPreviewMarker(newMarker);
-      return newArr;
+    const activeSnapshots = [
+      ...(filesData?.snapshots || [])
+        .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+        .map((snap) => ({
+          uuid: snap.uuid,
+          x: Number(snap.x_axis ?? 0),
+          y: Number(snap.y_axis ?? 0),
+          floorImageUrl: snap.file_name ?? "",
+          isApi: true as const,
+          name: snap.name ?? undefined,
+          description: snap.description ?? undefined,
+          file_path: snap.file_path,
+          url: snap.url,
+          thumbnail_url: snap.thumbnail_url,
+          variant_urls: snap.variant_urls,
+        })),
+      ...updatedDroppedMarkers,
+    ];
+
+    const success = await persistSnapshots(activeSnapshots, {
+      showToast: false,
     });
 
-    setDraggedFile(null);
+    if (success) {
+      const token = localStorage.getItem("token");
+      const orderUuid =
+        orderData?.uuid ||
+        ((filesData as any)?.tour_id ? String((filesData as any).tour_id) : "");
+      if (token && orderUuid) {
+        const fresh = await GetFilesData(token, orderUuid);
+        const freshSnapshots = fresh?.data?.[0]?.snapshots || [];
+        const found = freshSnapshots.find(
+          (s: any) =>
+            normalizeName(s.file_name) === normalizeName(selectedImageId) &&
+            Math.abs(Number(s.x_axis) - newMarker.x) < 0.1 &&
+            Math.abs(Number(s.y_axis) - newMarker.y) < 0.1,
+        );
+
+        if (found) {
+          setActiveApiSnapshotUuid(found.uuid);
+          setActiveMarkerIndex(null);
+          setSnapshotFile(null);
+          setSnapshotName(found.name || "");
+          setSnapshotDescription(found.description || "");
+          setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+          setPreviewMarker({
+            x: Number(found.x_axis),
+            y: Number(found.y_axis),
+            floorImageUrl: found.file_name,
+            name: found.name || "",
+            description: found.description || "",
+            file_path: found.file_path,
+            url: found.url,
+            thumbnail_url: found.thumbnail_url,
+            variant_urls: found.variant_urls,
+            isApi: true,
+          });
+        }
+      }
+    }
   };
 
   const handlePhotoClick = (file: any) => {
@@ -533,8 +630,74 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     }
   };
 
-  const handleAddSnapshot = () => {
+  const persistSnapshots = async (
+    snapshotsToSave: any[],
+    options?: { showToast?: boolean; successToastMsg?: string },
+  ) => {
+    const token = localStorage.getItem("token");
+    const orderUuid =
+      orderData?.uuid ||
+      ((filesData as any)?.tour_id ? String((filesData as any).tour_id) : "");
+    if (!token || !filesData || !orderUuid) {
+      toast.error(
+        "Could not save snapshot. Missing token or order information.",
+      );
+      return false;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await startUpload({
+        token,
+        orderUuid: orderUuid,
+        filesDataUuid: filesData.uuid,
+        files: [],
+        links: filesData.links || [],
+        droppedMarkers: snapshotsToSave,
+        delay: delay || 3,
+        transition: transition || "fade",
+        selectedAudioTrack: selectedAudioTrack || "none",
+        changedFiles: [],
+        isUpdate: true,
+        showToast: options?.showToast ?? false,
+        successMessage: options?.successToastMsg || "Snapshots saved successfully.",
+      });
+
+      if (response) {
+        const freshFilesData = await GetFilesData(token, orderUuid);
+        if (freshFilesData?.data?.[0]) {
+          const updatedTour = freshFilesData.data[0];
+          if (updatedTour.files) {
+            updatedTour.files = updatedTour.files.map((f: any) => ({
+              ...f,
+              is_processing:
+                f.status === "processing" ||
+                f.is_processing ||
+                (f.type === "photo" &&
+                  (!f.variant_urls ||
+                    Object.keys(f.variant_urls).length === 0)),
+            }));
+          }
+          setFilesData(updatedTour);
+        }
+        setDroppedMarkers([]);
+        setDeletedSnapshotUuids(new Set());
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error saving snapshot:", err);
+      toast.error("Failed to save snapshot");
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddSnapshot = async () => {
     if (!selectedImageId || !tempMarkerPos) return;
+
+    const isUpdating = activeMarkerIndex !== null || !!activeApiSnapshotUuid;
 
     const newMarker: DroppedMarker = {
       ...(activeMarkerIndex !== null
@@ -563,40 +726,55 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       newMarker.variant_urls = previewMarker.variant_urls;
     }
 
+    const updatedDroppedMarkers = [...droppedMarkers];
+    const currentDeletedUuids = new Set(deletedSnapshotUuids);
+
     if (activeApiSnapshotUuid) {
       newMarker.uuid = activeApiSnapshotUuid;
-      // Migrate API snapshot to local droppedMarkers and mark original as deleted
-      setDeletedSnapshotUuids((prev) => {
-        const next = new Set(prev);
-        next.add(activeApiSnapshotUuid);
-        return next;
-      });
-
-      setDroppedMarkers((prev) => {
-        const updated = [...prev, newMarker];
-        setActiveMarkerIndex(updated.length - 1);
-        return updated;
-      });
-
-      setActiveApiSnapshotUuid(null);
-      toast.success("Existing snapshot updated");
+      currentDeletedUuids.add(activeApiSnapshotUuid);
+      updatedDroppedMarkers.push(newMarker);
+    } else if (activeMarkerIndex !== null && updatedDroppedMarkers[activeMarkerIndex]) {
+      updatedDroppedMarkers[activeMarkerIndex] = {
+        ...updatedDroppedMarkers[activeMarkerIndex],
+        ...newMarker,
+      };
     } else {
-      setDroppedMarkers((prev) => {
-        if (activeMarkerIndex !== null && prev[activeMarkerIndex]) {
-          const updated = [...prev];
-          updated[activeMarkerIndex] = {
-            ...updated[activeMarkerIndex],
-            ...newMarker,
-          };
-          return updated;
-        } else {
-          return [...prev, newMarker];
-        }
-      });
-      toast.success("Snapshot saved successfully");
+      updatedDroppedMarkers.push(newMarker);
     }
 
-    setPreviewMarker(newMarker);
+    const activeSnapshots = [
+      ...(filesData?.snapshots || [])
+        .filter((snap) => !currentDeletedUuids.has(snap.uuid))
+        .map((snap) => ({
+          uuid: snap.uuid,
+          x: Number(snap.x_axis ?? 0),
+          y: Number(snap.y_axis ?? 0),
+          floorImageUrl: snap.file_name ?? "",
+          isApi: true as const,
+          name: snap.name ?? undefined,
+          description: snap.description ?? undefined,
+          file_path: snap.file_path,
+          url: snap.url,
+          thumbnail_url: snap.thumbnail_url,
+          variant_urls: snap.variant_urls,
+        })),
+      ...updatedDroppedMarkers,
+    ];
+
+    const success = await persistSnapshots(activeSnapshots, {
+      showToast: isUpdating,
+      successToastMsg: isUpdating ? "Snapshot updated" : undefined,
+    });
+
+    if (success) {
+      setActiveMarkerIndex(null);
+      setActiveApiSnapshotUuid(null);
+      setSnapshotFile(null);
+      setSnapshotName("");
+      setSnapshotDescription("");
+      setTempMarkerPos(null);
+      setPreviewMarker(null);
+    }
   };
 
   const handleDeleteSnapshot = async () => {
@@ -625,14 +803,35 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       } catch (error) {
         console.error("Error deleting snapshot:", error);
         toast.error("Failed to delete snapshot");
-        return; // Don't clear fields if API fails
+        return;
       }
     } else if (activeMarkerIndex !== null) {
-      setDroppedMarkers((prev) => {
-        const newMarkers = prev.filter((_, i) => i !== activeMarkerIndex);
-        return newMarkers;
+      const updatedMarkers = droppedMarkers.filter((_, i) => i !== activeMarkerIndex);
+      const activeSnapshots = [
+        ...(filesData?.snapshots || [])
+          .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+          .map((snap) => ({
+            uuid: snap.uuid,
+            x: Number(snap.x_axis ?? 0),
+            y: Number(snap.y_axis ?? 0),
+            floorImageUrl: snap.file_name ?? "",
+            isApi: true as const,
+            name: snap.name ?? undefined,
+            description: snap.description ?? undefined,
+            file_path: snap.file_path,
+            url: snap.url,
+            thumbnail_url: snap.thumbnail_url,
+            variant_urls: snap.variant_urls,
+          })),
+        ...updatedMarkers,
+      ];
+
+      const success = await persistSnapshots(activeSnapshots, {
+        showToast: true,
+        successToastMsg: "Snapshot deleted successfully",
       });
-      toast.success("Snapshot removed");
+
+      if (!success) return;
     }
 
     setActiveMarkerIndex(null);

@@ -296,7 +296,12 @@ export const resolveServicePrice = (params: {
     // Only apply sqft pricing if the booked option actually has a sq_ft_rate or matches one.
     // Usually, the booked option itself has the sq_ft_rate.
     const bookedOption = orderService.option;
-    if (bookedOption && bookedOption.sq_ft_rate && parseFloat(bookedOption.sq_ft_rate) > 0) {
+    if (
+      bookedOption &&
+      (!bookedOption.sq_ft_range || String(bookedOption.sq_ft_range).trim() === '') &&
+      bookedOption.sq_ft_rate &&
+      parseFloat(bookedOption.sq_ft_rate) > 0
+    ) {
       const rate = parseFloat(bookedOption.sq_ft_rate);
       const minPrice = parseFloat(bookedOption.min_price || '0');
       return Math.max(rate * squareFootage, minPrice);

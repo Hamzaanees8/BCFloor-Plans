@@ -28,6 +28,7 @@ import React, {
   useState,
   forwardRef,
   useImperativeHandle,
+  useMemo,
 } from "react";
 import { Order } from "../../orders/page";
 import FeatureSheetThumbnail from "./FeatureSheetThumbnail";
@@ -388,6 +389,7 @@ const CreateFeatureSheet = forwardRef<
   };
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [safeZone] = useState<boolean>(false);
 
   const handleDownload = async (
@@ -400,7 +402,8 @@ const CreateFeatureSheet = forwardRef<
       const propertyAddress = orderData?.property_address || "Property";
       const templateLabel =
         getTemplateLabel(selectedTemplate) || selectedTemplate;
-      const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${templateLabel}.pdf`;
+      const bleedSuffix = withBleed ? "_With_Bleed" : "_No_Bleed";
+      const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${templateLabel}${bleedSuffix}.pdf`;
 
       const currentTemplate = templateImages.find(
         (t) => t.id === selectedTemplate,
@@ -475,6 +478,7 @@ const CreateFeatureSheet = forwardRef<
   };
 
   const handleSaveFeatureSheet = async () => {
+    setIsSaving(true);
     try {
       if (activeStandardRef.current) {
         const payload = await activeStandardRef.current.exportToPayload();
@@ -506,6 +510,7 @@ const CreateFeatureSheet = forwardRef<
       console.error("Error saving feature sheet:", error);
       toast.error("Failed to save feature sheet. Please try again.");
     } finally {
+      setIsSaving(false);
     }
   };
 
@@ -688,17 +693,27 @@ const CreateFeatureSheet = forwardRef<
     };
   }, []);
 
-  useEffect(() => {
-    const fetchFeatureSheets = async () => {
-      if (!orderData?.uuid) return;
+  // Silent background polling for processing images in feature sheets (every 10 seconds)
+  const hasProcessingSheetImages = useMemo(() => {
+    return featureSheets.some((sheet) =>
+      sheet.images?.some(
+        (img) =>
+          img.is_processing === true ||
+          (img.source === "upload" && !img.file_path && !img.url),
+      ),
+    );
+  }, [featureSheets]);
 
+  useEffect(() => {
+    if (!orderData?.uuid) return;
+
+    let pollingInterval: NodeJS.Timeout | null = null;
+
+    const checkAndPollSheets = async () => {
       try {
         const response = await featureSheetService.getFeatureSheetsByOrder(
           orderData.uuid,
         );
-        console.log("getFeatureSheetsByOrder response", response);
-
-        // Since my service returns data directly
         const dataArray = Array.isArray(response)
           ? response
           : (response as unknown as { data: FeatureSheetResponse[] }).data ||
@@ -706,7 +721,7 @@ const CreateFeatureSheet = forwardRef<
 
         if (dataArray.length > 0) {
           setFeatureSheets(dataArray);
-          // Populate uploadedPdfs with any pdf sheets
+
           const pdfSheets = dataArray
             .filter((sheet) => sheet.type === "pdf")
             .map((sheet) => ({
@@ -714,15 +729,24 @@ const CreateFeatureSheet = forwardRef<
               url: featureSheetService.buildStorageUrl(sheet.pdf_url) || "",
             }));
           setUploadedPdfs(pdfSheets);
-          // Don't auto-select a template - let user choose from the grid
         }
       } catch (error) {
-        console.error("Error fetching existing feature sheets:", error);
+        console.error("Error polling feature sheets:", error);
       }
     };
 
-    fetchFeatureSheets();
-  }, [orderData?.uuid, setFeatureSheets, setUploadedPdfs]);
+    // Initial fetch
+    checkAndPollSheets();
+
+    // Setup 10-second polling interval if any images are processing
+    if (hasProcessingSheetImages) {
+      pollingInterval = setInterval(checkAndPollSheets, 10000);
+    }
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [orderData?.uuid, hasProcessingSheetImages, setFeatureSheets, setUploadedPdfs]);
 
   useEffect(() => {
     const fetchAgentSheets = async () => {
@@ -1755,10 +1779,18 @@ const CreateFeatureSheet = forwardRef<
                       {/* Save Feature Sheet button */}
                       <button
                         type="button"
+                        disabled={isSaving}
                         onClick={handleSaveFeatureSheet}
-                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
                       >
-                        Save Sheet
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Sheet"
+                        )}
                       </button>
 
                       {/* Download PDF Dropdown */}

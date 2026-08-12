@@ -197,7 +197,11 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         if (grandTotal === 0) return;
 
         const calculatePrice = (option: any, sqFt: number) => {
-            if (option?.sq_ft_rate && parseFloat(String(option.sq_ft_rate)) > 0) {
+            if (
+                (!option?.sq_ft_range || String(option.sq_ft_range).trim() === '') &&
+                option?.sq_ft_rate &&
+                parseFloat(String(option.sq_ft_rate)) > 0
+            ) {
                 const calculated = parseFloat(String(option.sq_ft_rate)) * sqFt;
                 return option.min_price
                     ? Math.max(calculated, parseFloat(String(option.min_price)))

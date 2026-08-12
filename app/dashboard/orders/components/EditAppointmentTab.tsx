@@ -209,7 +209,11 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                         // Recalculate price if sq_ft_rate exists
                         if (selectedOption) {
                             updatedPrice = selectedOption.amount?.toString() ?? '';
-                            if (selectedOption.sq_ft_rate && parseFloat(selectedOption.sq_ft_rate) > 0) {
+                            if (
+                                (!selectedOption.sq_ft_range || String(selectedOption.sq_ft_range).trim() === '') &&
+                                selectedOption.sq_ft_rate &&
+                                parseFloat(selectedOption.sq_ft_rate) > 0
+                            ) {
                                 const calculated = parseFloat(selectedOption.sq_ft_rate) * sqFt;
                                 updatedPrice = (selectedOption.min_price ? Math.max(calculated, selectedOption.min_price) : calculated).toFixed(2);
                             }
@@ -556,7 +560,11 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                                                     const selectedOption = selectedService?.product_options?.find(opt => opt.uuid === val);
                                                     let newPrice = selectedOption?.amount?.toString() ?? '';
 
-                                                    if (selectedOption?.sq_ft_rate && parseFloat(selectedOption.sq_ft_rate) > 0) {
+                                                    if (
+                                                        (!selectedOption?.sq_ft_range || String(selectedOption.sq_ft_range).trim() === '') &&
+                                                        selectedOption?.sq_ft_rate &&
+                                                        parseFloat(selectedOption.sq_ft_rate) > 0
+                                                    ) {
                                                         const sqFt = parseFloat(squareFootage);
                                                         if (!isNaN(sqFt)) {
                                                             const calculated = parseFloat(selectedOption.sq_ft_rate) * sqFt;

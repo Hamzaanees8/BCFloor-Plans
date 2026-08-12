@@ -1649,46 +1649,46 @@ export class FeatureSheetService {
     ): StyledTextField | undefined => this.resolveTextField(field, defaults);
 
     if (params.offeredAtPrice) {
-      content.offeredAtPrice = resolved(params.offeredAtPrice, { fontSize: "80px", fontWeight: "300", color: "#F2F2F2", textAlign: "right" });
+      content.offeredAtPrice = resolved(params.offeredAtPrice, { fontSize: "36px", fontWeight: "600", color: "#FFFFFF", textAlign: "center" });
     }
     if (params.realtorTitle) {
       content.realtorTitle = resolved(params.realtorTitle, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.realtorName) {
-      content.realtorName = resolved(params.realtorName, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
+      content.realtorName = resolved(params.realtorName, { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.companyName) {
-      content.companyName = resolved(params.companyName, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
+      content.companyName = resolved(params.companyName, { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.propertyNotesTitle) {
-      content.propertyNotesTitle = resolved(params.propertyNotesTitle, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.propertyNotesTitle = resolved(params.propertyNotesTitle, { fontSize: "28px", fontWeight: "300", color: "#226292" });
     }
     if (params.propertyNotesDescription) {
-      content.propertyNotesDescription = resolved(params.propertyNotesDescription, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
+      content.propertyNotesDescription = resolved(params.propertyNotesDescription, { fontSize: "10px", fontWeight: "400", color: "#2C2E35" });
     }
     if (params.expandedDetail1Title) {
-      content.expandedDetail1Title = resolved(params.expandedDetail1Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.expandedDetail1Title = resolved(params.expandedDetail1Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail1Description) {
-      content.expandedDetail1Description = resolved(params.expandedDetail1Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
+      content.expandedDetail1Description = resolved(params.expandedDetail1Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail2Title) {
-      content.expandedDetail2Title = resolved(params.expandedDetail2Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.expandedDetail2Title = resolved(params.expandedDetail2Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail2Description) {
-      content.expandedDetail2Description = resolved(params.expandedDetail2Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
+      content.expandedDetail2Description = resolved(params.expandedDetail2Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.keyHighlightLabel) {
-      content.keyHighlightLabel = resolved(params.keyHighlightLabel, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.keyHighlightLabel = resolved(params.keyHighlightLabel, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
 
     if (params.keyHighlights && params.keyHighlights.length > 0) {
       content.keyHighlights = {
         value: params.keyHighlights,
         style: {
-          fontSize: "20px",
+          fontSize: "10px",
           fontWeight: "600",
-          color: "#303030",
+          color: "#FFFFFF",
           fontFamily: "Alexandria",
         },
       };
@@ -1698,7 +1698,7 @@ export class FeatureSheetService {
       content.highlights = {
         value: params.highlights,
         style: {
-          fontSize: "16px",
+          fontSize: "10px",
           fontWeight: "400",
           fontFamily: "Alexandria",
         },
@@ -1706,13 +1706,13 @@ export class FeatureSheetService {
     }
 
     if (params.emailLink) {
-      content.emailLink = resolved(params.emailLink, { fontSize: "14px", fontWeight: "400" });
+      content.emailLink = resolved(params.emailLink, { fontSize: "20px", fontWeight: "100" });
     }
     if (params.linkedinLink) {
       content.linkedinLink = resolved(params.linkedinLink, { fontSize: "14px", fontWeight: "400" });
     }
     if (params.phoneNumber) {
-      content.phoneNumber = resolved(params.phoneNumber, { fontSize: "14px", fontWeight: "400" });
+      content.phoneNumber = resolved(params.phoneNumber, { fontSize: "20px", fontWeight: "600" });
     }
     if (params.contactLabel) {
       content.contactLabel = resolved(params.contactLabel, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
@@ -1724,16 +1724,16 @@ export class FeatureSheetService {
       content.ctaText = resolved(params.ctaText, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.expandedDetail3Title) {
-      content.expandedDetail3Title = resolved(params.expandedDetail3Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.expandedDetail3Title = resolved(params.expandedDetail3Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail3Description) {
-      content.expandedDetail3Description = resolved(params.expandedDetail3Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
+      content.expandedDetail3Description = resolved(params.expandedDetail3Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail4Title) {
-      content.expandedDetail4Title = resolved(params.expandedDetail4Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
+      content.expandedDetail4Title = resolved(params.expandedDetail4Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail4Description) {
-      content.expandedDetail4Description = resolved(params.expandedDetail4Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
+      content.expandedDetail4Description = resolved(params.expandedDetail4Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.otherDetails) {
       content.otherDetails = params.otherDetails as unknown as

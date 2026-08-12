@@ -292,7 +292,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         optionName = custom;
       }
     } else {
-      if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
+      if (
+        (!selectedOptionData?.sq_ft_range || String(selectedOptionData.sq_ft_range).trim() === '') &&
+        selectedOptionData?.sq_ft_rate &&
+        parseFloat(selectedOptionData.sq_ft_rate) > 0
+      ) {
         const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
         price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
       } else {

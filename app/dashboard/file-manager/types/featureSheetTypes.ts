@@ -9,6 +9,14 @@ export interface TextStyle {
     letterSpacing?: string;
 }
 
+export interface DetailField {
+    id: string;       // stable key, e.g. "byLawRestrictions"
+    title: string;    // editable label text, e.g. "BY-LAW RESTRICTIONS:"
+    value: string;    // the field value
+    style?: TextStyle;
+    titleStyle?: TextStyle;
+}
+
 export interface ImagePosition {
     x: number;
     y: number;
@@ -276,6 +284,7 @@ export interface FeatureSheetState {
     imagePositions: { [key: string]: ImagePosition };
     imageRotations: { [key: string]: number };
     fieldStyles?: Record<string, any>;
+    detailFields?: DetailField[];
 }
 
 

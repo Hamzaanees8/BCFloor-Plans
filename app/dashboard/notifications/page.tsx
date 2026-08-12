@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
 import { GetNotifications, MarkNotificationAsRead, MarkAllNotificationsAsRead } from "./notification";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,6 +23,7 @@ import { CheckCheck, Loader2 } from "lucide-react";
 
 const Page = () => {
   const isMobile = useIsMobile();
+  const { organization } = useOrganization();
   const [showCard, setShowCard] = React.useState(false);
   const [selectedNotification, setSelectedNotification] =
     React.useState<NotificationData | null>(null);
@@ -242,8 +244,12 @@ const Page = () => {
       ((notification.order as any)?.uuid != null && String((notification.order as any).uuid).toLowerCase().includes(addressSearch)) ||
       ((notification as any).order_id != null && String((notification as any).order_id).toLowerCase().includes(addressSearch));
 
+    const createdByName =
+      organization?.name || organization?.from_name || "Support Team";
+
     const matchesName =
       nameSearch === "" ||
+      createdByName.toLowerCase().includes(nameSearch) ||
       notification.created_by_name?.toLowerCase().includes(nameSearch);
 
     const matchesReadStatus =
@@ -260,14 +266,18 @@ const Page = () => {
     {
       accessorKey: "created_by_name",
       header: "Created By",
-      cell: ({ row }) => (
-        <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
-          {!row.original.is_read && (
-            <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
-          )}
-          <span>{row.original.created_by_name}</span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const createdByName =
+          organization?.name || organization?.from_name || "Support Team";
+        return (
+          <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
+            {!row.original.is_read && (
+              <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
+            )}
+            <span>{createdByName}</span>
+          </div>
+        );
+      },
     },
     {
       header: "Type",

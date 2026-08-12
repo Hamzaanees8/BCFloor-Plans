@@ -17,7 +17,7 @@ export type SelectedFiles = {
     thumbnailFile?: File;
     isPanorama?: boolean;
 };
-import { FeatureSheetResponse } from './types/featureSheetTypes';
+import { FeatureSheetResponse, DetailField } from './types/featureSheetTypes';
 import { Area } from './file-manager';
 import { usePanoramaDetection } from './utils/panoramaUtils';
 
@@ -208,6 +208,9 @@ type FormData = {
     featuredImage3Preview: string | null;
     featuredImage3FileName: string;
     fieldStyles?: { [key: string]: any };
+    detailFields?: DetailField[];
+    leftDetailFields?: DetailField[];
+    rightDetailFields?: DetailField[];
 };
 
 type FileManagerContextType = {
@@ -398,6 +401,9 @@ export const initialFormData: FormData = {
     featuredImage3Preview: null,
     featuredImage3FileName: "",
     fieldStyles: {},
+    detailFields: undefined,
+    leftDetailFields: undefined,
+    rightDetailFields: undefined,
 };
 
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {

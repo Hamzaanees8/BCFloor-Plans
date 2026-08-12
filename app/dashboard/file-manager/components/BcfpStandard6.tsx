@@ -14,6 +14,7 @@ import {
   FeatureSheetPayload,
   TextStyle,
   StyledTextField,
+  DetailField,
 } from "../types/featureSheetTypes";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
@@ -33,24 +34,150 @@ interface BcfpStandard6Props {
   showGuide?: boolean;
 }
 
+// ─── DetailFieldRow ────────────────────────────────────────────────────────────
+// Renders a single editable title + editable value input row.
+// On hover: shows a ✏ (edit title) and ✕ (remove) icon next to the title.
+interface DetailFieldRowProps {
+  field: {
+    id: string;
+    title: string;
+    value: string;
+    style?: TextStyle;
+    titleStyle?: TextStyle;
+  };
+  onTitleChange: (title: string) => void;
+  onTitleStyleChange?: (style: TextStyle) => void;
+  onValueChange: (value: string) => void;
+  onStyleChange: (style: TextStyle) => void;
+  onRemove: () => void;
+}
+
+const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
+  field,
+  onTitleChange,
+  onTitleStyleChange,
+  onValueChange,
+  onStyleChange,
+  onRemove,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Title row */}
+      <div className="flex items-center gap-1 relative">
+        <StyledInput
+          value={field.title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          onChangeStyle={onTitleStyleChange}
+          inputStyle={field.titleStyle}
+          className="font-bold text-[#00B9F2] text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 uppercase"
+          placeholder="ENTER TITLE HERE"
+        />
+
+        {/* Delete icon — visible on hover, absolute to avoid layout shift */}
+        {hovered && (
+          <span
+            data-html2canvas-ignore="true"
+            className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10"
+          >
+            <button
+              type="button"
+              title="Remove field"
+              onClick={onRemove}
+              className="text-red-400 hover:text-red-200 transition-colors p-[2px] bg-[#1a2b34]/80 rounded"
+              style={{ lineHeight: 1 }}
+            >
+              <Trash size={11} strokeWidth={2.5} />
+            </button>
+          </span>
+        )}
+      </div>
+
+      {/* Value input */}
+      <StyledInput
+        value={field.value}
+        onChange={(e) => onValueChange(e.target.value)}
+        onChangeStyle={onStyleChange}
+        inputStyle={field.style}
+        className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+        placeholder="Enter details here"
+      />
+    </div>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Default detail fields — defined at module scope to avoid recreation per render
+const DEFAULT_LEFT_DETAIL_FIELDS: DetailField[] = [
+  { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "" },
+  { id: "maintFees", title: "MAINT. FEES:", value: "" },
+  { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "" },
+  { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "" },
+];
+
+const DEFAULT_RIGHT_DETAIL_FIELDS: DetailField[] = [
+  { id: "siteInfluences", title: "SITE INFLUENCES:", value: "" },
+  { id: "amenities", title: "AMENITIES:", value: "" },
+  { id: "view", title: "VIEW:", value: "" },
+];
+
 const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
-  (
-    {
-      orderData,
-      showBleed: propShowBleed,
-      showGuide: propShowGuide,
-    },
-    ref,
-  ) => {
+  ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
     const { formData, updateFormData } = useFileManagerContext();
 
-    const [byLawRestrictions, setByLawRestrictions] = useState("");
-    const [maintFees, setMaintFees] = useState("");
-    const [maintFeesInclude, setMaintFeesInclude] = useState("");
-    const [featuresIncluded, setFeaturesIncluded] = useState("");
-    const [siteInfluences, setSiteInfluences] = useState("");
-    const [amenities, setAmenities] = useState("");
-    const [view, setView] = useState("");
+    const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
+      DEFAULT_LEFT_DETAIL_FIELDS,
+    );
+    const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
+      DEFAULT_RIGHT_DETAIL_FIELDS,
+    );
+
+    const updateDetailTitle = (id: string, title: string) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, title } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, title } : f)),
+      );
+    };
+
+    const updateDetailValue = (id: string, value: string) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, value } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, value } : f)),
+      );
+    };
+
+    const updateDetailStyle = (id: string, style: TextStyle) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, style } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, style } : f)),
+      );
+    };
+
+    const updateDetailTitleStyle = (id: string, style: TextStyle) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+      );
+    };
+
+    const removeDetailField = (id: string) => {
+      setLeftDetailFields((prev) => prev.filter((f) => f.id !== id));
+      setRightDetailFields((prev) => prev.filter((f) => f.id !== id));
+    };
+
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
@@ -67,8 +194,10 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     const [showBleedState] = useState(true);
     const [showGuideState] = useState(true);
 
-    const showBleed = propShowBleed !== undefined ? propShowBleed : showBleedState;
-    const showGuide = propShowGuide !== undefined ? propShowGuide : showGuideState;
+    const showBleed =
+      propShowBleed !== undefined ? propShowBleed : showBleedState;
+    const showGuide =
+      propShowGuide !== undefined ? propShowGuide : showGuideState;
     const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
       {},
     );
@@ -244,6 +373,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             setBuiltYear(prop.year_constructed.toString());
           if (prop.description) setDescription(prop.description);
 
+          if (prop.mls_number) setAddressCode(prop.mls_number ?? "");
           if (prop.suite) setNumber(prop.suite.toString());
           if (prop.address) setRoadName(prop.suite ?? "");
 
@@ -268,17 +398,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         const s = (val: any) =>
           typeof val === "string" ? val : val?.value || "";
 
-        if (formData.byLawRestrictions)
-          setByLawRestrictions(s(formData.byLawRestrictions));
-        if (formData.maintenanceFees) setMaintFees(s(formData.maintenanceFees));
-        if (formData.maintenanceFeesInclude)
-          setMaintFeesInclude(s(formData.maintenanceFeesInclude));
-        if (formData.featuresIncluded)
-          setFeaturesIncluded(s(formData.featuresIncluded));
-        if (formData.siteInfluences)
-          setSiteInfluences(s(formData.siteInfluences));
-        if (formData.amenities) setAmenities(s(formData.amenities));
-        if (formData.view) setView(s(formData.view));
+        // Restore detailFields from context (supports editable titles + removal)
+        if (
+          formData.leftDetailFields &&
+          Array.isArray(formData.leftDetailFields)
+        ) {
+          setLeftDetailFields(formData.leftDetailFields as DetailField[]);
+        }
+        if (
+          formData.rightDetailFields &&
+          Array.isArray(formData.rightDetailFields)
+        ) {
+          setRightDetailFields(formData.rightDetailFields as DetailField[]);
+        }
+
         if (formData.bedroom) setBedroom(s(formData.bedroom));
         if (formData.bathroom) setBathroom(s(formData.bathroom));
         if (formData.sqft) setSqft(s(formData.sqft));
@@ -324,13 +457,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     // Update context when local state changes
     useEffect(() => {
       updateFormData({
-        byLawRestrictions,
-        maintenanceFees: maintFees,
-        maintenanceFeesInclude: maintFeesInclude,
-        featuresIncluded,
-        siteInfluences,
-        amenities,
-        view,
+        leftDetailFields,
+        rightDetailFields,
         bedroom,
         bathroom,
         sqft,
@@ -350,13 +478,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         imageRotations: rotation,
       });
     }, [
-      byLawRestrictions,
-      maintFees,
-      maintFeesInclude,
-      featuresIncluded,
-      siteInfluences,
-      amenities,
-      view,
+      leftDetailFields,
+      rightDetailFields,
       bedroom,
       bathroom,
       sqft,
@@ -430,6 +553,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           ...prev,
           [key]: URL.createObjectURL(e.target.files![0]),
         }));
+        setScale((prev) => ({ ...prev, [key]: 1 }));
       }
     };
 
@@ -503,6 +627,10 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
+      setScale((prev) => ({
+        ...prev,
+        [currentImageSlot as keyof typeof scale]: 1,
+      }));
       setShowGallery(false);
       setCurrentImageSlot(null);
     };
@@ -545,36 +673,130 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             value: description,
             style: fieldStyles.description || ({} as TextStyle),
           },
-          expandedDetail1Title: "By-law Restrictions",
-          expandedDetail1Description: {
-            value: byLawRestrictions,
-            style: fieldStyles.byLawRestrictions || ({} as TextStyle),
-          },
-          expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: {
-            value: maintFees,
-            style: fieldStyles.maintFees || ({} as TextStyle),
-          },
-          expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: {
-            value: maintFeesInclude,
-            style: fieldStyles.maintFeesInclude || ({} as TextStyle),
-          },
-          expandedDetail4Title: "Features Included",
-          expandedDetail4Description: {
-            value: featuresIncluded,
-            style: fieldStyles.featuresIncluded || ({} as TextStyle),
-          },
-          keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences
-            ? siteInfluences.split("\n").filter(Boolean)
-            : [],
+          expandedDetail1Title: leftDetailFields.find(
+            (f) => f.id === "byLawRestrictions",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "byLawRestrictions",
+                )!.title,
+                style:
+                  leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                    .titleStyle || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail1Description: leftDetailFields.find(
+            (f) => f.id === "byLawRestrictions",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "byLawRestrictions",
+                )!.value,
+                style:
+                  leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                    .style || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail2Title: leftDetailFields.find(
+            (f) => f.id === "maintFees",
+          )
+            ? {
+                value: leftDetailFields.find((f) => f.id === "maintFees")!
+                  .title,
+                style:
+                  leftDetailFields.find((f) => f.id === "maintFees")!
+                    .titleStyle || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail2Description: leftDetailFields.find(
+            (f) => f.id === "maintFees",
+          )
+            ? {
+                value: leftDetailFields.find((f) => f.id === "maintFees")!
+                  .value,
+                style:
+                  leftDetailFields.find((f) => f.id === "maintFees")!.style ||
+                  ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail3Title: leftDetailFields.find(
+            (f) => f.id === "maintFeesInclude",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "maintFeesInclude",
+                )!.title,
+                style:
+                  leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                    .titleStyle || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail3Description: leftDetailFields.find(
+            (f) => f.id === "maintFeesInclude",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "maintFeesInclude",
+                )!.value,
+                style:
+                  leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                    .style || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail4Title: leftDetailFields.find(
+            (f) => f.id === "featuresIncluded",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "featuresIncluded",
+                )!.title,
+                style:
+                  leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                    .titleStyle || ({} as TextStyle),
+              }
+            : undefined,
+          expandedDetail4Description: leftDetailFields.find(
+            (f) => f.id === "featuresIncluded",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "featuresIncluded",
+                )!.value,
+                style:
+                  leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                    .style || ({} as TextStyle),
+              }
+            : undefined,
+          keyHighlightLabel:
+            rightDetailFields.find((f) => f.id === "siteInfluences")?.title ||
+            "SITE INFLUENCES:",
+          keyHighlights: (() => {
+            const sf = rightDetailFields.find((f) => f.id === "siteInfluences");
+            return sf && sf.value ? sf.value.split("\n").filter(Boolean) : [];
+          })(),
           otherDetails: {
-            amenities: {
-              value: amenities,
-              style: fieldStyles.amenities || ({} as TextStyle),
-            },
-            view: { value: view, style: fieldStyles.view || ({} as TextStyle) },
+            ...[...leftDetailFields, ...rightDetailFields]
+              .filter(
+                (f) =>
+                  ![
+                    "byLawRestrictions",
+                    "maintFees",
+                    "maintFeesInclude",
+                    "featuresIncluded",
+                    "siteInfluences",
+                  ].includes(f.id),
+              )
+              .reduce(
+                (acc, f) => ({
+                  ...acc,
+                  [f.id]: {
+                    title: f.title,
+                    value: f.value,
+                    style: f.style || ({} as TextStyle),
+                  },
+                }),
+                {} as Record<string, any>,
+              ),
             bedroom: {
               value: bedroom,
               style: fieldStyles.bedroom || ({} as TextStyle),
@@ -600,6 +822,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
               value: cityLine,
               style: fieldStyles.cityLine || ({} as TextStyle),
             },
+            _leftDetailFields: leftDetailFields,
+            _rightDetailFields: rightDetailFields,
           },
           images,
           imageScales: scale,
@@ -622,27 +846,149 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         if (state.propertyNotesDescription)
           setDescription(s(state.propertyNotesDescription));
 
-        if (state.expandedDetail1Description)
-          setByLawRestrictions(s(state.expandedDetail1Description));
-        if (state.expandedDetail2Description)
-          setMaintFees(s(state.expandedDetail2Description));
-        if (state.expandedDetail3Description)
-          setMaintFeesInclude(s(state.expandedDetail3Description));
-        if (state.expandedDetail4Description)
-          setFeaturesIncluded(s(state.expandedDetail4Description));
+        const rawOtherDetails =
+          (payload.content?.otherDetails as Record<string, any>) || {};
 
-        if (state.keyHighlights) {
-          setSiteInfluences(
-            Array.isArray(state.keyHighlights)
-              ? state.keyHighlights.map((h) => s(h)).join("\n")
-              : s(state.keyHighlights),
+        if (
+          rawOtherDetails._leftDetailFields &&
+          Array.isArray(rawOtherDetails._leftDetailFields)
+        ) {
+          setLeftDetailFields(
+            rawOtherDetails._leftDetailFields as DetailField[],
           );
+        }
+        if (
+          rawOtherDetails._rightDetailFields &&
+          Array.isArray(rawOtherDetails._rightDetailFields)
+        ) {
+          setRightDetailFields(
+            rawOtherDetails._rightDetailFields as DetailField[],
+          );
+        } else if (
+          !rawOtherDetails._leftDetailFields &&
+          rawOtherDetails._detailFields &&
+          Array.isArray(rawOtherDetails._detailFields)
+        ) {
+          const all = rawOtherDetails._detailFields as DetailField[];
+          setLeftDetailFields(
+            all.filter((f) =>
+              [
+                "byLawRestrictions",
+                "maintFees",
+                "maintFeesInclude",
+                "featuresIncluded",
+              ].includes(f.id),
+            ),
+          );
+          setRightDetailFields(
+            all.filter((f) =>
+              ["siteInfluences", "amenities", "view"].includes(f.id),
+            ),
+          );
+        } else {
+          const reconstructedLeft: DetailField[] = [];
+          const reconstructedRight: DetailField[] = [];
+
+          const addField = (
+            targetList: DetailField[],
+            id: string,
+            defaultTitle: string,
+            val: any,
+            titleRaw: any,
+          ) => {
+            const titleStr =
+              typeof titleRaw === "string"
+                ? titleRaw
+                : titleRaw?.value || defaultTitle;
+            const titleStyle =
+              typeof titleRaw === "object"
+                ? (titleRaw as any)?.style
+                : undefined;
+            const valStr = typeof val === "string" ? val : val?.value || "";
+            const style = (val as any)?.style as TextStyle | undefined;
+            targetList.push({
+              id,
+              title: titleStr,
+              value: valStr,
+              ...(style ? { style } : {}),
+              ...(titleStyle ? { titleStyle } : {}),
+            });
+          };
+
+          if (state.expandedDetail1Description !== undefined)
+            addField(
+              reconstructedLeft,
+              "byLawRestrictions",
+              "BY-LAW RESTRICTIONS:",
+              state.expandedDetail1Description,
+              (payload.content as any).expandedDetail1Title,
+            );
+          if (state.expandedDetail2Description !== undefined)
+            addField(
+              reconstructedLeft,
+              "maintFees",
+              "MAINT. FEES:",
+              state.expandedDetail2Description,
+              (payload.content as any).expandedDetail2Title,
+            );
+          if (state.expandedDetail3Description !== undefined)
+            addField(
+              reconstructedLeft,
+              "maintFeesInclude",
+              "MAINT. FEES INCLUDE:",
+              state.expandedDetail3Description,
+              (payload.content as any).expandedDetail3Title,
+            );
+          if (state.expandedDetail4Description !== undefined)
+            addField(
+              reconstructedLeft,
+              "featuresIncluded",
+              "FEATURES INCLUDED:",
+              state.expandedDetail4Description,
+              (payload.content as any).expandedDetail4Title,
+            );
+
+          if (state.keyHighlights) {
+            const sfVal = Array.isArray(state.keyHighlights)
+              ? state.keyHighlights.map((h) => s(h)).join("\n")
+              : s(state.keyHighlights);
+            const sfTitle =
+              s((payload.content as any).keyHighlightLabel) ||
+              "SITE INFLUENCES:";
+            reconstructedRight.push({
+              id: "siteInfluences",
+              title: sfTitle,
+              value: sfVal,
+            });
+          }
+
+          if (rawOtherDetails.amenities) {
+            const f = rawOtherDetails.amenities;
+            reconstructedRight.push({
+              id: "amenities",
+              title: f.title || "AMENITIES:",
+              value: s(f),
+              ...(f.style ? { style: f.style } : {}),
+            });
+          }
+          if (rawOtherDetails.view) {
+            const f = rawOtherDetails.view;
+            reconstructedRight.push({
+              id: "view",
+              title: f.title || "VIEW:",
+              value: s(f),
+              ...(f.style ? { style: f.style } : {}),
+            });
+          }
+
+          if (reconstructedLeft.length > 0)
+            setLeftDetailFields(reconstructedLeft);
+          if (reconstructedRight.length > 0)
+            setRightDetailFields(reconstructedRight);
         }
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, any>;
-          if (details.amenities) setAmenities(s(details.amenities));
-          if (details.view) setView(s(details.view));
           if (details.bedroom) setBedroom(s(details.bedroom));
           if (details.bathroom) setBathroom(s(details.bathroom));
           if (details.sqft) setSqft(s(details.sqft));
@@ -664,19 +1010,9 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           styles.roadName = st(c.propertyNotesTitle);
         if (st(c.propertyNotesDescription))
           styles.description = st(c.propertyNotesDescription);
-        if (st(c.expandedDetail1Description))
-          styles.byLawRestrictions = st(c.expandedDetail1Description);
-        if (st(c.expandedDetail2Description))
-          styles.maintFees = st(c.expandedDetail2Description);
-        if (st(c.expandedDetail3Description))
-          styles.maintFeesInclude = st(c.expandedDetail3Description);
-        if (st(c.expandedDetail4Description))
-          styles.featuresIncluded = st(c.expandedDetail4Description);
 
         const od = c.otherDetails as Record<string, any>;
         if (od) {
-          if (st(od.amenities)) styles.amenities = st(od.amenities);
-          if (st(od.view)) styles.view = st(od.view);
           if (st(od.bedroom)) styles.bedroom = st(od.bedroom);
           if (st(od.bathroom)) styles.bathroom = st(od.bathroom);
           if (st(od.sqft)) styles.sqft = st(od.sqft);
@@ -759,7 +1095,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           >
             {/* Page 1 Footer Background Gradient in parent bleed container for edge-to-edge coverage */}
             <div
-              className="absolute bottom-0 left-0 right-0 h-[180px] pointer-events-none z-0"
+              className="absolute bottom-0 left-0 right-0 h-[130px] pointer-events-none z-0"
               style={{
                 background:
                   "linear-gradient(90deg, #00B9F2 0%, #0097C9 39%, #028DBD 52%, #186C9B 89%, #226392 100%)",
@@ -772,7 +1108,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                   {/* Page 1 Left Column */}
                   <div className="w-1/2 bg-white flex flex-col relative h-full">
                     {/* image1 */}
-                    <div className="w-full h-full bg-white place-self-center relative overflow-hidden group">
+                    <div className="w-full h-full place-self-center relative overflow-hidden group">
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image1", e)}
@@ -847,6 +1183,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           </>
                         ) : (
                           <div
+                            data-html2canvas-ignore="true"
                             onClick={() => openImageSourceModal("image1")}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
@@ -909,14 +1246,19 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           onChange={(e) => setCityLine(e.target.value)}
                           onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
                           inputStyle={fieldStyles.cityLine}
-                          className="text-[#2C2E35] text-[10px] bg-transparent text-center w-[250px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="text-[#2C2E35] text-[20px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                           placeholder="BRIGHOUSE SOUTH, RICHMOND"
                         />
                       </div>
 
                       {/* image7 */}
-                      <div className="absolute bottom-[-145px] left-[50px] group z-10">
-                        <div className="w-[200px] h-[110px] relative bg-white shadow-md group overflow-hidden">
+                      <div
+                        {...(!images.image7
+                          ? { "data-html2canvas-ignore": "true" }
+                          : {})}
+                        className="absolute bottom-[-145px] left-[50px] group z-10"
+                      >
+                        <div className="w-[200px] h-[110px] relative group overflow-hidden">
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image7", e)}
@@ -993,6 +1335,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               </>
                             ) : (
                               <div
+                                data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image7")}
                                 className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
@@ -1138,6 +1481,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           </>
                         ) : (
                           <div
+                            data-html2canvas-ignore="true"
                             onClick={() => openImageSourceModal("image2")}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
@@ -1234,6 +1578,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image3")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -1328,6 +1673,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image4")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -1422,6 +1768,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image5")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -1516,6 +1863,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image6")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -1537,7 +1885,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
                 {/* Bottom Contact Footer Bar */}
                 <div
-                  className="flex h-[180px] px-[40px] shrink-0 relative z-20"
+                  className="flex h-[130px] px-[40px] shrink-0 relative z-20"
                   style={{
                     marginLeft: showBleed ? "-0.375in" : "-0.25in",
                     marginRight: showBleed ? "-0.375in" : "-0.25in",
@@ -1589,7 +1937,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           />
                         </div>
                       </div>
-                      <div className="text-start  font-thin flex w-[80%] mt-4">
+                      <div className="text-start  font-light flex w-[80%] mt-4">
                         <span className="text-[8px]">
                           All information deemed reliable but not guaranteed and
                           should be independently verified. All properties are
@@ -1958,6 +2306,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           </>
                         ) : (
                           <div
+                            data-html2canvas-ignore="true"
                             onClick={() => openImageSourceModal("image8")}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
@@ -2067,6 +2416,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image9")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -2161,6 +2511,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image10")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -2220,7 +2571,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             updateFieldStyle("builtYear", s)
                           }
                           inputStyle={fieldStyles.builtYear}
-                          className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                          className="font-semibold text-[13px] bg-transparent text-left  w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                           placeholder="0000"
                         />
                       </div>
@@ -2311,6 +2662,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               </>
                             ) : (
                               <div
+                                data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image11")}
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
@@ -2407,6 +2759,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               </>
                             ) : (
                               <div
+                                data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image12")}
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
@@ -2503,6 +2856,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               </>
                             ) : (
                               <div
+                                data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image13")}
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
@@ -2599,6 +2953,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               </>
                             ) : (
                               <div
+                                data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image14")}
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
@@ -2619,7 +2974,11 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
                     <div className="w-[50%] flex flex-col justify-between gap-[100px]">
                       {/* image15 */}
-                      <div className="w-full h-[590px] mb-4 place-self-center border-2 z-10 border-[#fff] relative overflow-hidden group">
+                      <div
+                        className={`w-full h-[590px] mb-4 place-self-center z-10 relative overflow-hidden group ${
+                          images.image15 ? "border-2 border-[#fff]" : ""
+                        }`}
+                      >
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image15", e)}
@@ -2696,6 +3055,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             </>
                           ) : (
                             <div
+                              data-html2canvas-ignore="true"
                               onClick={() => openImageSourceModal("image15")}
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
@@ -2712,122 +3072,51 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         </div>
                       </div>
 
+                      {/* Detail fields — titles & values are both editable and removable */}
                       <div className="relative z-10 flex gap-4 pb-[5px] text-white text-[12px] leading-relaxed pt-[0px] h-[250px] overflow-hidden">
+                        {/* Left column fields */}
                         <div className="space-y-2 text-[8px] w-1/2 overflow-hidden">
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              BY-LAW RESTRICTIONS:
-                            </span>
-                            <StyledInput
-                              value={byLawRestrictions}
-                              onChange={(e) =>
-                                setByLawRestrictions(e.target.value)
+                          {leftDetailFields.map((field) => (
+                            <DetailFieldRow
+                              key={field.id}
+                              field={field}
+                              onTitleChange={(t) =>
+                                updateDetailTitle(field.id, t)
                               }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("byLawRestrictions", s)
+                              onTitleStyleChange={(s) =>
+                                updateDetailTitleStyle(field.id, s)
                               }
-                              inputStyle={fieldStyles.byLawRestrictions}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Enter details here"
+                              onValueChange={(v) =>
+                                updateDetailValue(field.id, v)
+                              }
+                              onStyleChange={(s) =>
+                                updateDetailStyle(field.id, s)
+                              }
+                              onRemove={() => removeDetailField(field.id)}
                             />
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              MAINT. FEES:
-                            </span>
-                            <StyledInput
-                              value={maintFees}
-                              onChange={(e) => setMaintFees(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("maintFees", s)
-                              }
-                              inputStyle={fieldStyles.maintFees}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Enter fees here"
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              MAINT. FEES INCLUDE:
-                            </span>
-                            <StyledInput
-                              value={maintFeesInclude}
-                              onChange={(e) =>
-                                setMaintFeesInclude(e.target.value)
-                              }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("maintFeesInclude", s)
-                              }
-                              inputStyle={fieldStyles.maintFeesInclude}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              FEATURES INCLUDED:
-                            </span>
-                            <StyledInput
-                              value={featuresIncluded}
-                              onChange={(e) =>
-                                setFeaturesIncluded(e.target.value)
-                              }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("featuresIncluded", s)
-                              }
-                              inputStyle={fieldStyles.featuresIncluded}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                            />
-                          </div>
+                          ))}
                         </div>
-
+                        {/* Right column fields */}
                         <div className="space-y-2 text-[8px] w-1/2 overflow-hidden mt-5">
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              SITE INFLUENCES:
-                            </span>
-                            <StyledInput
-                              value={siteInfluences}
-                              onChange={(e) =>
-                                setSiteInfluences(e.target.value)
+                          {rightDetailFields.map((field) => (
+                            <DetailFieldRow
+                              key={field.id}
+                              field={field}
+                              onTitleChange={(t) =>
+                                updateDetailTitle(field.id, t)
                               }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("siteInfluences", s)
+                              onTitleStyleChange={(s) =>
+                                updateDetailTitleStyle(field.id, s)
                               }
-                              inputStyle={fieldStyles.siteInfluences}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              AMENITIES:
-                            </span>
-                            <StyledInput
-                              value={amenities}
-                              onChange={(e) => setAmenities(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("amenities", s)
+                              onValueChange={(v) =>
+                                updateDetailValue(field.id, v)
                               }
-                              inputStyle={fieldStyles.amenities}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                              onStyleChange={(s) =>
+                                updateDetailStyle(field.id, s)
+                              }
+                              onRemove={() => removeDetailField(field.id)}
                             />
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#00B9F2]">
-                              VIEW:
-                            </span>
-                            <StyledInput
-                              value={view}
-                              onChange={(e) => setView(e.target.value)}
-                              onChangeStyle={(s) => updateFieldStyle("view", s)}
-                              inputStyle={fieldStyles.view}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="South & SW - Van Isl."
-                            />
-                          </div>
+                          ))}
                         </div>
                       </div>
                     </div>

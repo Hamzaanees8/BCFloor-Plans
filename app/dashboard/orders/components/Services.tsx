@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import PricingCard from './PricingCard'
+import PackageCard from './PackageCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { Services } from '../../services/page'
+import type { Services, Packages } from '../../services/page'
 import { useOrderContext } from '../context/OrderContext'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { Listings } from '@/lib/types'
 import { useSearchParams, useParams } from 'next/navigation'
+import { isSqFtInRange } from '@/lib/pricingUtils'
 
 
 
@@ -66,6 +69,8 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     const {
         selectedServices,
         setSelectedServices,
+        selectedOptions,
+        setSelectedOptions,
         selectedListingId,
         servicesData: contextServicesData,
         listingsData: contextListingsData,
@@ -91,6 +96,102 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
 
+    const handleSelectPackage = (pkg: Packages) => {
+        const isCurrentActive = activePackage?.id === pkg.id || (!!activePackage?.uuid && activePackage.uuid === pkg.uuid);
+
+        if (isCurrentActive) {
+            setActivePackage(null);
+            const pkgServiceUuids = new Set(
+                (pkg.services || [])
+                    .map(pkgS => {
+                        const fullS = contextServicesData.find(s => 
+                            (pkgS.uuid && s.uuid === pkgS.uuid) || 
+                            (pkgS.id && (s.id === pkgS.id || String(s.id) === String(pkgS.id)))
+                        );
+                        return fullS?.uuid || pkgS.uuid;
+                    })
+                    .filter(Boolean) as string[]
+            );
+            setSelectedServices(prev => prev.filter(s => s.uuid ? !pkgServiceUuids.has(s.uuid) : true));
+            return;
+        }
+
+        const sqft = tempPropertyData?.square_footage || listingData?.square_footage || 0;
+
+        const newSelectedServices: SelectedService[] = [];
+        const newSelectedOptions: Record<string, string> = { ...selectedOptions };
+
+        (pkg.services || []).forEach((pkgService) => {
+            const fullService = contextServicesData.find((s: Services) => 
+                (pkgService.uuid && s.uuid === pkgService.uuid) ||
+                (pkgService.id && (s.id === pkgService.id || String(s.id) === String(pkgService.id))) ||
+                (pkgService.uuid && s.id && String(s.id) === String(pkgService.uuid))
+            ) || pkgService;
+
+            const targetUuid = fullService.uuid || pkgService.uuid;
+            if (!targetUuid) return;
+
+            const options = fullService.product_options || pkgService.product_options || [];
+
+            let matchedOption = options.length > 0 ? options[0] : null;
+
+            if (options.length > 0 && sqft > 0) {
+                const inRangeOption = options.find((opt) => {
+                    if (opt.sq_ft_range && typeof opt.sq_ft_range === 'string' && opt.sq_ft_range.trim() !== '') {
+                        return isSqFtInRange(opt.sq_ft_range, sqft);
+                    }
+                    return false;
+                });
+                if (inRangeOption) {
+                    matchedOption = inRangeOption;
+                } else {
+                    const rateOption = options.find(opt => opt.sq_ft_rate && parseFloat(opt.sq_ft_rate) > 0);
+                    if (rateOption) {
+                        matchedOption = rateOption;
+                    }
+                }
+            }
+
+            let price = 0;
+            let quantity = 1;
+            let option_id: string | undefined = undefined;
+            let optionName = '';
+
+            if (matchedOption) {
+                if (
+                    (!matchedOption.sq_ft_range || String(matchedOption.sq_ft_range).trim() === '') &&
+                    matchedOption.sq_ft_rate &&
+                    parseFloat(matchedOption.sq_ft_rate) > 0 &&
+                    sqft > 0
+                ) {
+                    const calculated = parseFloat(matchedOption.sq_ft_rate) * sqft;
+                    price = matchedOption.min_price ? Math.max(calculated, matchedOption.min_price) : calculated;
+                } else {
+                    price = matchedOption.amount ?? 0;
+                }
+                quantity = matchedOption.quantity || 1;
+                option_id = matchedOption.uuid;
+                optionName = matchedOption.title || '';
+
+                newSelectedOptions[targetUuid] = matchedOption.title || '';
+            }
+
+            newSelectedServices.push({
+                uuid: targetUuid,
+                id: String(fullService.id || pkgService.id || ''),
+                title: fullService.name || pkgService.name || '',
+                price: price,
+                quantity: quantity,
+                option_id: option_id,
+                optionName: optionName,
+            });
+        });
+
+        setSelectedOptions(newSelectedOptions);
+        setSelectedServices(newSelectedServices);
+        setActivePackage(pkg);
+    };
+
     useEffect(() => {
         const selectedIds = selectedServices.map(s => s.uuid).filter(Boolean) as string[];
 
@@ -104,7 +205,13 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         let foundPackage = null;
 
         for (const pkg of packagesData) {
-            const pkgServiceIds = (pkg.services || []).map(s => s.uuid).filter(Boolean) as string[];
+            const pkgServiceIds = (pkg.services || []).map(pkgS => {
+                const fullS = contextServicesData.find(s => 
+                    (pkgS.uuid && s.uuid === pkgS.uuid) || 
+                    (pkgS.id && (s.id === pkgS.id || String(s.id) === String(pkgS.id)))
+                );
+                return fullS?.uuid || pkgS.uuid;
+            }).filter(Boolean) as string[];
             if (pkgServiceIds.length === 0) continue;
 
             const pkgCount = createCountMap(pkgServiceIds);
@@ -120,7 +227,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         }
 
         setActivePackage(foundPackage);
-    }, [selectedServices, packagesData, setActivePackage]);
+    }, [selectedServices, packagesData, contextServicesData, setActivePackage]);
 
     useEffect(() => {
         const filteredListings = contextListingsData.find(
@@ -193,10 +300,57 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     const totalPrice = rawTotalPrice - discount;
 
     return (
-        <div className='px-[10px] flex flex-col gap-[15px] font-alexandria'>
+        <div className='px-[10px] flex flex-col gap-[15px] font-alexandria mt-[20px]'>
+
+            {/* Packages Carousel Section (Positioned above Square Footage field - Full Width) */}
+            {packagesData && packagesData.filter(p => p.status !== false).length > 0 && (
+                <div className="w-full space-y-2 mt-[10px]">
+                    <h2
+                        className="text-[15px] font-[600] px-3 py-1.5 rounded-md"
+                        style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
+                    >
+                        Packages
+                    </h2>
+                    <div className="relative px-2">
+                        <Carousel
+                            opts={{
+                                align: 'start',
+                                loop: false,
+                            }}
+                            className="w-full"
+                        >
+                            <CarouselContent className="-ml-2">
+                                {packagesData
+                                    .filter(pkg => pkg.status !== false)
+                                    .map((pkg) => {
+                                        const isSelected = activePackage?.id === pkg.id || (!!activePackage?.uuid && activePackage.uuid === pkg.uuid);
+                                        return (
+                                            <CarouselItem
+                                                key={pkg.uuid || pkg.id}
+                                                className="pl-2 basis-full sm:basis-1/2 md:basis-1/4"
+                                            >
+                                                <PackageCard
+                                                    pkg={pkg}
+                                                    isSelected={isSelected}
+                                                    onSelect={() => handleSelectPackage(pkg)}
+                                                />
+                                            </CarouselItem>
+                                        );
+                                    })}
+                            </CarouselContent>
+                            {packagesData.filter(p => p.status !== false).length > 4 && (
+                                <>
+                                    <CarouselPrevious className="-left-3 h-7 w-7 border-gray-300 shadow-sm" />
+                                    <CarouselNext className="-right-3 h-7 w-7 border-gray-300 shadow-sm" />
+                                </>
+                            )}
+                        </Carousel>
+                    </div>
+                </div>
+            )}
 
             {!selectedListingId && (
-                <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>
+                <div className='flex gap-[12px] items-center py-[10px]'>
                     <div className='flex flex-col gap-2'>
                         <label className='text-[14px] font-[500]' style={{ color: roleSettings.pageText }}>Square Footage</label>
                         <div className='relative w-[280px]'>
@@ -251,64 +405,66 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             )}
 
             <div className='flex flex-col lg:flex-row gap-5'>
-                {accordionDefaults.length > 0 && groupedByCategory ? (
-                    <Accordion
-                        type="multiple"
-                        defaultValue={Object.keys(groupedByCategory).map((_, idx) => `group-${idx}`)}
-                        className='w-full md:w-[70%]'
-                    >
-                        {(
-                            Object.entries(groupedByCategory) as [string, Services[]][]
-                        )
-                            // .sort(([catA, servicesA], [catB, servicesB]) => {
-                            //     if (selected === "Alphabetically") {
-                            //         return catA.localeCompare(catB);
-                            //     } else if (selected === "By Service") {
-                            //         return servicesB.length - servicesA.length;
-                            //     }
-                            //     return 0;
-                            // })
-                            .map(([category, services], idx) => (
-                                <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
-                                    <AccordionTrigger
-                                        className='text-[18px] font-[600] px-4 py-3 my-2 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'
-                                        style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
-                                    >
-                                        {category}
-                                    </AccordionTrigger>
-                                    <AccordionContent className="border-none">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
-                                            {services.map((service) => (
-                                                <PricingCard
-                                                    key={service.uuid}
-                                                    pricingOptions={service.product_options}
-                                                    title={service.name ?? ''}
-                                                    selectedServices={selectedServices}
-                                                    setSelectedServices={setSelectedServices}
-                                                    service={service}
-                                                    squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
-                                                    showAll={showAll}
-                                                />
-                                            ))}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                    </Accordion>
-                ) : (
-                    <div className="w-full md:w-[70%] space-y-8 mt-4">
-                        {[1, 2, 3].map((groupIndex) => (
-                            <div key={groupIndex} className="space-y-4">
-                                <Skeleton className="h-8 w-48 mb-4 ml-2 bg-gray-200" />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {[1, 2, 3, 4].map((cardIndex) => (
-                                        <PricingCardSkeleton key={cardIndex} />
-                                    ))}
+                <div className="w-full md:w-[70%] space-y-4">
+                    {accordionDefaults.length > 0 && groupedByCategory ? (
+                        <Accordion
+                            type="multiple"
+                            defaultValue={Object.keys(groupedByCategory).map((_, idx) => `group-${idx}`)}
+                            className='w-full'
+                        >
+                            {(
+                                Object.entries(groupedByCategory) as [string, Services[]][]
+                            )
+                                // .sort(([catA, servicesA], [catB, servicesB]) => {
+                                //     if (selected === "Alphabetically") {
+                                //         return catA.localeCompare(catB);
+                                //     } else if (selected === "By Service") {
+                                //         return servicesB.length - servicesA.length;
+                                //     }
+                                //     return 0;
+                                // })
+                                .map(([category, services], idx) => (
+                                    <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
+                                        <AccordionTrigger
+                                            className='text-[18px] font-[600] px-4 py-3 my-2 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'
+                                            style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
+                                        >
+                                            {category}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="border-none">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
+                                                {services.map((service) => (
+                                                    <PricingCard
+                                                        key={service.uuid}
+                                                        pricingOptions={service.product_options}
+                                                        title={service.name ?? ''}
+                                                        selectedServices={selectedServices}
+                                                        setSelectedServices={setSelectedServices}
+                                                        service={service}
+                                                        squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
+                                                        showAll={showAll}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                        </Accordion>
+                    ) : (
+                        <div className="w-full space-y-8 mt-4">
+                            {[1, 2, 3].map((groupIndex) => (
+                                <div key={groupIndex} className="space-y-4">
+                                    <Skeleton className="h-8 w-48 mb-4 ml-2 bg-gray-200" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {[1, 2, 3, 4].map((cardIndex) => (
+                                            <PricingCardSkeleton key={cardIndex} />
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 {/* <Accordion type="multiple" defaultValue={['hdr0', 'hdr', 'hdr1', 'hdr2']} className='w-full md:w-[70%]'>
                     {groupedByCategory &&

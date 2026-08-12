@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,12 @@ export default function FileManagerGallery({
   const handleLocalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif|avif)$/i.test(file.name);
+      if (!isImage) {
+        toast.error("Only image files are allowed. PDF, video, and other files cannot be added to feature sheets.");
+        e.target.value = "";
+        return;
+      }
       const imageUrl = URL.createObjectURL(file);
       onImageSelect(imageUrl);
       setIsOpen(false);
@@ -65,9 +72,16 @@ export default function FileManagerGallery({
 
   const isPDF = (file: any): boolean => {
     if (!file) return false;
-    const path = file.file_path || "";
-    const type = file.type || "";
-    return path.toLowerCase().endsWith('.pdf') || type === 'pdf' || type === 'application/pdf';
+    const path = (file.file_path || file.name || "").toLowerCase();
+    const type = (file.type || "").toLowerCase();
+    return path.endsWith('.pdf') || type === 'pdf' || type === 'application/pdf';
+  };
+
+  const isVideo = (file: any): boolean => {
+    if (!file) return false;
+    const path = (file.file_path || file.name || "").toLowerCase();
+    const type = (file.type || "").toLowerCase();
+    return type === 'video' || type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv)$/i.test(path);
   };
 
   const files = (filesData?.files || []).filter(file => {
@@ -75,6 +89,10 @@ export default function FileManagerGallery({
     const createdDate = new Date(file.created_at);
     const cutoffDate = new Date('2026-02-11');
     if (createdDate < cutoffDate) return false;
+
+    // Feature sheets gallery only allows images (not PDF, video or other non-image files)
+    if (isPDF(file) || isVideo(file)) return false;
+
     return true;
   });
 

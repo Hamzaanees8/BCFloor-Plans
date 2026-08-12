@@ -117,7 +117,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option_id || o.title === sel.optionName);
 
             if (catalogOption) {
-                if (catalogOption.sq_ft_rate && parseFloat(catalogOption.sq_ft_rate) > 0 && sqFootage > 0) {
+                if (
+                    (!catalogOption.sq_ft_range || String(catalogOption.sq_ft_range).trim() === '') &&
+                    catalogOption.sq_ft_rate &&
+                    parseFloat(catalogOption.sq_ft_rate) > 0 &&
+                    sqFootage > 0
+                ) {
                     const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
                     originalPrice = catalogOption.min_price
                         ? Math.max(calculated, catalogOption.min_price)

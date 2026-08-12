@@ -4,6 +4,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BellOff, ArrowRight } from 'lucide-react';
+import { useOrganization } from '@/app/context/OrganizationContext';
 import type { NotificationData } from '@/lib/types';
 
 interface MobileNotificationsListProps {
@@ -21,6 +22,9 @@ export default function MobileNotificationsList({
   userType,
   onNotificationClick,
 }: MobileNotificationsListProps) {
+  const { organization } = useOrganization();
+  const createdByName =
+    organization?.name || organization?.from_name || "Support Team";
   
   const getNotificationAddress = (notification: NotificationData) => {
     return notification.source === 'AgentPayment' || notification.source === 'VendorPayment'
@@ -103,7 +107,7 @@ export default function MobileNotificationsList({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap justify-between mb-1.5">
                     <span className="text-xs font-semibold text-gray-900 truncate">
-                      {notification.created_by_name || 'System'}
+                      {createdByName}
                     </span>
                     <span className="text-[10px] text-gray-500 shrink-0">
                       {formattedDate}

@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Listings } from "@/lib/types";
 import { Address, NotificationData } from "@/lib/types";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
 import { format, parse } from "date-fns";
 
 export interface AgentData {
@@ -137,6 +138,8 @@ export default function QuickViewCard({
   onClose,
 }: QuickViewCardProps) {
   const { userType } = useAppContext();
+  const { organization } = useOrganization();
+  const orgCreatedByName = organization?.name || organization?.from_name || "Support Team";
   const [showDialog, setShowDialog] = useState(false);
 
   function formatTimeRange(start: string, end: string): string {
@@ -966,7 +969,7 @@ export default function QuickViewCard({
                     <div className="flex flex-col gap-[4px] mb-2">
                       <span className="text-[15px] font-[400] text-[#666666]">
                         <span className="font-bold">Updated by:</span>{" "}
-                        {data.meta_data?.updated_by || data.created_by_name}
+                        {orgCreatedByName}
                       </span>
                       <span className="text-[15px] font-[400] text-[#666666]">
                         <span className="font-bold">Date:</span>{" "}

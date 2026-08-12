@@ -284,7 +284,8 @@ const ServicesFrom = () => {
   }
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isPackage = searchParams.get("isPackage") === "true";
+  const isPackageParam = searchParams.get("isPackage") === "true" || searchParams.get("category")?.toLowerCase() === "package";
+  const isPackage = isPackageParam;
   const params = useParams();
   const ServiceId = params?.id as string;
 
@@ -299,9 +300,19 @@ const ServicesFrom = () => {
       .then((res) => {
         const data = res.data;
         setCategoriesData(data);
+
+        if (!ServiceId && isPackageParam) {
+          const packageCat = data?.find(
+            (c: CategoriesData) => c.name.toLowerCase() === "package"
+          );
+          if (packageCat) {
+            setCategory(packageCat.id.toString());
+            setCategoryObject(packageCat);
+          }
+        }
       })
       .catch((err) => console.log(err.message));
-  }, []);
+  }, [ServiceId, isPackageParam]);
 
   // For create mode, mark as initially rendered after a short delay
   // This prevents browser autofill from triggering dirty state
@@ -722,6 +733,7 @@ const ServicesFrom = () => {
                       <div className="">
                         <Select
                           value={category}
+                          disabled={isPackageParam || (isPackageCategory && !ServiceId)}
                           onValueChange={(value) => {
                             setCategory(value);
                             const selected = categoriesData?.find(
@@ -730,7 +742,7 @@ const ServicesFrom = () => {
                             if (selected) setCategoryObject(selected);
                           }}
                         >
-                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[12px]">
+                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed">
                             <SelectValue placeholder="Select Category" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1300,7 +1312,7 @@ const ServicesFrom = () => {
                             </TableRow>
                           ))}
 
-                          {getSortedProductOptions(options).map((opt, idx) => (
+                          {options.map((opt, idx) => (
                             <TableRow
                               key={idx}
                               className="text-[#666666] text-[14px] !border-b-0 "
@@ -1320,10 +1332,7 @@ const ServicesFrom = () => {
                                 {fieldErrors[
                                   `product_options.${
                                     (currentService?.product_options?.length ??
-                                      0) > 0
-                                      ? (currentService?.product_options
-                                          ?.length ?? 0)
-                                      : idx
+                                      0) + idx
                                   }.title`
                                 ] && (
                                   <p className="text-red-500 text-[10px] mt-1">
@@ -1331,10 +1340,7 @@ const ServicesFrom = () => {
                                       fieldErrors[
                                         `product_options.${
                                           (currentService?.product_options
-                                            ?.length ?? 0) > 0
-                                            ? (currentService?.product_options
-                                                ?.length ?? 0)
-                                            : idx
+                                            ?.length ?? 0) + idx
                                         }.title`
                                       ][0]
                                     }
@@ -1375,10 +1381,7 @@ const ServicesFrom = () => {
                                   {fieldErrors[
                                     `product_options.${
                                       (currentService?.product_options
-                                        ?.length ?? 0) > 0
-                                        ? (currentService?.product_options
-                                            ?.length ?? 0)
-                                        : idx
+                                        ?.length ?? 0) + idx
                                     }.quantity`
                                   ] && (
                                     <p className="text-red-500 text-[10px] mt-1">
@@ -1386,10 +1389,7 @@ const ServicesFrom = () => {
                                         fieldErrors[
                                           `product_options.${
                                             (currentService?.product_options
-                                              ?.length ?? 0) > 0
-                                              ? (currentService?.product_options
-                                                  ?.length ?? 0)
-                                              : idx
+                                              ?.length ?? 0) + idx
                                           }.quantity`
                                         ][0]
                                       }
@@ -1419,10 +1419,7 @@ const ServicesFrom = () => {
                                     {fieldErrors[
                                       `product_options.${
                                         (currentService?.product_options
-                                          ?.length ?? 0) > 0
-                                          ? (currentService?.product_options
-                                              ?.length ?? 0)
-                                          : idx
+                                          ?.length ?? 0) + idx
                                       }.sq_ft_range`
                                     ] && (
                                       <p className="text-red-500 text-[10px] mt-1">
@@ -1430,11 +1427,7 @@ const ServicesFrom = () => {
                                           fieldErrors[
                                             `product_options.${
                                               (currentService?.product_options
-                                                ?.length ?? 0) > 0
-                                                ? (currentService
-                                                    ?.product_options?.length ??
-                                                  0)
-                                                : idx
+                                                ?.length ?? 0) + idx
                                             }.sq_ft_range`
                                           ][0]
                                         }
@@ -1457,10 +1450,7 @@ const ServicesFrom = () => {
                                     {fieldErrors[
                                       `product_options.${
                                         (currentService?.product_options
-                                          ?.length ?? 0) > 0
-                                          ? (currentService?.product_options
-                                              ?.length ?? 0)
-                                          : idx
+                                          ?.length ?? 0) + idx
                                       }.sq_ft_rate`
                                     ] && (
                                       <p className="text-red-500 text-[10px] mt-1">
@@ -1468,11 +1458,7 @@ const ServicesFrom = () => {
                                           fieldErrors[
                                             `product_options.${
                                               (currentService?.product_options
-                                                ?.length ?? 0) > 0
-                                                ? (currentService
-                                                    ?.product_options?.length ??
-                                                  0)
-                                                : idx
+                                                ?.length ?? 0) + idx
                                             }.sq_ft_rate`
                                           ][0]
                                         }
@@ -1555,10 +1541,7 @@ const ServicesFrom = () => {
                                   {fieldErrors[
                                     `product_options.${
                                       (currentService?.product_options
-                                        ?.length ?? 0) > 0
-                                        ? (currentService?.product_options
-                                            ?.length ?? 0)
-                                        : idx
+                                        ?.length ?? 0) + idx
                                     }.service_duration`
                                   ] && (
                                     <p className="text-red-500 text-[10px] mt-1">
@@ -1566,10 +1549,7 @@ const ServicesFrom = () => {
                                         fieldErrors[
                                           `product_options.${
                                             (currentService?.product_options
-                                              ?.length ?? 0) > 0
-                                              ? (currentService?.product_options
-                                                  ?.length ?? 0)
-                                              : idx
+                                              ?.length ?? 0) + idx
                                           }.service_duration`
                                         ][0]
                                       }
@@ -1661,10 +1641,7 @@ const ServicesFrom = () => {
                                 {fieldErrors[
                                   `product_options.${
                                     (currentService?.product_options?.length ??
-                                      0) > 0
-                                      ? (currentService?.product_options
-                                          ?.length ?? 0)
-                                      : idx
+                                      0) + idx
                                   }.amount`
                                 ] && (
                                   <p className="text-red-500 text-[10px]">
@@ -1672,10 +1649,7 @@ const ServicesFrom = () => {
                                       fieldErrors[
                                         `product_options.${
                                           (currentService?.product_options
-                                            ?.length ?? 0) > 0
-                                            ? (currentService?.product_options
-                                                ?.length ?? 0)
-                                            : idx
+                                            ?.length ?? 0) + idx
                                         }.amount`
                                       ][0]
                                     }
@@ -1818,22 +1792,14 @@ const ServicesFrom = () => {
                                   />
                                   {fieldErrors[
                                     `add_ons.${
-                                      (currentService?.service_add_ons
-                                        ?.length ?? 0) > 0
-                                        ? (currentService?.service_add_ons
-                                            ?.length ?? 0)
-                                        : index
+                                      (currentService?.service_add_ons?.length ?? 0) + index
                                     }.title`
                                   ] && (
                                     <p className="text-red-500 text-[10px] mt-1">
                                       {
                                         fieldErrors[
                                           `add_ons.${
-                                            (currentService?.service_add_ons
-                                              ?.length ?? 0) > 0
-                                              ? (currentService?.service_add_ons
-                                                  ?.length ?? 0)
-                                              : index
+                                            (currentService?.service_add_ons?.length ?? 0) + index
                                           }.title`
                                         ][0]
                                       }
@@ -1887,22 +1853,14 @@ const ServicesFrom = () => {
                                   </div>
                                   {fieldErrors[
                                     `add_ons.${
-                                      (currentService?.service_add_ons
-                                        ?.length ?? 0) > 0
-                                        ? (currentService?.service_add_ons
-                                            ?.length ?? 0)
-                                        : index
+                                      (currentService?.service_add_ons?.length ?? 0) + index
                                     }.amount`
                                   ] && (
                                     <p className="text-red-500 text-[10px] mt-1">
                                       {
                                         fieldErrors[
                                           `add_ons.${
-                                            (currentService?.service_add_ons
-                                              ?.length ?? 0) > 0
-                                              ? (currentService?.service_add_ons
-                                                  ?.length ?? 0)
-                                              : index
+                                            (currentService?.service_add_ons?.length ?? 0) + index
                                           }.amount`
                                         ][0]
                                       }

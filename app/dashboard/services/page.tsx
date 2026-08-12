@@ -438,15 +438,23 @@ const Page = () => {
             Services ({servicesData.length})
           </p>
           <div className='flex space-x-3'>
-            {/* <Link href={'/dashboard/services/create'} className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ Package</Link> */}
             {(userType !== 'vendor' && canCreateService) && (
-              <Link
-                href={'/dashboard/services/create'}
-                className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
-                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-              >
-                + New Service
-              </Link>
+              <>
+                <Link
+                  href={'/dashboard/services/create?isPackage=true'}
+                  className='w-[130px] md:w-[155px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
+                  style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                >
+                  + Create Package
+                </Link>
+                <Link
+                  href={'/dashboard/services/create'}
+                  className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
+                  style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                >
+                  + New Service
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -468,13 +476,25 @@ const Page = () => {
             defaultValue={["packages"]}
             className="w-full space-y-4"
           >
-            <AccordionItem value="packages">
-              <AccordionTrigger
-                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none`}
-                style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
-              >
-                Packages
-              </AccordionTrigger>
+            <AccordionItem value="packages" className="border-none">
+              <div className="flex justify-between items-center pr-4 border-t-[1px] border-b-[1px] border-[#BBBBBB]" style={{ backgroundColor: headerBg }}>
+                <AccordionTrigger
+                  className={`px-[14px] py-[19px] border-none h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none flex-1`}
+                  style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+                >
+                  Packages
+                </AccordionTrigger>
+                {(userType !== 'vendor' && canCreateService) && (
+                  <Link
+                    href={'/dashboard/services/create?isPackage=true'}
+                    onClick={(e) => e.stopPropagation()}
+                    className='px-3 py-1.5 rounded-[6px] text-[13px] md:text-[14px] font-[500] text-[#EEEEEE] flex items-center gap-1 hover:brightness-110 shrink-0 z-10'
+                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                  >
+                    + Create Package
+                  </Link>
+                )}
+              </div>
               <AccordionContent>
                 <DataTable
                   data={packagesData || []}
