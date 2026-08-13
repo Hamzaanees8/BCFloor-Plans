@@ -1,7 +1,7 @@
 "use client";
 import React, { useRef, useState } from "react";
 import { CameraIcon } from "@/components/Icons";
-import { FileText, X } from "lucide-react";
+import { FileText, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Snapshoots } from "../PublicTour";
 
 export interface FloorPlanFile {
@@ -27,7 +27,6 @@ export interface FloorPlanFile {
     is_featured: boolean;
     is_processing?: boolean;
 }
-
 
 export interface Marker {
     x: number;
@@ -79,6 +78,7 @@ function PublicTourFloorPlans({
         window.addEventListener("resize", checkMobile);
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
+
     // Filter out PDF files and sort by sort_order
     const filteredFloorPlanFiles = floorPlanFiles
         .filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'))
@@ -104,14 +104,94 @@ function PublicTourFloorPlans({
         }
     }, [filteredFloorPlanFiles, selectedImageId]);
 
-    const [draggedFile, setDraggedFile] = useState<any | null>(null);
-    const [localMarkers, setLocalMarkers] = useState<any[]>([]);
-
+    const [localMarkers] = useState<any[]>([]);
     const [previewMarker, setPreviewMarker] = useState<Marker | null>(null);
+
+    // Zoom & Pan State
+    const [zoomScale, setZoomScale] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
     const imageContainerRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement | null>(null);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleMarkerMouseEnter = (snapshot: any) => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+        setPreviewMarker({
+            x: Number(snapshot.x_axis),
+            y: Number(snapshot.y_axis),
+            file_path: snapshot.file_path,
+            floorImageUrl: snapshot.file_name,
+            name: snapshot.name,
+            description: snapshot.description,
+            isApi: true,
+            variant_urls: snapshot.variant_urls,
+        });
+    };
+
+    const handleMarkerMouseLeave = () => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setPreviewMarker(null);
+        }, 150);
+    };
+
+    const handlePopupMouseEnter = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+    };
+
+    const handlePopupMouseLeave = () => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setPreviewMarker(null);
+        }, 150);
+    };
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+    // Reset zoom and pan when floorplan changes
+    const handleSelectFloorplan = (name: string) => {
+        setSelectedImageId(name);
+        setPreviewMarker(null);
+        setZoomScale(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    const handleZoomIn = () => {
+        setZoomScale((prev) => Math.min(3, +(prev + 0.25).toFixed(2)));
+    };
+
+    const handleZoomOut = () => {
+        setZoomScale((prev) => {
+            const next = Math.max(1, +(prev - 0.25).toFixed(2));
+            if (next === 1) setPanOffset({ x: 0, y: 0 });
+            return next;
+        });
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (zoomScale <= 1) return;
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || zoomScale <= 1) return;
+        setPanOffset({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y,
+        });
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
 
     // Utility function to check if a file is a PDF
     const isPDF = (filePath: string): boolean => {
@@ -146,66 +226,74 @@ function PublicTourFloorPlans({
         );
     }
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        if (!draggedFile || !imgRef.current || !selectedImageId) return;
-
-        const img = imgRef.current;
-        const imgRect = img.getBoundingClientRect();
-
-        const relX = e.clientX - imgRect.left;
-        const relY = e.clientY - imgRect.top;
-
-        const xPercent = (relX / imgRect.width) * 100;
-        const yPercent = (relY / imgRect.height) * 100;
-
-        const newMarker = {
-            x: xPercent,
-            y: yPercent,
-            floorImageUrl: selectedImageId,
-            name: draggedFile.name || 'New Snapshot',
-            description: '',
-            file_path: draggedFile.variant_urls?.popup || draggedFile.variant_urls?.landing || draggedFile.url || (draggedFile.file_path ? `${API_URL}/${draggedFile.file_path}` : ''),
-            variant_urls: draggedFile.variant_urls,
-            isApi: true
-        };
-
-        setLocalMarkers(prev => [...prev, newMarker]);
-        setPreviewMarker(newMarker as any);
-        setDraggedFile(null);
-    };
-
     return (
-        <div className="w-full h-auto font-alexandria bg-gray-100 py-6 pl-0 mt-[75px] pt-0">
-            <div className="w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] bg-white">
+        <div className="w-full h-auto font-alexandria max-w-7xl mx-auto px-2 sm:px-6 md:px-8 pb-12">
+            {/* Main Floor Plan Card */}
+            <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center relative overflow-hidden min-h-[400px] md:min-h-[520px] w-full">
+                {/* Top Right Zoom Controls */}
+                {!isSelectedFilePDF && (
+                    <div className="absolute top-4 right-4 z-40 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-gray-200/80 shadow-md">
+                        <button
+                            onClick={handleZoomOut}
+                            disabled={zoomScale <= 1}
+                            className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-35 transition-all cursor-pointer disabled:cursor-not-allowed"
+                            title="Zoom Out"
+                        >
+                            <ZoomOut size={17} />
+                        </button>
+                        <span className="text-xs font-bold text-gray-700 w-12 text-center select-none font-alexandria">
+                            {Math.round(zoomScale * 100)}%
+                        </span>
+                        <button
+                            onClick={handleZoomIn}
+                            disabled={zoomScale >= 3}
+                            className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-35 transition-all cursor-pointer disabled:cursor-not-allowed"
+                            title="Zoom In"
+                        >
+                            <ZoomIn size={17} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Floor Plan Display Area */}
                 <div
                     ref={imageContainerRef}
-                    onDrop={handleDrop}
-                    onDragOver={(e) => e.preventDefault()}
-                    className="relative w-full md:w-[70%] h-[300px] sm:h-full bg-white overflow-visible m-auto border border-gray-200"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    className={`relative w-full flex items-center justify-center overflow-hidden select-none ${zoomScale > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    style={{ minHeight: "360px" }}
                 >
                     {selectedFile && (
                         <>
                             {selectedFile.is_processing ? (
-                                <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                    <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                <div className="w-full h-[360px] flex flex-col gap-2 items-center justify-center bg-gray-100 rounded-xl">
+                                    <p className="text-gray-500 font-medium text-sm">Processing floor plan...</p>
                                 </div>
                             ) : isSelectedFilePDF ? (
-                                // Render PDF in iframe
                                 <iframe
                                     src={`${selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}#toolbar=0`}
-                                    className="w-full h-full border-0"
+                                    className="w-full h-[650px] border-0 rounded-xl"
                                     title="Floor Plan PDF"
                                 />
                             ) : (
-                                <>
+                                <div
+                                    style={{
+                                        transform: `scale(${zoomScale}) translate(${panOffset.x / zoomScale}px, ${panOffset.y / zoomScale}px)`,
+                                        transformOrigin: "center center",
+                                        transition: isDragging ? "none" : "transform 0.15s ease-out",
+                                    }}
+                                    className="relative inline-block max-w-full"
+                                >
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         ref={imgRef}
                                         loading="lazy"
                                         src={selectedFile.variant_urls?.landing || selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}
                                         alt="Selected Floor Plan"
-                                        className="object-contain max-h-full max-w-full w-full h-full"
+                                        className="object-contain max-h-[75vh] max-w-full w-auto h-auto mx-auto rounded-lg select-none pointer-events-none"
+                                        draggable={false}
                                     />
                                     {watermarkLogo && (
                                         <>
@@ -213,149 +301,147 @@ function PublicTourFloorPlans({
                                             <img
                                                 src={watermarkLogo}
                                                 alt="Watermark"
-                                                className="absolute bottom-10 right-10 w-[150px] object-contain opacity-60 pointer-events-none z-[50]"
+                                                className="absolute bottom-4 right-4 w-[120px] sm:w-[150px] object-contain opacity-60 pointer-events-none z-[50]"
                                             />
                                         </>
                                     )}
 
-                                    {/* Render markers for this floor plan (only for images, not PDFs) */}
+                                    {/* Render camera snapshot markers */}
                                     {[...filteredSnapshots, ...currentLocalSnapshots].map((snapshot, idx) => (
                                         <div
                                             key={idx}
-                                            className="absolute cursor-pointer hover:scale-110 transition-transform z-10"
+                                            className="absolute cursor-pointer hover:scale-125 transition-transform z-10"
                                             style={{
                                                 top: `${snapshot.y_axis}%`,
                                                 left: `${snapshot.x_axis}%`,
                                                 transform: "translate(-50%, -100%)",
                                             }}
-                                            onClick={() => {
-                                                setPreviewMarker({
-                                                    x: Number(snapshot.x_axis),
-                                                    y: Number(snapshot.y_axis),
-                                                    file_path: snapshot.file_path,
-                                                    floorImageUrl: snapshot.file_name,
-                                                    name: snapshot.name,
-                                                    description: snapshot.description,
-                                                    isApi: true,
-                                                });
-                                            }}
-                                            onMouseEnter={() => {
-                                                setPreviewMarker({
-                                                    x: Number('x_axis' in snapshot ? snapshot.x_axis : snapshot.x),
-                                                    y: Number('y_axis' in snapshot ? snapshot.y_axis : snapshot.y),
-                                                    file_path: snapshot.file_path,
-                                                    floorImageUrl: 'file_name' in snapshot ? snapshot.file_name : snapshot.floorImageUrl,
-                                                    name: snapshot.name,
-                                                    description: snapshot.description,
-                                                    isApi: true,
-                                                    variant_urls: (snapshot as any).variant_urls
-                                                });
+                                            onMouseEnter={() => handleMarkerMouseEnter(snapshot)}
+                                            onMouseLeave={handleMarkerMouseLeave}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkerMouseEnter(snapshot);
                                             }}
                                         >
                                             <CameraIcon width={24} height={24} />
                                         </div>
                                     ))}
-
+                                    {/* Marker Snapshot Lightbox Modal anchored to camera icon */}
                                     {previewMarker && (
                                         <div
-                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
-                                            style={isMobile ? {
-                                                bottom: '10px',
-                                                left: '50%',
-                                                transform: 'translateX(-50%)',
-                                            } : {
-                                                top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
-                                                bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
-                                                left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
-                                                right: previewMarker.x > 50 ? `calc(${100 - previewMarker.x}% + 15px)` : 'auto',
-                                            }}
+                                            onMouseEnter={handlePopupMouseEnter}
+                                            onMouseLeave={handlePopupMouseLeave}
+                                            className="bg-[#242424] text-white font-alexandria shadow-2xl w-fit max-w-[90vw] sm:max-w-[420px] h-auto flex flex-col rounded-none border border-white/20 transition-all duration-200 animate-in fade-in"
+                                            style={
+                                                isMobile
+                                                    ? {
+                                                          position: "fixed",
+                                                          bottom: "16px",
+                                                          left: "50%",
+                                                          transform: "translateX(-50%)",
+                                                          zIndex: 100,
+                                                      }
+                                                    : {
+                                                          position: "absolute",
+                                                          left: `${previewMarker.x}%`,
+                                                          top: `${previewMarker.y}%`,
+                                                          transform: `translate(${previewMarker.x <= 50 ? "14px" : "calc(-100% - 14px)"}, ${previewMarker.y <= 50 ? "0px" : "calc(-100% - 14px)"}) scale(${1 / zoomScale})`,
+                                                          transformOrigin: `${previewMarker.x <= 50 ? "left" : "right"} ${previewMarker.y <= 50 ? "top" : "bottom"}`,
+                                                          zIndex: 100,
+                                                      }
+                                            }
                                         >
+                                            {/* Close button */}
                                             <button
-                                                onClick={() => setPreviewMarker(null)}
-                                                className="absolute top-3 right-3 text-black bg-white rounded-full z-20 p-1 hover:bg-gray-100 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPreviewMarker(null);
+                                                }}
+                                                className="absolute top-2 right-2 text-white bg-black/70 hover:bg-black/90 rounded-none z-20 p-1.5 transition-colors cursor-pointer shadow-md"
+                                                title="Close"
                                             >
-                                                <X className="w-5 h-5" />
+                                                <X className="w-4 h-4" />
                                             </button>
 
                                             {previewMarker.file_path && (
-                                                <>
+                                                <div className="p-3 sm:p-3.5 pb-0 flex items-center justify-center">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         loading="lazy"
                                                         src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.file_path}
                                                         alt={previewMarker.name || "Snapshot"}
-                                                        className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
+                                                        className="w-auto h-auto max-h-[280px] max-w-[calc(90vw-28px)] sm:max-w-[390px] object-contain block rounded-none select-none"
                                                     />
-                                                </>
+                                                </div>
                                             )}
 
-                                            <div className="p-4 flex-1">
-                                                <p className="text-xl font-semibold uppercase pb-2 break-words">
+                                            <div className="p-3 sm:p-3.5 pt-2.5 bg-[#242424]">
+                                                <p className="text-sm sm:text-base font-bold uppercase pb-0.5 break-words text-white">
                                                     {previewMarker?.name || "Snapshot"}
                                                 </p>
-                                                <p className="text-gray-200 break-words">
-                                                    {previewMarker?.description || "No description available"}
-                                                </p>
+                                                {previewMarker?.description ? (
+                                                    <p className="text-xs sm:text-sm text-gray-300 break-words leading-relaxed mt-0.5">
+                                                        {previewMarker.description}
+                                                    </p>
+                                                ) : null}
                                             </div>
                                         </div>
                                     )}
-                                </>
+                                </div>
                             )}
                         </>
                     )}
                 </div>
-
             </div>
 
-            <div className="w-full h-auto mt-6 px-4 md:px-10">
-                <div className="w-full h-full flex items-center gap-4 overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none">
-                    {filteredFloorPlanFiles?.map((file, idx) => {
-                        const isFilePDF = isPDF(file.file_path);
-                        return (
-                            <div
-                                key={idx}
-                                onClick={() => {
-                                    setSelectedImageId(file.name);
-                                    setPreviewMarker(null);
-                                }}
-                                className={`flex-shrink-0 w-[200px] h-[120px] overflow-hidden flex items-center rounded-lg justify-center cursor-pointer transition-all duration-200 ml-2 mr-2 ${selectedImageId === file.name
-                                    ? "border-2 border-[#4290E9] shadow-md scale-105"
-                                    : "border border-gray-300 hover:border-gray-400 hover:shadow-sm"
+            {/* Bottom Thumbnails Carousel */}
+            {filteredFloorPlanFiles.length > 1 && (
+                <div className="w-full mt-6 bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-sm">
+                    <div className="w-full flex items-center gap-4 overflow-x-auto overflow-y-hidden p-2 whitespace-nowrap scrollbar-none">
+                        {filteredFloorPlanFiles.map((file, idx) => {
+                            const isFilePDF = isPDF(file.file_path);
+                            const isSelected = selectedImageId === file.name;
+                            return (
+                                <div
+                                    key={idx}
+                                    onClick={() => handleSelectFloorplan(file.name)}
+                                    className={`shrink-0 w-[160px] sm:w-[200px] h-[100px] sm:h-[120px] rounded-xl overflow-hidden flex items-center justify-center cursor-pointer transition-all duration-200 relative ${
+                                        isSelected
+                                            ? "border-2 border-[#4290E9] shadow-md bg-blue-50/20"
+                                            : "border border-gray-200 hover:border-gray-300 hover:shadow-sm bg-gray-50"
                                     }`}
-                            >
-                                <div className="relative w-full h-full flex items-center justify-center p-1">
-                                    {file.is_processing ? (
-                                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                            <p className="text-gray-500 font-medium text-xs">Processing...</p>
-                                        </div>
-                                    ) : isFilePDF ? (
-                                        <PdfPlaceholder className="w-full h-full" />
-                                    ) : (
-                                        <>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                                alt={`Floor Plan ${idx + 1}`}
-                                                className="max-w-full max-h-full object-contain"
-                                            />
-                                            {snapshots.some(s => normalizeName(s.file_name) === normalizeName(file.name)) && (
-                                                <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                                                    {snapshots.filter(s => normalizeName(s.file_name) === normalizeName(file.name)).length}
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
+                                >
+                                    <div className="relative w-full h-full flex items-center justify-center p-2">
+                                        {file.is_processing ? (
+                                            <div className="w-full h-full flex flex-col gap-1 items-center justify-center bg-gray-100 rounded-lg">
+                                                <p className="text-gray-400 font-medium text-xs">Processing...</p>
+                                            </div>
+                                        ) : isFilePDF ? (
+                                            <PdfPlaceholder className="w-full h-full rounded-lg" />
+                                        ) : (
+                                            <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                                    alt={`Floor Plan ${idx + 1}`}
+                                                    className="max-w-full max-h-full object-contain select-none"
+                                                />
+                                                {snapshots.some(s => normalizeName(s.file_name) === normalizeName(file.name)) && (
+                                                    <div className="absolute top-2 right-2 bg-[#1b365d] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+                                                        {snapshots.filter(s => normalizeName(s.file_name) === normalizeName(file.name)).length}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
-
-            {/* Removed Photos section */}
+            )}
         </div>
     );
 }
-
 
 export default PublicTourFloorPlans;

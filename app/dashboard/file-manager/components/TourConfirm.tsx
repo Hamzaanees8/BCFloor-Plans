@@ -12,11 +12,15 @@ import { Input } from "@/components/ui/input";
 import {
   Mail,
   Phone,
-  MapPin,
   Video,
   FileText,
   Box,
   ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Maximize,
+  X,
 } from "lucide-react";
 import { useOptionalFileManagerContext } from "../FileManagerContext";
 import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
@@ -131,6 +135,40 @@ const TourConfirm = ({
   const [open, setOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [isSideContactOpen, setIsSideContactOpen] = useState(false);
+  const [photoGridSize, setPhotoGridSize] = useState<
+    "small" | "medium" | "large"
+  >("medium");
+  const [isFullscreenSlideshowOpen, setIsFullscreenSlideshowOpen] =
+    useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  useEffect(() => {
+    // Stop slideshow and audio when switching tabs, and reset Home index
+    if (setIsAudioPlaying) {
+      setIsAudioPlaying(false);
+    }
+    if (activeTab === "Home") {
+      setCurrentImageIndex(0);
+    }
+    if (activeTab !== "Photos") {
+      setIsFullscreenSlideshowOpen(false);
+    }
+  }, [activeTab, setIsAudioPlaying]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreenSlideshowOpen) {
+        setIsFullscreenSlideshowOpen(false);
+        if (setIsAudioPlaying) {
+          setIsAudioPlaying(false);
+        }
+        setSelectedPhotoIndex(0);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreenSlideshowOpen, setIsAudioPlaying]);
 
   const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>(
     [],
@@ -569,66 +607,109 @@ const TourConfirm = ({
               </div>
             </AccordionTrigger>
           )}
-          <AccordionContent className={hideAccordion ? "border-none" : ""}>
+          <AccordionContent
+            className={`${hideAccordion ? "border-none" : ""} ${activeTab === "Home" ? "!pb-0 !pt-0" : ""}`}
+          >
             <div
-              className={`w-full flex flex-col gap-6 px-0 pb-6 relative ${hideAccordion ? "pt-0" : ""}`}
+              className={`w-full flex flex-col ${activeTab === "Home" ? "gap-0 !pb-0 !mb-0 overflow-hidden" : "gap-6 pb-6"} px-0 relative ${hideAccordion ? "pt-0" : ""}`}
             >
-              {/* Tabs */}
-              <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-[95%] md:max-w-none px-4 gap-2 py-2 absolute top-3 z-30 left-1/2 -translate-x-1/2 w-full md:w-auto justify-start md:justify-center">
-                {previewTabs.map((tab) => {
-                  const getTabIcon = (name: string) => {
-                    switch (name) {
-                      case "Home":
-                        return (
-                          <span
-                            className={`inline-block w-3.5 h-3.5 mr-1.5 [&>svg]:w-full [&>svg]:h-full [&>svg_path]:stroke-current [&>svg_path]:stroke-[4]`}
-                          >
-                            <HomeIcon />
-                          </span>
-                        );
-                      case "Overview":
-                        return (
-                          <svg
-                            className="w-3.5 h-3.5 inline mr-1.5 fill-current"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                          </svg>
-                        );
-                      case "Contact":
-                        return <Mail size={14} className="inline mr-1.5" />;
-                      case "Photos":
-                        return (
-                          <ImageIcon size={14} className="inline mr-1.5" />
-                        );
-                      case "Videos":
-                        return <Video size={14} className="inline mr-1.5" />;
-                      case "Floorplan":
-                      case "Floor Plan":
-                        return <FileText size={14} className="inline mr-1.5" />;
-                      case "Matterport":
-                      case "3D Tour":
-                        return <Box size={14} className="inline mr-1.5" />;
-                      default:
-                        return null;
-                    }
-                  };
-
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[160px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all flex items-center justify-center ${
-                        activeTab === tab
-                          ? `${userType}-bg text-white shadow-md`
-                          : "bg-gray-200 text-[#666666] hover:bg-gray-300"
-                      }`}
+              {/* Top Header: Address & Tabs */}
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 max-w-[95%] md:max-w-none w-full md:w-auto pointer-events-auto">
+                {/* Top Center Address */}
+                {isPublicView && (
+                  <div className="flex flex-col items-center text-center bg-transparent px-2 py-1">
+                    <span
+                      className="text-white font-bold text-[20px] md:text-[28px] leading-tight tracking-wide"
+                      style={{
+                        textShadow:
+                          "0px 3px 10px rgba(0, 0, 0, 0.4), 0px 1px 4px rgba(0, 0, 0, 0.4)",
+                      }}
                     >
-                      {getTabIcon(tab)}
-                      <span>{tab}</span>
-                    </button>
-                  );
-                })}
+                      {orderData?.property_address ||
+                        orderData?.property?.address}
+                    </span>
+                    <span
+                      className="text-white/95 font-semibold text-xs md:text-[15px] leading-tight mt-1"
+                      style={{
+                        textShadow:
+                          "0px 2px 6px rgba(0, 0, 0, 0.35), 0px 1px 3px rgba(0, 0, 0, 0.35)",
+                      }}
+                    >
+                      {orderData?.property_location ||
+                        `${orderData?.property?.city || ""}, ${orderData?.property?.province || ""}`}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tabs directly under address */}
+                <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-full px-4 gap-2 py-1 justify-start md:justify-center w-full md:w-auto">
+                  {previewTabs.map((tab) => {
+                    const getTabIcon = (name: string) => {
+                      switch (name) {
+                        case "Home":
+                          return (
+                            <span
+                              className={`inline-block w-3.5 h-3.5 mr-1.5 [&>svg]:w-full [&>svg]:h-full [&>svg_path]:stroke-current [&>svg_path]:stroke-[4]`}
+                            >
+                              <HomeIcon />
+                            </span>
+                          );
+                        case "Overview":
+                          return (
+                            <svg
+                              className="w-3.5 h-3.5 inline mr-1.5 fill-current"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                            </svg>
+                          );
+                        case "Contact":
+                          return <Mail size={14} className="inline mr-1.5" />;
+                        case "Photos":
+                          return (
+                            <ImageIcon size={14} className="inline mr-1.5" />
+                          );
+                        case "Videos":
+                          return <Video size={14} className="inline mr-1.5" />;
+                        case "Floorplan":
+                        case "Floor Plan":
+                          return (
+                            <FileText size={14} className="inline mr-1.5" />
+                          );
+                        case "Matterport":
+                        case "3D Tour":
+                          return <Box size={14} className="inline mr-1.5" />;
+                        default:
+                          return null;
+                      }
+                    };
+
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => {
+                          if (activeTab !== tab) {
+                            if (setIsAudioPlaying) {
+                              setIsAudioPlaying(false);
+                            }
+                            if (tab === "Home") {
+                              setCurrentImageIndex(0);
+                            }
+                            setActiveTab(tab);
+                          }
+                        }}
+                        className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[160px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all flex items-center justify-center ${
+                          activeTab === tab
+                            ? `${userType}-bg text-white shadow-md`
+                            : "bg-gray-200 text-[#666666] hover:bg-gray-300"
+                        }`}
+                      >
+                        {getTabIcon(tab)}
+                        <span>{tab}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {activeTab === "Home" && (
@@ -636,7 +717,7 @@ const TourConfirm = ({
                   {(uploadedImages.length > 0 ||
                     (currentTourPhotos?.length ?? 0) > 0) && (
                     <div
-                      className={`relative w-full overflow-hidden ${isPublicView ? "h-[70vh] md:h-[100vh]" : "h-[45vh] sm:h-[636px]"}`}
+                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
                     >
                       <CustomSlideshow
                         images={uploadedImages}
@@ -663,33 +744,15 @@ const TourConfirm = ({
                         propSetIsMuted={setIsAudioMuted}
                         watermarkUrl={actualWatermarkLogo}
                       />
-
-                      {isPublicView && (
-                        <div className="absolute bottom-4 left-4 right-4 md:right-auto md:bottom-6 md:left-6 z-50 pointer-events-auto">
-                          <div className="bg-black/70 backdrop-blur-md rounded-lg md:rounded-[12px] px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 shadow-lg">
-                            <MapPin className="text-white w-5 h-5 md:w-6 md:h-6 shrink-0" />
-                            <div className="flex flex-col text-left">
-                              <span className="text-white font-medium text-[16px] md:text-[22px] leading-tight">
-                                {orderData?.property_address ||
-                                  orderData?.property?.address}
-                              </span>
-                              <span className="text-white/80 text-xs md:text-[15px] leading-tight mt-1">
-                                {orderData?.property_location ||
-                                  `${orderData?.property?.city}, ${orderData?.property?.province}`}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
               )}
 
               {activeTab === "Overview" && (
-                <div className="pt-[80px] px-4 md:px-12 flex flex-col gap-10 max-w-5xl mx-auto w-full pb-12">
+                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 flex flex-col gap-10 max-w-5xl mx-auto w-full pb-12">
                   {/* Property Stats Icons */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 py-6 text-center text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 sm:gap-4 text-center text-sm">
                     {[
                       {
                         label: "PRICE",
@@ -717,21 +780,21 @@ const TourConfirm = ({
                         icon: <BathIcon />,
                       },
                       {
-                        label: "SQUARE FOOTAGE",
+                        label: "SQ FT",
                         value: orderData?.property.square_footage
-                          ? `${orderData?.property.square_footage}FT²`
+                          ? `${orderData?.property.square_footage} FT²`
                           : null,
                         icon: <HomeIcon />,
                       },
                       {
                         label: "LOT SIZE",
                         value: orderData?.property.lot_size
-                          ? `${orderData?.property.lot_size}FT²`
+                          ? `${orderData?.property.lot_size} FT²`
                           : null,
                         icon: <LotIcon />,
                       },
                       {
-                        label: "YEAR BUILT",
+                        label: "BUILT",
                         value:
                           orderData?.property.year_constructed !== undefined &&
                           orderData?.property.year_constructed !== null
@@ -756,31 +819,31 @@ const TourConfirm = ({
                       .map((item, index) => (
                         <div
                           key={index}
-                          className="flex flex-col items-center gap-3"
+                          className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-gray-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-2"
                         >
-                          {item.icon}
-                          <div className="text-[14px] text-[#424242] font-alexandria font-semibold uppercase">
+                          <div className="w-10 h-10 rounded-full bg-[#1b365d]/5 flex items-center justify-center text-[#1b365d] shrink-0">
+                            {item.icon}
+                          </div>
+                          <span className="text-[11px] font-bold text-gray-400 font-alexandria uppercase tracking-wider">
                             {item.label}
-                          </div>
-                          <div className="text-[14px] text-[#424242] font-alexandria font-normal uppercase">
+                          </span>
+                          <span className="text-[15px] font-bold text-[#1b365d] font-alexandria uppercase">
                             {item.value}
-                          </div>
+                          </span>
                         </div>
                       ))}
                   </div>
 
-                  <hr className="border-gray-200" />
-
-                  {/* Agent Contact + About Property */}
-                  <div className="flex flex-col md:flex-row gap-6 md:gap-10">
-                    {activeTourType !== "unbranded" && (
-                      <div className="flex flex-col gap-5 items-start w-full md:w-[350px]">
-                        {orderData?.agent.logo_url ? (
-                          <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden mx-auto md:mx-0">
+                  {/* Agent Contact + About Property Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {activeTourType !== "unbranded" && orderData?.agent && (
+                      <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col items-center md:items-start text-center md:text-left gap-5 h-fit">
+                        {orderData?.agent?.logo_url || getAgentLogo() ? (
+                          <div className="w-[200px] sm:w-[220px] aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 mx-auto md:mx-0 bg-gray-50 flex items-center justify-center">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={orderData.agent.logo_url}
-                              alt="Agent"
+                              src={getAgentLogo() || orderData?.agent?.logo_url}
+                              alt="Agent Photo"
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
@@ -790,184 +853,183 @@ const TourConfirm = ({
                             />
                           </div>
                         ) : null}
-                        <div className="text-left w-full flex flex-col gap-[12px] items-center md:items-start">
-                          <div className="text-[#424242] text-[16px] font-alexandria font-semibold">
-                            Contact
-                          </div>
-                          <div className="text-[#424242] text-[20px] font-alexandria font-light text-center md:text-left">
-                            {orderData?.agent.first_name}{" "}
-                            {orderData?.agent.last_name}
-                          </div>
-                          <div className="text-[#424242] text-[20px] font-alexandria font-light text-center md:text-left">
-                            {orderData?.agent.company_name || "Company Name"}
-                          </div>
-                          {orderData?.agent.primary_phone && (
+
+                        <div className="text-left w-full flex flex-col gap-2 items-center md:items-start">
+                          <span className="text-xs font-bold text-gray-400 font-alexandria uppercase tracking-widest">
+                            Listing Agent
+                          </span>
+                          <h3 className="text-xl sm:text-2xl font-bold text-[#1b365d] font-alexandria">
+                            {orderData?.agent?.first_name}{" "}
+                            {orderData?.agent?.last_name}
+                          </h3>
+                          {orderData?.agent?.company_name && (
+                            <p className="text-sm font-medium italic text-gray-600 font-alexandria">
+                              {orderData.agent.company_name}
+                            </p>
+                          )}
+
+                          {orderData?.agent?.primary_phone && (
                             <a
                               href={`tel:${orderData.agent.primary_phone}`}
-                              className="text-[20px] font-alexandria font-light text-center md:text-left"
-                              style={{ color: roleSettings.pageTabColor }}
+                              className="text-base font-semibold text-[#2b6cb0] hover:underline font-alexandria mt-1 flex items-center gap-2"
                             >
-                              {orderData.agent.primary_phone}
+                              <Phone size={16} />
+                              <span>{orderData.agent.primary_phone}</span>
                             </a>
                           )}
-                          {orderData?.agent.website && (
+
+                          {orderData?.agent?.website && (
                             <a
                               href={orderData.agent.website}
-                              className="text-[20px] font-alexandria font-light text-center md:text-left break-all"
-                              style={{ color: roleSettings.pageTabColor }}
+                              className="text-xs text-gray-500 hover:text-[#2b6cb0] break-all font-alexandria hover:underline mt-0.5"
                               target="_blank"
                               rel="noreferrer"
                             >
                               {orderData.agent.website}
                             </a>
                           )}
-                          <div className="flex gap-3 justify-center md:justify-start">
-                            {orderData?.agent.primary_phone && (
-                              <a href={`tel:${orderData.agent.primary_phone}`}>
-                                <Phone className="text-[#7D7D7D]" />
-                              </a>
-                            )}
-                            {orderData?.agent.email && (
-                              <a href={`mailto:${orderData.agent.email}`}>
-                                <Mail className="text-[#7D7D7D]" />
-                              </a>
-                            )}
-                          </div>
+
+                          {orderData?.agent?.email && (
+                            <a
+                              href={`mailto:${orderData.agent.email}?subject=${encodeURIComponent(orderData?.property_address || "Inquiry regarding property")}`}
+                              className="mt-3 flex items-center justify-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs font-semibold px-4 py-2.5 rounded-xl w-full transition-colors shadow-sm"
+                            >
+                              <Mail size={15} />
+                              <span>Email Agent</span>
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-col md:flex-1 justify-between gap-7 h-fit w-full">
+
+                    <div
+                      className={`flex flex-col justify-between gap-6 bg-white rounded-2xl p-6 sm:p-8 border border-gray-200/80 shadow-sm ${activeTourType !== "unbranded" ? "lg:col-span-7" : "lg:col-span-12"}`}
+                    >
                       <div className="flex flex-col gap-4">
-                        <h2 className="text-md font-semibold text-[#424242] font-alexandria text-center md:text-left">
-                          ABOUT THE PROPERTY
-                        </h2>
-                        <p className="text-sm text-gray-600 text-center md:text-left">
+                        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                          <FileText className="text-[#1b365d] w-5 h-5" />
+                          <h2 className="text-lg font-bold text-[#1b365d] font-alexandria uppercase tracking-wide">
+                            About The Property
+                          </h2>
+                        </div>
+                        <p className="text-sm sm:text-base text-gray-700 font-alexandria leading-relaxed whitespace-pre-line">
                           {orderData?.property.description ||
                             "No description available."}
                         </p>
-                        <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                          {(() => {
-                            const listingSheets = featureSheets.filter(
-                              (sheet) => {
-                                const template = templateImages.find(
-                                  (t) => t.id === sheet.template_key,
-                                );
-                                return (
-                                  template?.type === "listing" ||
-                                  (!template &&
-                                    sheet.type === "pdf" &&
-                                    sheet.template_key
-                                      .toLowerCase()
-                                      .includes("flyer"))
-                                );
-                              },
-                            );
-                            const tabloidSheets = featureSheets.filter(
-                              (sheet) => {
-                                const template = templateImages.find(
-                                  (t) => t.id === sheet.template_key,
-                                );
-                                return (
-                                  template?.type === "tabloid" ||
-                                  (!template &&
-                                    sheet.type === "pdf" &&
-                                    sheet.template_key
-                                      .toLowerCase()
-                                      .includes("tabloid"))
-                                );
-                              },
-                            );
-                            return (
-                              <>
-                                {listingSheets.length > 0 && (
-                                  <Button
-                                    className="w-max hover:opacity-90 text-white"
-                                    style={{
-                                      backgroundColor:
-                                        roleSettings.pageTabColor,
-                                    }}
-                                    onClick={() => {
-                                      const sheet =
-                                        listingSheets[listingSheets.length - 1];
-                                      if (
-                                        sheet.type === "pdf" &&
-                                        sheet.pdf_url
-                                      ) {
-                                        window.open(
-                                          featureSheetService.buildStorageUrl(
-                                            sheet.pdf_url,
-                                          ) || "",
-                                          "_blank",
-                                        );
-                                      } else {
-                                        window.open(
-                                          `/tour/feature-sheet/${sheet.uuid}`,
-                                          "_blank",
-                                        );
-                                      }
-                                    }}
-                                    disabled={isLoadingSheets}
-                                  >
-                                    {isLoadingSheets ? (
-                                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                    ) : null}
-                                    Listing Flyer
-                                  </Button>
-                                )}
-                                {tabloidSheets.length > 0 && (
-                                  <Button
-                                    className="w-max hover:opacity-90 text-white"
-                                    style={{
-                                      backgroundColor:
-                                        roleSettings.pageTabColor,
-                                    }}
-                                    onClick={() => {
-                                      const sheet =
-                                        tabloidSheets[tabloidSheets.length - 1];
-                                      if (
-                                        sheet.type === "pdf" &&
-                                        sheet.pdf_url
-                                      ) {
-                                        window.open(
-                                          featureSheetService.buildStorageUrl(
-                                            sheet.pdf_url,
-                                          ) || "",
-                                          "_blank",
-                                        );
-                                      } else {
-                                        window.open(
-                                          `/tour/feature-sheet/${sheet.uuid}`,
-                                          "_blank",
-                                        );
-                                      }
-                                    }}
-                                    disabled={isLoadingSheets}
-                                  >
-                                    {isLoadingSheets ? (
-                                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                    ) : null}
-                                    Tabloid Sheet
-                                  </Button>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 justify-start">
+                        {(() => {
+                          const listingSheets = featureSheets.filter(
+                            (sheet) => {
+                              const template = templateImages.find(
+                                (t) => t.id === sheet.template_key,
+                              );
+                              return (
+                                template?.type === "listing" ||
+                                (!template &&
+                                  sheet.type === "pdf" &&
+                                  sheet.template_key
+                                    .toLowerCase()
+                                    .includes("flyer"))
+                              );
+                            },
+                          );
+                          const tabloidSheets = featureSheets.filter(
+                            (sheet) => {
+                              const template = templateImages.find(
+                                (t) => t.id === sheet.template_key,
+                              );
+                              return (
+                                template?.type === "tabloid" ||
+                                (!template &&
+                                  sheet.type === "pdf" &&
+                                  sheet.template_key
+                                    .toLowerCase()
+                                    .includes("tabloid"))
+                              );
+                            },
+                          );
+                          return (
+                            <>
+                              {listingSheets.length > 0 && (
+                                <Button
+                                  className="w-max hover:opacity-90 text-white rounded-xl shadow-sm"
+                                  style={{
+                                    backgroundColor: roleSettings.pageTabColor,
+                                  }}
+                                  onClick={() => {
+                                    const sheet =
+                                      listingSheets[listingSheets.length - 1];
+                                    if (sheet.type === "pdf" && sheet.pdf_url) {
+                                      window.open(
+                                        featureSheetService.buildStorageUrl(
+                                          sheet.pdf_url,
+                                        ) || "",
+                                        "_blank",
+                                      );
+                                    } else {
+                                      window.open(
+                                        `/tour/feature-sheet/${sheet.uuid}`,
+                                        "_blank",
+                                      );
+                                    }
+                                  }}
+                                  disabled={isLoadingSheets}
+                                >
+                                  {isLoadingSheets ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Listing Flyer
+                                </Button>
+                              )}
+                              {tabloidSheets.length > 0 && (
+                                <Button
+                                  className="w-max hover:opacity-90 text-white rounded-xl shadow-sm"
+                                  style={{
+                                    backgroundColor: roleSettings.pageTabColor,
+                                  }}
+                                  onClick={() => {
+                                    const sheet =
+                                      tabloidSheets[tabloidSheets.length - 1];
+                                    if (sheet.type === "pdf" && sheet.pdf_url) {
+                                      window.open(
+                                        featureSheetService.buildStorageUrl(
+                                          sheet.pdf_url,
+                                        ) || "",
+                                        "_blank",
+                                      );
+                                    } else {
+                                      window.open(
+                                        `/tour/feature-sheet/${sheet.uuid}`,
+                                        "_blank",
+                                      );
+                                    }
+                                  }}
+                                  disabled={isLoadingSheets}
+                                >
+                                  {isLoadingSheets ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Tabloid Sheet
+                                </Button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
 
-                  <hr className="border-gray-200" />
-
                   {/* Share icons */}
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-500 italic">
-                      Share
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 font-alexandria uppercase tracking-widest">
+                      Share Property
                     </span>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <a
                         href={`mailto:?subject=${encodeURIComponent(orderData?.property_address || "")}&body=${encodeURIComponent(currentPath)}`}
-                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        className="w-11 h-11 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] flex items-center justify-center text-white hover:scale-105 transition-all shadow-sm"
                         title="Share via Email"
                       >
                         <Mail size={18} />
@@ -976,7 +1038,7 @@ const TourConfirm = ({
                         href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentPath)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        className="w-11 h-11 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] flex items-center justify-center text-white hover:scale-105 transition-all shadow-sm"
                         title="Share on Facebook"
                       >
                         <svg
@@ -990,7 +1052,7 @@ const TourConfirm = ({
                         href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(currentPath)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        className="w-11 h-11 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] flex items-center justify-center text-white hover:scale-105 transition-all shadow-sm"
                         title="Share on Twitter"
                       >
                         <svg
@@ -1015,7 +1077,7 @@ const TourConfirm = ({
                             toast.success("Link copied to clipboard!");
                           }
                         }}
-                        className="w-10 h-10 rounded-full bg-[#1b365d] flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        className="w-11 h-11 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] flex items-center justify-center text-white hover:scale-105 transition-all shadow-sm"
                         title="Share"
                       >
                         <span className="text-xl font-bold">+</span>
@@ -1023,31 +1085,12 @@ const TourConfirm = ({
                     </div>
                   </div>
 
-                  <hr className="border-gray-200" />
-
-                  {/* Neighborhood */}
-                  <div className="flex flex-col gap-4">
-                    <h3 className="text-center text-xl font-semibold text-[#424242]">
-                      Neighborhood
-                    </h3>
-                    <div className="w-full h-[350px] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 relative">
-                      <iframe
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(`${orderData?.property.address || ""}, ${orderData?.property.city || ""}, ${orderData?.property.province || ""}`)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                        className="w-full h-full border-0"
-                        allowFullScreen
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-
-                  <hr className="border-gray-200" />
-
                   {/* Map */}
-                  <div className="flex flex-col gap-4">
-                    <h3 className="text-center text-xl font-semibold text-[#424242]">
-                      Map
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col gap-4">
+                    <h3 className="text-center text-lg font-bold text-[#1b365d] font-alexandria uppercase tracking-wide">
+                      Location Map
                     </h3>
-                    <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                    <div className="w-full h-[400px] bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
                       <DynamicMap
                         address={orderData?.property.address}
                         city={orderData?.property.city}
@@ -1060,7 +1103,7 @@ const TourConfirm = ({
               )}
 
               {activeTab === "Contact" && (
-                <div className="pt-[80px] px-4 md:px-12 flex flex-col items-center gap-8 max-w-4xl mx-auto w-full pb-16">
+                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 flex flex-col items-center gap-8 max-w-4xl mx-auto w-full pb-16">
                   <h2 className="text-2xl font-semibold text-[#424242]">
                     Contact
                   </h2>
@@ -1092,7 +1135,7 @@ const TourConfirm = ({
                         {orderData?.agent.company_name || ""}
                       </p>
 
-                      <a
+                      {/* <a
                         href="#"
                         onClick={(e) => {
                           e.preventDefault();
@@ -1101,7 +1144,7 @@ const TourConfirm = ({
                         className="text-sm text-gray-600 hover:underline underline"
                       >
                         View All My Tours
-                      </a>
+                      </a> */}
 
                       {/* Company name styled */}
                       <div className="mt-1 flex items-center">
@@ -1111,22 +1154,22 @@ const TourConfirm = ({
                       </div>
 
                       {/* Email + Phone action buttons */}
-                      <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                        {orderData?.agent.email && (
+                      <div className="flex flex-wrap gap-3 mt-4 items-center justify-center sm:justify-start">
+                        {orderData?.agent?.email && (
                           <a
                             href={`mailto:${orderData.agent.email}?subject=Inquiry about ${encodeURIComponent(orderData?.property_address || "Property")}`}
-                            className="inline-flex items-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full font-medium shadow-sm hover:bg-[#132744] transition-colors"
+                            className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap"
                           >
-                            <Mail size={16} />
+                            <Mail size={16} className="shrink-0" />
                             <span>{orderData.agent.email}</span>
                           </a>
                         )}
-                        {orderData?.agent.primary_phone && (
+                        {orderData?.agent?.primary_phone && (
                           <a
                             href={`tel:${orderData.agent.primary_phone}`}
-                            className="inline-flex items-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full font-medium shadow-sm hover:bg-[#132744] transition-colors"
+                            className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap shrink-0"
                           >
-                            <Phone size={16} />
+                            <Phone size={16} className="shrink-0" />
                             <span>{orderData.agent.primary_phone}</span>
                           </a>
                         )}
@@ -1136,56 +1179,97 @@ const TourConfirm = ({
                 </div>
               )}
               {activeTab === "Photos" && (
-                <div className="">
+                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 max-w-7xl mx-auto w-full pb-16">
                   {uploadedImages.length > 0 ||
                   (currentTourPhotos?.length ?? 0) > 0 ? (
                     <>
-                      <CustomSlideshow
-                        className={
-                          isPublicView
-                            ? "h-[70vh] md:h-[100vh]"
-                            : "h-[45vh] sm:h-[636px]"
-                        }
-                        images={uploadedImages}
-                        delay={delay}
-                        transition={transition}
-                        audioUrl={audioUrl}
-                        api_images={currentTourPhotos}
-                        currentIndex={currentImageIndex}
-                        onSlideChange={(index) => {
-                          setCurrentImageIndex(index);
-                          if (
-                            isPublicView &&
-                            onMediaView &&
-                            currentTourPhotos?.[index - uploadedImages.length]
-                          ) {
-                            onMediaView(
-                              currentTourPhotos[index - uploadedImages.length]
-                                .uuid,
-                            );
-                          }
-                        }}
-                        externalAudioControl={isPublicView ? true : undefined}
-                        propIsPlaying={isAudioPlaying}
-                        propIsMuted={isAudioMuted}
-                        propSetIsPlaying={setIsAudioPlaying}
-                        propSetIsMuted={setIsAudioMuted}
-                        watermarkUrl={actualWatermarkLogo}
-                      />
+                      {/* Gallery Toolbar */}
+                      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm mb-6">
+                        <div className="flex items-center gap-2.5">
+                          <ImageIcon className="text-[#1b365d] w-5 h-5" />
+                          <span className="font-bold text-[#1b365d] text-base md:text-lg font-alexandria">
+                            Photo Gallery
+                          </span>
+                          <span className="text-xs bg-gray-100 text-gray-600 font-semibold px-2.5 py-0.5 rounded-full font-alexandria">
+                            {uploadedImages.length +
+                              (currentTourPhotos?.length || 0)}{" "}
+                            Photos
+                          </span>
+                        </div>
 
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-6 md:mt-12 px-4 md:px-6">
+                        <div className="flex items-center gap-3">
+                          {/* Grid Size Selector */}
+                          <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-semibold font-alexandria">
+                            <button
+                              onClick={() => setPhotoGridSize("small")}
+                              className={`px-3 py-1.5 rounded-lg transition-all ${photoGridSize === "small" ? "bg-white text-[#1b365d] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+                            >
+                              Small
+                            </button>
+                            <button
+                              onClick={() => setPhotoGridSize("medium")}
+                              className={`px-3 py-1.5 rounded-lg transition-all ${photoGridSize === "medium" ? "bg-white text-[#1b365d] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+                            >
+                              Medium
+                            </button>
+                            <button
+                              onClick={() => setPhotoGridSize("large")}
+                              className={`px-3 py-1.5 rounded-lg transition-all ${photoGridSize === "large" ? "bg-white text-[#1b365d] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+                            >
+                              Large
+                            </button>
+                          </div>
+
+                          {/* Preview / Play Slideshow Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedPhotoIndex(0);
+                              if (setIsAudioPlaying) {
+                                setIsAudioPlaying(true);
+                              }
+                              setIsFullscreenSlideshowOpen(true);
+                            }}
+                            className="inline-flex items-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs md:text-sm font-semibold px-4 py-2 rounded-xl transition-all shadow-sm shrink-0 cursor-pointer font-alexandria"
+                          >
+                            <Play size={15} />
+                            <span>Play Slideshow</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Photo Grid */}
+                      <div
+                        className={`grid ${
+                          photoGridSize === "small"
+                            ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5"
+                            : photoGridSize === "large"
+                              ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"
+                              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5"
+                        }`}
+                      >
                         {uploadedImages.map((image, index) => (
                           <div
                             key={`uploaded-${index}`}
-                            className={`w-full aspect-video bg-black overflow-hidden cursor-pointer transition-all ${currentImageIndex === index ? "ring-2 ring-[#4290E9] ring-offset-1" : ""}`}
-                            onClick={() => setCurrentImageIndex(index)}
+                            className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                            onClick={() => {
+                              setSelectedPhotoIndex(index);
+                              if (setIsAudioPlaying) {
+                                setIsAudioPlaying(true);
+                              }
+                              setIsFullscreenSlideshowOpen(true);
+                            }}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={URL.createObjectURL(image.file)}
                               alt={`Uploaded ${index + 1}`}
-                              className="w-full h-full object-contain"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                              <div className="w-10 h-10 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-lg">
+                                <Maximize size={18} />
+                              </div>
+                            </div>
                           </div>
                         ))}
                         {currentTourPhotos?.map((image, index) => {
@@ -1193,31 +1277,113 @@ const TourConfirm = ({
                           return (
                             <div
                               key={`api-${index}`}
-                              className={`w-full aspect-video bg-black overflow-hidden cursor-pointer transition-all ${currentImageIndex === globalIndex ? "ring-2 ring-[#4290E9] ring-offset-1" : ""}`}
-                              onClick={() => setCurrentImageIndex(globalIndex)}
+                              className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                              onClick={() => {
+                                setSelectedPhotoIndex(globalIndex);
+                                if (setIsAudioPlaying) {
+                                  setIsAudioPlaying(true);
+                                }
+                                setIsFullscreenSlideshowOpen(true);
+                                if (
+                                  isPublicView &&
+                                  onMediaView &&
+                                  image?.uuid
+                                ) {
+                                  onMediaView(image.uuid);
+                                }
+                              }}
                             >
                               {image.is_processing ? (
                                 <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                  <p className="text-gray-500 font-medium text-10px">
+                                  <p className="text-gray-500 font-medium text-xs">
                                     Processing...
                                   </p>
                                 </div>
                               ) : (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img
-                                  src={
-                                    image.variant_urls?.thumb ||
-                                    image.url ||
-                                    `${API_URL}/${image.file_path}`
-                                  }
-                                  alt={`Uploaded ${index + 1}`}
-                                  className="w-full h-full object-contain"
-                                />
+                                <>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={
+                                      image.variant_urls?.slider ||
+                                      image.variant_urls?.thumb ||
+                                      image.url ||
+                                      `${API_URL}/${image.file_path}`
+                                    }
+                                    alt={`Photo ${index + 1}`}
+                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                    <div className="w-10 h-10 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-lg">
+                                      <Maximize size={18} />
+                                    </div>
+                                  </div>
+                                </>
                               )}
                             </div>
                           );
                         })}
                       </div>
+
+                      {/* Fullscreen Slideshow Modal */}
+                      {isFullscreenSlideshowOpen && (
+                        <div className="fixed inset-0 z-[99999] bg-black flex flex-col justify-center items-center animate-in fade-in duration-200">
+                          {/* Close button */}
+                          <button
+                            onClick={() => {
+                              setIsFullscreenSlideshowOpen(false);
+                              if (setIsAudioPlaying) {
+                                setIsAudioPlaying(false);
+                              }
+                              setSelectedPhotoIndex(0);
+                            }}
+                            className="absolute top-4 right-4 z-[100000] w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-lg"
+                            title="Close Fullscreen"
+                          >
+                            <X size={22} />
+                          </button>
+
+                          <div className="relative w-full h-full">
+                            <CustomSlideshow
+                              className="w-full h-full"
+                              images={uploadedImages}
+                              delay={delay}
+                              transition={transition}
+                              audioUrl={audioUrl}
+                              api_images={currentTourPhotos}
+                              currentIndex={selectedPhotoIndex}
+                              onSlideChange={(index) => {
+                                setSelectedPhotoIndex(index);
+                                if (
+                                  isPublicView &&
+                                  onMediaView &&
+                                  currentTourPhotos?.[
+                                    index - uploadedImages.length
+                                  ]
+                                ) {
+                                  onMediaView(
+                                    currentTourPhotos[
+                                      index - uploadedImages.length
+                                    ].uuid,
+                                  );
+                                }
+                              }}
+                              externalAudioControl={
+                                isPublicView ? true : undefined
+                              }
+                              propIsPlaying={
+                                isAudioPlaying !== undefined
+                                  ? isAudioPlaying
+                                  : true
+                              }
+                              propIsMuted={isAudioMuted}
+                              propSetIsPlaying={setIsAudioPlaying}
+                              propSetIsMuted={setIsAudioMuted}
+                              watermarkUrl={actualWatermarkLogo}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : (
                     (() => {
@@ -1377,7 +1543,7 @@ const TourConfirm = ({
               )}
 
               {activeTab === "Floorplan" && (
-                <div className="w-full pt-[80px]">
+                <div className="w-full pt-[140px] md:pt-[165px]">
                   {isPublicView ? (
                     <PublicTourFloorPlans
                       floorPlanFiles={publicFloorPlanFiles || []}
@@ -1391,7 +1557,7 @@ const TourConfirm = ({
                 </div>
               )}
               <div
-                className="w-full pt-[80px]"
+                className="w-full pt-[140px] md:pt-[165px]"
                 style={{
                   display: activeTab === "Matterport" ? undefined : "none",
                 }}
@@ -1469,6 +1635,90 @@ const TourConfirm = ({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      {/* Floating Side Contact View */}
+      {activeTourType !== "unbranded" && orderData?.agent && (
+        <div className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-auto">
+          {!isSideContactOpen ? (
+            <button
+              onClick={() => setIsSideContactOpen(true)}
+              className="bg-[#4290E9] hover:bg-[#337ab7] text-white py-4 px-2 rounded-l-xl shadow-xl cursor-pointer flex flex-col items-center gap-2 select-none transition-all"
+              title="Open Contact Info"
+            >
+              <div className="w-5 h-5 rounded-full bg-white text-[#4290E9] flex items-center justify-center shadow-sm shrink-0">
+                <ChevronLeft size={14} strokeWidth={3} />
+              </div>
+              <span className="font-bold text-xs tracking-widest uppercase [writing-mode:vertical-lr] rotate-180 select-none">
+                CONTACT
+              </span>
+            </button>
+          ) : (
+            <div className="bg-[#ededed] border border-gray-300 rounded-l-2xl sm:rounded-2xl shadow-2xl p-4 sm:p-5 w-[260px] sm:w-[290px] mr-0 sm:mr-4 flex flex-col transition-all duration-300 animate-in fade-in slide-in-from-right-4">
+              {/* Close Button */}
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => setIsSideContactOpen(false)}
+                  className="w-7 h-7 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] text-white flex items-center justify-center transition-colors shadow cursor-pointer"
+                  title="Close Contact Info"
+                >
+                  <ChevronRight size={18} strokeWidth={3} />
+                </button>
+              </div>
+
+              {/* Agent Photo */}
+              <div className="bg-white border border-gray-300 rounded-sm p-1.5 mb-3 aspect-[4/3] w-full flex items-center justify-center overflow-hidden shadow-inner">
+                {getAgentLogo() ||
+                orderData?.agent?.avatar_url ||
+                orderData?.agent?.avatar ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={
+                      getAgentLogo() ||
+                      orderData?.agent?.avatar_url ||
+                      orderData?.agent?.avatar
+                    }
+                    alt={`${orderData?.agent?.first_name || "Agent"} photo`}
+                    className="w-full h-full object-cover rounded-sm"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 font-medium text-xs">
+                    No Image
+                  </div>
+                )}
+              </div>
+
+              {/* Agent Details */}
+              <div className="flex flex-col items-center text-center">
+                <h4 className="font-bold text-[#1b365d] text-lg sm:text-xl leading-snug">
+                  {orderData?.agent?.first_name} {orderData?.agent?.last_name}
+                </h4>
+                {orderData?.agent?.company_name && (
+                  <p className="italic text-gray-600 text-sm mt-1">
+                    {orderData.agent.company_name}
+                  </p>
+                )}
+                {orderData?.agent?.primary_phone && (
+                  <a
+                    href={`tel:${orderData.agent.primary_phone}`}
+                    className="block text-[#2b6cb0] font-semibold text-base mt-2 hover:underline"
+                  >
+                    {orderData.agent.primary_phone}
+                  </a>
+                )}
+                {orderData?.agent?.email && (
+                  <a
+                    href={`mailto:${orderData.agent.email}?subject=${encodeURIComponent(orderData?.property_address || "Inquiry regarding property")}`}
+                    className="mt-3 flex items-center justify-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-md w-full transition-colors shadow-sm"
+                  >
+                    <Mail size={15} />
+                    <span>Email Agent</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <TourActivityDialog
         open={open}
         onOpenChange={setOpen}

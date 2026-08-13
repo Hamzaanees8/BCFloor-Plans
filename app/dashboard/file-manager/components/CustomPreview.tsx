@@ -20,6 +20,7 @@ interface CustomSlideshowProps {
   propSetIsPlaying?: (playing: boolean) => void;
   propSetIsMuted?: (muted: boolean) => void;
   className?: string;
+  bgClass?: string;
 }
 
 const transitionClasses = [
@@ -56,7 +57,8 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   propIsMuted,
   propSetIsPlaying,
   propSetIsMuted,
-  className = "h-[100vh]"
+  className = "h-[100vh]",
+  bgClass = "bg-white",
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
@@ -317,7 +319,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleContainerMouseLeave}
-      className={`relative w-full overflow-hidden bg-black group isolate ${className}`}
+      className={`relative w-full overflow-hidden ${bgClass} group isolate ${className}`}
     >
       {/* Audio - only if not externally controlled */}
       {audioUrl && !externalAudioControl && (
@@ -332,7 +334,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
         <img
           key={item.id}
           src={item.src}
-          className={`absolute top-0 left-0 w-full h-full object-contain bg-black transition-opacity duration-[2500ms] ${idx === currentIndex
+          className={`absolute top-0 left-0 w-full h-full object-contain ${bgClass} transition-opacity duration-[2500ms] ${idx === currentIndex
             ? `opacity-100 z-20 animate-${getTransitionClass()}`
             : idx === lastIndex
               ? `opacity-100 z-10 animate-${getTransitionClass()}`

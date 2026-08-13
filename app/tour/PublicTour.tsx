@@ -402,7 +402,7 @@ const PublicTour = () => {
   }
 
   return (
-    <div className="w-full font-alexandria relative">
+    <div className="w-full font-alexandria relative overflow-hidden">
       <TourConfirm
         orderData={orderData as any}
         isPublicView={true}
