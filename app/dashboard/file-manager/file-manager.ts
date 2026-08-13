@@ -323,7 +323,7 @@ export async function UploadFilesData(
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.print || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     const xAxis = Number(snap.x ?? (snap as any).x_axis ?? 0);
     const yAxis = Number(snap.y ?? (snap as any).y_axis ?? 0);
@@ -705,7 +705,7 @@ export async function UpdateFilesData(
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.print || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     const xAxis = Number(snap.x ?? (snap as any).x_axis ?? 0);
     const yAxis = Number(snap.y ?? (snap as any).y_axis ?? 0);
@@ -1545,7 +1545,7 @@ export class FeatureSheetService {
     fontSize: string,
     fontWeight: string | number,
     color?: string,
-    textAlign?: "left" | "center" | "right",
+    textAlign?: "left" | "center" | "right" | "justify",
     fontFamily: string = "Alexandria",
   ): StyledTextField {
     return {
@@ -2404,7 +2404,7 @@ export class FeatureSheetService {
           }
           if (slot) {
             const rawPath =
-              img.variant_urls?.landing || img.variant_urls?.thumb || img.thumbnail_url || img.url || img.storage_path || img.file || img.file_path || null;
+              img.variant_urls?.print || img.variant_urls?.landing || img.variant_urls?.thumb || img.thumbnail_url || img.url || img.storage_path || img.file || img.file_path || null;
 
             if (rawPath) {
               acc[slot] = this.buildStorageUrl(rawPath);

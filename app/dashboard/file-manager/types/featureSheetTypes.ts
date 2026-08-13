@@ -4,7 +4,7 @@ export interface TextStyle {
     fontWeight?: string | number;
     fontFamily?: string;
     color?: string;
-    textAlign?: "left" | "center" | "right";
+    textAlign?: "left" | "center" | "right" | "justify";
     lineHeight?: string;
     letterSpacing?: string;
 }
@@ -104,6 +104,7 @@ export interface FeatureSheetImage {
         slider?: string;
         landing?: string;
         popup?: string;
+        print?: string;
     } | null;
     is_processing?: boolean;
     is_hidden?: boolean;

@@ -3,7 +3,16 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { Bold, Italic, Underline, ChevronDown } from "lucide-react";
+import {
+  Bold,
+  Italic,
+  Underline,
+  ChevronDown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+} from "lucide-react";
 import type { TextStyle } from "../types/featureSheetTypes";
 
 type StyledInputProps = {
@@ -95,9 +104,9 @@ export default function StyledInput({
   const [fontSize, setFontSize] = useState<string>("16px");
   const [italic, setItalic] = useState(false);
   const [underline, setUnderline] = useState(false);
-  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
-    "center",
-  );
+  const [textAlign, setTextAlign] = useState<
+    "left" | "center" | "right" | "justify"
+  >("center");
   const [fontFamily, setFontFamily] = useState<string>("font-sans");
   const [internalValue, setInternalValue] = useState(value || "");
   const [isFocused, setIsFocused] = useState(false);
@@ -194,6 +203,7 @@ export default function StyledInput({
       if (className.includes("text-left")) setTextAlign("left");
       if (className.includes("text-right")) setTextAlign("right");
       if (className.includes("text-center")) setTextAlign("center");
+      if (className.includes("text-justify")) setTextAlign("justify");
     }
   }, [className]);
 
@@ -250,7 +260,7 @@ export default function StyledInput({
         ff: string;
         it: boolean;
         ul: boolean;
-        ta: "left" | "center" | "right";
+        ta: "left" | "center" | "right" | "justify";
       }>,
     ) => {
       if (!onChangeStyle) return;
@@ -635,6 +645,57 @@ export default function StyledInput({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Alignment Options (Google Docs Style) */}
+            <div className="flex gap-0.5 border rounded p-0.5 bg-gray-50 items-center">
+              <button
+                type="button"
+                title="Align Left"
+                className={cn(
+                  "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                  textAlign === "left" && "bg-gray-800 text-white hover:bg-gray-800",
+                )}
+                onClick={() => applyStyle("textAlign", "left")}
+              >
+                <AlignLeft className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                type="button"
+                title="Align Center"
+                className={cn(
+                  "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                  textAlign === "center" && "bg-gray-800 text-white hover:bg-gray-800",
+                )}
+                onClick={() => applyStyle("textAlign", "center")}
+              >
+                <AlignCenter className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                type="button"
+                title="Align Right"
+                className={cn(
+                  "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                  textAlign === "right" && "bg-gray-800 text-white hover:bg-gray-800",
+                )}
+                onClick={() => applyStyle("textAlign", "right")}
+              >
+                <AlignRight className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                type="button"
+                title="Justify"
+                className={cn(
+                  "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                  textAlign === "justify" && "bg-gray-800 text-white hover:bg-gray-800",
+                )}
+                onClick={() => applyStyle("textAlign", "justify")}
+              >
+                <AlignJustify className="h-3.5 w-3.5" />
+              </button>
             </div>
 
             {/* Style Icons */}

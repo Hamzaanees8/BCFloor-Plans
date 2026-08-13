@@ -51,6 +51,7 @@ export default function FileManagerGallery({
       }
 
       const imageUrl =
+        selectedFile.variant_urls?.print ||
         selectedFile.variant_urls?.landing ||
         selectedFile.thumbnail_url ||
         selectedFile.url ||
@@ -226,7 +227,7 @@ export default function FileManagerGallery({
                       ) : (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
-                          src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                          src={file.variant_urls?.print || file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                           alt={displayName}
                           className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300 ease-out"
                         />

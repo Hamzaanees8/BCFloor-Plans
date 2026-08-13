@@ -43,6 +43,7 @@ export type DroppedMarker = {
         slider: string;
         landing: string;
         popup: string;
+        print?: string;
     };
 };
 
@@ -77,6 +78,7 @@ export type Files = {
         slider: string;
         landing: string;
         popup: string;
+        print?: string;
     };
     isPanorama?: boolean;
     size?: number;
@@ -99,6 +101,7 @@ export type SnapShots = {
         slider: string;
         landing: string;
         popup: string;
+        print?: string;
     };
 }
 export type FilesData = {

@@ -1,6 +1,43 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+const copyComputedStyles = (sourceNode, targetNode) => {
+  if (!sourceNode || !targetNode || sourceNode.nodeType !== 1 || targetNode.nodeType !== 1) return;
+
+  const computed = window.getComputedStyle(sourceNode);
+
+  const styleProperties = [
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "lineHeight",
+    "letterSpacing", "wordSpacing", "whiteSpace", "wordBreak", "overflowWrap",
+    "textAlign", "textTransform", "verticalAlign",
+    "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
+    "margin", "marginTop", "marginRight", "marginBottom", "marginLeft",
+    "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "boxSizing", "display", "position", "top", "right", "bottom", "left",
+    "flex", "flexDirection", "flexWrap", "justifyContent", "alignItems", "alignContent",
+    "gridTemplateColumns", "gridTemplateRows", "gap", "rowGap", "columnGap",
+    "overflow", "overflowX", "overflowY",
+    "boxShadow", "border", "borderTop", "borderRight", "borderBottom", "borderLeft",
+    "borderColor", "borderStyle", "borderWidth", "borderRadius"
+  ];
+
+  for (let prop of styleProperties) {
+    const val = computed[prop];
+    if (val && val !== "auto" && val !== "normal" && val !== "none" && val !== "rgba(0, 0, 0, 0)") {
+      try {
+        targetNode.style[prop] = val;
+      } catch {}
+    }
+  }
+
+  const sourceChildren = Array.from(sourceNode.children);
+  const targetChildren = Array.from(targetNode.children);
+  const count = Math.min(sourceChildren.length, targetChildren.length);
+
+  for (let i = 0; i < count; i++) {
+    copyComputedStyles(sourceChildren[i], targetChildren[i]);
+  }
+};
 
 const TabloidPdfGenerator = async (
   elementId,
@@ -86,6 +123,9 @@ const TabloidPdfGenerator = async (
   });
 
   document.body.appendChild(clone);
+
+  // Copy exact computed styles from live rendered DOM to clone to retain box shadows and borders
+  copyComputedStyles(section, clone);
 
   await preloadImages(clone);
 
@@ -237,7 +277,8 @@ const TabloidPdfGenerator = async (
     const pdf = new jsPDF({
       orientation: orientation,
       unit: "in",
-      format: [finalPaperWidth, finalPaperHeight]
+      format: [finalPaperWidth, finalPaperHeight],
+      compress: true
     });
 
     for (let i = 0; i < elementsToCapture.length; i++) {
@@ -281,7 +322,7 @@ const TabloidPdfGenerator = async (
         finalCanvas = croppedCanvas;
       }
 
-      const finalImgData = finalCanvas.toDataURL("image/png", 1.0);
+      const finalImgData = finalCanvas.toDataURL("image/jpeg", 0.90);
 
       if (i > 0) {
         pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);
@@ -293,7 +334,7 @@ const TabloidPdfGenerator = async (
         const safeImgHeight = 11 - safeMargin * 2; // 10.5"
         pdf.addImage(
           finalImgData,
-          "PNG",
+          "JPEG",
           safeMargin,
           safeMargin,
           safeImgWidth,
@@ -302,7 +343,7 @@ const TabloidPdfGenerator = async (
       } else {
         pdf.addImage(
           finalImgData,
-          "PNG",
+          "JPEG",
           0,
           0,
           finalPaperWidth,

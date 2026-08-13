@@ -34,6 +34,29 @@ interface BcfpStandard6Props {
   showGuide?: boolean;
 }
 
+// ─── BoxIndicator ─────────────────────────────────────────────────────────────
+// Renders a Canva-style 3.5px colored border indicator to indicate the bounds
+// of an image container on hover, click (active), or drag.
+interface BoxIndicatorProps {
+  isVisible: boolean;
+}
+
+const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div
+      data-html2canvas-ignore="true"
+      className="absolute inset-0 border-[3.5px] border-[#8B3DFF] pointer-events-none z-30 transition-all duration-100"
+      style={{
+        boxShadow:
+          "0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 8px rgba(139, 61, 255, 0.4)",
+      }}
+    />
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ─── DetailFieldRow ────────────────────────────────────────────────────────────
 // Renders a single editable title + editable value input row.
 // On hover: shows a ✏ (edit title) and ✕ (remove) icon next to the title.
@@ -338,6 +361,26 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     );
     const [showGallery, setShowGallery] = useState(false);
 
+    // Box Indicator active & hover states
+    const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+    const [activeSlot, setActiveSlot] = useState<string | null>(null);
+
+    const isSlotActive = (key: string) =>
+      hoveredSlot === key ||
+      activeSlot === key ||
+      Boolean(dragging[key as keyof typeof dragging]);
+
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-image-slot="true"]')) {
+          setActiveSlot(null);
+        }
+      };
+      window.addEventListener("mousedown", handleClickOutside);
+      return () => window.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
     const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -427,27 +470,42 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         if (formData.cityLine) setCityLine(s(formData.cityLine));
 
         if (formData.images) {
+          const loadedImages = formData.images as typeof images;
+          const logoUrl = loadedImages.image7 || loadedImages.image16 || null;
           setImages((prev) => ({
             ...prev,
-            ...(formData.images as typeof images),
+            ...loadedImages,
+            ...(logoUrl ? { image7: logoUrl, image16: logoUrl } : {}),
           }));
         }
         if (formData.imageScales) {
+          const loadedScales = formData.imageScales as typeof scale;
+          const logoScale = loadedScales.image7 || loadedScales.image16 || 1;
           setScale((prev) => ({
             ...prev,
-            ...(formData.imageScales as typeof scale),
+            ...loadedScales,
+            image7: logoScale,
+            image16: logoScale,
           }));
         }
         if (formData.imagePositions) {
+          const loadedPositions = formData.imagePositions as typeof position;
+          const logoPos = loadedPositions.image7 || loadedPositions.image16 || { x: 0, y: 0 };
           setPosition((prev) => ({
             ...prev,
-            ...(formData.imagePositions as typeof position),
+            ...loadedPositions,
+            image7: logoPos,
+            image16: logoPos,
           }));
         }
         if (formData.imageRotations) {
+          const loadedRotations = formData.imageRotations as unknown as typeof rotation;
+          const logoRot = loadedRotations.image7 || loadedRotations.image16 || 0;
           setRotation((prev) => ({
             ...prev,
-            ...(formData.imageRotations as unknown as typeof rotation),
+            ...loadedRotations,
+            image7: logoRot,
+            image16: logoRot,
           }));
         }
       }
@@ -503,6 +561,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     // --- Handlers ---
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
       if (e.altKey) return;
+      setActiveSlot(key);
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
@@ -511,11 +570,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       if (!dragging[key]) return;
       const dx = (e.clientX - lastPosition.current[key].x) / 0.55;
       const dy = (e.clientY - lastPosition.current[key].y) / 0.55;
-      setPosition((prev) => ({
-        ...prev,
-        [key]: { x: prev[key].x + dx, y: prev[key].y + dy },
-      }));
+      const isLogo = key === "image7" || key === "image16";
+
+      setPosition((prev) => {
+        const newPos = { x: prev[key].x + dx, y: prev[key].y + dy };
+        if (isLogo) {
+          return { ...prev, image7: newPos, image16: newPos };
+        }
+        return { ...prev, [key]: newPos };
+      });
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
+      if (isLogo) {
+        lastPosition.current.image7 = { x: e.clientX, y: e.clientY };
+        lastPosition.current.image16 = { x: e.clientX, y: e.clientY };
+      }
     };
 
     const handleMouseUp = (key: keyof typeof images) =>
@@ -524,24 +592,55 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       setDragging((prev) => ({ ...prev, [key]: false }));
 
     const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
+      const isLogo = key === "image7" || key === "image16";
       setScale((prev) => {
-        const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        return { ...prev, [key]: Math.min(Math.max(newScale, 0.1), 5) };
+        const targetKey = isLogo ? "image7" : key;
+        const newScale = Math.min(
+          Math.max(direction === "in" ? prev[targetKey] + 0.1 : prev[targetKey] - 0.1, 0.1),
+          5,
+        );
+        if (isLogo) {
+          return { ...prev, image7: newScale, image16: newScale };
+        }
+        return { ...prev, [key]: newScale };
       });
     };
 
     const handleRotate = (key: keyof typeof images) => {
-      setRotation((prev) => ({ ...prev, [key]: (prev[key] + 90) % 360 }));
+      const isLogo = key === "image7" || key === "image16";
+      setRotation((prev) => {
+        const targetKey = isLogo ? "image7" : key;
+        const newRot = (prev[targetKey] + 90) % 360;
+        if (isLogo) {
+          return { ...prev, image7: newRot, image16: newRot };
+        }
+        return { ...prev, [key]: newRot };
+      });
     };
 
     const handleDelete = (
       key: keyof typeof images,
       ref: React.RefObject<HTMLInputElement | null>,
     ) => {
-      setImages((prev) => ({ ...prev, [key]: null }));
-      setScale((prev) => ({ ...prev, [key]: 1 }));
-      setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
-      if (ref.current) ref.current.value = "";
+      const isLogo = key === "image7" || key === "image16";
+      if (isLogo) {
+        setImages((prev) => ({ ...prev, image7: null, image16: null }));
+        setScale((prev) => ({ ...prev, image7: 1, image16: 1 }));
+        setPosition((prev) => ({
+          ...prev,
+          image7: { x: 0, y: 0 },
+          image16: { x: 0, y: 0 },
+        }));
+        setRotation((prev) => ({ ...prev, image7: 0, image16: 0 }));
+        if (fileInputRef7.current) fileInputRef7.current.value = "";
+        if (fileInputRef16.current) fileInputRef16.current.value = "";
+      } else {
+        setImages((prev) => ({ ...prev, [key]: null }));
+        setScale((prev) => ({ ...prev, [key]: 1 }));
+        setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+        setRotation((prev) => ({ ...prev, [key]: 0 }));
+        if (ref.current) ref.current.value = "";
+      }
     };
 
     const handleImageChange = (
@@ -549,11 +648,24 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
-        setImages((prev) => ({
-          ...prev,
-          [key]: URL.createObjectURL(e.target.files![0]),
-        }));
-        setScale((prev) => ({ ...prev, [key]: 1 }));
+        const newUrl = URL.createObjectURL(e.target.files[0]);
+        const isLogo = key === "image7" || key === "image16";
+        if (isLogo) {
+          setImages((prev) => ({ ...prev, image7: newUrl, image16: newUrl }));
+          setScale((prev) => ({ ...prev, image7: 1, image16: 1 }));
+          setPosition((prev) => ({
+            ...prev,
+            image7: { x: 0, y: 0 },
+            image16: { x: 0, y: 0 },
+          }));
+          setRotation((prev) => ({ ...prev, image7: 0, image16: 0 }));
+        } else {
+          setImages((prev) => ({
+            ...prev,
+            [key]: newUrl,
+          }));
+          setScale((prev) => ({ ...prev, [key]: 1 }));
+        }
       }
     };
 
@@ -626,11 +738,23 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-      setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
-      setScale((prev) => ({
-        ...prev,
-        [currentImageSlot as keyof typeof scale]: 1,
-      }));
+      const isLogo = currentImageSlot === "image7" || currentImageSlot === "image16";
+      if (isLogo) {
+        setImages((prev) => ({ ...prev, image7: imageUrl, image16: imageUrl }));
+        setScale((prev) => ({ ...prev, image7: 1, image16: 1 }));
+        setPosition((prev) => ({
+          ...prev,
+          image7: { x: 0, y: 0 },
+          image16: { x: 0, y: 0 },
+        }));
+        setRotation((prev) => ({ ...prev, image7: 0, image16: 0 }));
+      } else {
+        setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
+        setScale((prev) => ({
+          ...prev,
+          [currentImageSlot as keyof typeof scale]: 1,
+        }));
+      }
       setShowGallery(false);
       setCurrentImageSlot(null);
     };
@@ -1024,26 +1148,45 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
         setFieldStyles(styles);
 
-        if (state.images)
+        if (state.images) {
+          const loadedImages = state.images as unknown as typeof images;
+          const logoUrl = loadedImages.image7 || loadedImages.image16 || null;
           setImages((prev) => ({
             ...prev,
-            ...(state.images as unknown as typeof images),
+            ...loadedImages,
+            ...(logoUrl ? { image7: logoUrl, image16: logoUrl } : {}),
           }));
-        if (state.imageScales)
+        }
+        if (state.imageScales) {
+          const loadedScales = state.imageScales as unknown as typeof scale;
+          const logoScale = loadedScales.image7 || loadedScales.image16 || 1;
           setScale((prev) => ({
             ...prev,
-            ...(state.imageScales as unknown as typeof scale),
+            ...loadedScales,
+            image7: logoScale,
+            image16: logoScale,
           }));
-        if (state.imagePositions)
+        }
+        if (state.imagePositions) {
+          const loadedPositions = state.imagePositions as unknown as typeof position;
+          const logoPos = loadedPositions.image7 || loadedPositions.image16 || { x: 0, y: 0 };
           setPosition((prev) => ({
             ...prev,
-            ...(state.imagePositions as unknown as typeof position),
+            ...loadedPositions,
+            image7: logoPos,
+            image16: logoPos,
           }));
-        if (state.imageRotations)
+        }
+        if (state.imageRotations) {
+          const loadedRotations = state.imageRotations as unknown as typeof rotation;
+          const logoRot = loadedRotations.image7 || loadedRotations.image16 || 0;
           setRotation((prev) => ({
             ...prev,
-            ...(state.imageRotations as unknown as typeof rotation),
+            ...loadedRotations,
+            image7: logoRot,
+            image16: logoRot,
           }));
+        }
       },
     }));
 
@@ -1108,7 +1251,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                   {/* Page 1 Left Column */}
                   <div className="w-1/2 bg-white flex flex-col relative h-full">
                     {/* image1 */}
-                    <div className="w-full h-full place-self-center relative overflow-hidden group">
+                    <div
+                      data-image-slot="true"
+                      className="w-full h-full place-self-center relative overflow-hidden group cursor-pointer"
+                      onMouseEnter={() => setHoveredSlot("image1")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlot("image1");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image1")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image1", e)}
@@ -1253,12 +1406,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
                       {/* image7 */}
                       <div
+                        data-image-slot="true"
                         {...(!images.image7
                           ? { "data-html2canvas-ignore": "true" }
                           : {})}
-                        className="absolute bottom-[-145px] left-[50px] group z-10"
+                        className="absolute bottom-[-145px] left-[50px] group z-10 cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image7")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image7");
+                        }}
                       >
-                        <div className="w-[200px] h-[110px] relative group overflow-hidden">
+                        <div className="w-[160px] h-[80px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                          <BoxIndicator isVisible={isSlotActive("image7")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image7", e)}
@@ -1282,14 +1443,14 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 </div>
 
                                 {/* Zoom Controls */}
-                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-10">
                                   <button
                                     type="button"
                                     onClick={() => handleZoom("image7", "in")}
                                     className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                                     title="Zoom In"
                                   >
-                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                    <ZoomIn className="w-3 h-3 text-gray-700" />
                                   </button>
                                   <button
                                     type="button"
@@ -1297,7 +1458,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                                     title="Zoom Out"
                                   >
-                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                    <ZoomOut className="w-3 h-3 text-gray-700" />
                                   </button>
                                 </div>
 
@@ -1305,20 +1466,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 <button
                                   type="button"
                                   onClick={() => handleRotate("image7")}
-                                  className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  className="absolute top-1 right-[50px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                   title="Rotate image"
                                 >
-                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                  <RotateCw className="w-3 h-3 text-gray-700" />
                                 </button>
 
                                 {/* Edit Button */}
                                 <button
                                   type="button"
                                   onClick={() => openImageSourceModal("image7")}
-                                  className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-1 right-7 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Edit image"
                                 >
-                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                  <Pencil className="w-3 h-3 text-gray-700" />
                                 </button>
 
                                 {/* Delete Button */}
@@ -1327,19 +1488,19 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                   onClick={() =>
                                     handleDelete("image7", fileInputRef7)
                                   }
-                                  className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-1 right-1 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
-                                  <Trash className="w-4 h-4 text-red-500" />
+                                  <Trash className="w-3 h-3 text-red-500" />
                                 </button>
                               </>
                             ) : (
                               <div
                                 data-html2canvas-ignore="true"
                                 onClick={() => openImageSourceModal("image7")}
-                                className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                                className="w-full h-full bg-gray-100 text-gray-500 text-[11px] font-semibold flex items-center justify-center cursor-pointer border border-dashed border-gray-300 hover:bg-gray-200 transition-colors"
                               >
-                                Select Image
+                                Select Logo
                               </div>
                             )}
 
@@ -1406,7 +1567,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     </svg>
 
                     {/* image2 */}
-                    <div className="w-full h-[580px] mt-[25px] place-self-center relative overflow-hidden group">
+                    <div
+                      data-image-slot="true"
+                      className="w-full h-[580px] mt-[25px] place-self-center relative overflow-hidden group cursor-pointer"
+                      onMouseEnter={() => setHoveredSlot("image2")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlot("image2");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image2")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image2", e)}
@@ -1501,7 +1672,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     {/* 4 Bottom Grid Photos (image3, image4, image5, image6) */}
                     <div className="grid grid-cols-4">
                       {/* image3 */}
-                      <div className="h-full relative group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        className="h-full relative group overflow-hidden cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image3")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image3");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image3")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image3", e)}
@@ -1596,7 +1777,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image4 */}
-                      <div className="h-[170px] relative group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        className="h-[170px] relative group overflow-hidden cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image4")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image4");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image4")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image4", e)}
@@ -1691,7 +1882,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image5 */}
-                      <div className="h-[170px] relative group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        className="h-[170px] relative group overflow-hidden cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image5")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image5");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image5")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image5", e)}
@@ -1786,7 +1987,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image6 */}
-                      <div className="h-[170px] relative group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        className="h-[170px] relative group overflow-hidden cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image6")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image6");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image6")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image6", e)}
@@ -1893,20 +2104,133 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       "linear-gradient(90deg, #00B9F2 0%, #0097C9 39%, #028DBD 52%, #186C9B 89%, #226392 100%)",
                   }}
                 >
+                  {/* Agency Logo Card Overlay (image16) */}
+                  <div
+                    data-image-slot="true"
+                    {...(!images.image16
+                      ? { "data-html2canvas-ignore": "true" }
+                      : {})}
+                    className="absolute left-[44%] -translate-x-1/2 -top-[25px] z-30 group cursor-pointer"
+                    onMouseEnter={() => setHoveredSlot("image16")}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveSlot("image16");
+                    }}
+                  >
+                    <div className="w-[160px] h-[80px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                      <BoxIndicator isVisible={isSlotActive("image16")} />
+                      <div
+                        className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                        onMouseMove={(e) => handleMouseMove("image16", e)}
+                        onMouseUp={() => handleMouseUp("image16")}
+                        onMouseLeave={() => handleMouseLeave("image16")}
+                      >
+                        {images.image16 ? (
+                          <>
+                            <div
+                              className="w-full h-full cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => handleMouseDown("image16", e)}
+                            >
+                              <ImageEditor
+                                src={images.image16}
+                                scale={scale.image16}
+                                position={position.image16}
+                                rotation={rotation.image16}
+                              />
+                            </div>
+
+                            {/* Zoom Controls */}
+                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-10">
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image16", "in")}
+                                className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom In"
+                              >
+                                <ZoomIn className="w-3 h-3 text-gray-700" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image16", "out")}
+                                className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom Out"
+                              >
+                                <ZoomOut className="w-3 h-3 text-gray-700" />
+                              </button>
+                            </div>
+
+                            {/* Rotate */}
+                            <button
+                              type="button"
+                              onClick={() => handleRotate("image16")}
+                              className="absolute top-1 right-[50px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              title="Rotate image"
+                            >
+                              <RotateCw className="w-3 h-3 text-gray-700" />
+                            </button>
+
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={() => openImageSourceModal("image16")}
+                              className="absolute top-1 right-7 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Edit image"
+                            >
+                              <Pencil className="w-3 h-3 text-gray-700" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDelete("image16", fileInputRef16)
+                              }
+                              className="absolute top-1 right-1 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Delete image"
+                            >
+                              <Trash className="w-3 h-3 text-red-500" />
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            data-html2canvas-ignore="true"
+                            onClick={() => openImageSourceModal("image16")}
+                            className="w-full h-full bg-gray-100 text-gray-500 text-[11px] font-semibold flex items-center justify-center cursor-pointer border border-dashed border-gray-300 hover:bg-gray-200 transition-colors"
+                          >
+                            Select Logo
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={fileInputRef16}
+                          onChange={(e) => handleImageChange("image16", e)}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="w-1/2 py-[10px] relative flex items-center">
-                    <div className="text-white leading-none text-left ">
+                    <div className="text-white leading-none text-left w-[85%] ">
                       <div>
                         <div className="font-semibold text-[20px] flex gap-3  w-[90%]">
-                          <StyledInput
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("fullName", s)
-                            }
-                            inputStyle={fieldStyles.fullName}
-                            className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="FIRSTNAME LASTNAME"
-                          />
+                          <div className="flex items-center gap-1 w-full">
+                            <span className="text-[20px] font-[300]">
+                              Contact:
+                            </span>
+                            <StyledInput
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("fullName", s)
+                              }
+                              inputStyle={fieldStyles.fullName}
+                              className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="FIRSTNAME LASTNAME"
+                            />
+                          </div>
                           <StyledInput
                             value={propertyName}
                             onChange={(e) => setPropertyName(e.target.value)}
@@ -1919,22 +2243,36 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           />
                         </div>
                         <div className="font-semibold text-[20px] flex gap-3 mt-3 w-[90%]">
-                          <StyledInput
-                            value={number}
-                            onChange={(e) => setNumber(e.target.value)}
-                            onChangeStyle={(s) => updateFieldStyle("number", s)}
-                            inputStyle={fieldStyles.number}
-                            className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="604.000.0000"
-                          />
-                          <StyledInput
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            onChangeStyle={(s) => updateFieldStyle("email", s)}
-                            inputStyle={fieldStyles.email}
-                            className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                            placeholder="Enter email here"
-                          />
+                          <div className="flex items-center gap-1 w-full">
+                            <span className="text-[20px] font-[300]">
+                              PHONE:
+                            </span>
+                            <StyledInput
+                              value={number}
+                              onChange={(e) => setNumber(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("number", s)
+                              }
+                              inputStyle={fieldStyles.number}
+                              className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="604.000.0000"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 w-full">
+                            <span className="text-[20px] font-[300]">
+                              Email:
+                            </span>
+                            <StyledInput
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("email", s)
+                              }
+                              inputStyle={fieldStyles.email}
+                              className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                              placeholder="Enter email here"
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="text-start  font-light flex w-[80%] mt-4">
@@ -2231,7 +2569,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                   {/* Page 2 Left Column */}
                   <div className="w-1/2 flex flex-col gap-4">
                     {/* image8 */}
-                    <div className="w-full h-[500px] flex-1 place-self-center z-10 relative overflow-hidden group">
+                    <div
+                      data-image-slot="true"
+                      style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                      className="w-full h-[500px] flex-1 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image8")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlot("image8");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image8")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image8", e)}
@@ -2323,7 +2672,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
                     </div>
 
-                    <div className="max-h-[170px] overflow-hidden px-4 py-1">
+                    <div className="min-h-[170px] overflow-hidden px-4 py-1">
                       <StyledInput
                         value={description}
                         rows={6}
@@ -2332,14 +2681,25 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           updateFieldStyle("description", s)
                         }
                         inputStyle={fieldStyles.description}
-                        className="font-normal text-[10px] h-auto z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                        className="font-normal text-[10px] h-[170px] z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
                         placeholder="Enter property description here..."
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       {/* image9 */}
-                      <div className="h-[220px] relative z-10 group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                        className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        onMouseEnter={() => setHoveredSlot("image9")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image9");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image9")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image9", e)}
@@ -2434,7 +2794,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
 
                       {/* image10 */}
-                      <div className="h-[220px] relative z-10 group overflow-hidden">
+                      <div
+                        data-image-slot="true"
+                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                        className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        onMouseEnter={() => setHoveredSlot("image10")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image10");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image10")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image10", e)}
@@ -2581,9 +2952,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                   {/* Page 2 Right Column */}
                   <div className="w-1/2 flex gap-4 h-full">
                     <div className="w-[50%] h-full">
-                      <div className="flex flex-col gap-3 h-full w-full pb-3">
+                      <div className="flex flex-col gap-4 h-full w-full pb-3">
                         {/* image11 */}
-                        <div className="flex-1 min-h-0 w-full relative z-10 group overflow-hidden">
+                        <div
+                          data-image-slot="true"
+                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          onMouseEnter={() => setHoveredSlot("image11")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSlot("image11");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image11")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image11", e)}
@@ -2680,7 +3062,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         </div>
 
                         {/* image12 */}
-                        <div className="flex-1 min-h-0 w-full relative z-10 group overflow-hidden">
+                        <div
+                          data-image-slot="true"
+                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          onMouseEnter={() => setHoveredSlot("image12")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSlot("image12");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image12")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image12", e)}
@@ -2777,7 +3170,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         </div>
 
                         {/* image13 */}
-                        <div className="flex-1 min-h-0 w-full relative z-10 group overflow-hidden">
+                        <div
+                          data-image-slot="true"
+                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          onMouseEnter={() => setHoveredSlot("image13")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSlot("image13");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image13")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image13", e)}
@@ -2874,7 +3278,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         </div>
 
                         {/* image14 */}
-                        <div className="flex-1 min-h-0 w-full relative z-10 group overflow-hidden">
+                        <div
+                          data-image-slot="true"
+                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          onMouseEnter={() => setHoveredSlot("image14")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSlot("image14");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image14")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image14", e)}
@@ -2975,10 +3390,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     <div className="w-[50%] flex flex-col justify-between gap-[100px]">
                       {/* image15 */}
                       <div
-                        className={`w-full h-[590px] mb-4 place-self-center z-10 relative overflow-hidden group ${
-                          images.image15 ? "border-2 border-[#fff]" : ""
-                        }`}
+                        data-image-slot="true"
+                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
+                        className="w-full h-[590px] mb-4 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        onMouseEnter={() => setHoveredSlot("image15")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlot("image15");
+                        }}
                       >
+                        <BoxIndicator isVisible={isSlotActive("image15")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image15", e)}
