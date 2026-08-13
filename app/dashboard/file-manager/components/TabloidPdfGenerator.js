@@ -1,43 +1,6 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-const copyComputedStyles = (sourceNode, targetNode) => {
-  if (!sourceNode || !targetNode || sourceNode.nodeType !== 1 || targetNode.nodeType !== 1) return;
-
-  const computed = window.getComputedStyle(sourceNode);
-
-  const styleProperties = [
-    "fontFamily", "fontSize", "fontWeight", "fontStyle", "lineHeight",
-    "letterSpacing", "wordSpacing", "whiteSpace", "wordBreak", "overflowWrap",
-    "textAlign", "textTransform", "verticalAlign",
-    "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
-    "margin", "marginTop", "marginRight", "marginBottom", "marginLeft",
-    "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-    "boxSizing", "display", "position", "top", "right", "bottom", "left",
-    "flex", "flexDirection", "flexWrap", "justifyContent", "alignItems", "alignContent",
-    "gridTemplateColumns", "gridTemplateRows", "gap", "rowGap", "columnGap",
-    "overflow", "overflowX", "overflowY",
-    "boxShadow", "border", "borderTop", "borderRight", "borderBottom", "borderLeft",
-    "borderColor", "borderStyle", "borderWidth", "borderRadius"
-  ];
-
-  for (let prop of styleProperties) {
-    const val = computed[prop];
-    if (val && val !== "auto" && val !== "normal" && val !== "none" && val !== "rgba(0, 0, 0, 0)") {
-      try {
-        targetNode.style[prop] = val;
-      } catch {}
-    }
-  }
-
-  const sourceChildren = Array.from(sourceNode.children);
-  const targetChildren = Array.from(targetNode.children);
-  const count = Math.min(sourceChildren.length, targetChildren.length);
-
-  for (let i = 0; i < count; i++) {
-    copyComputedStyles(sourceChildren[i], targetChildren[i]);
-  }
-};
 
 const TabloidPdfGenerator = async (
   elementId,
@@ -123,9 +86,6 @@ const TabloidPdfGenerator = async (
   });
 
   document.body.appendChild(clone);
-
-  // Copy exact computed styles from live rendered DOM to clone to retain box shadows and borders
-  copyComputedStyles(section, clone);
 
   await preloadImages(clone);
 

@@ -2571,7 +2571,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     {/* image8 */}
                     <div
                       data-image-slot="true"
-                      style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                       className="w-full h-[500px] flex-1 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                       onMouseEnter={() => setHoveredSlot("image8")}
                       onMouseLeave={() => setHoveredSlot(null)}
@@ -2690,7 +2689,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image9 */}
                       <div
                         data-image-slot="true"
-                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                         className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image9")}
                         onMouseLeave={() => setHoveredSlot(null)}
@@ -2796,7 +2794,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image10 */}
                       <div
                         data-image-slot="true"
-                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                         className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image10")}
                         onMouseLeave={() => setHoveredSlot(null)}
@@ -2956,7 +2953,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image11 */}
                         <div
                           data-image-slot="true"
-                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                           className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image11")}
                           onMouseLeave={() => setHoveredSlot(null)}
@@ -3064,7 +3060,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image12 */}
                         <div
                           data-image-slot="true"
-                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                           className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image12")}
                           onMouseLeave={() => setHoveredSlot(null)}
@@ -3172,7 +3167,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image13 */}
                         <div
                           data-image-slot="true"
-                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                           className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image13")}
                           onMouseLeave={() => setHoveredSlot(null)}
@@ -3280,7 +3274,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image14 */}
                         <div
                           data-image-slot="true"
-                          style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                           className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image14")}
                           onMouseLeave={() => setHoveredSlot(null)}
@@ -3391,7 +3384,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image15 */}
                       <div
                         data-image-slot="true"
-                        style={{ boxShadow: "4px 4px 6px rgba(0, 0, 0, 0.85)" }}
                         className="w-full h-[590px] mb-4 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image15")}
                         onMouseLeave={() => setHoveredSlot(null)}
