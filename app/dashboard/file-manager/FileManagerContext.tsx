@@ -228,6 +228,8 @@ type FormData = {
   detailFields?: DetailField[];
   leftDetailFields?: DetailField[];
   rightDetailFields?: DetailField[];
+  deletedDetailFields?: any[];
+  deletedStandardFieldIds?: string[];
 };
 
 type FileManagerContextType = {
@@ -273,6 +275,16 @@ type FileManagerContextType = {
   formData: FormData;
   setFormData: Dispatch<SetStateAction<FormData>>;
   updateFormData: (updates: Partial<FormData>) => void;
+
+  restoreDetailFieldHandler: ((id: string) => void) | null;
+  setRestoreDetailFieldHandler: Dispatch<
+    SetStateAction<((id: string) => void) | null>
+  >;
+
+  restoreAllDetailFieldsHandler: (() => void) | null;
+  setRestoreAllDetailFieldsHandler: Dispatch<
+    SetStateAction<(() => void) | null>
+  >;
 
   filesData: FilesData | null;
   setFilesData: Dispatch<SetStateAction<FilesData | null>>;
@@ -561,6 +573,11 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   const [tourDefaultSettings, setTourDefaultSettings] = useState<any | null>(
     null,
   );
+  const [restoreDetailFieldHandler, setRestoreDetailFieldHandler] = useState<
+    ((id: string) => void) | null
+  >(null);
+  const [restoreAllDetailFieldsHandler, setRestoreAllDetailFieldsHandler] =
+    useState<(() => void) | null>(null);
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
@@ -617,6 +634,10 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       formData,
       setFormData,
       updateFormData,
+      restoreDetailFieldHandler,
+      setRestoreDetailFieldHandler,
+      restoreAllDetailFieldsHandler,
+      setRestoreAllDetailFieldsHandler,
       filesData,
       setFilesData,
       featureSheets,
@@ -680,6 +701,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       approvalSelectedUuids,
       tourSettings,
       tourDefaultSettings,
+      restoreDetailFieldHandler,
+      restoreAllDetailFieldsHandler,
       // handleSave is injected by FileManager, so it's not in the deps array here for the default context
     ],
   );

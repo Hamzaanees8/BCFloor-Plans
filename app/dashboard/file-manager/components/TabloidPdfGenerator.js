@@ -83,6 +83,11 @@ const TabloidPdfGenerator = async (
     page.style.width = `${renderWidth}px`;
     page.style.height = `${renderHeight}px`;
     page.style.flexShrink = '0';
+    page.style.boxShadow = 'none';
+    page.style.margin = '0';
+    page.style.borderRadius = '0';
+    page.style.border = 'none';
+    page.style.outline = 'none';
   });
 
   document.body.appendChild(clone);
@@ -208,6 +213,9 @@ const TabloidPdfGenerator = async (
       img.parentNode.replaceChild(div, img);
     }
   });
+
+  // Explicitly render shadows as faux shadow layers for 100% accurate html2canvas capture
+  applyFauxShadows(clone);
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -362,6 +370,204 @@ const preloadImages = (element) => {
   }
 
   return Promise.all(promises);
+};
+
+const tailwindShadowMap = {
+  "shadow-sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+  "shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
+  "shadow-md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
+  "shadow-lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)",
+  "shadow-xl": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+  "shadow-2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+  "shadow-inner": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)",
+};
+
+const parseBoxShadow = (shadowStr) => {
+  if (!shadowStr || shadowStr === "none") return [];
+
+  const shadows = [];
+  const parts = [];
+  let current = "";
+  let parenDepth = 0;
+
+  for (let i = 0; i < shadowStr.length; i++) {
+    const char = shadowStr[i];
+    if (char === "(") parenDepth++;
+    else if (char === ")") parenDepth--;
+    else if (char === "," && parenDepth === 0) {
+      parts.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) parts.push(current.trim());
+
+  for (const part of parts) {
+    let color = "rgba(0, 0, 0, 0.25)";
+    let rest = part;
+
+    const colorMatch = part.match(/(rgba?\([^)]+\)|#[0-9a-fA-F]+|hsla?\([^)]+\))/);
+    if (colorMatch) {
+      color = colorMatch[1];
+      rest = part.replace(colorMatch[1], "").trim();
+    }
+
+    const isInset = rest.includes("inset");
+    rest = rest.replace(/inset/g, "").trim();
+
+    const lengths = rest.split(/\s+/).filter(Boolean).map((s) => parseFloat(s) || 0);
+    const offsetX = lengths[0] || 0;
+    const offsetY = lengths[1] || 0;
+    const blur = lengths[2] || 0;
+    const spread = lengths[3] || 0;
+
+    shadows.push({ offsetX, offsetY, blur, spread, color, isInset });
+  }
+
+  return shadows;
+};
+
+const applyFauxShadows = (cloneRoot) => {
+  const allElements = Array.from(cloneRoot.querySelectorAll("*"));
+
+  allElements.forEach((el) => {
+    // Skip pdf-page and ignored elements
+    if (el.classList.contains("pdf-page") || el.getAttribute("data-html2canvas-ignore") === "true") {
+      return;
+    }
+
+    const computed = window.getComputedStyle(el);
+    let rawShadow = computed.boxShadow;
+
+    // Check standard Tailwind shadow classes
+    for (const [cls, val] of Object.entries(tailwindShadowMap)) {
+      if (el.classList.contains(cls)) {
+        if (!rawShadow || rawShadow === "none" || rawShadow.includes("var(")) {
+          rawShadow = val;
+        }
+        break;
+      }
+    }
+
+    // Check arbitrary Tailwind shadow classes like shadow-[4px_4px_6px_rgba(0,0,0,0.85)]
+    if (!rawShadow || rawShadow === "none" || rawShadow.includes("var(")) {
+      const arbitraryShadow = Array.from(el.classList).find(
+        (c) => c.startsWith("shadow-[") && c.endsWith("]")
+      );
+      if (arbitraryShadow) {
+        rawShadow = arbitraryShadow.slice(8, -1).replace(/_/g, " ");
+      }
+    }
+
+    if (!rawShadow || rawShadow === "none" || rawShadow.includes("var(")) {
+      return;
+    }
+
+    const shadows = parseBoxShadow(rawShadow);
+    if (shadows.length === 0) return;
+
+    const outerShadows = shadows.filter((s) => !s.isInset);
+    if (outerShadows.length === 0) return;
+
+    // Remove the CSS box-shadow so html2canvas doesn't execute its broken -10000px mask logic
+    el.style.boxShadow = "none";
+
+    // Ensure element position context
+    const currentPosition = computed.position;
+    if (currentPosition === "static") {
+      el.style.position = "relative";
+    }
+
+    // Ensure overflow allows shadow to be seen if inner element handles clipping
+    const hasInnerClipping = el.querySelector(
+      ".overflow-hidden, [style*='overflow: hidden'], [style*='overflow:hidden'], img, [data-image-slot]"
+    );
+    if (hasInnerClipping) {
+      el.style.overflow = "visible";
+      el.style.overflowX = "visible";
+      el.style.overflowY = "visible";
+    }
+
+    const borderRadius = computed.borderRadius;
+
+    // Create wrapper for the faux shadows
+    const shadowHost = document.createElement("div");
+    shadowHost.className = "pdf-faux-shadow-host";
+    shadowHost.style.position = "absolute";
+    shadowHost.style.top = "0";
+    shadowHost.style.left = "0";
+    shadowHost.style.width = "100%";
+    shadowHost.style.height = "100%";
+    shadowHost.style.pointerEvents = "none";
+    shadowHost.style.zIndex = "0";
+
+    outerShadows.forEach((shadow) => {
+      let r = 0,
+        g = 0,
+        b = 0,
+        baseAlpha = 0.3;
+
+      const rgbaMatch = shadow.color.match(
+        /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/
+      );
+      if (rgbaMatch) {
+        r = parseInt(rgbaMatch[1], 10);
+        g = parseInt(rgbaMatch[2], 10);
+        b = parseInt(rgbaMatch[3], 10);
+        baseAlpha = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1;
+      } else if (shadow.color.startsWith("#")) {
+        let hex = shadow.color.slice(1);
+        if (hex.length === 3)
+          hex = hex
+            .split("")
+            .map((c) => c + c)
+            .join("");
+        r = parseInt(hex.substring(0, 2), 16) || 0;
+        g = parseInt(hex.substring(2, 4), 16) || 0;
+        b = parseInt(hex.substring(4, 6), 16) || 0;
+        baseAlpha = 0.5;
+      }
+
+      const blur = Math.max(shadow.blur, 1);
+      const numSteps = Math.min(Math.max(Math.round(blur * 1.5), 6), 14);
+      const maxSpread = shadow.spread + blur;
+
+      for (let i = 1; i <= numSteps; i++) {
+        const fraction = i / numSteps;
+        const spreadOffset = maxSpread * fraction;
+        const layerAlpha =
+          (baseAlpha / numSteps) * Math.pow(1 - fraction, 0.7) * 1.6;
+
+        const layer = document.createElement("div");
+        layer.style.position = "absolute";
+        layer.style.top = `${shadow.offsetY - spreadOffset}px`;
+        layer.style.left = `${shadow.offsetX - spreadOffset}px`;
+        layer.style.right = `${-shadow.offsetX - spreadOffset}px`;
+        layer.style.bottom = `${-shadow.offsetY - spreadOffset}px`;
+        layer.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${layerAlpha.toFixed(4)})`;
+        layer.style.borderRadius =
+          borderRadius && borderRadius !== "0px"
+            ? `calc(${borderRadius} + ${spreadOffset}px)`
+            : `${spreadOffset}px`;
+        layer.style.pointerEvents = "none";
+        shadowHost.appendChild(layer);
+      }
+    });
+
+    // Make sure existing children have relative positioning and positive z-index so they sit above shadowHost
+    Array.from(el.children).forEach((child) => {
+      const childStyle = window.getComputedStyle(child);
+      if (childStyle.position === "static") {
+        child.style.position = "relative";
+      }
+      if (!child.style.zIndex || child.style.zIndex === "auto" || child.style.zIndex === "0") {
+        child.style.zIndex = "1";
+      }
+    });
+
+    el.insertBefore(shadowHost, el.firstChild);
+  });
 };
 
 export default TabloidPdfGenerator;

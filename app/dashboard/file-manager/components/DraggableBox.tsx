@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Move, RotateCcw } from "lucide-react";
+import { Move, RotateCcw, Trash2 } from "lucide-react";
 
 export interface DraggableBoxProps {
   id: string;
@@ -18,6 +18,8 @@ export interface DraggableBoxProps {
   };
   label?: string;
   disabled?: boolean;
+  onDelete?: () => void;
+  deleteTitle?: string;
 }
 
 export const DraggableBox: React.FC<DraggableBoxProps> = ({
@@ -31,6 +33,8 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   boundaryLimits,
   label,
   disabled = false,
+  onDelete,
+  deleteTitle,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = useState(false);
@@ -223,22 +227,46 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
             </span>
           </div>
 
-          {/* Reset position button if moved */}
-          {hasMoved && (
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={handleReset}
-              className="bg-gray-800/95 text-white p-0.5 px-1.5 rounded shadow text-[8px] flex items-center gap-1 hover:bg-red-600 active:scale-95 transition-all cursor-pointer pointer-events-auto"
-              title="Reset position"
-            >
-              <RotateCcw size={8} />
-              <span>Reset</span>
-            </button>
-          )}
+          {/* Right-side Action Buttons (Reset position + Delete field) */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Reset position button if moved */}
+            {hasMoved && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={handleReset}
+                className="bg-gray-800/95 text-white p-0.5 px-1.5 rounded shadow text-[8px] flex items-center gap-1 hover:bg-gray-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                title="Reset position"
+              >
+                <RotateCcw size={8} />
+                <span>Reset</span>
+              </button>
+            )}
+
+            {/* Delete button if onDelete provided */}
+            {onDelete && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="bg-red-600/90 text-white p-0.5 px-1.5 rounded shadow text-[8px] flex items-center gap-1 hover:bg-red-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                title={deleteTitle || "Delete field"}
+              >
+                <Trash2 size={8} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

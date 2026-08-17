@@ -15,6 +15,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useCallback,
 } from "react";
 import { Order } from "../../orders/page";
 import { featureSheetService } from "../file-manager";
@@ -32,6 +33,7 @@ import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import SafeZoneWrapper from "./SafeZoneWrapper";
 import DraggableBox from "./DraggableBox";
+import { DeletedDetailFieldItem } from "./DeletedFieldsPanel";
 
 export interface BcfpStandard6Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -82,7 +84,7 @@ interface DetailFieldRowProps {
   onTitleStyleChange?: (style: TextStyle) => void;
   onValueChange: (value: string) => void;
   onStyleChange: (style: TextStyle) => void;
-  onRemove: () => void;
+  onRemove?: () => void;
 }
 
 const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
@@ -91,16 +93,9 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
   onTitleStyleChange,
   onValueChange,
   onStyleChange,
-  onRemove,
 }) => {
-  const [hovered, setHovered] = useState(false);
-
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div className="relative">
       {/* Title row */}
       <div className="flex items-center gap-1 relative">
         <StyledInput
@@ -111,24 +106,6 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
           className="font-bold text-[#00B9F2] text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 uppercase"
           placeholder="ENTER TITLE HERE"
         />
-
-        {/* Delete icon — visible on hover, absolute to avoid layout shift */}
-        {hovered && (
-          <span
-            data-html2canvas-ignore="true"
-            className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10"
-          >
-            <button
-              type="button"
-              title="Remove field"
-              onClick={onRemove}
-              className="text-red-400 hover:text-red-200 transition-colors p-[2px] bg-[#1a2b34]/80 rounded"
-              style={{ lineHeight: 1 }}
-            >
-              <Trash size={11} strokeWidth={2.5} />
-            </button>
-          </span>
-        )}
       </div>
 
       {/* Value input */}
@@ -159,9 +136,31 @@ const DEFAULT_RIGHT_DETAIL_FIELDS: DetailField[] = [
   { id: "view", title: "VIEW:", value: "" },
 ];
 
+const STANDARD_FIELD_IDS = new Set([
+  "addressCode",
+  "roadName",
+  "cityLine",
+  "contactName",
+  "contactBrokerage",
+  "contactPhone",
+  "contactEmail",
+  "contactDisclaimer",
+  "priceAmount",
+  "propertyDescription",
+  "specBedroom",
+  "specBathroom",
+  "specSqft",
+  "specBuiltYear",
+]);
+
 const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
-    const { formData, updateFormData } = useFileManagerContext();
+    const {
+      formData,
+      updateFormData,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    } = useFileManagerContext();
 
     const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
       DEFAULT_LEFT_DETAIL_FIELDS,
@@ -206,10 +205,197 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       );
     };
 
-    const removeDetailField = (id: string) => {
-      setLeftDetailFields((prev) => prev.filter((f) => f.id !== id));
-      setRightDetailFields((prev) => prev.filter((f) => f.id !== id));
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
+      formData.deletedDetailFields || [],
+    );
+    const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
+      string[]
+    >(formData.deletedStandardFieldIds || []);
+
+    const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
+
+    const removeStandardField = (
+      id: string,
+      title: string,
+      value: string,
+      section: string,
+      style?: TextStyle,
+    ) => {
+      setDeletedStandardFieldIds((prevStandard) => {
+        if (prevStandard.includes(id)) return prevStandard;
+        const newDeletedStandard = [...prevStandard, id];
+
+        const deletedItem: DeletedDetailFieldItem = {
+          id,
+          title,
+          value: value || "",
+          section,
+          style,
+          deletedAt: Date.now(),
+        };
+
+        setDeletedDetailFields((prevDetail) => {
+          const newDeletedDetailFields = [
+            ...prevDetail.filter((f) => f.id !== id),
+            deletedItem,
+          ];
+          updateFormData({
+            deletedStandardFieldIds: newDeletedStandard,
+            deletedDetailFields: newDeletedDetailFields,
+          });
+          return newDeletedDetailFields;
+        });
+
+        return newDeletedStandard;
+      });
     };
+
+    const removeDetailField = (id: string) => {
+      const leftField = leftDetailFields.find((f) => f.id === id);
+      if (leftField) {
+        const newDeleted: DeletedDetailFieldItem[] = [
+          ...deletedDetailFields.filter((f) => f.id !== id),
+          {
+            ...leftField,
+            column: "left",
+            section: "Page 4 - Left Column",
+            deletedAt: Date.now(),
+          },
+        ];
+        setDeletedDetailFields(newDeleted);
+        updateFormData({ deletedDetailFields: newDeleted });
+        setLeftDetailFields((prev) => prev.filter((f) => f.id !== id));
+        return;
+      }
+      const rightField = rightDetailFields.find((f) => f.id === id);
+      if (rightField) {
+        const newDeleted: DeletedDetailFieldItem[] = [
+          ...deletedDetailFields.filter((f) => f.id !== id),
+          {
+            ...rightField,
+            column: "right",
+            section: "Page 4 - Right Column",
+            deletedAt: Date.now(),
+          },
+        ];
+        setDeletedDetailFields(newDeleted);
+        updateFormData({ deletedDetailFields: newDeleted });
+        setRightDetailFields((prev) => prev.filter((f) => f.id !== id));
+      }
+    };
+
+    const restoreDetailField = useCallback(
+      (id: string) => {
+        const isStandard =
+          STANDARD_FIELD_IDS.has(id) || deletedStandardFieldIds.includes(id);
+
+        if (isStandard) {
+          setDeletedStandardFieldIds((prevStandard) => {
+            const updatedStandard = prevStandard.filter((fId) => fId !== id);
+            setDeletedDetailFields((prevDetail) => {
+              const updatedDeleted = prevDetail.filter((f) => f.id !== id);
+              updateFormData({
+                deletedStandardFieldIds: updatedStandard,
+                deletedDetailFields: updatedDeleted,
+              });
+              return updatedDeleted;
+            });
+            return updatedStandard;
+          });
+          return;
+        }
+
+        // 2. Otherwise handle Page 4 detail field
+        setDeletedDetailFields((prevDetail) => {
+          const fieldToRestore = prevDetail.find((f) => f.id === id);
+          if (!fieldToRestore) return prevDetail;
+
+          const cleanField: DetailField = {
+            id: fieldToRestore.id,
+            title: fieldToRestore.title,
+            value: fieldToRestore.value,
+            style: fieldToRestore.style,
+            titleStyle: fieldToRestore.titleStyle,
+          };
+          if (fieldToRestore.column === "right") {
+            setRightDetailFields((prev) => [
+              ...prev.filter((f) => f.id !== id),
+              cleanField,
+            ]);
+          } else {
+            setLeftDetailFields((prev) => [
+              ...prev.filter((f) => f.id !== id),
+              cleanField,
+            ]);
+          }
+          const updated = prevDetail.filter((f) => f.id !== id);
+          updateFormData({ deletedDetailFields: updated });
+          return updated;
+        });
+      },
+      [deletedStandardFieldIds, updateFormData],
+    );
+
+    const restoreAllDetailFields = useCallback(() => {
+      setDeletedDetailFields((prevDetail) => {
+        const leftRestored: DetailField[] = [];
+        const rightRestored: DetailField[] = [];
+
+        prevDetail.forEach((field) => {
+          if (
+            STANDARD_FIELD_IDS.has(field.id) ||
+            deletedStandardFieldIds.includes(field.id)
+          ) {
+            return;
+          }
+          const cleanField: DetailField = {
+            id: field.id,
+            title: field.title,
+            value: field.value,
+            style: field.style,
+            titleStyle: field.titleStyle,
+          };
+          if (field.column === "right") {
+            rightRestored.push(cleanField);
+          } else {
+            leftRestored.push(cleanField);
+          }
+        });
+
+        if (leftRestored.length > 0) {
+          setLeftDetailFields((prev) => [...prev, ...leftRestored]);
+        }
+        if (rightRestored.length > 0) {
+          setRightDetailFields((prev) => [...prev, ...rightRestored]);
+        }
+        setDeletedStandardFieldIds([]);
+        updateFormData({
+          deletedStandardFieldIds: [],
+          deletedDetailFields: [],
+        });
+        return [];
+      });
+    }, [deletedStandardFieldIds, updateFormData]);
+
+    // Register restore handlers with context so top-level panel can trigger them
+    useEffect(() => {
+      if (setRestoreDetailFieldHandler) {
+        setRestoreDetailFieldHandler(() => restoreDetailField);
+      }
+      if (setRestoreAllDetailFieldsHandler) {
+        setRestoreAllDetailFieldsHandler(() => restoreAllDetailFields);
+      }
+      return () => {
+        if (setRestoreDetailFieldHandler) setRestoreDetailFieldHandler(null);
+        if (setRestoreAllDetailFieldsHandler)
+          setRestoreAllDetailFieldsHandler(null);
+      };
+    }, [
+      restoreDetailField,
+      restoreAllDetailFields,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    ]);
 
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
@@ -490,6 +676,20 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         ) {
           setRightDetailFields(formData.rightDetailFields as DetailField[]);
         }
+        if (
+          formData.deletedStandardFieldIds &&
+          Array.isArray(formData.deletedStandardFieldIds)
+        ) {
+          setDeletedStandardFieldIds(
+            formData.deletedStandardFieldIds as string[],
+          );
+        }
+        if (
+          formData.deletedDetailFields &&
+          Array.isArray(formData.deletedDetailFields)
+        ) {
+          setDeletedDetailFields(formData.deletedDetailFields as any[]);
+        }
 
         if (formData.bedroom) setBedroom(s(formData.bedroom));
         if (formData.bathroom) setBathroom(s(formData.bathroom));
@@ -561,6 +761,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       updateFormData({
         leftDetailFields,
         rightDetailFields,
+        deletedStandardFieldIds,
+        deletedDetailFields,
         bedroom,
         bathroom,
         sqft,
@@ -583,6 +785,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     }, [
       leftDetailFields,
       rightDetailFields,
+      deletedStandardFieldIds,
+      deletedDetailFields,
       bedroom,
       bathroom,
       sqft,
@@ -1000,6 +1204,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             _lockedSections: lockedSections,
             _leftDetailFields: leftDetailFields,
             _rightDetailFields: rightDetailFields,
+            _deletedDetailFields: deletedDetailFields,
+            _deletedStandardFieldIds: deletedStandardFieldIds,
           },
           images,
           imageScales: scale,
@@ -1025,6 +1231,24 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
         const rawOtherDetails =
           (payload.content?.otherDetails as Record<string, any>) || {};
+
+        if (
+          rawOtherDetails._deletedDetailFields &&
+          Array.isArray(rawOtherDetails._deletedDetailFields)
+        ) {
+          setDeletedDetailFields(
+            rawOtherDetails._deletedDetailFields as DeletedDetailFieldItem[],
+          );
+        }
+
+        if (
+          rawOtherDetails._deletedStandardFieldIds &&
+          Array.isArray(rawOtherDetails._deletedStandardFieldIds)
+        ) {
+          setDeletedStandardFieldIds(
+            rawOtherDetails._deletedStandardFieldIds as string[],
+          );
+        }
 
         if (
           rawOtherDetails._leftDetailFields &&
@@ -1285,7 +1509,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           />
         )}
 
-        <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
+        <div className="w-full relative flex flex-col items-center justify-center font-alexandria py-8 gap-0">
           {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
           <div
             data-html2canvas-ignore="true"
@@ -1479,72 +1703,113 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         )}
                       </button>
 
-                      <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2] flex items-center gap-2">
+                      {(!isFieldDeleted("addressCode") ||
+                        !isFieldDeleted("roadName")) && (
+                        <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2] flex items-center gap-2">
+                          {!isFieldDeleted("addressCode") && (
+                            <DraggableBox
+                              id="addressCode"
+                              position={fieldPositions.addressCode}
+                              onPositionChange={updateFieldPosition}
+                              label="MLS"
+                              zoom={0.55}
+                              className="inline"
+                              disabled={lockedSections.address}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "addressCode",
+                                  "MLS #",
+                                  addressCode || "0000-0000",
+                                  "Page 1 - Address",
+                                  fieldStyles.addressCode,
+                                )
+                              }
+                              deleteTitle="Remove MLS Code"
+                            >
+                              <StyledInput
+                                value={addressCode}
+                                onChange={(e) => setAddressCode(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("addressCode", s)
+                                }
+                                inputStyle={fieldStyles.addressCode}
+                                className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-[#00B9F2] text-left focus:outline-none border-none placeholder-[#00B9F2] placeholder:font-[200]"
+                                placeholder="0000-0000"
+                              />
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("roadName") && (
+                            <DraggableBox
+                              id="roadName"
+                              position={fieldPositions.roadName}
+                              onPositionChange={updateFieldPosition}
+                              label="Road"
+                              zoom={0.55}
+                              className="inline"
+                              disabled={lockedSections.address}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "roadName",
+                                  "Road / Unit #",
+                                  roadName || "0",
+                                  "Page 1 - Address",
+                                  fieldStyles.roadName,
+                                )
+                              }
+                              deleteTitle="Remove Road / Unit #"
+                            >
+                              <span className="text-[#226292] flex items-center">
+                                Number
+                                <StyledInput
+                                  value={roadName}
+                                  onChange={(e) => setRoadName(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("roadName", s)
+                                  }
+                                  inputStyle={fieldStyles.roadName}
+                                  className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                  placeholder="0"
+                                />
+                                Road
+                              </span>
+                            </DraggableBox>
+                          )}
+                        </div>
+                      )}
+
+                      {!isFieldDeleted("cityLine") && (
                         <DraggableBox
-                          id="addressCode"
-                          position={fieldPositions.addressCode}
+                          id="cityLine"
+                          position={fieldPositions.cityLine}
                           onPositionChange={updateFieldPosition}
-                          label="MLS"
+                          label="City"
                           zoom={0.55}
-                          className="inline"
+                          className="text-[#2C2E35] text-[10px] w-full"
                           disabled={lockedSections.address}
+                          onDelete={() =>
+                            removeStandardField(
+                              "cityLine",
+                              "City Line",
+                              cityLine || "BRIGHOUSE SOUTH, RICHMOND",
+                              "Page 1 - Address",
+                              fieldStyles.cityLine,
+                            )
+                          }
+                          deleteTitle="Remove City Line"
                         >
                           <StyledInput
-                            value={addressCode}
-                            onChange={(e) => setAddressCode(e.target.value)}
+                            value={cityLine}
+                            onChange={(e) => setCityLine(e.target.value)}
                             onChangeStyle={(s) =>
-                              updateFieldStyle("addressCode", s)
+                              updateFieldStyle("cityLine", s)
                             }
-                            inputStyle={fieldStyles.addressCode}
-                            className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-[#00B9F2] text-left focus:outline-none border-none placeholder-[#00B9F2] placeholder:font-[200]"
-                            placeholder="0000-0000"
+                            inputStyle={fieldStyles.cityLine}
+                            className="text-[#2C2E35] text-[20px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
                           />
                         </DraggableBox>
-
-                        <DraggableBox
-                          id="roadName"
-                          position={fieldPositions.roadName}
-                          onPositionChange={updateFieldPosition}
-                          label="Road"
-                          zoom={0.55}
-                          className="inline"
-                          disabled={lockedSections.address}
-                        >
-                          <span className="text-[#226292] flex items-center">
-                            Number
-                            <StyledInput
-                              value={roadName}
-                              onChange={(e) => setRoadName(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("roadName", s)
-                              }
-                              inputStyle={fieldStyles.roadName}
-                              className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                              placeholder="0"
-                            />
-                            Road
-                          </span>
-                        </DraggableBox>
-                      </div>
-
-                      <DraggableBox
-                        id="cityLine"
-                        position={fieldPositions.cityLine}
-                        onPositionChange={updateFieldPosition}
-                        label="City"
-                        zoom={0.55}
-                        className="text-[#2C2E35] text-[10px] w-full"
-                        disabled={lockedSections.address}
-                      >
-                        <StyledInput
-                          value={cityLine}
-                          onChange={(e) => setCityLine(e.target.value)}
-                          onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                          inputStyle={fieldStyles.cityLine}
-                          className="text-[#2C2E35] text-[20px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                          placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                        />
-                      </DraggableBox>
+                      )}
 
                       {/* image7 */}
                       <div
@@ -1630,7 +1895,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                   onClick={() =>
                                     handleDelete("image7", fileInputRef7)
                                   }
-                                  className="absolute top-1 right-1 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-0 right-1 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
                                   <Trash className="w-3 h-3 text-red-500" />
@@ -2396,178 +2661,247 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
                     <div className="text-white leading-none text-left w-[85%]">
                       <div>
-                        <div className="font-semibold text-[20px] flex gap-3 w-[90%]">
-                          <DraggableBox
-                            id="contactName"
-                            position={fieldPositions.contactName}
-                            onPositionChange={updateFieldPosition}
-                            label="Contact"
-                            zoom={0.55}
-                            containerClassName="w-full"
-                            disabled={lockedSections.contact}
-                          >
-                            <div className="flex items-center gap-1 w-full">
-                              <span className="text-[20px] font-[300]">
-                                Contact:
-                              </span>
-                              <StyledInput
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("fullName", s)
+                        {(!isFieldDeleted("contactName") ||
+                          !isFieldDeleted("contactBrokerage")) && (
+                          <div className="font-semibold text-[20px] flex gap-3 w-[90%]">
+                            {!isFieldDeleted("contactName") && (
+                              <DraggableBox
+                                id="contactName"
+                                position={fieldPositions.contactName}
+                                onPositionChange={updateFieldPosition}
+                                label="Contact"
+                                zoom={0.55}
+                                containerClassName="w-full"
+                                disabled={lockedSections.contact}
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "contactName",
+                                    "Contact Name",
+                                    fullName || "FIRSTNAME LASTNAME",
+                                    "Page 1 - Contact",
+                                    fieldStyles.fullName,
+                                  )
                                 }
-                                inputStyle={fieldStyles.fullName}
-                                className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                                placeholder="FIRSTNAME LASTNAME"
-                              />
-                            </div>
-                          </DraggableBox>
+                                deleteTitle="Remove Contact Name"
+                              >
+                                <div className="flex items-center gap-1 w-full">
+                                  <span className="text-[20px] font-[300]">
+                                    Contact:
+                                  </span>
+                                  <StyledInput
+                                    value={fullName}
+                                    onChange={(e) =>
+                                      setFullName(e.target.value)
+                                    }
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("fullName", s)
+                                    }
+                                    inputStyle={fieldStyles.fullName}
+                                    className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                    placeholder="FIRSTNAME LASTNAME"
+                                  />
+                                </div>
+                              </DraggableBox>
+                            )}
 
-                          <DraggableBox
-                            id="contactBrokerage"
-                            position={fieldPositions.contactBrokerage}
-                            onPositionChange={updateFieldPosition}
-                            label="Brokerage"
-                            zoom={0.55}
-                            containerClassName="w-full"
-                            disabled={lockedSections.contact}
-                          >
-                            <StyledInput
-                              value={companyName}
-                              onChange={(e) => setCompanyName(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("companyName", s)
-                              }
-                              inputStyle={fieldStyles.companyName}
-                              className=" text-[20px] h-[22px] font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                              placeholder="MACDONALD  Realty"
-                            />
-                          </DraggableBox>
-                        </div>
-
-                        <div className="font-semibold text-[20px] flex gap-3 mt-3 w-[90%]">
-                          <DraggableBox
-                            id="contactPhone"
-                            position={fieldPositions.contactPhone}
-                            onPositionChange={updateFieldPosition}
-                            label="Phone"
-                            zoom={0.55}
-                            containerClassName="w-full"
-                            disabled={lockedSections.contact}
-                          >
-                            <div className="flex items-center gap-1 w-full">
-                              <span className="text-[20px] font-[300]">
-                                PHONE:
-                              </span>
-                              <StyledInput
-                                value={number}
-                                onChange={(e) => setNumber(e.target.value)}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("number", s)
+                            {!isFieldDeleted("contactBrokerage") && (
+                              <DraggableBox
+                                id="contactBrokerage"
+                                position={fieldPositions.contactBrokerage}
+                                onPositionChange={updateFieldPosition}
+                                label="Brokerage"
+                                zoom={0.55}
+                                containerClassName="w-full"
+                                disabled={lockedSections.contact}
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "contactBrokerage",
+                                    "Brokerage",
+                                    companyName || "MACDONALD Realty",
+                                    "Page 1 - Contact",
+                                    fieldStyles.companyName,
+                                  )
                                 }
-                                inputStyle={fieldStyles.number}
-                                className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                                placeholder="604.000.0000"
-                              />
-                            </div>
-                          </DraggableBox>
+                                deleteTitle="Remove Brokerage"
+                              >
+                                <StyledInput
+                                  value={companyName}
+                                  onChange={(e) =>
+                                    setCompanyName(e.target.value)
+                                  }
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("companyName", s)
+                                  }
+                                  inputStyle={fieldStyles.companyName}
+                                  className=" text-[20px] h-[22px] font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                  placeholder="MACDONALD  Realty"
+                                />
+                              </DraggableBox>
+                            )}
+                          </div>
+                        )}
 
-                          <DraggableBox
-                            id="contactEmail"
-                            position={fieldPositions.contactEmail}
-                            onPositionChange={updateFieldPosition}
-                            label="Email"
-                            zoom={0.55}
-                            containerClassName="w-full"
-                            disabled={lockedSections.contact}
-                          >
-                            <div className="flex items-center gap-1 w-full">
-                              <span className="text-[20px] font-[300]">
-                                Email:
-                              </span>
-                              <StyledInput
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("email", s)
+                        {(!isFieldDeleted("contactPhone") ||
+                          !isFieldDeleted("contactEmail")) && (
+                          <div className="font-semibold text-[20px] flex gap-3 mt-3 w-[90%]">
+                            {!isFieldDeleted("contactPhone") && (
+                              <DraggableBox
+                                id="contactPhone"
+                                position={fieldPositions.contactPhone}
+                                onPositionChange={updateFieldPosition}
+                                label="Phone"
+                                zoom={0.55}
+                                containerClassName="w-full"
+                                disabled={lockedSections.contact}
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "contactPhone",
+                                    "Phone",
+                                    number || "604.000.0000",
+                                    "Page 1 - Contact",
+                                    fieldStyles.number,
+                                  )
                                 }
-                                inputStyle={fieldStyles.email}
-                                className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                                placeholder="Enter email here"
-                              />
-                            </div>
-                          </DraggableBox>
-                        </div>
+                                deleteTitle="Remove Phone"
+                              >
+                                <div className="flex items-center gap-1 w-full">
+                                  <span className="text-[20px] font-[300]">
+                                    PHONE:
+                                  </span>
+                                  <StyledInput
+                                    value={number}
+                                    onChange={(e) => setNumber(e.target.value)}
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("number", s)
+                                    }
+                                    inputStyle={fieldStyles.number}
+                                    className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                    placeholder="604.000.0000"
+                                  />
+                                </div>
+                              </DraggableBox>
+                            )}
+
+                            {!isFieldDeleted("contactEmail") && (
+                              <DraggableBox
+                                id="contactEmail"
+                                position={fieldPositions.contactEmail}
+                                onPositionChange={updateFieldPosition}
+                                label="Email"
+                                zoom={0.55}
+                                containerClassName="w-full"
+                                disabled={lockedSections.contact}
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "contactEmail",
+                                    "Email",
+                                    email || "Enter email here",
+                                    "Page 1 - Contact",
+                                    fieldStyles.email,
+                                  )
+                                }
+                                deleteTitle="Remove Email"
+                              >
+                                <div className="flex items-center gap-1 w-full">
+                                  <span className="text-[20px] font-[300]">
+                                    Email:
+                                  </span>
+                                  <StyledInput
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("email", s)
+                                    }
+                                    inputStyle={fieldStyles.email}
+                                    className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                    placeholder="Enter email here"
+                                  />
+                                </div>
+                              </DraggableBox>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      <DraggableBox
-                        id="contactDisclaimer"
-                        position={fieldPositions.contactDisclaimer}
-                        onPositionChange={updateFieldPosition}
-                        label="Disclaimer"
-                        zoom={0.55}
-                        containerClassName="mt-4"
-                        disabled={lockedSections.contact}
-                      >
-                        <div className="text-start font-light flex w-[80%]">
-                          <span className="text-[8px]">
-                            All information deemed reliable but not guaranteed
-                            and should be independently verified. All properties
-                            are subject to prior sale, change or withdrawal.
-                            Neither listing broker(s) nor BC Floor Plans shall
-                            be responsible for any typographical errors,
-                            misinformation, misprints and shall be held totally
-                            harmless.
-                          </span>
-                          <span className="flex mt-2">
-                            <House className="w-4 h-4" />
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 8 8"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                                fill="white"
-                              />
-                              <path
-                                d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                                fill="white"
-                              />
-                            </svg>
-                          </span>
-                        </div>
-                      </DraggableBox>
+                      {!isFieldDeleted("contactDisclaimer") && (
+                        <DraggableBox
+                          id="contactDisclaimer"
+                          position={fieldPositions.contactDisclaimer}
+                          onPositionChange={updateFieldPosition}
+                          label="Disclaimer"
+                          zoom={0.55}
+                          containerClassName="mt-4"
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactDisclaimer",
+                              "Disclaimer",
+                              "All information deemed reliable...",
+                              "Page 1 - Contact",
+                            )
+                          }
+                          deleteTitle="Remove Disclaimer"
+                        >
+                          <div className="text-start font-light flex w-[80%]">
+                            <span className="text-[8px]">
+                              All information deemed reliable but not guaranteed
+                              and should be independently verified. All
+                              properties are subject to prior sale, change or
+                              withdrawal. Neither listing broker(s) nor BC Floor
+                              Plans shall be responsible for any typographical
+                              errors, misinformation, misprints and shall be
+                              held totally harmless.
+                            </span>
+                            <span className="flex mt-2">
+                              <House className="w-4 h-4" />
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 8 8"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
+                                  fill="white"
+                                />
+                                <path
+                                  d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
+                                  fill="white"
+                                />
+                              </svg>
+                            </span>
+                          </div>
+                        </DraggableBox>
+                      )}
                     </div>
                   </div>
                   <div
@@ -2610,23 +2944,35 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       )}
                     </button>
 
-                    <DraggableBox
-                      id="priceAmount"
-                      position={fieldPositions.priceAmount}
-                      onPositionChange={updateFieldPosition}
-                      label="Price"
-                      zoom={0.55}
-                      disabled={lockedSections.price}
-                    >
-                      <StyledInput
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                        inputStyle={fieldStyles.amount}
-                        className="font-semibold text-center text-[36px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                        placeholder="$000,000"
-                      />
-                    </DraggableBox>
+                    {!isFieldDeleted("priceAmount") && (
+                      <DraggableBox
+                        id="priceAmount"
+                        position={fieldPositions.priceAmount}
+                        onPositionChange={updateFieldPosition}
+                        label="Price"
+                        zoom={0.55}
+                        disabled={lockedSections.price}
+                        onDelete={() =>
+                          removeStandardField(
+                            "priceAmount",
+                            "Listing Price",
+                            amount || "$000,000",
+                            "Page 1 - Price",
+                            fieldStyles.amount,
+                          )
+                        }
+                        deleteTitle="Remove Listing Price"
+                      >
+                        <StyledInput
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                          inputStyle={fieldStyles.amount}
+                          className="font-semibold text-center text-[36px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                          placeholder="$000,000"
+                        />
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2994,26 +3340,39 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         )}
                       </button>
 
-                      <DraggableBox
-                        id="propertyDescription"
-                        position={fieldPositions.propertyDescription}
-                        onPositionChange={updateFieldPosition}
-                        label="Description"
-                        zoom={0.55}
-                        disabled={lockedSections.description}
-                      >
-                        <StyledInput
-                          value={description}
-                          rows={6}
-                          onChange={(e) => setDescription(e.target.value)}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("description", s)
+                      {!isFieldDeleted("propertyDescription") && (
+                        <DraggableBox
+                          id="propertyDescription"
+                          position={fieldPositions.propertyDescription}
+                          onPositionChange={updateFieldPosition}
+                          label="Description"
+                          zoom={0.55}
+                          disabled={lockedSections.description}
+                          onDelete={() =>
+                            removeStandardField(
+                              "propertyDescription",
+                              "Property Description",
+                              description ||
+                                "Enter property description here...",
+                              "Page 2 - Description",
+                              fieldStyles.description,
+                            )
                           }
-                          inputStyle={fieldStyles.description}
-                          className="font-normal text-[10px] h-[170px] z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                          placeholder="Enter property description here..."
-                        />
-                      </DraggableBox>
+                          deleteTitle="Remove Property Description"
+                        >
+                          <StyledInput
+                            value={description}
+                            rows={6}
+                            onChange={(e) => setDescription(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("description", s)
+                            }
+                            inputStyle={fieldStyles.description}
+                            className="font-normal text-[10px] h-[170px] z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                            placeholder="Enter property description here..."
+                          />
+                        </DraggableBox>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -3268,99 +3627,147 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         )}
                       </button>
 
-                      <DraggableBox
-                        id="specBedroom"
-                        position={fieldPositions.specBedroom}
-                        onPositionChange={updateFieldPosition}
-                        label="Bedroom"
-                        zoom={0.55}
-                        className="flex items-center gap-1"
-                        disabled={lockedSections.specs}
-                      >
-                        <div className="inline">
-                          <StyledInput
-                            value={bedroom}
-                            onChange={(e) => setBedroom(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("bedroom", s)
-                            }
-                            inputStyle={fieldStyles.bedroom}
-                            className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="0"
-                          />
-                        </div>
-                        <span>BEDROOM •</span>
-                      </DraggableBox>
+                      {!isFieldDeleted("specBedroom") && (
+                        <DraggableBox
+                          id="specBedroom"
+                          position={fieldPositions.specBedroom}
+                          onPositionChange={updateFieldPosition}
+                          label="Bedroom"
+                          zoom={0.55}
+                          className="flex items-center gap-1"
+                          disabled={lockedSections.specs}
+                          onDelete={() =>
+                            removeStandardField(
+                              "specBedroom",
+                              "Bedrooms",
+                              `${bedroom || "0"} BEDROOM •`,
+                              "Page 3 - Property Specs",
+                              fieldStyles.bedroom,
+                            )
+                          }
+                          deleteTitle="Remove Bedrooms"
+                        >
+                          <div className="inline">
+                            <StyledInput
+                              value={bedroom}
+                              onChange={(e) => setBedroom(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("bedroom", s)
+                              }
+                              inputStyle={fieldStyles.bedroom}
+                              className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="0"
+                            />
+                          </div>
+                          <span>BEDROOM •</span>
+                        </DraggableBox>
+                      )}
 
-                      <DraggableBox
-                        id="specBathroom"
-                        position={fieldPositions.specBathroom}
-                        onPositionChange={updateFieldPosition}
-                        label="Bathroom"
-                        zoom={0.55}
-                        className="flex items-center gap-1"
-                        disabled={lockedSections.specs}
-                      >
-                        <div className="inline">
-                          <StyledInput
-                            value={bathroom}
-                            onChange={(e) => setBathroom(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("bathroom", s)
-                            }
-                            inputStyle={fieldStyles.bathroom}
-                            className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="0"
-                          />
-                        </div>
-                        <span>BATHROOM •</span>
-                      </DraggableBox>
+                      {!isFieldDeleted("specBathroom") && (
+                        <DraggableBox
+                          id="specBathroom"
+                          position={fieldPositions.specBathroom}
+                          onPositionChange={updateFieldPosition}
+                          label="Bathroom"
+                          zoom={0.55}
+                          className="flex items-center gap-1"
+                          disabled={lockedSections.specs}
+                          onDelete={() =>
+                            removeStandardField(
+                              "specBathroom",
+                              "Bathrooms",
+                              `${bathroom || "0"} BATHROOM •`,
+                              "Page 3 - Property Specs",
+                              fieldStyles.bathroom,
+                            )
+                          }
+                          deleteTitle="Remove Bathrooms"
+                        >
+                          <div className="inline">
+                            <StyledInput
+                              value={bathroom}
+                              onChange={(e) => setBathroom(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("bathroom", s)
+                              }
+                              inputStyle={fieldStyles.bathroom}
+                              className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="0"
+                            />
+                          </div>
+                          <span>BATHROOM •</span>
+                        </DraggableBox>
+                      )}
 
-                      <DraggableBox
-                        id="specSqft"
-                        position={fieldPositions.specSqft}
-                        onPositionChange={updateFieldPosition}
-                        label="Sq Ft"
-                        zoom={0.55}
-                        className="flex items-center gap-1"
-                        disabled={lockedSections.specs}
-                      >
-                        <div className="inline">
-                          <StyledInput
-                            value={sqft}
-                            onChange={(e) => setSqft(e.target.value)}
-                            onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                            inputStyle={fieldStyles.sqft}
-                            className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="000"
-                          />
-                        </div>
-                        <span>SQ FT •</span>
-                      </DraggableBox>
+                      {!isFieldDeleted("specSqft") && (
+                        <DraggableBox
+                          id="specSqft"
+                          position={fieldPositions.specSqft}
+                          onPositionChange={updateFieldPosition}
+                          label="Sq Ft"
+                          zoom={0.55}
+                          className="flex items-center gap-1"
+                          disabled={lockedSections.specs}
+                          onDelete={() =>
+                            removeStandardField(
+                              "specSqft",
+                              "Square Footage",
+                              `${sqft || "000"} SQ FT •`,
+                              "Page 3 - Property Specs",
+                              fieldStyles.sqft,
+                            )
+                          }
+                          deleteTitle="Remove Square Footage"
+                        >
+                          <div className="inline">
+                            <StyledInput
+                              value={sqft}
+                              onChange={(e) => setSqft(e.target.value)}
+                              onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                              inputStyle={fieldStyles.sqft}
+                              className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="000"
+                            />
+                          </div>
+                          <span>SQ FT •</span>
+                        </DraggableBox>
+                      )}
 
-                      <DraggableBox
-                        id="specBuiltYear"
-                        position={fieldPositions.specBuiltYear}
-                        onPositionChange={updateFieldPosition}
-                        label="Built"
-                        zoom={0.55}
-                        className="flex items-center gap-1"
-                        disabled={lockedSections.specs}
-                      >
-                        <span>BUILT IN</span>
-                        <div className="inline">
-                          <StyledInput
-                            value={builtYear}
-                            onChange={(e) => setBuiltYear(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("builtYear", s)
-                            }
-                            inputStyle={fieldStyles.builtYear}
-                            className="font-semibold text-[13px] bg-transparent text-left w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                            placeholder="0000"
-                          />
-                        </div>
-                      </DraggableBox>
+                      {!isFieldDeleted("specBuiltYear") && (
+                        <DraggableBox
+                          id="specBuiltYear"
+                          position={fieldPositions.specBuiltYear}
+                          onPositionChange={updateFieldPosition}
+                          label="Built"
+                          zoom={0.55}
+                          className="flex items-center gap-1"
+                          disabled={lockedSections.specs}
+                          onDelete={() =>
+                            removeStandardField(
+                              "specBuiltYear",
+                              "Year Built",
+                              `BUILT IN ${builtYear || "0000"}`,
+                              "Page 3 - Property Specs",
+                              fieldStyles.builtYear,
+                            )
+                          }
+                          deleteTitle="Remove Year Built"
+                        >
+                          <span>BUILT IN</span>
+                          <div className="inline">
+                            <StyledInput
+                              value={builtYear}
+                              onChange={(e) => setBuiltYear(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("builtYear", s)
+                              }
+                              inputStyle={fieldStyles.builtYear}
+                              className="font-semibold text-[13px] bg-transparent text-left w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                              placeholder="0000"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
                     </div>
                   </div>
 
@@ -3959,6 +4366,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               }
                               zoom={0.55}
                               disabled={lockedSections.details}
+                              onDelete={() => removeDetailField(field.id)}
+                              deleteTitle="Remove field"
                             >
                               <DetailFieldRow
                                 field={field}
@@ -3974,7 +4383,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 onStyleChange={(s) =>
                                   updateDetailStyle(field.id, s)
                                 }
-                                onRemove={() => removeDetailField(field.id)}
                               />
                             </DraggableBox>
                           ))}
@@ -3994,6 +4402,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               }
                               zoom={0.55}
                               disabled={lockedSections.details}
+                              onDelete={() => removeDetailField(field.id)}
+                              deleteTitle="Remove field"
                             >
                               <DetailFieldRow
                                 field={field}
@@ -4009,7 +4419,6 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 onStyleChange={(s) =>
                                   updateDetailStyle(field.id, s)
                                 }
-                                onRemove={() => removeDetailField(field.id)}
                               />
                             </DraggableBox>
                           ))}

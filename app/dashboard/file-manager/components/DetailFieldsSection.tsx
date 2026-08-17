@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Plus, Trash, Move, RotateCcw } from "lucide-react";
 import { DetailField, TextStyle } from "../types/featureSheetTypes";
 import StyledInput from "./StyledInput";
@@ -33,7 +33,6 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   leftFields,
   rightFields,
   onLeftFieldsChange,
-  onRightFieldsChange,
   onTitleChange,
   onTitleStyleChange,
   onValueChange,
@@ -49,7 +48,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Merge all fields into a single list for freeform canvas placement
-  const allFields = [...leftFields, ...rightFields];
+  const allFields = useMemo(() => [...leftFields, ...rightFields], [leftFields, rightFields]);
 
   // Helper to get position of a field
   const getFieldPos = useCallback(
