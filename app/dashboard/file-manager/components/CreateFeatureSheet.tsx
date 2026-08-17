@@ -180,14 +180,24 @@ const CreateFeatureSheet = forwardRef<
   const isScrollingRef = useRef(false);
 
   // Tabloid Preview Mode states (Edit mode vs Preview mode)
-  const [previewMode, setPreviewMode] = useState<"edit" | "preview">("edit");
+  const [previewMode, setPreviewMode] = useState<"edit" | "preview">(
+    isReadonly ? "preview" : "edit",
+  );
   const [previewZoom, setPreviewZoom] = useState(1.0);
-  const [showGuide, setShowGuide] = useState(true);
-  const [showBleed, setShowBleed] = useState(true);
+  const [showGuide, setShowGuide] = useState(isReadonly ? false : true);
+  const [showBleed, setShowBleed] = useState(isReadonly ? false : true);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const startPanPos = useRef({ x: 0, y: 0 });
   const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isReadonly) {
+      setPreviewMode("preview");
+      setShowGuide(false);
+      setShowBleed(false);
+    }
+  }, [isReadonly]);
 
   const handlePanMouseDown = (e: React.MouseEvent) => {
     // Only respond to left click (0) or middle click (1)
@@ -1772,61 +1782,63 @@ const CreateFeatureSheet = forwardRef<
                     <span className="flex items-center gap-2">
                       Feature Sheet Preview
                     </span>
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2.5 normal-case tracking-normal"
-                    >
-                      {/* Save Feature Sheet button */}
-                      <button
-                        type="button"
-                        disabled={isSaving}
-                        onClick={handleSaveFeatureSheet}
-                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
+                    {!isReadonly && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2.5 normal-case tracking-normal"
                       >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          "Save Sheet"
-                        )}
-                      </button>
+                        {/* Save Feature Sheet button */}
+                        <button
+                          type="button"
+                          disabled={isSaving}
+                          onClick={handleSaveFeatureSheet}
+                          className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
+                        >
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Sheet"
+                          )}
+                        </button>
 
-                      {/* Download PDF Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            disabled={isDownloading}
-                            className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
-                          >
-                            {isDownloading ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Processing...
-                              </>
-                            ) : (
-                              "Download PDF"
-                            )}
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[220px]">
-                          <DropdownMenuItem
-                            onClick={() => handleDownload(false, false)}
-                            className="cursor-pointer"
-                          >
-                            Download (No Bleed)
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDownload(true, false)}
-                            className="cursor-pointer"
-                          >
-                            Download (With Bleed)
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                        {/* Download PDF Dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={isDownloading}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                "Download PDF"
+                              )}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[220px]">
+                            <DropdownMenuItem
+                              onClick={() => handleDownload(false, false)}
+                              className="cursor-pointer"
+                            >
+                              Download (No Bleed)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDownload(true, false)}
+                              className="cursor-pointer"
+                            >
+                              Download (With Bleed)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
@@ -1871,58 +1883,62 @@ const CreateFeatureSheet = forwardRef<
                     <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none">
                       {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
                       <div className="flex items-center gap-3 shrink-0">
-                        {/* Segmented Mode Switcher */}
-                        <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMode("edit")}
-                            className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                              previewMode === "edit"
-                                ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                : "text-gray-500 hover:text-gray-800"
-                            }`}
-                          >
-                            <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            Editable
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreviewMode("preview");
-                              setTimeout(() => {
-                                if (previewContainerRef.current) {
-                                  const el = previewContainerRef.current;
-                                  el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
-                                  el.scrollTop = 0;
-                                }
-                              }, 50);
-                            }}
-                            className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                              previewMode === "preview"
-                                ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                : "text-gray-500 hover:text-gray-800"
-                            }`}
-                          >
-                            <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            Read-Only
-                          </button>
-                        </div>
+                        {!isReadonly && (
+                          <>
+                            {/* Segmented Mode Switcher */}
+                            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewMode("edit")}
+                                className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                  previewMode === "edit"
+                                    ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                    : "text-gray-500 hover:text-gray-800"
+                                }`}
+                              >
+                                <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Editable
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPreviewMode("preview");
+                                  setTimeout(() => {
+                                    if (previewContainerRef.current) {
+                                      const el = previewContainerRef.current;
+                                      el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+                                      el.scrollTop = 0;
+                                    }
+                                  }, 50);
+                                }}
+                                className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                  previewMode === "preview"
+                                    ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                    : "text-gray-500 hover:text-gray-800"
+                                }`}
+                              >
+                                <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Read-Only
+                              </button>
+                            </div>
 
-                        {/* Pan & Zoom Hint */}
-                        {previewMode === "edit" && (
-                          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
-                            <span>💡</span>
-                            <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">Alt</kbd>
-                            <span>+ Drag to Pan</span>
-                            <span className="text-amber-300">|</span>
-                            <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">Ctrl</kbd>
-                            <span>+ Scroll to Zoom</span>
-                          </div>
+                            {/* Pan & Zoom Hint */}
+                            {previewMode === "edit" && (
+                              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
+                                <span>💡</span>
+                                <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">Alt</kbd>
+                                <span>+ Drag to Pan</span>
+                                <span className="text-amber-300">|</span>
+                                <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">Ctrl</kbd>
+                                <span>+ Scroll to Zoom</span>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -2012,42 +2028,46 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         </div>
 
-                        {/* Divider */}
-                        <div className="w-px h-5 bg-gray-200 mx-0.5" />
+                        {!isReadonly && (
+                          <>
+                            {/* Divider */}
+                            <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
-                        {/* Guidelines Toggle */}
-                        <button
-                          type="button"
-                          onClick={() => setShowGuide((prev) => !prev)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                            showGuide
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                          }`}
-                          title="Toggle Guideline Borders"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" strokeDasharray="3 3" />
-                          </svg>
-                          <span>Guidelines</span>
-                        </button>
+                            {/* Guidelines Toggle */}
+                            <button
+                              type="button"
+                              onClick={() => setShowGuide((prev) => !prev)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                showGuide
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                              }`}
+                              title="Toggle Guideline Borders"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" strokeDasharray="3 3" />
+                              </svg>
+                              <span>Guidelines</span>
+                            </button>
 
-                        {/* Bleed Area Toggle */}
-                        <button
-                          type="button"
-                          onClick={() => setShowBleed((prev) => !prev)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                            showBleed
-                              ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                          }`}
-                          title="Toggle Bleed Area"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
-                          </svg>
-                          <span>Bleed Area</span>
-                        </button>
+                            {/* Bleed Area Toggle */}
+                            <button
+                              type="button"
+                              onClick={() => setShowBleed((prev) => !prev)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                showBleed
+                                  ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
+                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                              }`}
+                              title="Toggle Bleed Area"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>Bleed Area</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div

@@ -1,4 +1,13 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import {
+  House,
+  Pencil,
+  Trash,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Lock,
+  Unlock,
+} from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
   forwardRef,
@@ -22,6 +31,7 @@ import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import SafeZoneWrapper from "./SafeZoneWrapper";
+import DraggableBox from "./DraggableBox";
 
 export interface BcfpStandard6Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -212,6 +222,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     const [amount, setAmount] = useState("");
     const [number, setNumber] = useState("");
     const [addressCode, setAddressCode] = useState("");
+    const [companyName, setCompanyName] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
     const [showBleedState] = useState(true);
@@ -227,6 +238,31 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
     const updateFieldStyle = (field: string, style: TextStyle) =>
       setFieldStyles((prev) => ({ ...prev, [field]: style }));
+
+    // --- Canva-Style Field Positions State ---
+    const [fieldPositions, setFieldPositions] = useState<
+      Record<string, { x: number; y: number }>
+    >({});
+
+    const updateFieldPosition = (id: string, pos: { x: number; y: number }) => {
+      setFieldPositions((prev) => ({ ...prev, [id]: pos }));
+    };
+
+    // --- Section Drag Locking State (Default: Unlocked / Open) ---
+    const [lockedSections, setLockedSections] = useState<
+      Record<string, boolean>
+    >({
+      address: false,
+      contact: false,
+      price: false,
+      description: false,
+      specs: false,
+      details: false,
+    });
+
+    const toggleSectionLock = (section: string) => {
+      setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
 
     // --- images States ---
     const [images, setImages] = useState({
@@ -435,8 +471,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           if (agent.email) setEmail(agent.email);
           if (agent.company_name) setPropertyName(agent.company_name);
         }
+        setCompanyName(agent?.company_name ?? "");
       }
-
       if (formData) {
         const s = (val: any) =>
           typeof val === "string" ? val : val?.value || "";
@@ -490,7 +526,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         }
         if (formData.imagePositions) {
           const loadedPositions = formData.imagePositions as typeof position;
-          const logoPos = loadedPositions.image7 || loadedPositions.image16 || { x: 0, y: 0 };
+          const logoPos = loadedPositions.image7 ||
+            loadedPositions.image16 || { x: 0, y: 0 };
           setPosition((prev) => ({
             ...prev,
             ...loadedPositions,
@@ -499,14 +536,21 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           }));
         }
         if (formData.imageRotations) {
-          const loadedRotations = formData.imageRotations as unknown as typeof rotation;
-          const logoRot = loadedRotations.image7 || loadedRotations.image16 || 0;
+          const loadedRotations =
+            formData.imageRotations as unknown as typeof rotation;
+          const logoRot =
+            loadedRotations.image7 || loadedRotations.image16 || 0;
           setRotation((prev) => ({
             ...prev,
             ...loadedRotations,
             image7: logoRot,
             image16: logoRot,
           }));
+        }
+        if (formData.fieldPositions) {
+          setFieldPositions(
+            formData.fieldPositions as Record<string, { x: number; y: number }>,
+          );
         }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -534,6 +578,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         imageScales: scale,
         imagePositions: position,
         imageRotations: rotation,
+        fieldPositions,
       });
     }, [
       leftDetailFields,
@@ -555,6 +600,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       scale,
       position,
       rotation,
+      fieldPositions,
       updateFormData,
     ]);
 
@@ -596,7 +642,10 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       setScale((prev) => {
         const targetKey = isLogo ? "image7" : key;
         const newScale = Math.min(
-          Math.max(direction === "in" ? prev[targetKey] + 0.1 : prev[targetKey] - 0.1, 0.1),
+          Math.max(
+            direction === "in" ? prev[targetKey] + 0.1 : prev[targetKey] - 0.1,
+            0.1,
+          ),
           5,
         );
         if (isLogo) {
@@ -738,7 +787,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-      const isLogo = currentImageSlot === "image7" || currentImageSlot === "image16";
+      const isLogo =
+        currentImageSlot === "image7" || currentImageSlot === "image16";
       if (isLogo) {
         setImages((prev) => ({ ...prev, image7: imageUrl, image16: imageUrl }));
         setScale((prev) => ({ ...prev, image7: 1, image16: 1 }));
@@ -946,6 +996,8 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
               value: cityLine,
               style: fieldStyles.cityLine || ({} as TextStyle),
             },
+            fieldPositions,
+            _lockedSections: lockedSections,
             _leftDetailFields: leftDetailFields,
             _rightDetailFields: rightDetailFields,
           },
@@ -954,6 +1006,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           imagePositions: position,
           imageRotations: rotation,
         });
+        payload.fieldPositions = fieldPositions;
         return payload;
       },
 
@@ -1168,8 +1221,10 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           }));
         }
         if (state.imagePositions) {
-          const loadedPositions = state.imagePositions as unknown as typeof position;
-          const logoPos = loadedPositions.image7 || loadedPositions.image16 || { x: 0, y: 0 };
+          const loadedPositions =
+            state.imagePositions as unknown as typeof position;
+          const logoPos = loadedPositions.image7 ||
+            loadedPositions.image16 || { x: 0, y: 0 };
           setPosition((prev) => ({
             ...prev,
             ...loadedPositions,
@@ -1178,13 +1233,33 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           }));
         }
         if (state.imageRotations) {
-          const loadedRotations = state.imageRotations as unknown as typeof rotation;
-          const logoRot = loadedRotations.image7 || loadedRotations.image16 || 0;
+          const loadedRotations =
+            state.imageRotations as unknown as typeof rotation;
+          const logoRot =
+            loadedRotations.image7 || loadedRotations.image16 || 0;
           setRotation((prev) => ({
             ...prev,
             ...loadedRotations,
             image7: logoRot,
             image16: logoRot,
+          }));
+        }
+        if (rawOtherDetails.fieldPositions) {
+          setFieldPositions(
+            rawOtherDetails.fieldPositions as Record<
+              string,
+              { x: number; y: number }
+            >,
+          );
+        } else if (payload.fieldPositions) {
+          setFieldPositions(
+            payload.fieldPositions as Record<string, { x: number; y: number }>,
+          );
+        }
+        if (rawOtherDetails._lockedSections) {
+          setLockedSections((prev) => ({
+            ...prev,
+            ...(rawOtherDetails._lockedSections as Record<string, boolean>),
           }));
         }
       },
@@ -1364,9 +1439,56 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       marginRight: showBleed ? "-0.375in" : "-0.25in",
                     }}
                   >
-                    <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
-                      <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2] flex">
-                        <span className="inline">
+                    <div
+                      data-safezone-container="true"
+                      className={`flex w-full flex-col justify-center relative z-[19] items-center pt-[45px] pb-2 border-[3.5px] border-solid border-transparent rounded-lg px-2 transition-all duration-150 group/sec ${
+                        lockedSections.address
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
+                    >
+                      {/* Lock / Unlock Toggle Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("address");
+                        }}
+                        className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.address
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.address
+                            ? "Unlock Address Section (enable dragging)"
+                            : "Lock Address Section (disable dragging)"
+                        }
+                      >
+                        {lockedSections.address ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2] flex items-center gap-2">
+                        <DraggableBox
+                          id="addressCode"
+                          position={fieldPositions.addressCode}
+                          onPositionChange={updateFieldPosition}
+                          label="MLS"
+                          zoom={0.55}
+                          className="inline"
+                          disabled={lockedSections.address}
+                        >
                           <StyledInput
                             value={addressCode}
                             onChange={(e) => setAddressCode(e.target.value)}
@@ -1377,23 +1499,43 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                             className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-[#00B9F2] text-left focus:outline-none border-none placeholder-[#00B9F2] placeholder:font-[200]"
                             placeholder="0000-0000"
                           />
-                        </span>
-                        <span className="text-[#226292] flex">
-                          Number
-                          <StyledInput
-                            value={roadName}
-                            onChange={(e) => setRoadName(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("roadName", s)
-                            }
-                            inputStyle={fieldStyles.roadName}
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                            placeholder="0"
-                          />
-                          Road
-                        </span>
+                        </DraggableBox>
+
+                        <DraggableBox
+                          id="roadName"
+                          position={fieldPositions.roadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Road"
+                          zoom={0.55}
+                          className="inline"
+                          disabled={lockedSections.address}
+                        >
+                          <span className="text-[#226292] flex items-center">
+                            Number
+                            <StyledInput
+                              value={roadName}
+                              onChange={(e) => setRoadName(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("roadName", s)
+                              }
+                              inputStyle={fieldStyles.roadName}
+                              className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                              placeholder="0"
+                            />
+                            Road
+                          </span>
+                        </DraggableBox>
                       </div>
-                      <div className="text-[#2C2E35] text-[10px]">
+
+                      <DraggableBox
+                        id="cityLine"
+                        position={fieldPositions.cityLine}
+                        onPositionChange={updateFieldPosition}
+                        label="City"
+                        zoom={0.55}
+                        className="text-[#2C2E35] text-[10px] w-full"
+                        disabled={lockedSections.address}
+                      >
                         <StyledInput
                           value={cityLine}
                           onChange={(e) => setCityLine(e.target.value)}
@@ -1402,7 +1544,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           className="text-[#2C2E35] text-[20px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                           placeholder="BRIGHOUSE SOUTH, RICHMOND"
                         />
-                      </div>
+                      </DraggableBox>
 
                       {/* image7 */}
                       <div
@@ -2212,138 +2354,279 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     </div>
                   </div>
 
-                  <div className="w-1/2 py-[10px] relative flex items-center">
-                    <div className="text-white leading-none text-left w-[85%] ">
+                  <div
+                    data-safezone-container="true"
+                    className={`w-1/2 py-[10px] relative flex flex-col justify-center border-[3.5px] border-solid border-transparent rounded-lg p-2.5 transition-all duration-150 group/sec ${
+                      lockedSections.contact
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                    }`}
+                  >
+                    {/* Lock / Unlock Toggle Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("contact");
+                      }}
+                      className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.contact
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.contact
+                          ? "Unlock Contact Section (enable dragging)"
+                          : "Lock Contact Section (disable dragging)"
+                      }
+                    >
+                      {lockedSections.contact ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-white leading-none text-left w-[85%]">
                       <div>
-                        <div className="font-semibold text-[20px] flex gap-3  w-[90%]">
-                          <div className="flex items-center gap-1 w-full">
-                            <span className="text-[20px] font-[300]">
-                              Contact:
-                            </span>
-                            <StyledInput
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("fullName", s)
-                              }
-                              inputStyle={fieldStyles.fullName}
-                              className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="FIRSTNAME LASTNAME"
-                            />
-                          </div>
-                          <StyledInput
-                            value={propertyName}
-                            onChange={(e) => setPropertyName(e.target.value)}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("propertyName", s)
-                            }
-                            inputStyle={fieldStyles.propertyName}
-                            className=" text-[20px] h-[22px] font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                            placeholder="MACDONALD  Realty"
-                          />
-                        </div>
-                        <div className="font-semibold text-[20px] flex gap-3 mt-3 w-[90%]">
-                          <div className="flex items-center gap-1 w-full">
-                            <span className="text-[20px] font-[300]">
-                              PHONE:
-                            </span>
-                            <StyledInput
-                              value={number}
-                              onChange={(e) => setNumber(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("number", s)
-                              }
-                              inputStyle={fieldStyles.number}
-                              className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                              placeholder="604.000.0000"
-                            />
-                          </div>
-                          <div className="flex items-center gap-1 w-full">
-                            <span className="text-[20px] font-[300]">
-                              Email:
-                            </span>
-                            <StyledInput
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("email", s)
-                              }
-                              inputStyle={fieldStyles.email}
-                              className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                              placeholder="Enter email here"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-start  font-light flex w-[80%] mt-4">
-                        <span className="text-[8px]">
-                          All information deemed reliable but not guaranteed and
-                          should be independently verified. All properties are
-                          subject to prior sale, change or withdrawal. Neither
-                          listing broker(s) nor BC Floor Plans shall be
-                          responsible for any typographical errors,
-                          misinformation, misprints and shall be held totally
-                          harmless.
-                        </span>
-                        <span className="flex mt-2">
-                          <House className="w-4 h-4" />
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 8 8"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
+                        <div className="font-semibold text-[20px] flex gap-3 w-[90%]">
+                          <DraggableBox
+                            id="contactName"
+                            position={fieldPositions.contactName}
+                            onPositionChange={updateFieldPosition}
+                            label="Contact"
+                            zoom={0.55}
+                            containerClassName="w-full"
+                            disabled={lockedSections.contact}
                           >
-                            <path
-                              d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                              fill="white"
+                            <div className="flex items-center gap-1 w-full">
+                              <span className="text-[20px] font-[300]">
+                                Contact:
+                              </span>
+                              <StyledInput
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("fullName", s)
+                                }
+                                inputStyle={fieldStyles.fullName}
+                                className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="FIRSTNAME LASTNAME"
+                              />
+                            </div>
+                          </DraggableBox>
+
+                          <DraggableBox
+                            id="contactBrokerage"
+                            position={fieldPositions.contactBrokerage}
+                            onPositionChange={updateFieldPosition}
+                            label="Brokerage"
+                            zoom={0.55}
+                            containerClassName="w-full"
+                            disabled={lockedSections.contact}
+                          >
+                            <StyledInput
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("companyName", s)
+                              }
+                              inputStyle={fieldStyles.companyName}
+                              className=" text-[20px] h-[22px] font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                              placeholder="MACDONALD  Realty"
                             />
-                            <path
-                              d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                              fill="white"
-                            />
-                            <path
-                              d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                              fill="white"
-                            />
-                          </svg>
-                        </span>
+                          </DraggableBox>
+                        </div>
+
+                        <div className="font-semibold text-[20px] flex gap-3 mt-3 w-[90%]">
+                          <DraggableBox
+                            id="contactPhone"
+                            position={fieldPositions.contactPhone}
+                            onPositionChange={updateFieldPosition}
+                            label="Phone"
+                            zoom={0.55}
+                            containerClassName="w-full"
+                            disabled={lockedSections.contact}
+                          >
+                            <div className="flex items-center gap-1 w-full">
+                              <span className="text-[20px] font-[300]">
+                                PHONE:
+                              </span>
+                              <StyledInput
+                                value={number}
+                                onChange={(e) => setNumber(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("number", s)
+                                }
+                                inputStyle={fieldStyles.number}
+                                className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="604.000.0000"
+                              />
+                            </div>
+                          </DraggableBox>
+
+                          <DraggableBox
+                            id="contactEmail"
+                            position={fieldPositions.contactEmail}
+                            onPositionChange={updateFieldPosition}
+                            label="Email"
+                            zoom={0.55}
+                            containerClassName="w-full"
+                            disabled={lockedSections.contact}
+                          >
+                            <div className="flex items-center gap-1 w-full">
+                              <span className="text-[20px] font-[300]">
+                                Email:
+                              </span>
+                              <StyledInput
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("email", s)
+                                }
+                                inputStyle={fieldStyles.email}
+                                className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                placeholder="Enter email here"
+                              />
+                            </div>
+                          </DraggableBox>
+                        </div>
                       </div>
+
+                      <DraggableBox
+                        id="contactDisclaimer"
+                        position={fieldPositions.contactDisclaimer}
+                        onPositionChange={updateFieldPosition}
+                        label="Disclaimer"
+                        zoom={0.55}
+                        containerClassName="mt-4"
+                        disabled={lockedSections.contact}
+                      >
+                        <div className="text-start font-light flex w-[80%]">
+                          <span className="text-[8px]">
+                            All information deemed reliable but not guaranteed
+                            and should be independently verified. All properties
+                            are subject to prior sale, change or withdrawal.
+                            Neither listing broker(s) nor BC Floor Plans shall
+                            be responsible for any typographical errors,
+                            misinformation, misprints and shall be held totally
+                            harmless.
+                          </span>
+                          <span className="flex mt-2">
+                            <House className="w-4 h-4" />
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 8 8"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
+                                fill="white"
+                              />
+                            </svg>
+                          </span>
+                        </div>
+                      </DraggableBox>
                     </div>
                   </div>
-                  <div className="w-1/2 text-center text-[30px] text-white content-center">
-                    <StyledInput
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                      inputStyle={fieldStyles.amount}
-                      className="font-semibold text-center text-[36px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                      placeholder="$000,000"
-                    />
+                  <div
+                    data-safezone-container="true"
+                    className={`w-1/2 text-center text-[30px] text-white content-center border-[3.5px] border-solid border-transparent rounded-lg p-2 transition-all duration-150 relative group/sec ${
+                      lockedSections.price
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                    }`}
+                  >
+                    {/* Lock / Unlock Toggle Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("price");
+                      }}
+                      className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.price
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.price
+                          ? "Unlock Price Section (enable dragging)"
+                          : "Lock Price Section (disable dragging)"
+                      }
+                    >
+                      {lockedSections.price ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <DraggableBox
+                      id="priceAmount"
+                      position={fieldPositions.priceAmount}
+                      onPositionChange={updateFieldPosition}
+                      label="Price"
+                      zoom={0.55}
+                      disabled={lockedSections.price}
+                    >
+                      <StyledInput
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                        inputStyle={fieldStyles.amount}
+                        className="font-semibold text-center text-[36px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                        placeholder="$000,000"
+                      />
+                    </DraggableBox>
                   </div>
                 </div>
               </div>
@@ -2671,18 +2954,66 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
                     </div>
 
-                    <div className="min-h-[170px] overflow-hidden px-4 py-1">
-                      <StyledInput
-                        value={description}
-                        rows={6}
-                        onChange={(e) => setDescription(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("description", s)
+                    <div
+                      data-safezone-container="true"
+                      className={`min-h-[170px] px-4 py-2 relative border-[3.5px] border-solid border-transparent rounded-lg transition-all duration-150 group/sec mt-2 ${
+                        lockedSections.description
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                      }`}
+                    >
+                      {/* Lock / Unlock Toggle Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("description");
+                        }}
+                        className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.description
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.description
+                            ? "Unlock Description Section (enable dragging)"
+                            : "Lock Description Section (disable dragging)"
                         }
-                        inputStyle={fieldStyles.description}
-                        className="font-normal text-[10px] h-[170px] z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                        placeholder="Enter property description here..."
-                      />
+                      >
+                        {lockedSections.description ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      <DraggableBox
+                        id="propertyDescription"
+                        position={fieldPositions.propertyDescription}
+                        onPositionChange={updateFieldPosition}
+                        label="Description"
+                        zoom={0.55}
+                        disabled={lockedSections.description}
+                      >
+                        <StyledInput
+                          value={description}
+                          rows={6}
+                          onChange={(e) => setDescription(e.target.value)}
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("description", s)
+                          }
+                          inputStyle={fieldStyles.description}
+                          className="font-normal text-[10px] h-[170px] z-20 text-black leading-[1.8] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                          placeholder="Enter property description here..."
+                        />
+                      </DraggableBox>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -2897,52 +3228,139 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       </div>
                     </div>
 
-                    <div className=" w-full font-bold text-white text-[18px] mt-[10px] flex flex-wrap gap-2 px-1">
-                      <div className="inline">
-                        <StyledInput
-                          value={bedroom}
-                          onChange={(e) => setBedroom(e.target.value)}
-                          onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                          inputStyle={fieldStyles.bedroom}
-                          className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="0"
-                        />
-                      </div>
-                      BEDROOM •
-                      <div className="inline">
-                        <StyledInput
-                          value={bathroom}
-                          onChange={(e) => setBathroom(e.target.value)}
-                          onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                          inputStyle={fieldStyles.bathroom}
-                          className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="0"
-                        />
-                      </div>
-                      BATHROOM •
-                      <div className="inline">
-                        <StyledInput
-                          value={sqft}
-                          onChange={(e) => setSqft(e.target.value)}
-                          onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                          inputStyle={fieldStyles.sqft}
-                          className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="000"
-                        />
-                      </div>
-                      SQ FT • BUILT IN
-                      <div className="inline">
-                        <StyledInput
-                          value={builtYear}
-                          onChange={(e) => setBuiltYear(e.target.value)}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("builtYear", s)
-                          }
-                          inputStyle={fieldStyles.builtYear}
-                          className="font-semibold text-[13px] bg-transparent text-left  w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="0000"
-                        />
-                      </div>
+                    <div
+                      data-safezone-container="true"
+                      className={`w-full font-bold text-white text-[18px] mt-[10px] flex flex-wrap items-center gap-2 px-2 py-2 border-[3.5px] border-solid border-transparent rounded-lg transition-all duration-150 relative group/sec ${
+                        lockedSections.specs
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                      }`}
+                    >
+                      {/* Lock / Unlock Toggle Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("specs");
+                        }}
+                        className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.specs
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.specs
+                            ? "Unlock Specs Section (enable dragging)"
+                            : "Lock Specs Section (disable dragging)"
+                        }
+                      >
+                        {lockedSections.specs ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      <DraggableBox
+                        id="specBedroom"
+                        position={fieldPositions.specBedroom}
+                        onPositionChange={updateFieldPosition}
+                        label="Bedroom"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                      >
+                        <div className="inline">
+                          <StyledInput
+                            value={bedroom}
+                            onChange={(e) => setBedroom(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bedroom", s)
+                            }
+                            inputStyle={fieldStyles.bedroom}
+                            className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            placeholder="0"
+                          />
+                        </div>
+                        <span>BEDROOM •</span>
+                      </DraggableBox>
+
+                      <DraggableBox
+                        id="specBathroom"
+                        position={fieldPositions.specBathroom}
+                        onPositionChange={updateFieldPosition}
+                        label="Bathroom"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                      >
+                        <div className="inline">
+                          <StyledInput
+                            value={bathroom}
+                            onChange={(e) => setBathroom(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bathroom", s)
+                            }
+                            inputStyle={fieldStyles.bathroom}
+                            className="font-semibold text-[13px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            placeholder="0"
+                          />
+                        </div>
+                        <span>BATHROOM •</span>
+                      </DraggableBox>
+
+                      <DraggableBox
+                        id="specSqft"
+                        position={fieldPositions.specSqft}
+                        onPositionChange={updateFieldPosition}
+                        label="Sq Ft"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                      >
+                        <div className="inline">
+                          <StyledInput
+                            value={sqft}
+                            onChange={(e) => setSqft(e.target.value)}
+                            onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                            inputStyle={fieldStyles.sqft}
+                            className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            placeholder="000"
+                          />
+                        </div>
+                        <span>SQ FT •</span>
+                      </DraggableBox>
+
+                      <DraggableBox
+                        id="specBuiltYear"
+                        position={fieldPositions.specBuiltYear}
+                        onPositionChange={updateFieldPosition}
+                        label="Built"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                      >
+                        <span>BUILT IN</span>
+                        <div className="inline">
+                          <StyledInput
+                            value={builtYear}
+                            onChange={(e) => setBuiltYear(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("builtYear", s)
+                            }
+                            inputStyle={fieldStyles.builtYear}
+                            className="font-semibold text-[13px] bg-transparent text-left w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            placeholder="0000"
+                          />
+                        </div>
+                      </DraggableBox>
                     </div>
                   </div>
 
@@ -3486,50 +3904,114 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         </div>
                       </div>
 
-                      {/* Detail fields — titles & values are both editable and removable */}
-                      <div className="relative z-10 flex gap-4 pb-[5px] text-white text-[12px] leading-relaxed pt-[0px] h-[250px] overflow-hidden">
+                      {/* Detail fields — titles & values are both editable and removable with freeform Canva-style movement */}
+                      <div
+                        data-safezone-container="true"
+                        className={`relative z-10 flex gap-4 pb-[5px] text-white text-[12px] leading-relaxed pt-[16px] min-h-[240px] border-[3.5px] border-solid border-transparent rounded-lg p-2.5 transition-all duration-150 group/sec ${
+                          lockedSections.details
+                            ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                            : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                        }`}
+                      >
+                        {/* Lock / Unlock Toggle Button */}
+                        <button
+                          type="button"
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSectionLock("details");
+                          }}
+                          className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                            lockedSections.details
+                              ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                              : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                          }`}
+                          title={
+                            lockedSections.details
+                              ? "Unlock Detail Fields (enable dragging)"
+                              : "Lock Detail Fields (disable dragging)"
+                          }
+                        >
+                          {lockedSections.details ? (
+                            <>
+                              <Lock className="w-3 h-3" />
+                              <span>Locked</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="w-3 h-3" />
+                              <span>Lock</span>
+                            </>
+                          )}
+                        </button>
+
                         {/* Left column fields */}
-                        <div className="space-y-2 text-[8px] w-1/2 overflow-hidden">
+                        <div className="space-y-2 text-[8px] w-1/2">
                           {leftDetailFields.map((field) => (
-                            <DetailFieldRow
+                            <DraggableBox
                               key={field.id}
-                              field={field}
-                              onTitleChange={(t) =>
-                                updateDetailTitle(field.id, t)
+                              id={field.id}
+                              position={fieldPositions[field.id]}
+                              onPositionChange={updateFieldPosition}
+                              label={
+                                field.title.replace(/[:]/g, "").slice(0, 15) ||
+                                "Field"
                               }
-                              onTitleStyleChange={(s) =>
-                                updateDetailTitleStyle(field.id, s)
-                              }
-                              onValueChange={(v) =>
-                                updateDetailValue(field.id, v)
-                              }
-                              onStyleChange={(s) =>
-                                updateDetailStyle(field.id, s)
-                              }
-                              onRemove={() => removeDetailField(field.id)}
-                            />
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                            >
+                              <DetailFieldRow
+                                field={field}
+                                onTitleChange={(t) =>
+                                  updateDetailTitle(field.id, t)
+                                }
+                                onTitleStyleChange={(s) =>
+                                  updateDetailTitleStyle(field.id, s)
+                                }
+                                onValueChange={(v) =>
+                                  updateDetailValue(field.id, v)
+                                }
+                                onStyleChange={(s) =>
+                                  updateDetailStyle(field.id, s)
+                                }
+                                onRemove={() => removeDetailField(field.id)}
+                              />
+                            </DraggableBox>
                           ))}
                         </div>
+
                         {/* Right column fields */}
-                        <div className="space-y-2 text-[8px] w-1/2 overflow-hidden mt-5">
+                        <div className="space-y-2 text-[8px] w-1/2 pt-[22px]">
                           {rightDetailFields.map((field) => (
-                            <DetailFieldRow
+                            <DraggableBox
                               key={field.id}
-                              field={field}
-                              onTitleChange={(t) =>
-                                updateDetailTitle(field.id, t)
+                              id={field.id}
+                              position={fieldPositions[field.id]}
+                              onPositionChange={updateFieldPosition}
+                              label={
+                                field.title.replace(/[:]/g, "").slice(0, 15) ||
+                                "Field"
                               }
-                              onTitleStyleChange={(s) =>
-                                updateDetailTitleStyle(field.id, s)
-                              }
-                              onValueChange={(v) =>
-                                updateDetailValue(field.id, v)
-                              }
-                              onStyleChange={(s) =>
-                                updateDetailStyle(field.id, s)
-                              }
-                              onRemove={() => removeDetailField(field.id)}
-                            />
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                            >
+                              <DetailFieldRow
+                                field={field}
+                                onTitleChange={(t) =>
+                                  updateDetailTitle(field.id, t)
+                                }
+                                onTitleStyleChange={(s) =>
+                                  updateDetailTitleStyle(field.id, s)
+                                }
+                                onValueChange={(v) =>
+                                  updateDetailValue(field.id, v)
+                                }
+                                onStyleChange={(s) =>
+                                  updateDetailStyle(field.id, s)
+                                }
+                                onRemove={() => removeDetailField(field.id)}
+                              />
+                            </DraggableBox>
                           ))}
                         </div>
                       </div>
@@ -3546,5 +4028,4 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 );
 
 BcfpStandard6.displayName = "BcfpStandard6";
-
 export default BcfpStandard6;

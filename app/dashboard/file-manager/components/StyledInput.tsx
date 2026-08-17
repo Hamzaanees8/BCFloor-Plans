@@ -654,7 +654,8 @@ export default function StyledInput({
                 title="Align Left"
                 className={cn(
                   "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                  textAlign === "left" && "bg-gray-800 text-white hover:bg-gray-800",
+                  textAlign === "left" &&
+                    "bg-gray-800 text-white hover:bg-gray-800",
                 )}
                 onClick={() => applyStyle("textAlign", "left")}
               >
@@ -666,7 +667,8 @@ export default function StyledInput({
                 title="Align Center"
                 className={cn(
                   "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                  textAlign === "center" && "bg-gray-800 text-white hover:bg-gray-800",
+                  textAlign === "center" &&
+                    "bg-gray-800 text-white hover:bg-gray-800",
                 )}
                 onClick={() => applyStyle("textAlign", "center")}
               >
@@ -678,7 +680,8 @@ export default function StyledInput({
                 title="Align Right"
                 className={cn(
                   "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                  textAlign === "right" && "bg-gray-800 text-white hover:bg-gray-800",
+                  textAlign === "right" &&
+                    "bg-gray-800 text-white hover:bg-gray-800",
                 )}
                 onClick={() => applyStyle("textAlign", "right")}
               >
@@ -690,7 +693,8 @@ export default function StyledInput({
                 title="Justify"
                 className={cn(
                   "p-1 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                  textAlign === "justify" && "bg-gray-800 text-white hover:bg-gray-800",
+                  textAlign === "justify" &&
+                    "bg-gray-800 text-white hover:bg-gray-800",
                 )}
                 onClick={() => applyStyle("textAlign", "justify")}
               >

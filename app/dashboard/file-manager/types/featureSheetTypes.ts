@@ -214,6 +214,7 @@ export interface FeatureSheetPayload {
     // Internal only — used by buildPayload, never sent to backend directly
     images?: FeatureSheetImage[];
     fieldStyles?: Record<string, any>;
+    fieldPositions?: Record<string, { x: number; y: number }>;
 }
 
 export interface FeatureSheetResponse {
@@ -224,6 +225,7 @@ export interface FeatureSheetResponse {
     template_key: string;
     content: FeatureSheetContent;
     fieldStyles?: Record<string, any>;
+    fieldPositions?: Record<string, { x: number; y: number }>;
     images: FeatureSheetImage[];
     pdf_path: string | null;
     pdf_url: string | null;
