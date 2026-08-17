@@ -1889,275 +1889,293 @@ const CreateFeatureSheet = forwardRef<
                       }
                     `}</style>
                   <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
-                    <div className="sticky top-[60px] z-[50] bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none">
-                      {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        {!isReadonly && (
-                          <>
-                            {/* Segmented Mode Switcher */}
-                            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewMode("edit")}
-                                className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                                  previewMode === "edit"
-                                    ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                    : "text-gray-500 hover:text-gray-800"
-                                }`}
-                              >
-                                <svg
-                                  className="w-3.5 h-3.5 text-blue-600"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                    {/* Sticky Header Toolbar Container */}
+                    <div className="sticky top-[60px] z-[50] pointer-events-none">
+                      <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none pointer-events-auto">
+                        {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          {!isReadonly && (
+                            <>
+                              {/* Segmented Mode Switcher */}
+                              <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewMode("edit")}
+                                  className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                    previewMode === "edit"
+                                      ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                      : "text-gray-500 hover:text-gray-800"
+                                  }`}
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                  />
-                                </svg>
-                                Editable
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPreviewMode("preview");
-                                  setTimeout(() => {
-                                    if (previewContainerRef.current) {
-                                      const el = previewContainerRef.current;
-                                      el.scrollLeft =
-                                        (el.scrollWidth - el.clientWidth) / 2;
-                                      el.scrollTop = 0;
-                                    }
-                                  }, 50);
-                                }}
-                                className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                                  previewMode === "preview"
-                                    ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                    : "text-gray-500 hover:text-gray-800"
-                                }`}
-                              >
-                                <svg
-                                  className="w-3.5 h-3.5 text-emerald-600"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                                  <svg
+                                    className="w-3.5 h-3.5 text-blue-600"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                    />
+                                  </svg>
+                                  Editable
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPreviewMode("preview");
+                                    setTimeout(() => {
+                                      if (previewContainerRef.current) {
+                                        const el = previewContainerRef.current;
+                                        el.scrollLeft =
+                                          (el.scrollWidth - el.clientWidth) / 2;
+                                        el.scrollTop = 0;
+                                      }
+                                    }, 50);
+                                  }}
+                                  className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                    previewMode === "preview"
+                                      ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                      : "text-gray-500 hover:text-gray-800"
+                                  }`}
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                  />
-                                </svg>
-                                Read-Only
-                              </button>
-                            </div>
-
-                            {/* Pan & Zoom Hint */}
-                            {previewMode === "edit" && (
-                              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
-                                <span>💡</span>
-                                <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
-                                  Alt
-                                </kbd>
-                                <span>+ Drag to Pan</span>
-                                <span className="text-amber-300">|</span>
-                                <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
-                                  Ctrl
-                                </kbd>
-                                <span>+ Scroll to Zoom</span>
+                                  <svg
+                                    className="w-3.5 h-3.5 text-emerald-600"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                  Read-Only
+                                </button>
                               </div>
-                            )}
-                          </>
-                        )}
-                      </div>
 
-                      {/* Center Group: Page Navigation */}
-                      <div
-                        className="flex items-center gap-2 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (currentPreviewPage > 1)
-                              scrollToPage(currentPreviewPage - 1);
-                          }}
-                          disabled={currentPreviewPage <= 1}
-                          className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
-                            currentPreviewPage <= 1
-                              ? "opacity-40 cursor-not-allowed"
-                              : "cursor-pointer"
-                          }`}
-                        >
-                          Previous
-                        </button>
-                        <span className="text-xs font-semibold text-gray-600 px-1 min-w-[75px] text-center select-none">
-                          Page {currentPreviewPage} of {numPdfPages}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (currentPreviewPage < numPdfPages)
-                              scrollToPage(currentPreviewPage + 1);
-                          }}
-                          disabled={currentPreviewPage >= numPdfPages}
-                          className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
-                            currentPreviewPage >= numPdfPages
-                              ? "opacity-40 cursor-not-allowed"
-                              : "cursor-pointer"
-                          }`}
-                        >
-                          Next
-                        </button>
-                      </div>
+                              {/* Pan & Zoom Hint */}
+                              {previewMode === "edit" && (
+                                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
+                                  <span>💡</span>
+                                  <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                    Alt
+                                  </kbd>
+                                  <span>+ Drag to Pan</span>
+                                  <span className="text-amber-300">|</span>
+                                  <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                    Ctrl
+                                  </kbd>
+                                  <span>+ Scroll to Zoom</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
 
-                      {/* Right Group: Zoom Controls & Guideline / Bleed Toggles */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Zoom Control Group */}
-                        <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                        {/* Center Group: Page Navigation */}
+                        <div
+                          className="flex items-center gap-2 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
-                            onClick={() =>
-                              setPreviewZoom((z) =>
-                                Math.max(0.25, Number((z - 0.1).toFixed(2))),
-                              )
-                            }
-                            className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
-                            title="Zoom Out"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPreviewPage > 1)
+                                scrollToPage(currentPreviewPage - 1);
+                            }}
+                            disabled={currentPreviewPage <= 1}
+                            className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
+                              currentPreviewPage <= 1
+                                ? "opacity-40 cursor-not-allowed"
+                                : "cursor-pointer"
+                            }`}
                           >
-                            -
+                            Previous
                           </button>
-                          <span className="font-semibold text-gray-700 w-11 text-center select-none text-[11px]">
-                            {Math.round(previewZoom * 100)}%
+                          <span className="text-xs font-semibold text-gray-600 px-1 min-w-[75px] text-center select-none">
+                            Page {currentPreviewPage} of {numPdfPages}
                           </span>
                           <button
                             type="button"
-                            onClick={() =>
-                              setPreviewZoom((z) =>
-                                Math.min(3.0, Number((z + 0.1).toFixed(2))),
-                              )
-                            }
-                            className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
-                            title="Zoom In"
-                          >
-                            +
-                          </button>
-                          <select
-                            value={
-                              [
-                                0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
-                              ].includes(previewZoom)
-                                ? previewZoom
-                                : ""
-                            }
-                            onChange={(e) => {
-                              if (e.target.value)
-                                setPreviewZoom(parseFloat(e.target.value));
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPreviewPage < numPdfPages)
+                                scrollToPage(currentPreviewPage + 1);
                             }}
-                            className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                            disabled={currentPreviewPage >= numPdfPages}
+                            className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
+                              currentPreviewPage >= numPdfPages
+                                ? "opacity-40 cursor-not-allowed"
+                                : "cursor-pointer"
+                            }`}
                           >
-                            {![
-                              0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
-                            ].includes(previewZoom) && (
-                              <option value="">
-                                {Math.round(previewZoom * 100)}%
-                              </option>
-                            )}
-                            <option value={0.25}>25%</option>
-                            <option value={0.5}>50%</option>
-                            <option value={0.75}>75%</option>
-                            <option value={1.0}>100%</option>
-                            <option value={1.25}>125%</option>
-                            <option value={1.5}>150%</option>
-                            <option value={2.0}>200%</option>
-                            <option value={2.5}>250%</option>
-                            <option value={3.0}>300%</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={resetPanAndZoom}
-                            className="px-2 py-0.5 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 font-medium text-[11px] transition-colors"
-                            title="Reset View (100%)"
-                          >
-                            Reset
+                            Next
                           </button>
                         </div>
 
-                        {!isReadonly && (
-                          <>
-                            {/* Divider */}
-                            <div className="w-px h-5 bg-gray-200 mx-0.5" />
-
-                            {/* Guidelines Toggle */}
+                        {/* Right Group: Zoom Controls & Guideline / Bleed Toggles */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Zoom Control Group */}
+                          <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
                             <button
                               type="button"
-                              onClick={() => setShowGuide((prev) => !prev)}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                                showGuide
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                              }`}
-                              title="Toggle Guideline Borders"
+                              onClick={() =>
+                                setPreviewZoom((z) =>
+                                  Math.max(0.25, Number((z - 0.1).toFixed(2))),
+                                )
+                              }
+                              className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
+                              title="Zoom Out"
                             >
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
-                                  strokeDasharray="3 3"
-                                />
-                              </svg>
-                              <span>Guidelines</span>
+                              -
                             </button>
-
-                            {/* Bleed Area Toggle */}
+                            <span className="font-semibold text-gray-700 w-11 text-center select-none text-[11px]">
+                              {Math.round(previewZoom * 100)}%
+                            </span>
                             <button
                               type="button"
-                              onClick={() => setShowBleed((prev) => !prev)}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                                showBleed
-                                  ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
-                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                              }`}
-                              title="Toggle Bleed Area"
+                              onClick={() =>
+                                setPreviewZoom((z) =>
+                                  Math.min(3.0, Number((z + 0.1).toFixed(2))),
+                                )
+                              }
+                              className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
+                              title="Zoom In"
                             >
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              <span>Bleed Area</span>
+                              +
                             </button>
-                          </>
-                        )}
+                            <select
+                              value={
+                                [
+                                  0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5,
+                                  3.0,
+                                ].includes(previewZoom)
+                                  ? previewZoom
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                if (e.target.value)
+                                  setPreviewZoom(parseFloat(e.target.value));
+                              }}
+                              className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                            >
+                              {![
+                                0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
+                              ].includes(previewZoom) && (
+                                <option value="">
+                                  {Math.round(previewZoom * 100)}%
+                                </option>
+                              )}
+                              <option value={0.25}>25%</option>
+                              <option value={0.5}>50%</option>
+                              <option value={0.75}>75%</option>
+                              <option value={1.0}>100%</option>
+                              <option value={1.25}>125%</option>
+                              <option value={1.5}>150%</option>
+                              <option value={2.0}>200%</option>
+                              <option value={2.5}>250%</option>
+                              <option value={3.0}>300%</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={resetPanAndZoom}
+                              className="px-2 py-0.5 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 font-medium text-[11px] transition-colors"
+                              title="Reset View (100%)"
+                            >
+                              Reset
+                            </button>
+                          </div>
+
+                          {!isReadonly && (
+                            <>
+                              {/* Divider */}
+                              <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+                              {/* Guidelines Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => setShowGuide((prev) => !prev)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                  showGuide
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                                }`}
+                                title="Toggle Guideline Borders"
+                              >
+                                <svg
+                                  className="w-3.5 h-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
+                                    strokeDasharray="3 3"
+                                  />
+                                </svg>
+                                <span>Guidelines</span>
+                              </button>
+
+                              {/* Bleed Area Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => setShowBleed((prev) => !prev)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                  showBleed
+                                    ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                                }`}
+                                title="Toggle Bleed Area"
+                              >
+                                <svg
+                                  className="w-3.5 h-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
+                                  />
+                                </svg>
+                                <span>Bleed Area</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Deleted Fields Floating Button (attached 30px below the header, scrolls with header) */}
+                      {!isReadonly && (
+                        <div className="absolute top-[calc(100%+30px)] left-6 pointer-events-auto z-[50]">
+                          <DeletedFieldsPanel
+                            deletedFields={formData.deletedDetailFields || []}
+                            onRestore={(id) => restoreDetailFieldHandler?.(id)}
+                            onRestoreAll={() =>
+                              restoreAllDetailFieldsHandler?.()
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
+
                     <div
                       ref={previewContainerRef}
                       onMouseDown={handlePanMouseDown}
@@ -2172,14 +2190,6 @@ const CreateFeatureSheet = forwardRef<
                             : ""
                       }`}
                     >
-                      {/* Deleted Fields Floating Button (below toolbar on left) & Overlay Sidebar */}
-                      {!isReadonly && (
-                        <DeletedFieldsPanel
-                          deletedFields={formData.deletedDetailFields || []}
-                          onRestore={(id) => restoreDetailFieldHandler?.(id)}
-                          onRestoreAll={() => restoreAllDetailFieldsHandler?.()}
-                        />
-                      )}
 
                       <div
                         className={`relative flex flex-col items-center justify-center ${

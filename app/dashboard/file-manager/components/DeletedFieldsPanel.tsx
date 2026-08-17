@@ -89,52 +89,46 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
   return (
     <div
       data-html2canvas-ignore="true"
-      className="font-sans antialiased select-none pointer-events-none"
+      className="font-sans antialiased select-none pointer-events-auto"
     >
-      {/* ─── FIXED FLOATING BUTTON (ALWAYS VISIBLE ON SCREEN, OFFSET FROM SIDEBAR) ─── */}
-      <div
-        style={{ left: `${sidebarLeftOffset + 24}px` }}
-        className="fixed bottom-6 z-[60] pointer-events-auto transition-[left] duration-200 ease-linear"
+      {/* ─── TRIGGER BUTTON ─── */}
+      <button
+        type="button"
+        onClick={isOpen ? handleClose : handleOpen}
+        aria-label="Toggle Deleted Fields Sidebar"
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-lg border transition-all duration-200 text-xs font-semibold cursor-pointer group pointer-events-auto ${
+          totalCount > 0
+            ? "bg-[#1E293B] text-white border-gray-700 hover:bg-[#0F172A] hover:border-[#00B9F2]/60 shadow-xl shadow-[#00B9F2]/10 hover:-translate-y-0.5 active:translate-y-0"
+            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900 shadow-md hover:-translate-y-0.5 active:translate-y-0"
+        }`}
+        title="Open Deleted Fields Panel to restore removed fields"
       >
-        <button
-          type="button"
-          onClick={isOpen ? handleClose : handleOpen}
-          aria-label="Toggle Deleted Fields Sidebar"
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-lg border transition-all duration-200 text-xs font-semibold cursor-pointer group ${
-            totalCount > 0
-              ? "bg-[#1E293B] text-white border-gray-700 hover:bg-[#0F172A] hover:border-[#00B9F2]/60 shadow-xl shadow-[#00B9F2]/10 hover:-translate-y-0.5 active:translate-y-0"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900 shadow-md hover:-translate-y-0.5 active:translate-y-0"
-          }`}
-          title="Open Deleted Fields Panel to restore removed fields"
-        >
-          <div className="relative flex items-center justify-center">
-            <Trash2
-              size={15}
-              className={
-                totalCount > 0
-                  ? "text-[#00B9F2] group-hover:scale-110 transition-transform"
-                  : "text-gray-500"
-              }
-            />
-            {totalCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#00B9F2] rounded-full animate-pulse" />
-            )}
-          </div>
-          <span className="tracking-wide">Deleted Fields</span>
+        <div className="relative flex items-center justify-center">
+          <Trash2
+            size={15}
+            className={
+              totalCount > 0
+                ? "text-[#00B9F2] group-hover:scale-110 transition-transform"
+                : "text-gray-500"
+            }
+          />
           {totalCount > 0 && (
-            <span className="bg-[#00B9F2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
-              {totalCount}
-            </span>
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#00B9F2] rounded-full animate-pulse" />
           )}
-        </button>
-      </div>
+        </div>
+        <span className="tracking-wide">Deleted Fields</span>
+        {totalCount > 0 && (
+          <span className="bg-[#00B9F2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
+            {totalCount}
+          </span>
+        )}
+      </button>
 
       {/* ─── BACKDROP OVERLAY (FULL SCREEN VIEWPORT CONTENT AREA) ─────────────────── */}
       {isOpen && (
         <div
-          style={{ left: `${sidebarLeftOffset}px` }}
           onClick={handleClose}
-          className="fixed inset-y-0 right-0 bg-black/50 backdrop-blur-[2px] z-[999] pointer-events-auto transition-opacity duration-200"
+          className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[999] pointer-events-auto transition-opacity duration-200"
           aria-hidden="true"
         />
       )}
