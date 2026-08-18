@@ -63,6 +63,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     deletedSnapshotUuids,
     tourSettings,
     tourDefaultSettings,
+    heroType,
+    setHeroType,
+    heroVideoUuid,
+    setHeroVideoUuid,
   } = useFileManagerContext();
 
   const { startUpload } = useGlobalFileUpload();
@@ -77,6 +81,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+  const availableVideos = React.useMemo(() => {
+    return filesData?.files?.filter((f) => f.type === "video" && !f.is_deleted) || [];
+  }, [filesData?.files]);
 
   // ─── Agent audio fetch ─────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -716,6 +724,51 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   />
                   <Label className="text-[14px] text-[#424242]">Auto Play Audio</Label>
                 </div>
+
+                <div className="grid grid-cols-2 gap-[16px]">
+                  <div className="col-span-2">
+                    <label htmlFor="">Home Page Hero Media</label>
+                    <Select value={heroType} onValueChange={(val: any) => setHeroType(val)}>
+                      <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                        <SelectValue placeholder="Select Hero Media Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="slideshow">Photo Slideshow (Default)</SelectItem>
+                        <SelectItem value="single_photo">Single Cover Photo</SelectItem>
+                        <SelectItem value="video">Video Hero</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {heroType === "video" && (
+                  <div className="grid grid-cols-2 gap-[16px]">
+                    <div className="col-span-2">
+                      <label htmlFor="">Select Hero Video</label>
+                      {availableVideos.length > 0 ? (
+                        <Select
+                          value={heroVideoUuid || availableVideos[0]?.uuid}
+                          onValueChange={(val) => setHeroVideoUuid(val)}
+                        >
+                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                            <SelectValue placeholder="Select Hero Video" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableVideos.map((v, i) => (
+                              <SelectItem key={v.uuid || i} value={v.uuid}>
+                                {v.name || `Video ${i + 1}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                          No videos uploaded yet. Please upload a video in the Videos tab first.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-[16px]">
                   <div className="col-span-2">

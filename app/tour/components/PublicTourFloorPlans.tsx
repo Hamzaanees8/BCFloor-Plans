@@ -295,9 +295,9 @@ function PublicTourFloorPlans({
                                         className="object-contain max-h-[75vh] max-w-full w-auto h-auto mx-auto rounded-lg select-none pointer-events-none"
                                         draggable={false}
                                     />
+                                    {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
                                     {watermarkLogo && (
                                         <>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
                                                 src={watermarkLogo}
                                                 alt="Watermark"
@@ -305,6 +305,7 @@ function PublicTourFloorPlans({
                                             />
                                         </>
                                     )}
+                                    */}
 
                                     {/* Render camera snapshot markers */}
                                     {[...filteredSnapshots, ...currentLocalSnapshots].map((snapshot, idx) => (

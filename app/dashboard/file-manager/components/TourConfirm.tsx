@@ -21,6 +21,11 @@ import {
   Play,
   Maximize,
   X,
+  Volume2,
+  VolumeX,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 import { useOptionalFileManagerContext } from "../FileManagerContext";
 import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
@@ -119,7 +124,7 @@ const TourConfirm = ({
   const transition =
     fileManagerContext?.transition ||
     orderData?.tours?.[0]?.slide_show?.transitions ||
-    "kenburns";
+    "fade-in";
   const audioUrl = isPublicView ? publicAudioUrl : fileManagerContext?.audioUrl;
   const links = fileManagerContext?.links || [];
   const filesData = fileManagerContext?.filesData || null;
@@ -145,6 +150,33 @@ const TourConfirm = ({
   const [isFullscreenSlideshowOpen, setIsFullscreenSlideshowOpen] =
     useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [lightboxZoom, setLightboxZoom] = useState<number>(1);
+  const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [isLightboxDragging, setIsLightboxDragging] = useState<boolean>(false);
+  const [lightboxDragStart, setLightboxDragStart] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
+
+  const resetLightboxZoom = React.useCallback(() => {
+    setLightboxZoom(1);
+    setLightboxPan({ x: 0, y: 0 });
+  }, []);
+
+  const handleLightboxZoomIn = React.useCallback(() => {
+    setLightboxZoom((prev) => Math.min(prev + 0.5, 3));
+  }, []);
+
+  const handleLightboxZoomOut = React.useCallback(() => {
+    setLightboxZoom((prev) => {
+      const next = Math.max(prev - 0.5, 1);
+      if (next === 1) setLightboxPan({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (activeTab === "Home") {
@@ -164,22 +196,41 @@ const TourConfirm = ({
     }
     if (activeTab !== "Photos") {
       setIsFullscreenSlideshowOpen(false);
+      resetLightboxZoom();
     }
-  }, [activeTab, setIsAudioPlaying, hasUserClosedSideContact]);
+  }, [activeTab, setIsAudioPlaying, hasUserClosedSideContact, resetLightboxZoom]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isFullscreenSlideshowOpen) {
+      if (!isFullscreenSlideshowOpen) return;
+      if (e.key === "Escape") {
         setIsFullscreenSlideshowOpen(false);
-        if (setIsAudioPlaying) {
-          setIsAudioPlaying(false);
-        }
+        resetLightboxZoom();
         setSelectedPhotoIndex(0);
+      } else if (e.key === "ArrowRight") {
+        const total =
+          (uploadedImages?.length || 0) + (currentTourPhotos?.length || 0);
+        if (total > 0) {
+          resetLightboxZoom();
+          setSelectedPhotoIndex((prev) => (prev + 1) % total);
+        }
+      } else if (e.key === "ArrowLeft") {
+        const total =
+          (uploadedImages?.length || 0) + (currentTourPhotos?.length || 0);
+        if (total > 0) {
+          resetLightboxZoom();
+          setSelectedPhotoIndex((prev) => (prev === 0 ? total - 1 : prev - 1));
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreenSlideshowOpen, setIsAudioPlaying]);
+  }, [
+    isFullscreenSlideshowOpen,
+    uploadedImages?.length,
+    currentTourPhotos?.length,
+    resetLightboxZoom,
+  ]);
 
   const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>(
     [],
@@ -290,6 +341,31 @@ const TourConfirm = ({
     }
     return files;
   }, [isPublicView, publicVideoFiles, filesData?.files]);
+
+  const heroType =
+    fileManagerContext?.heroType ||
+    (orderData?.tours?.[0]?.slide_show as any)?.hero_type ||
+    (filesData as any)?.slide_show?.hero_type ||
+    "slideshow";
+
+  const heroVideoUuid =
+    fileManagerContext?.heroVideoUuid ||
+    (orderData?.tours?.[0]?.slide_show as any)?.hero_video_uuid ||
+    (filesData as any)?.slide_show?.hero_video_uuid;
+
+  const activeHeroVideoUrl = React.useMemo(() => {
+    if (selectedVideoFiles.length > 0) {
+      return URL.createObjectURL(selectedVideoFiles[0].file);
+    }
+    if (currentVideoFiles && currentVideoFiles.length > 0) {
+      const matched = heroVideoUuid
+        ? currentVideoFiles.find((v: any) => v.uuid === heroVideoUuid || v.url === heroVideoUuid)
+        : currentVideoFiles[0];
+      const target = matched || currentVideoFiles[0];
+      return target.url || `${API_URL}/${target.file_path}`;
+    }
+    return null;
+  }, [selectedVideoFiles, currentVideoFiles, heroVideoUuid, API_URL]);
   const currentPath = window.location.href;
 
   function getMainURL(url: string) {
@@ -741,37 +817,87 @@ const TourConfirm = ({
 
               {activeTab === "Home" && (
                 <div className="pt-[0px]">
-                  {(uploadedImages.length > 0 ||
-                    (currentTourPhotos?.length ?? 0) > 0) && (
+                  {heroType === "video" && activeHeroVideoUrl ? (
                     <div
-                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
+                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
+                    >
+                      <video
+                        src={activeHeroVideoUrl}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted={isAudioMuted}
+                        playsInline
+                      />
+                      {/* Video Sound / Mute Toggle Button */}
+                      <button
+                        onClick={() => setIsAudioMuted(!isAudioMuted)}
+                        className="absolute bottom-6 right-6 z-30 p-3 bg-black/50 hover:bg-black/75 text-white rounded-full backdrop-blur-sm border border-white/20 transition-all cursor-pointer shadow-lg"
+                        title={isAudioMuted ? "Unmute Video" : "Mute Video"}
+                      >
+                        {isAudioMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                      </button>
+                    </div>
+                  ) : heroType === "single_photo" &&
+                    (uploadedImages.length > 0 ||
+                      (currentTourPhotos?.length ?? 0) > 0) ? (
+                    <div
+                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black`}
                     >
                       <CustomSlideshow
-                        images={uploadedImages}
-                        delay={delay}
-                        transition={transition}
+                        images={uploadedImages.length > 0 ? [uploadedImages[0]] : []}
+                        delay={999999}
+                        transition="fade-in"
                         audioUrl={audioUrl}
-                        api_images={currentTourPhotos}
+                        api_images={
+                          currentTourPhotos && currentTourPhotos.length > 0
+                            ? [currentTourPhotos[0]]
+                            : []
+                        }
                         className="h-full"
-                        currentIndex={currentImageIndex}
-                        onSlideChange={(index) => {
-                          setCurrentImageIndex(index);
-                          if (
-                            isPublicView &&
-                            onMediaView &&
-                            currentTourPhotos?.[index]
-                          ) {
-                            onMediaView(currentTourPhotos[index].uuid);
-                          }
-                        }}
+                        currentIndex={0}
                         externalAudioControl={isPublicView ? true : undefined}
-                        propIsPlaying={isHomeSlideshowPlaying}
+                        propIsPlaying={false}
                         propIsMuted={isAudioMuted}
-                        propSetIsPlaying={setIsHomeSlideshowPlaying}
+                        propSetIsPlaying={() => {}}
                         propSetIsMuted={setIsAudioMuted}
+                        objectFit="cover"
                         watermarkUrl={actualWatermarkLogo}
                       />
                     </div>
+                  ) : (
+                    (uploadedImages.length > 0 ||
+                      (currentTourPhotos?.length ?? 0) > 0) && (
+                      <div
+                        className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
+                      >
+                        <CustomSlideshow
+                          images={uploadedImages}
+                          delay={delay}
+                          transition={transition}
+                          audioUrl={audioUrl}
+                          api_images={currentTourPhotos}
+                          className="h-full"
+                          currentIndex={currentImageIndex}
+                          onSlideChange={(index) => {
+                            setCurrentImageIndex(index);
+                            if (
+                              isPublicView &&
+                              onMediaView &&
+                              currentTourPhotos?.[index]
+                            ) {
+                              onMediaView(currentTourPhotos[index].uuid);
+                            }
+                          }}
+                          externalAudioControl={isPublicView ? true : undefined}
+                          propIsPlaying={isHomeSlideshowPlaying}
+                          propIsMuted={isAudioMuted}
+                          propSetIsPlaying={setIsHomeSlideshowPlaying}
+                          propSetIsMuted={setIsAudioMuted}
+                          watermarkUrl={actualWatermarkLogo}
+                        />
+                      </div>
+                    )
                   )}
                 </div>
               )}
@@ -1247,170 +1373,316 @@ const TourConfirm = ({
                             </button>
                           </div>
 
-                          {/* Preview / Play Slideshow Button */}
+                          {/* Fullscreen Gallery Button */}
                           <button
                             onClick={() => {
                               setSelectedPhotoIndex(0);
-                              if (setIsAudioPlaying) {
-                                setIsAudioPlaying(true);
-                              }
+                              resetLightboxZoom();
                               setIsFullscreenSlideshowOpen(true);
                             }}
                             className="inline-flex items-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs md:text-sm font-semibold px-4 py-2 rounded-xl transition-all shadow-sm shrink-0 cursor-pointer font-alexandria"
                           >
-                            <Play size={15} />
-                            <span>Play Slideshow</span>
+                            <Maximize size={15} />
+                            <span>View Fullscreen</span>
                           </button>
                         </div>
                       </div>
 
                       {/* Photo Grid */}
-                      <div
-                        className={`grid ${
-                          photoGridSize === "small"
-                            ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5"
-                            : photoGridSize === "large"
-                              ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"
-                              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5"
-                        }`}
-                      >
-                        {uploadedImages.map((image, index) => (
-                          <div
-                            key={`uploaded-${index}`}
-                            className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
-                            onClick={() => {
-                              setSelectedPhotoIndex(index);
-                              if (setIsAudioPlaying) {
-                                setIsAudioPlaying(true);
-                              }
-                              setIsFullscreenSlideshowOpen(true);
-                            }}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={URL.createObjectURL(image.file)}
-                              alt={`Uploaded ${index + 1}`}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                              <div className="w-10 h-10 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-lg">
-                                <Maximize size={18} />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {currentTourPhotos?.map((image, index) => {
-                          const globalIndex = uploadedImages.length + index;
-                          return (
+                      {(() => {
+                        const allLightboxPhotos = [
+                          ...(uploadedImages || []).map((img, idx) => ({
+                            src: URL.createObjectURL(img.file),
+                            uuid: `local-${img.file.name}-${idx}`,
+                            name: img.file.name,
+                          })),
+                          ...(currentTourPhotos || []).map((img: any) => ({
+                            src:
+                              img.variant_urls?.popup ||
+                              img.variant_urls?.landing ||
+                              img.variant_urls?.slider ||
+                              img.url ||
+                              `${API_URL}/${img.file_path}`,
+                            uuid: img.uuid,
+                            name: img.name || "Photo",
+                          })),
+                        ];
+
+                        return (
+                          <>
                             <div
-                              key={`api-${index}`}
-                              className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
-                              onClick={() => {
-                                setSelectedPhotoIndex(globalIndex);
-                                if (setIsAudioPlaying) {
-                                  setIsAudioPlaying(true);
-                                }
-                                setIsFullscreenSlideshowOpen(true);
-                                if (
-                                  isPublicView &&
-                                  onMediaView &&
-                                  image?.uuid
-                                ) {
-                                  onMediaView(image.uuid);
-                                }
-                              }}
+                              className={`grid ${
+                                photoGridSize === "small"
+                                  ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5"
+                                  : photoGridSize === "large"
+                                    ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"
+                                    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5"
+                              }`}
                             >
-                              {image.is_processing ? (
-                                <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                  <p className="text-gray-500 font-medium text-xs">
-                                    Processing...
-                                  </p>
-                                </div>
-                              ) : (
-                                <>
+                              {uploadedImages.map((image, index) => (
+                                <div
+                                  key={`uploaded-${index}`}
+                                  className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                                  onClick={() => {
+                                    setSelectedPhotoIndex(index);
+                                    resetLightboxZoom();
+                                    setIsFullscreenSlideshowOpen(true);
+                                  }}
+                                >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={
-                                      image.variant_urls?.slider ||
-                                      image.variant_urls?.thumb ||
-                                      image.url ||
-                                      `${API_URL}/${image.file_path}`
-                                    }
-                                    alt={`Photo ${index + 1}`}
+                                    src={URL.createObjectURL(image.file)}
+                                    alt={`Uploaded ${index + 1}`}
                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                    loading="lazy"
                                   />
                                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                                     <div className="w-10 h-10 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-lg">
                                       <Maximize size={18} />
                                     </div>
                                   </div>
-                                </>
-                              )}
+                                </div>
+                              ))}
+                              {currentTourPhotos?.map((image, index) => {
+                                const globalIndex = uploadedImages.length + index;
+                                return (
+                                  <div
+                                    key={`api-${index}`}
+                                    className="group relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden border border-gray-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                                    onClick={() => {
+                                      setSelectedPhotoIndex(globalIndex);
+                                      resetLightboxZoom();
+                                      setIsFullscreenSlideshowOpen(true);
+                                      if (
+                                        isPublicView &&
+                                        onMediaView &&
+                                        image?.uuid
+                                      ) {
+                                        onMediaView(image.uuid);
+                                      }
+                                    }}
+                                  >
+                                    {image.is_processing ? (
+                                      <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                        <p className="text-gray-500 font-medium text-xs">
+                                          Processing...
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={
+                                            image.variant_urls?.slider ||
+                                            image.variant_urls?.thumb ||
+                                            image.url ||
+                                            `${API_URL}/${image.file_path}`
+                                          }
+                                          alt={`Photo ${index + 1}`}
+                                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                          loading="lazy"
+                                        />
+                                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                          <div className="w-10 h-10 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-lg">
+                                            <Maximize size={18} />
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
 
-                      {/* Fullscreen Slideshow Modal */}
-                      {isFullscreenSlideshowOpen && (
-                        <div className="fixed inset-0 z-[99999] bg-black flex flex-col justify-center items-center animate-in fade-in duration-200">
-                          {/* Close button */}
-                          <button
-                            onClick={() => {
-                              setIsFullscreenSlideshowOpen(false);
-                              if (setIsAudioPlaying) {
-                                setIsAudioPlaying(false);
-                              }
-                              setSelectedPhotoIndex(0);
-                            }}
-                            className="absolute top-4 right-4 z-[100000] w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-lg"
-                            title="Close Fullscreen"
-                          >
-                            <X size={22} />
-                          </button>
+                            {/* Standard Interactive Pop-up Gallery Lightbox Modal */}
+                            {isFullscreenSlideshowOpen && allLightboxPhotos.length > 0 && (
+                              <div
+                                className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-md flex flex-col justify-between items-center select-none animate-in fade-in duration-200"
+                                onClick={(e) => {
+                                  if (e.target === e.currentTarget) {
+                                    setIsFullscreenSlideshowOpen(false);
+                                    resetLightboxZoom();
+                                  }
+                                }}
+                              >
+                                {/* Top Controls Bar */}
+                                <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+                                  {/* Counter & Name */}
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-white/90 text-sm font-semibold tracking-wide bg-white/10 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md font-alexandria">
+                                      {selectedPhotoIndex + 1} / {allLightboxPhotos.length}
+                                    </span>
+                                    {allLightboxPhotos[selectedPhotoIndex]?.name && (
+                                      <span className="text-white/70 text-xs sm:text-sm font-medium hidden sm:inline-block truncate max-w-md font-alexandria">
+                                        {allLightboxPhotos[selectedPhotoIndex].name}
+                                      </span>
+                                    )}
+                                  </div>
 
-                          <div className="relative w-full h-full">
-                            <CustomSlideshow
-                              className="w-full h-full"
-                              images={uploadedImages}
-                              delay={delay}
-                              transition={transition}
-                              audioUrl={audioUrl}
-                              api_images={currentTourPhotos}
-                              currentIndex={selectedPhotoIndex}
-                              onSlideChange={(index) => {
-                                setSelectedPhotoIndex(index);
-                                if (
-                                  isPublicView &&
-                                  onMediaView &&
-                                  currentTourPhotos?.[
-                                    index - uploadedImages.length
-                                  ]
-                                ) {
-                                  onMediaView(
-                                    currentTourPhotos[
-                                      index - uploadedImages.length
-                                    ].uuid,
-                                  );
-                                }
-                              }}
-                              externalAudioControl={
-                                isPublicView ? true : undefined
-                              }
-                              propIsPlaying={
-                                isAudioPlaying !== undefined
-                                  ? isAudioPlaying
-                                  : true
-                              }
-                              propIsMuted={isAudioMuted}
-                              propSetIsPlaying={setIsAudioPlaying}
-                              propSetIsMuted={setIsAudioMuted}
-                              watermarkUrl={actualWatermarkLogo}
-                            />
-                          </div>
-                        </div>
-                      )}
+                                  {/* Zoom & Action Controls */}
+                                  <div className="flex items-center gap-2">
+                                    {/* Zoom Controls */}
+                                    <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md px-2 py-1 rounded-full border border-white/15">
+                                      <button
+                                        onClick={handleLightboxZoomOut}
+                                        disabled={lightboxZoom <= 1}
+                                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                        title="Zoom Out"
+                                      >
+                                        <ZoomOut size={18} />
+                                      </button>
+                                      <span className="text-white text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
+                                        {Math.round(lightboxZoom * 100)}%
+                                      </span>
+                                      <button
+                                        onClick={handleLightboxZoomIn}
+                                        disabled={lightboxZoom >= 3}
+                                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                        title="Zoom In"
+                                      >
+                                        <ZoomIn size={18} />
+                                      </button>
+                                      {lightboxZoom > 1 && (
+                                        <button
+                                          onClick={resetLightboxZoom}
+                                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all cursor-pointer ml-0.5"
+                                          title="Reset Zoom"
+                                        >
+                                          <RotateCcw size={15} />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Close Button */}
+                                    <button
+                                      onClick={() => {
+                                        setIsFullscreenSlideshowOpen(false);
+                                        resetLightboxZoom();
+                                        setSelectedPhotoIndex(0);
+                                      }}
+                                      className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer ml-2 shadow-md"
+                                      title="Close (Esc)"
+                                    >
+                                      <X size={20} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Center Image Display Area */}
+                                <div
+                                  className="relative w-full flex-1 flex items-center justify-center overflow-hidden px-4 py-2"
+                                  onMouseDown={(e) => {
+                                    if (lightboxZoom > 1) {
+                                      setIsLightboxDragging(true);
+                                      setLightboxDragStart({
+                                        x: e.clientX - lightboxPan.x,
+                                        y: e.clientY - lightboxPan.y,
+                                      });
+                                    }
+                                  }}
+                                  onMouseMove={(e) => {
+                                    if (isLightboxDragging && lightboxZoom > 1) {
+                                      setLightboxPan({
+                                        x: e.clientX - lightboxDragStart.x,
+                                        y: e.clientY - lightboxDragStart.y,
+                                      });
+                                    }
+                                  }}
+                                  onMouseUp={() => setIsLightboxDragging(false)}
+                                  onMouseLeave={() => setIsLightboxDragging(false)}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={allLightboxPhotos[selectedPhotoIndex]?.src}
+                                    alt={`Photo ${selectedPhotoIndex + 1}`}
+                                    className="max-h-[82vh] max-w-[90vw] object-contain transition-transform duration-100 ease-out select-none shadow-2xl rounded-sm"
+                                    style={{
+                                      transform: `scale(${lightboxZoom}) translate(${lightboxPan.x / lightboxZoom}px, ${lightboxPan.y / lightboxZoom}px)`,
+                                      cursor:
+                                        lightboxZoom > 1
+                                          ? isLightboxDragging
+                                            ? "grabbing"
+                                            : "grab"
+                                          : "default",
+                                    }}
+                                    draggable={false}
+                                    onDoubleClick={() => {
+                                      if (lightboxZoom === 1) {
+                                        setLightboxZoom(2);
+                                      } else {
+                                        resetLightboxZoom();
+                                      }
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Left / Previous Arrow */}
+                                {allLightboxPhotos.length > 1 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      resetLightboxZoom();
+                                      const newIdx =
+                                        selectedPhotoIndex === 0
+                                          ? allLightboxPhotos.length - 1
+                                          : selectedPhotoIndex - 1;
+                                      setSelectedPhotoIndex(newIdx);
+                                      if (
+                                        isPublicView &&
+                                        onMediaView &&
+                                        allLightboxPhotos[newIdx]?.uuid
+                                      ) {
+                                        onMediaView(allLightboxPhotos[newIdx].uuid);
+                                      }
+                                    }}
+                                    className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-xl backdrop-blur-md group hover:scale-105"
+                                    title="Previous (Left Arrow)"
+                                  >
+                                    <ChevronLeft
+                                      size={32}
+                                      className="group-hover:-translate-x-0.5 transition-transform"
+                                    />
+                                  </button>
+                                )}
+
+                                {/* Right / Next Arrow */}
+                                {allLightboxPhotos.length > 1 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      resetLightboxZoom();
+                                      const newIdx =
+                                        (selectedPhotoIndex + 1) %
+                                        allLightboxPhotos.length;
+                                      setSelectedPhotoIndex(newIdx);
+                                      if (
+                                        isPublicView &&
+                                        onMediaView &&
+                                        allLightboxPhotos[newIdx]?.uuid
+                                      ) {
+                                        onMediaView(allLightboxPhotos[newIdx].uuid);
+                                      }
+                                    }}
+                                    className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-xl backdrop-blur-md group hover:scale-105"
+                                    title="Next (Right Arrow)"
+                                  >
+                                    <ChevronRight
+                                      size={32}
+                                      className="group-hover:translate-x-0.5 transition-transform"
+                                    />
+                                  </button>
+                                )}
+
+                                {/* Bottom Mini Tip */}
+                                <div className="w-full z-50 py-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center justify-center">
+                                  <span className="text-white/50 text-xs tracking-wider font-alexandria">
+                                    Use Left / Right arrow keys to navigate • Double-click or use zoom tools to magnify • Esc to close
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     (() => {
@@ -1453,119 +1725,171 @@ const TourConfirm = ({
               )}
 
               {activeTab === "Videos" && (
-                <div className="w-full ">
-                  <div className="p-0 pt-0">
-                    {/* Main video preview */}
-                    {mainVideo && (
-                      <div className="mb-6 h-[50vh] sm:h-[95vh] w-full bg-black overflow-hidden relative">
-                        <video
-                          src={mainVideo || undefined}
-                          className="w-full h-full object-contain"
-                          controls
-                        />
-                        {actualWatermarkLogo && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={actualWatermarkLogo}
-                            alt="Watermark"
-                            className="absolute bottom-12 right-6 w-[120px] object-contain opacity-60 pointer-events-none z-10 drop-shadow-md"
+                <div className="pt-[140px] md:pt-[165px] px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pb-16 flex flex-col items-center font-alexandria">
+                  {selectedVideoFiles.length > 0 ||
+                  (currentVideoFiles?.length ?? 0) > 0 ? (
+                    <div className="w-full flex flex-col items-center">
+                      {/* Main Video Player Card */}
+                      {mainVideo && (
+                        <div className="w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden shadow-xl border border-gray-200/80 relative">
+                          <video
+                            key={mainVideo}
+                            src={mainVideo}
+                            className="w-full h-full object-contain bg-black"
+                            controls
+                            playsInline
                           />
-                        )}
-                      </div>
-                    )}
+                          {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
+                          {actualWatermarkLogo && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={actualWatermarkLogo}
+                              alt="Watermark"
+                              className="absolute bottom-12 right-6 w-[120px] object-contain opacity-60 pointer-events-none z-10 drop-shadow-md"
+                            />
+                          )}
+                          */}
+                        </div>
+                      )}
 
-                    {/* Local uploaded videos */}
-                    {selectedVideoFiles.length > 0 ||
-                    (currentVideoFiles?.length ?? 0) > 0 ? (
-                      <div className="mt-4 w-full grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5 p-2 md:p-3">
-                        {selectedVideoFiles.map((file, idx) => {
-                          const thumbSrc = URL.createObjectURL(file.file);
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() => setMainVideo(thumbSrc)}
-                              className="h-auto relative"
-                            >
-                              <div className="relative w-full h-[180px] sm:h-[240px] cursor-pointer bg-black overflow-hidden">
-                                <video
-                                  src={thumbSrc}
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {currentVideoFiles?.map((file, idx) => {
-                          const apiSrc =
-                            file.url || `${API_URL}/${file.file_path}`;
-                          return (
-                            <div key={idx} className="h-auto relative">
-                              <div className="relative w-full h-[180px] sm:h-[240px] cursor-pointer bg-black overflow-hidden">
-                                {file.is_processing ? (
-                                  <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                    <p className="text-gray-500 font-medium text-sm">
-                                      Processing...
-                                    </p>
+                      {/* Video Thumbnails Selection List (if multiple videos exist) */}
+                      {selectedVideoFiles.length +
+                        (currentVideoFiles?.length || 0) >
+                        1 && (
+                        <div className="w-full max-w-5xl mt-8">
+                          <h3 className="text-lg font-bold text-[#1b365d] mb-4">
+                            All Videos (
+                            {selectedVideoFiles.length +
+                              (currentVideoFiles?.length || 0)}
+                            )
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {selectedVideoFiles.map((file, idx) => {
+                              const thumbSrc = URL.createObjectURL(file.file);
+                              const isSelected = mainVideo === thumbSrc;
+                              return (
+                                <div
+                                  key={`local-vid-${idx}`}
+                                  onClick={() => setMainVideo(thumbSrc)}
+                                  className={`group relative aspect-video bg-black rounded-xl overflow-hidden cursor-pointer border-2 transition-all shadow-sm ${
+                                    isSelected
+                                      ? "border-[#1b365d] ring-2 ring-[#1b365d]/20 scale-[1.02]"
+                                      : "border-gray-200 hover:border-gray-400 hover:scale-[1.01]"
+                                  }`}
+                                >
+                                  <video
+                                    src={thumbSrc}
+                                    className="w-full h-full object-cover pointer-events-none"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                                    <div
+                                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                        isSelected
+                                          ? "bg-[#1b365d] text-white"
+                                          : "bg-white/90 text-[#1b365d] group-hover:scale-110"
+                                      }`}
+                                    >
+                                      <Play size={18} />
+                                    </div>
                                   </div>
-                                ) : (
-                                  <>
-                                    {file.variant_urls?.thumb ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={file.variant_urls.thumb}
-                                        alt="Video thumbnail"
-                                        className="w-full h-full object-contain"
-                                        onClick={() => setMainVideo(apiSrc)}
-                                      />
-                                    ) : (
-                                      <video
-                                        src={apiSrc}
-                                        className="w-full h-full object-contain"
-                                        onClick={() => setMainVideo(apiSrc)}
-                                      />
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                                  <div className="absolute bottom-2 left-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-white text-xs truncate">
+                                    {file.file.name}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {currentVideoFiles?.map((file, idx) => {
+                              const apiSrc =
+                                file.url || `${API_URL}/${file.file_path}`;
+                              const isSelected = mainVideo === apiSrc;
+                              return (
+                                <div
+                                  key={`api-vid-${idx}`}
+                                  onClick={() => setMainVideo(apiSrc)}
+                                  className={`group relative aspect-video bg-black rounded-xl overflow-hidden cursor-pointer border-2 transition-all shadow-sm ${
+                                    isSelected
+                                      ? "border-[#1b365d] ring-2 ring-[#1b365d]/20 scale-[1.02]"
+                                      : "border-gray-200 hover:border-gray-400 hover:scale-[1.01]"
+                                  }`}
+                                >
+                                  {file.is_processing ? (
+                                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                      <p className="text-gray-500 font-medium text-xs">
+                                        Processing...
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {file.variant_urls?.thumb ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={file.variant_urls.thumb}
+                                          alt={file.name || "Video thumbnail"}
+                                          className="w-full h-full object-cover pointer-events-none"
+                                        />
+                                      ) : (
+                                        <video
+                                          src={apiSrc}
+                                          className="w-full h-full object-cover pointer-events-none"
+                                        />
+                                      )}
+                                      <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                                        <div
+                                          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                            isSelected
+                                              ? "bg-[#1b365d] text-white"
+                                              : "bg-white/90 text-[#1b365d] group-hover:scale-110"
+                                          }`}
+                                        >
+                                          <Play size={18} />
+                                        </div>
+                                      </div>
+                                      <div className="absolute bottom-2 left-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-white text-xs truncate">
+                                        {file.name || `Video ${idx + 1}`}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    (() => {
+                      const allVideos =
+                        filesData?.files?.filter(
+                          (file) => file.type === "video",
+                        ) || [];
+                      if (userType === "agent") {
+                        if (allVideos.length > 0) {
+                          return (
+                            <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+                              <p>
+                                You have not approved any videos yet. Go to
+                                Video service and approve media.
+                              </p>
                             </div>
                           );
-                        })}
-                      </div>
-                    ) : (
-                      (() => {
-                        const allVideos =
-                          filesData?.files?.filter(
-                            (file) => file.type === "video",
-                          ) || [];
-                        if (userType === "agent") {
-                          if (allVideos.length > 0) {
-                            return (
-                              <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
-                                <p>
-                                  You have not approved any videos yet. Go to
-                                  Video service and approve media.
-                                </p>
-                              </div>
-                            );
-                          } else {
-                            return (
-                              <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
-                                <p>Vendor has not uploaded any videos yet.</p>
-                              </div>
-                            );
-                          }
+                        } else {
+                          return (
+                            <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                              <p>Vendor has not uploaded any videos yet.</p>
+                            </div>
+                          );
                         }
-                        return (
-                          <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                            <p>
-                              No Video found — please add Video or select a
-                              Video service.
-                            </p>
-                          </div>
-                        );
-                      })()
-                    )}
-                  </div>
+                      }
+                      return (
+                        <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                          <p>
+                            No Video found — please add Video or select a
+                            Video service.
+                          </p>
+                        </div>
+                      );
+                    })()
+                  )}
                 </div>
               )}
 

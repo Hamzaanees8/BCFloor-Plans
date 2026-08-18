@@ -272,6 +272,12 @@ type FileManagerContextType = {
   selectedAudioTrack: string | undefined;
   setSelectedAudioTrack: Dispatch<SetStateAction<string | undefined>>;
 
+  heroType: "slideshow" | "single_photo" | "video";
+  setHeroType: Dispatch<SetStateAction<"slideshow" | "single_photo" | "video">>;
+
+  heroVideoUuid: string | undefined;
+  setHeroVideoUuid: Dispatch<SetStateAction<string | undefined>>;
+
   formData: FormData;
   setFormData: Dispatch<SetStateAction<FormData>>;
   updateFormData: (updates: Partial<FormData>) => void;
@@ -516,6 +522,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<
     string | undefined
   >("none");
+  const [heroType, setHeroType] = useState<"slideshow" | "single_photo" | "video">("slideshow");
+  const [heroVideoUuid, setHeroVideoUuid] = useState<string | undefined>(undefined);
   const [filesData, setFilesData] = useState<FilesData | null>(null);
   const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>(
     [],
@@ -631,6 +639,10 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       setAudioUrl,
       selectedAudioTrack,
       setSelectedAudioTrack,
+      heroType,
+      setHeroType,
+      heroVideoUuid,
+      setHeroVideoUuid,
       formData,
       setFormData,
       updateFormData,
@@ -684,6 +696,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       transition,
       audioUrl,
       selectedAudioTrack,
+      heroType,
+      heroVideoUuid,
       formData,
       updateFormData,
       filesData,

@@ -59,7 +59,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   propSetIsPlaying,
   propSetIsMuted,
   className = "h-[100vh]",
-  bgClass = "bg-white",
+  bgClass = "bg-black",
   objectFit = "cover",
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -412,7 +412,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
             className={`absolute inset-0 w-full h-full overflow-hidden ${
               isActive
                 ? `opacity-100 z-20 animate-${transitionClass}`
-                : "opacity-0 z-10 pointer-events-none transition-opacity duration-[1000ms]"
+                : "opacity-100 z-10 pointer-events-none"
             }`}
           >
             <img
@@ -438,6 +438,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
           </div>
         );
       })}
+      {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
       {watermarkUrl && (
         <img
           src={watermarkUrl}
@@ -445,6 +446,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
           className="absolute bottom-10 right-36 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
         />
       )}
+      */}
 
       {/* Play/Pause Button */}
       <div
