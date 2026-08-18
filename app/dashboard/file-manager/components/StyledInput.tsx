@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -12,8 +12,76 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  MoreVertical,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
 } from "lucide-react";
 import type { TextStyle } from "../types/featureSheetTypes";
+
+export interface CustomFontOption {
+  label: string;
+  value: string;
+  css: string;
+}
+
+export const FONT_FOLDERS: Record<string, { name: string; fonts: CustomFontOption[] }> = {
+  "BcfpStandard4": {
+    name: "BcfpStandard4",
+    fonts: [
+      { label: "Caslon Pro Bold",    value: "font-caslon-bold",    css: "ACaslonProBold, serif" },
+      { label: "Caslon Pro Regular", value: "font-caslon-regular", css: "ACaslonProRegular, serif" },
+      { label: "Caslon Pro Italic",  value: "font-caslon-italic",  css: "ACaslonProItalic, serif" },
+      { label: "Bickham Script Bold", value: "font-bickham-bold",  css: "BickhamScriptBold, cursive" },
+      { label: "Bickham Script",     value: "font-bickham-regular", css: "BickhamScriptRegular, cursive" },
+      { label: "Arial Bold",         value: "font-arial-bold",     css: "ArialBoldBcfp4, sans-serif" },
+    ],
+  },
+  "bcfpstandard4": {
+    name: "BcfpStandard4",
+    fonts: [
+      { label: "Caslon Pro Bold",    value: "font-caslon-bold",    css: "ACaslonProBold, serif" },
+      { label: "Caslon Pro Regular", value: "font-caslon-regular", css: "ACaslonProRegular, serif" },
+      { label: "Caslon Pro Italic",  value: "font-caslon-italic",  css: "ACaslonProItalic, serif" },
+      { label: "Bickham Script Bold", value: "font-bickham-bold",  css: "BickhamScriptBold, cursive" },
+      { label: "Bickham Script",     value: "font-bickham-regular", css: "BickhamScriptRegular, cursive" },
+      { label: "Arial Bold",         value: "font-arial-bold",     css: "ArialBoldBcfp4, sans-serif" },
+    ],
+  },
+  "BcfpStandard6": {
+    name: "BcfpStandard6",
+    fonts: [
+      { label: "Caslon Pro Bold",  value: "font-caslon",        css: "ACaslonPro, serif" },
+      { label: "Bickham Script",   value: "font-bickham",       css: "BickhamScript, cursive" },
+      { label: "Gothic",           value: "font-gothic",        css: "GothicRegular, sans-serif" },
+      { label: "Gothic Bold",      value: "font-gothic-bold",   css: "GothicBold, sans-serif" },
+      { label: "Trajan Pro Bold",  value: "font-trajan-bold",   css: "TrajanPro, serif" },
+      { label: "Trajan Pro",       value: "font-trajan",        css: "TrajanProRegular, serif" },
+      { label: "Arial Bold",       value: "font-arial-bold",    css: "ArialBold, sans-serif" },
+    ],
+  },
+  "bcfpstandard6": {
+    name: "BcfpStandard6",
+    fonts: [
+      { label: "Caslon Pro Bold",  value: "font-caslon",        css: "ACaslonPro, serif" },
+      { label: "Bickham Script",   value: "font-bickham",       css: "BickhamScript, cursive" },
+      { label: "Gothic",           value: "font-gothic",        css: "GothicRegular, sans-serif" },
+      { label: "Gothic Bold",      value: "font-gothic-bold",   css: "GothicBold, sans-serif" },
+      { label: "Trajan Pro Bold",  value: "font-trajan-bold",   css: "TrajanPro, serif" },
+      { label: "Trajan Pro",       value: "font-trajan",        css: "TrajanProRegular, serif" },
+      { label: "Arial Bold",       value: "font-arial-bold",    css: "ArialBold, sans-serif" },
+    ],
+  },
+};
+
+export const FontFolderContext = createContext<string | undefined>(undefined);
+
+export const FontFolderProvider: React.FC<{ value?: string; children: React.ReactNode }> = ({
+  value,
+  children,
+}) => {
+  return <FontFolderContext.Provider value={value}>{children}</FontFolderContext.Provider>;
+};
 
 type StyledInputProps = {
   className?: string;
@@ -24,6 +92,8 @@ type StyledInputProps = {
   /** Pass a saved TextStyle to restore styles (e.g. after importFromPayload) */
   inputStyle?: TextStyle;
   placeholder?: string;
+  /** Optional font folder override (e.g. "BcfpStandard6"). If not specified, checks FontFolderContext */
+  fontFolder?: string;
   [key: string]: any;
 };
 
@@ -83,11 +153,27 @@ function fontWeightToClass(fw?: string | number): string {
   return "font-normal";
 }
 
-/** Convert a CSS fontFamily string to Tailwind class for display. */
+/** Convert a CSS fontFamily string back to an internal key for display.
+ *  Used when restoring a saved TextStyle (importFromPayload). */
 function fontFamilyToClass(ff?: string): string {
   if (!ff) return "font-sans";
-  if (ff.toLowerCase().includes("alexandria")) return "font-alexandria";
-  if (ff.toLowerCase().includes("raleway")) return "font-raleway";
+  const f = ff.toLowerCase();
+  if (f.includes("alexandria")) return "font-alexandria";
+  if (f.includes("raleway")) return "font-raleway";
+  // BcfpStandard4 fonts
+  if (f.includes("acaslonproitalic") || (f.includes("caslon") && f.includes("italic"))) return "font-caslon-italic";
+  if (f.includes("acaslonproregular") || (f.includes("caslon") && f.includes("regular"))) return "font-caslon-regular";
+  if (f.includes("acaslonprobold") || (f.includes("caslon") && f.includes("bold"))) return "font-caslon-bold";
+  if (f.includes("bickhamscriptregular") || (f.includes("bickham") && f.includes("regular"))) return "font-bickham-regular";
+  if (f.includes("bickhamscriptbold") || (f.includes("bickham") && f.includes("bold"))) return "font-bickham-bold";
+  // BcfpStandard6 fonts
+  if (f.includes("acaslonpro") || f.includes("caslon")) return "font-caslon";
+  if (f.includes("bickhamscript") || f.includes("bickham")) return "font-bickham";
+  if (f.includes("gothicbold") || f.includes("gothic bold")) return "font-gothic-bold";
+  if (f.includes("gothicregular") || (f.includes("gothic") && !f.includes("bold"))) return "font-gothic";
+  if (f.includes("trajanproregular") || (f.includes("trajan") && f.includes("regular"))) return "font-trajan";
+  if (f.includes("trajanpro") || f.includes("trajan")) return "font-trajan-bold";
+  if (f.includes("arialbold") || f.includes("arial bold")) return "font-arial-bold";
   return "font-sans";
 }
 
@@ -98,14 +184,23 @@ export default function StyledInput({
   onChangeStyle,
   inputStyle,
   placeholder,
+  fontFolder,
   ...props
 }: StyledInputProps) {
+  const contextFontFolder = useContext(FontFolderContext);
+  const activeFontFolder = fontFolder || contextFontFolder;
+  const folderConfig = activeFontFolder ? (FONT_FOLDERS[activeFontFolder] || FONT_FOLDERS[activeFontFolder.toLowerCase()]) : undefined;
+  const customFonts = folderConfig?.fonts || [];
+
   const [fontWeight, setFontWeight] = useState("font-normal");
   const [fontSize, setFontSize] = useState<string>("16px");
   const [italic, setItalic] = useState(false);
   const [underline, setUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<
     "left" | "center" | "right" | "justify"
+  >("center");
+  const [verticalAlign, setVerticalAlign] = useState<
+    "top" | "center" | "bottom"
   >("center");
   const [fontFamily, setFontFamily] = useState<string>("font-sans");
   const [internalValue, setInternalValue] = useState(value || "");
@@ -217,6 +312,13 @@ export default function StyledInput({
     if (inputStyle.fontFamily)
       setFontFamily(fontFamilyToClass(inputStyle.fontFamily));
     if (inputStyle.textAlign) setTextAlign(inputStyle.textAlign);
+    if (inputStyle.verticalAlign) {
+      setVerticalAlign(inputStyle.verticalAlign);
+    } else if (inputStyle.alignContent) {
+      if (inputStyle.alignContent === "start") setVerticalAlign("top");
+      else if (inputStyle.alignContent === "end") setVerticalAlign("bottom");
+      else setVerticalAlign("center");
+    }
     // italic / underline not stored in TextStyle currently — skip
   }, [inputStyle]);
 
@@ -240,14 +342,33 @@ export default function StyledInput({
 
   const getFontFamilyStyle = () => {
     switch (fontFamily) {
-      case "font-alexandria":
-        return "Alexandria, sans-serif";
-      case "font-raleway":
-        return "Raleway, sans-serif";
+      case "font-alexandria":      return "Alexandria, sans-serif";
+      case "font-raleway":         return "Raleway, sans-serif";
+      // BcfpStandard4
+      case "font-caslon-bold":     return "ACaslonProBold, serif";
+      case "font-caslon-regular":  return "ACaslonProRegular, serif";
+      case "font-caslon-italic":   return "ACaslonProItalic, serif";
+      case "font-bickham-bold":    return "BickhamScriptBold, cursive";
+      case "font-bickham-regular": return "BickhamScriptRegular, cursive";
+      // BcfpStandard6
+      case "font-caslon":          return "ACaslonPro, serif";
+      case "font-bickham":         return "BickhamScript, cursive";
+      case "font-gothic":          return "GothicRegular, sans-serif";
+      case "font-gothic-bold":     return "GothicBold, sans-serif";
+      case "font-trajan-bold":     return "TrajanPro, serif";
+      case "font-trajan":          return "TrajanProRegular, serif";
+      case "font-arial-bold":      return "ArialBold, sans-serif";
       case "font-sans":
-        return "sans-serif";
-      default:
-        return "sans-serif";
+      default:                     return "sans-serif";
+    }
+  };
+
+  const getAlignContentStyle = () => {
+    switch (verticalAlign) {
+      case "top":     return "start";
+      case "bottom":  return "end";
+      case "center":
+      default:        return "center";
     }
   };
 
@@ -261,6 +382,7 @@ export default function StyledInput({
         it: boolean;
         ul: boolean;
         ta: "left" | "center" | "right" | "justify";
+        va: "top" | "center" | "bottom";
       }>,
     ) => {
       if (!onChangeStyle) return;
@@ -268,6 +390,7 @@ export default function StyledInput({
       const fs = overrides.fs ?? fontSize;
       const ff = overrides.ff ?? fontFamily;
       const ta = overrides.ta ?? textAlign;
+      const va = overrides.va ?? verticalAlign;
 
       const fwNum = (() => {
         switch (fw) {
@@ -288,12 +411,31 @@ export default function StyledInput({
 
       const ffCss = (() => {
         switch (ff) {
-          case "font-alexandria":
-            return "Alexandria, sans-serif";
-          case "font-raleway":
-            return "Raleway, sans-serif";
-          default:
-            return "sans-serif";
+          case "font-alexandria":      return "Alexandria, sans-serif";
+          case "font-raleway":         return "Raleway, sans-serif";
+          // BcfpStandard4
+          case "font-caslon-bold":     return "ACaslonProBold, serif";
+          case "font-caslon-regular":  return "ACaslonProRegular, serif";
+          case "font-caslon-italic":   return "ACaslonProItalic, serif";
+          case "font-bickham-bold":    return "BickhamScriptBold, cursive";
+          case "font-bickham-regular": return "BickhamScriptRegular, cursive";
+          // BcfpStandard6
+          case "font-caslon":          return "ACaslonPro, serif";
+          case "font-bickham":         return "BickhamScript, cursive";
+          case "font-gothic":          return "GothicRegular, sans-serif";
+          case "font-gothic-bold":     return "GothicBold, sans-serif";
+          case "font-trajan-bold":     return "TrajanPro, serif";
+          case "font-trajan":          return "TrajanProRegular, serif";
+          case "font-arial-bold":      return "ArialBold, sans-serif";
+          default:                     return "sans-serif";
+        }
+      })();
+
+      const alignContentStr = (() => {
+        switch (va) {
+          case "top":     return "start";
+          case "bottom":  return "end";
+          default:        return "center";
         }
       })();
 
@@ -302,9 +444,11 @@ export default function StyledInput({
         fontWeight: fwNum,
         fontFamily: ffCss,
         textAlign: ta,
+        verticalAlign: va,
+        alignContent: alignContentStr as any,
       });
     },
-    [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign],
+    [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign, verticalAlign],
   );
 
   // ─── Input handler ────────────────────────────────────────────────
@@ -371,7 +515,8 @@ export default function StyledInput({
       newFf = fontFamily,
       newIt = italic,
       newUl = underline,
-      newTa = textAlign;
+      newTa = textAlign,
+      newVa = verticalAlign;
 
     switch (style) {
       case "fontWeight":
@@ -394,6 +539,10 @@ export default function StyledInput({
         setTextAlign(val);
         newTa = val;
         break;
+      case "verticalAlign":
+        setVerticalAlign(val);
+        newVa = val;
+        break;
       case "fontFamily":
         setFontFamily(val);
         newFf = val;
@@ -407,6 +556,7 @@ export default function StyledInput({
       it: newIt,
       ul: newUl,
       ta: newTa,
+      va: newVa,
     });
   };
 
@@ -444,7 +594,7 @@ export default function StyledInput({
             boxSizing: "border-box",
             display: "block",
             outline: "none",
-            alignContent: "center",
+            alignContent: getAlignContentStyle(),
           }}
           className={cn(
             "col-start-1 row-start-1",
@@ -478,7 +628,7 @@ export default function StyledInput({
               padding: 0,
               boxSizing: "border-box",
               display: "block",
-              alignContent: "center",
+              alignContent: getAlignContentStyle(),
               backgroundColor: "transparent",
             }}
           >
@@ -610,24 +760,67 @@ export default function StyledInput({
             >
               <button
                 type="button"
-                className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100"
+                className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100 max-w-[120px] truncate"
               >
-                {
-                  {
-                    "font-alexandria": "Alexandria",
-                    "font-raleway": "Raleway",
-                    "font-sans": "Sans Serif",
-                  }[fontFamily]
-                }{" "}
-                <ChevronDown className="w-3 h-3" />
+                {(({
+                  "font-sans":            "Sans Serif",
+                  "font-alexandria":      "Alexandria",
+                  "font-raleway":         "Raleway",
+                  "font-caslon-bold":     "Caslon Pro Bold",
+                  "font-caslon-regular":  "Caslon Pro Regular",
+                  "font-caslon-italic":   "Caslon Pro Italic",
+                  "font-bickham-bold":    "Bickham Script Bold",
+                  "font-bickham-regular": "Bickham Script",
+                  "font-caslon":          "Caslon Pro Bold",
+                  "font-bickham":         "Bickham Script",
+                  "font-gothic":          "Gothic",
+                  "font-gothic-bold":     "Gothic Bold",
+                  "font-trajan-bold":     "Trajan Pro Bold",
+                  "font-trajan":          "Trajan Pro",
+                  "font-arial-bold":      "Arial Bold",
+                } as Record<string, string>)[fontFamily] ?? "Sans Serif")}{" "}
+                <ChevronDown className="w-3 h-3 shrink-0" />
               </button>
 
               {activeDropdown === "family" && (
-                <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-32">
+                <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-44 max-h-64 overflow-y-auto">
+                  {/* ── Sheet Custom Fonts (shown on TOP) ── */}
+                  {customFonts.length > 0 && (
+                    <>
+                      <p className="px-2 py-0.5 text-[9px] text-gray-400 font-semibold uppercase tracking-wider select-none">
+                        Sheet Fonts
+                      </p>
+
+                      {customFonts.map((ff) => (
+                        <button
+                          key={ff.value}
+                          className={cn(
+                            "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
+                            fontFamily === ff.value && "bg-gray-800 text-white",
+                          )}
+                          style={{ fontFamily: ff.css }}
+                          onClick={() => {
+                            applyStyle("fontFamily", ff.value);
+                            setActiveDropdown(null);
+                          }}
+                        >
+                          {ff.label}
+                        </button>
+                      ))}
+
+                      <div className="mx-2 my-1 border-t border-gray-200" />
+                    </>
+                  )}
+
+                  {/* ── Default Fonts (shown on BOTTOM) ── */}
+                  <p className="px-2 py-0.5 text-[9px] text-gray-400 font-semibold uppercase tracking-wider select-none">
+                    Default Fonts
+                  </p>
+
                   {[
-                    { label: "Alexandria", value: "font-alexandria" },
-                    { label: "Raleway", value: "font-raleway" },
-                    { label: "Sans Serif", value: "font-sans" },
+                    { label: "Sans Serif",  value: "font-sans",       css: "sans-serif" },
+                    { label: "Alexandria",  value: "font-alexandria",  css: "Alexandria, sans-serif" },
+                    { label: "Raleway",     value: "font-raleway",     css: "Raleway, sans-serif" },
                   ].map((ff) => (
                     <button
                       key={ff.value}
@@ -635,6 +828,7 @@ export default function StyledInput({
                         "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
                         fontFamily === ff.value && "bg-gray-800 text-white",
                       )}
+                      style={{ fontFamily: ff.css }}
                       onClick={() => {
                         applyStyle("fontFamily", ff.value);
                         setActiveDropdown(null);
@@ -646,6 +840,7 @@ export default function StyledInput({
                 </div>
               )}
             </div>
+
 
             {/* Alignment Options (Google Docs Style) */}
             <div className="flex gap-0.5 border rounded p-0.5 bg-gray-50 items-center">
@@ -736,6 +931,81 @@ export default function StyledInput({
               >
                 <Bold className="h-4 w-4" />
               </button>
+            </div>
+
+            {/* Options (Three Dots) Menu */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter("options")}
+              onMouseLeave={() => handleMouseLeave("options")}
+            >
+              <button
+                type="button"
+                title="More Options"
+                className={cn(
+                  "p-1.5 border rounded text-gray-800 hover:bg-gray-800 hover:text-gray-100 flex items-center justify-center",
+                  activeDropdown === "options" && "bg-gray-800 text-white",
+                )}
+                onClick={() =>
+                  setActiveDropdown(activeDropdown === "options" ? null : "options")
+                }
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+
+              {activeDropdown === "options" && (
+                <div className="absolute right-0 top-[calc(100%-1px)] bg-white border rounded shadow-lg z-[999] p-2 w-48 text-gray-800">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 select-none">
+                    Vertical Alignment
+                  </p>
+                  <div className="flex gap-1 border rounded p-1 bg-gray-50 items-center justify-around">
+                    <button
+                      type="button"
+                      title="Align Top"
+                      className={cn(
+                        "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                        verticalAlign === "top" && "bg-gray-800 text-white hover:bg-gray-800",
+                      )}
+                      onClick={() => {
+                        applyStyle("verticalAlign", "top");
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      <AlignVerticalJustifyStart className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Align Middle (Center)"
+                      className={cn(
+                        "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                        verticalAlign === "center" && "bg-gray-800 text-white hover:bg-gray-800",
+                      )}
+                      onClick={() => {
+                        applyStyle("verticalAlign", "center");
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      <AlignVerticalJustifyCenter className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Align Bottom"
+                      className={cn(
+                        "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
+                        verticalAlign === "bottom" && "bg-gray-800 text-white hover:bg-gray-800",
+                      )}
+                      onClick={() => {
+                        applyStyle("verticalAlign", "bottom");
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      <AlignVerticalJustifyEnd className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>,
           document.body,

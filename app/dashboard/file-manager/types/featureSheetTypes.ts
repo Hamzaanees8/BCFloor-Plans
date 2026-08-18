@@ -5,6 +5,8 @@ export interface TextStyle {
     fontFamily?: string;
     color?: string;
     textAlign?: "left" | "center" | "right" | "justify";
+    verticalAlign?: "top" | "center" | "bottom";
+    alignContent?: "start" | "center" | "end" | "space-between";
     lineHeight?: string;
     letterSpacing?: string;
 }

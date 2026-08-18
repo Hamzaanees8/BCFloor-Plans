@@ -897,3 +897,117 @@ textarea::placeholder {
     transform: scale(0.75);
     transform-origin: top center;
 } */
+
+/* ==========================================================================
+   BcfpStandard6 Custom Fonts
+   Font files live in /public/fonts/BcfpStandard6/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'ACaslonPro';
+  src: url('/fonts/BcfpStandard6/ACaslonPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BickhamScript';
+  src: url('/fonts/BcfpStandard6/BickhamScriptPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicRegular';
+  src: url('/fonts/BcfpStandard6/GOTHIC.TTF') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicBold';
+  src: url('/fonts/BcfpStandard6/GOTHICB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanPro';
+  src: url('/fonts/BcfpStandard6/TrajanPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProRegular';
+  src: url('/fonts/BcfpStandard6/TrajanPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBold';
+  src: url('/fonts/BcfpStandard6/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   BcfpStandard4 Custom Fonts
+   Font files live in /public/fonts/BcfpStandard4/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'ACaslonProBold';
+  src: url('/fonts/BcfpStandard4/ACaslonPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ACaslonProItalic';
+  src: url('/fonts/BcfpStandard4/ACaslonPro-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ACaslonProRegular';
+  src: url('/fonts/BcfpStandard4/ACaslonPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BickhamScriptBold';
+  src: url('/fonts/BcfpStandard4/BickhamScriptPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BickhamScriptRegular';
+  src: url('/fonts/BcfpStandard4/BickhamScriptPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBoldBcfp4';
+  src: url('/fonts/BcfpStandard4/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

@@ -25,7 +25,7 @@ import {
   StyledTextField,
 } from "../types/featureSheetTypes";
 import "../../../globals.css";
-import StyledInput from "./StyledInput";
+import StyledInput, { FontFolderProvider } from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import SafeZoneWrapper from "./SafeZoneWrapper";
@@ -64,7 +64,25 @@ const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
     />
   );
 };
-// ──────────────────────────────────────────────────────────────────────────────
+/** Helper to convert a font-family class/string to full CSS font-family value for inline styling */
+function getFontFamilyCss(ff?: string): string | undefined {
+  if (!ff) return undefined;
+  const f = ff.toLowerCase();
+  if (f.includes("alexandria")) return "Alexandria, sans-serif";
+  if (f.includes("raleway")) return "Raleway, sans-serif";
+  if (f.includes("acaslonproitalic") || (f.includes("caslon") && f.includes("italic"))) return "ACaslonProItalic, serif";
+  if (f.includes("acaslonproregular") || (f.includes("caslon") && f.includes("regular"))) return "ACaslonProRegular, serif";
+  if (f.includes("acaslonprobold") || (f.includes("caslon") && f.includes("bold"))) return "ACaslonProBold, serif";
+  if (f.includes("acaslonpro") || f.includes("caslon")) return "ACaslonProBold, serif";
+  if (f.includes("bickhamscriptregular") || (f.includes("bickham") && f.includes("regular"))) return "BickhamScriptRegular, cursive";
+  if (f.includes("bickhamscriptbold") || f.includes("bickhamscript") || f.includes("bickham")) return "BickhamScriptBold, cursive";
+  if (f.includes("gothicbold") || f.includes("gothic bold") || f.includes("gothic-bold")) return "GothicBold, sans-serif";
+  if (f.includes("gothicregular") || f.includes("gothic")) return "GothicRegular, sans-serif";
+  if (f.includes("trajanproregular") || (f.includes("trajan") && f.includes("regular"))) return "TrajanProRegular, serif";
+  if (f.includes("trajanpro") || f.includes("trajan")) return "TrajanPro, serif";
+  if (f.includes("arialboldbcfp4") || f.includes("arialbold") || f.includes("arial bold") || f.includes("arial")) return "ArialBoldBcfp4, sans-serif";
+  return ff;
+}
 
 
 
@@ -903,7 +921,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
     }));
 
     return (
-      <>
+      <FontFolderProvider value="BcfpStandard4">
         {showGallery && (
           <FileManagerGallery
             isOpen={showGallery}
@@ -1163,7 +1181,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           deleteTitle="Remove Agent Name"
                         >
                           <div className="font-bold text-[11px] pt-1 flex items-center gap-1">
-                            <span className="font-normal shrink-0">
+                            <span className="font-normal shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.fullName?.fontFamily) }}>
                               CONTACT:
                             </span>
                             <StyledInput
@@ -1233,7 +1251,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             deleteTitle="Remove Phone"
                           >
                             <div className="flex gap-1 text-black text-[11px] items-center">
-                              <span className="shrink-0">PHONE:</span>
+                              <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.number?.fontFamily) }}>PHONE:</span>
                               <StyledInput
                                 value={number}
                                 onChange={(e) => setNumber(e.target.value)}
@@ -1268,7 +1286,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             deleteTitle="Remove Email"
                           >
                             <div className="flex gap-1 text-black text-[11px] items-center">
-                              <span className="shrink-0">EMAIL:</span>
+                              <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.email?.fontFamily) }}>EMAIL:</span>
                               <StyledInput
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -2240,7 +2258,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         deleteTitle="Remove Road Name"
                       >
                         <div className="text-[60px] font-light leading-none mt-0 flex items-center">
-                          <span className="shrink-0">Number</span>
+                          <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.roadName?.fontFamily) }}>Number</span>
                           <StyledInput
                             value={roadName}
                             onChange={(e) => setRoadName(e.target.value)}
@@ -2251,7 +2269,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             className="font-light text-[30px] h-[30px] leading-none mt-0 bg-transparent text-[#fff] text-center w-[65px] focus:outline-none border-none placeholder-[#fff] placeholder:font-[200]"
                             placeholder="0"
                           />
-                          <span className="shrink-0">Road</span>
+                          <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.roadName?.fontFamily) }}>Road</span>
                         </div>
                       </DraggableBox>
                     )}
@@ -3274,7 +3292,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove By-law Restrictions"
                             >
                               <div>
-                                <span className="font-bold">
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.byLawRestrictions?.fontFamily) }}>
                                   BY-LAW RESTRICTIONS:
                                 </span>{" "}
                                 <StyledInput
@@ -3313,7 +3331,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove Maint. Fees"
                             >
                               <div>
-                                <span className="font-bold">MAINT. FEES:</span>{" "}
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.maintFees?.fontFamily) }}>MAINT. FEES:</span>{" "}
                                 <StyledInput
                                   value={maintFees}
                                   onChange={(e) => setMaintFees(e.target.value)}
@@ -3348,7 +3366,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove Maint. Fees Include"
                             >
                               <div>
-                                <span className="font-bold">
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.maintFeesInclude?.fontFamily) }}>
                                   MAINT. FEES INCLUDE:
                                 </span>
                                 <StyledInput
@@ -3387,7 +3405,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove Features Included"
                             >
                               <div>
-                                <span className="font-bold">
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.featuresIncluded?.fontFamily) }}>
                                   FEATURES INCLUDED:
                                 </span>
                                 <StyledInput
@@ -3428,7 +3446,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove Site Influences"
                             >
                               <div>
-                                <span className="font-bold">
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.siteInfluences?.fontFamily) }}>
                                   SITE INFLUENCES:
                                 </span>
                                 <StyledInput
@@ -3467,7 +3485,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove Amenities"
                             >
                               <div>
-                                <span className="font-bold">AMENITIES:</span>
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.amenities?.fontFamily) }}>AMENITIES:</span>
                                 <StyledInput
                                   value={amenities}
                                   onChange={(e) => setAmenities(e.target.value)}
@@ -3502,7 +3520,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               deleteTitle="Remove View"
                             >
                               <div>
-                                <span className="font-bold">VIEW:</span>{" "}
+                                <span className="font-bold" style={{ fontFamily: getFontFamilyCss(fieldStyles.view?.fontFamily) }}>VIEW:</span>{" "}
                                 <StyledInput
                                   value={view}
                                   onChange={(e) => setView(e.target.value)}
@@ -3735,7 +3753,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[30px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                           placeholder="0"
                         />
-                        <span className="shrink-0">
+                        <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.bedroom?.fontFamily) }}>
                           BEDROOM {!isFieldDeleted("bathroom") && "•"}
                         </span>
                       </div>
@@ -3770,7 +3788,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[30px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                           placeholder="0"
                         />
-                        <span className="shrink-0">
+                        <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.bathroom?.fontFamily) }}>
                           BATHROOM {!isFieldDeleted("sqft") && "•"}
                         </span>
                       </div>
@@ -3805,7 +3823,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           className="font-semibold text-[22px] bg-transparent text-left h-[30px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                           placeholder="000"
                         />
-                        <span className="shrink-0">
+                        <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.sqft?.fontFamily) }}>
                           SQ FT {!isFieldDeleted("builtYear") && "•"}
                         </span>
                       </div>
@@ -3842,7 +3860,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           className="font-semibold text-[22px] mr-[5px] bg-transparent text-left h-[30px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                           placeholder="0000"
                         />
-                        <span className="shrink-0">BUILT IN</span>
+                        <span className="shrink-0" style={{ fontFamily: getFontFamilyCss(fieldStyles.builtYear?.fontFamily) }}>BUILT IN</span>
                       </div>
                     </DraggableBox>
                   )}
@@ -3918,7 +3936,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             </SafeZoneWrapper>
           </div>
         </div>
-      </>
+      </FontFolderProvider>
     );
   },
 );

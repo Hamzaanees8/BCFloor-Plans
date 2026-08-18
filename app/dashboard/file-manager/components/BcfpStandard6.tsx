@@ -27,7 +27,7 @@ import {
   DetailField,
 } from "../types/featureSheetTypes";
 import "../../../globals.css";
-import StyledInput from "./StyledInput";
+import StyledInput, { FontFolderProvider } from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
@@ -72,6 +72,22 @@ const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
 // ─── DetailFieldRow ────────────────────────────────────────────────────────────
 // Renders a single editable title + editable value input row.
 // On hover: shows a ✏ (edit title) and ✕ (remove) icon next to the title.
+/** Helper to convert a font-family class/string to full CSS font-family value for inline styling */
+function getFontFamilyCss(ff?: string): string | undefined {
+  if (!ff) return undefined;
+  const f = ff.toLowerCase();
+  if (f.includes("alexandria")) return "Alexandria, sans-serif";
+  if (f.includes("raleway")) return "Raleway, sans-serif";
+  if (f.includes("acaslonpro") || f.includes("caslon")) return "ACaslonPro, serif";
+  if (f.includes("bickhamscript") || f.includes("bickham")) return "BickhamScript, cursive";
+  if (f.includes("gothicbold") || f.includes("gothic bold") || f.includes("gothic-bold")) return "GothicBold, sans-serif";
+  if (f.includes("gothicregular") || f.includes("gothic")) return "GothicRegular, sans-serif";
+  if (f.includes("trajanproregular") || (f.includes("trajan") && f.includes("regular"))) return "TrajanProRegular, serif";
+  if (f.includes("trajanpro") || f.includes("trajan")) return "TrajanPro, serif";
+  if (f.includes("arialbold") || f.includes("arial bold") || f.includes("arial")) return "ArialBold, sans-serif";
+  return ff;
+}
+
 interface DetailFieldRowProps {
   field: {
     id: string;
@@ -94,6 +110,24 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
   onValueChange,
   onStyleChange,
 }) => {
+  const sharedFontFamily = field.style?.fontFamily || field.titleStyle?.fontFamily;
+
+  const effectiveTitleStyle: TextStyle = {
+    fontSize: field.titleStyle?.fontSize || "8px",
+    fontWeight: field.titleStyle?.fontWeight,
+    fontFamily: field.titleStyle?.fontFamily || sharedFontFamily,
+    color: field.titleStyle?.color,
+    textAlign: field.titleStyle?.textAlign,
+  };
+
+  const effectiveValueStyle: TextStyle = {
+    fontSize: field.style?.fontSize || "10px",
+    fontWeight: field.style?.fontWeight,
+    fontFamily: field.style?.fontFamily || sharedFontFamily,
+    color: field.style?.color,
+    textAlign: field.style?.textAlign,
+  };
+
   return (
     <div className="relative">
       {/* Title row */}
@@ -102,7 +136,7 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
           value={field.title}
           onChange={(e) => onTitleChange(e.target.value)}
           onChangeStyle={onTitleStyleChange}
-          inputStyle={field.titleStyle}
+          inputStyle={effectiveTitleStyle}
           className="font-bold text-[#00B9F2] text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 uppercase"
           placeholder="ENTER TITLE HERE"
         />
@@ -113,7 +147,7 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
         value={field.value}
         onChange={(e) => onValueChange(e.target.value)}
         onChangeStyle={onStyleChange}
-        inputStyle={field.style}
+        inputStyle={effectiveValueStyle}
         className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
         placeholder="Enter details here"
       />
@@ -189,19 +223,51 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
 
     const updateDetailStyle = (id: string, style: TextStyle) => {
       setLeftDetailFields((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, style } : f)),
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedTitleStyle: TextStyle | undefined = style.fontFamily
+            ? f.titleStyle
+              ? { ...f.titleStyle, fontFamily: style.fontFamily }
+              : { fontSize: "8px", fontFamily: style.fontFamily }
+            : f.titleStyle;
+          return { ...f, style, titleStyle: updatedTitleStyle };
+        }),
       );
       setRightDetailFields((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, style } : f)),
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedTitleStyle: TextStyle | undefined = style.fontFamily
+            ? f.titleStyle
+              ? { ...f.titleStyle, fontFamily: style.fontFamily }
+              : { fontSize: "8px", fontFamily: style.fontFamily }
+            : f.titleStyle;
+          return { ...f, style, titleStyle: updatedTitleStyle };
+        }),
       );
     };
 
     const updateDetailTitleStyle = (id: string, style: TextStyle) => {
       setLeftDetailFields((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedValueStyle: TextStyle | undefined = style.fontFamily
+            ? f.style
+              ? { ...f.style, fontFamily: style.fontFamily }
+              : { fontSize: "10px", fontFamily: style.fontFamily }
+            : f.style;
+          return { ...f, titleStyle: style, style: updatedValueStyle };
+        }),
       );
       setRightDetailFields((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedValueStyle: TextStyle | undefined = style.fontFamily
+            ? f.style
+              ? { ...f.style, fontFamily: style.fontFamily }
+              : { fontSize: "10px", fontFamily: style.fontFamily }
+            : f.style;
+          return { ...f, titleStyle: style, style: updatedValueStyle };
+        }),
       );
     };
 
@@ -1490,7 +1556,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     }));
 
     return (
-      <>
+      <FontFolderProvider value="BcfpStandard6">
         {showImageSourceModal && (
           <ImageSourceModal
             onClose={() => setShowImageSourceModal(false)}
@@ -1759,7 +1825,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               }
                               deleteTitle="Remove Road / Unit #"
                             >
-                              <span className="text-[#226292] flex items-center">
+                              <span className="text-[#226292] flex items-center" style={{ fontFamily: getFontFamilyCss(fieldStyles.roadName?.fontFamily) }}>
                                 Number
                                 <StyledInput
                                   value={roadName}
@@ -2685,7 +2751,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Contact Name"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]">
+                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.fullName?.fontFamily) }}>
                                     Contact:
                                   </span>
                                   <StyledInput
@@ -2765,7 +2831,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Phone"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]">
+                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.number?.fontFamily) }}>
                                     PHONE:
                                   </span>
                                   <StyledInput
@@ -2803,7 +2869,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Email"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]">
+                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.email?.fontFamily) }}>
                                     Email:
                                   </span>
                                   <StyledInput
@@ -3200,7 +3266,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     {/* image8 */}
                     <div
                       data-image-slot="true"
-                      className="w-full h-[500px] flex-1 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                      className="w-full h-[500px] flex-1 place-self-center z-10 relative group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                       onMouseEnter={() => setHoveredSlot("image8")}
                       onMouseLeave={() => setHoveredSlot(null)}
                       onClick={(e) => {
@@ -3379,7 +3445,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image9 */}
                       <div
                         data-image-slot="true"
-                        className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        className="h-[220px] relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image9")}
                         onMouseLeave={() => setHoveredSlot(null)}
                         onClick={(e) => {
@@ -3484,7 +3550,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image10 */}
                       <div
                         data-image-slot="true"
-                        className="h-[220px] relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        className="h-[220px] relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image10")}
                         onMouseLeave={() => setHoveredSlot(null)}
                         onClick={(e) => {
@@ -3659,7 +3725,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="0"
                             />
                           </div>
-                          <span>BEDROOM •</span>
+                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.bedroom?.fontFamily) }}>BEDROOM •</span>
                         </DraggableBox>
                       )}
 
@@ -3695,7 +3761,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="0"
                             />
                           </div>
-                          <span>BATHROOM •</span>
+                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.bathroom?.fontFamily) }}>BATHROOM •</span>
                         </DraggableBox>
                       )}
 
@@ -3729,7 +3795,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="000"
                             />
                           </div>
-                          <span>SQ FT •</span>
+                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.sqft?.fontFamily) }}>SQ FT •</span>
                         </DraggableBox>
                       )}
 
@@ -3753,7 +3819,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           }
                           deleteTitle="Remove Year Built"
                         >
-                          <span>BUILT IN</span>
+                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.builtYear?.fontFamily) }}>BUILT IN</span>
                           <div className="inline">
                             <StyledInput
                               value={builtYear}
@@ -3778,7 +3844,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image11 */}
                         <div
                           data-image-slot="true"
-                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image11")}
                           onMouseLeave={() => setHoveredSlot(null)}
                           onClick={(e) => {
@@ -3885,7 +3951,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image12 */}
                         <div
                           data-image-slot="true"
-                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image12")}
                           onMouseLeave={() => setHoveredSlot(null)}
                           onClick={(e) => {
@@ -3992,7 +4058,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image13 */}
                         <div
                           data-image-slot="true"
-                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image13")}
                           onMouseLeave={() => setHoveredSlot(null)}
                           onClick={(e) => {
@@ -4099,7 +4165,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {/* image14 */}
                         <div
                           data-image-slot="true"
-                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          className="flex-1 min-h-0 w-full relative z-10 group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                           onMouseEnter={() => setHoveredSlot("image14")}
                           onMouseLeave={() => setHoveredSlot(null)}
                           onClick={(e) => {
@@ -4209,7 +4275,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       {/* image15 */}
                       <div
                         data-image-slot="true"
-                        className="w-full h-[590px] mb-4 place-self-center z-10 relative group cursor-pointer border-t-2 border-l-2 border-r-[3px] border-b-[3px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        className="w-full h-[590px] mb-4 place-self-center z-10 relative group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                         onMouseEnter={() => setHoveredSlot("image15")}
                         onMouseLeave={() => setHoveredSlot(null)}
                         onClick={(e) => {
@@ -4431,7 +4497,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             </SafeZoneWrapper>
           </div>
         </div>
-      </>
+      </FontFolderProvider>
     );
   },
 );
