@@ -224,7 +224,7 @@ const TabloidPdfGenerator = async (
     const pHeight = renderHeight;
 
     const options = {
-      scale: 3, // Premium quality (>300 DPI)
+      scale: 6.25, // Ultra-high print resolution (600 DPI = 6.25 * 96 DPI)
       useCORS: true,
       logging: false,
       allowTaint: true,
@@ -273,7 +273,7 @@ const TabloidPdfGenerator = async (
 
       if (!withBleed) {
         // Crop out the 0.125" outer bleed zone from all 4 edges (area outside red border)
-        const scale = options.scale || 3;
+        const scale = options.scale || 6.25;
         const cropPx = 0.125 * 96 * scale; // 0.125" bleed in canvas pixels
         const cropWidth = canvas.width - (cropPx * 2);
         const cropHeight = canvas.height - (cropPx * 2);
@@ -290,7 +290,7 @@ const TabloidPdfGenerator = async (
         finalCanvas = croppedCanvas;
       }
 
-      const finalImgData = finalCanvas.toDataURL("image/jpeg", 0.90);
+      const finalImgData = finalCanvas.toDataURL("image/jpeg", 0.95);
 
       if (i > 0) {
         pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);
