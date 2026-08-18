@@ -1,4 +1,12 @@
-import { Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import {
+  Pencil,
+  Trash,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Lock,
+  Unlock,
+} from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
   forwardRef,
@@ -6,6 +14,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useCallback,
 } from "react";
 import { Order } from "../../orders/page";
 import { featureSheetService } from "../file-manager";
@@ -17,10 +26,11 @@ import {
 } from "../types/featureSheetTypes";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
-import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import SafeZoneWrapper from "./SafeZoneWrapper";
+import DraggableBox from "./DraggableBox";
+import { DeletedDetailFieldItem } from "./DeletedFieldsPanel";
 
 export interface BcfpStandard4Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -33,18 +43,133 @@ interface BcfpStandard4Props {
   showGuide?: boolean;
 }
 
+// ─── BoxIndicator ─────────────────────────────────────────────────────────────
+// Renders a Canva-style 3.5px colored border indicator to indicate the bounds
+// of an image container on hover, click (active), or drag.
+interface BoxIndicatorProps {
+  isVisible: boolean;
+}
+
+const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div
+      data-html2canvas-ignore="true"
+      className="absolute inset-0 border-[3.5px] border-[#8B3DFF] pointer-events-none z-30 transition-all duration-100"
+      style={{
+        boxShadow:
+          "0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 8px rgba(139, 61, 255, 0.4)",
+      }}
+    />
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+
+
 const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
-    const { formData, updateFormData } = useFileManagerContext();
+    const {
+      formData,
+      updateFormData,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    } = useFileManagerContext();
 
-    const [showBleedState] = useState(true);
-    const [showGuideState] = useState(true);
+    // ── Deletion & Restoration State ──────────────────────────────────────
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
+      formData.deletedDetailFields || [],
+    );
+    const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
+      string[]
+    >(formData.deletedStandardFieldIds || []);
 
-    const showBleed =
-      propShowBleed !== undefined ? propShowBleed : showBleedState;
-    const showGuide =
-      propShowGuide !== undefined ? propShowGuide : showGuideState;
+    const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
 
+    const removeStandardField = (
+      id: string,
+      title: string,
+      value: string,
+      section: string,
+      style?: TextStyle,
+    ) => {
+      setDeletedStandardFieldIds((prevStandard) => {
+        if (prevStandard.includes(id)) return prevStandard;
+        const newDeletedStandard = [...prevStandard, id];
+
+        const deletedItem: DeletedDetailFieldItem = {
+          id,
+          title,
+          value: value || "",
+          section,
+          style,
+          deletedAt: Date.now(),
+        };
+
+        setDeletedDetailFields((prevDetail) => {
+          const newDeletedDetailFields = [
+            ...prevDetail.filter((f) => f.id !== id),
+            deletedItem,
+          ];
+          updateFormData({
+            deletedStandardFieldIds: newDeletedStandard,
+            deletedDetailFields: newDeletedDetailFields,
+          });
+          return newDeletedDetailFields;
+        });
+
+        return newDeletedStandard;
+      });
+    };
+
+    const restoreDetailField = useCallback(
+      (id: string) => {
+        setDeletedStandardFieldIds((prevStandard) => {
+          const updatedStandard = prevStandard.filter((fId) => fId !== id);
+          setDeletedDetailFields((prevDetail) => {
+            const updatedDeleted = prevDetail.filter((f) => f.id !== id);
+            updateFormData({
+              deletedStandardFieldIds: updatedStandard,
+              deletedDetailFields: updatedDeleted,
+            });
+            return updatedDeleted;
+          });
+          return updatedStandard;
+        });
+      },
+      [updateFormData],
+    );
+
+    const restoreAllDetailFields = useCallback(() => {
+      setDeletedStandardFieldIds([]);
+      setDeletedDetailFields([]);
+      updateFormData({
+        deletedStandardFieldIds: [],
+        deletedDetailFields: [],
+      });
+    }, [updateFormData]);
+
+    useEffect(() => {
+      if (setRestoreDetailFieldHandler) {
+        setRestoreDetailFieldHandler(() => restoreDetailField);
+      }
+      if (setRestoreAllDetailFieldsHandler) {
+        setRestoreAllDetailFieldsHandler(() => restoreAllDetailFields);
+      }
+      return () => {
+        if (setRestoreDetailFieldHandler) setRestoreDetailFieldHandler(null);
+        if (setRestoreAllDetailFieldsHandler)
+          setRestoreAllDetailFieldsHandler(null);
+      };
+    }, [
+      restoreDetailField,
+      restoreAllDetailFields,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    ]);
+
+    // ── Field Value States ────────────────────────────────────────────────
     const [byLawRestrictions, setByLawRestrictions] = useState("");
     const [maintFees, setMaintFees] = useState("");
     const [maintFeesInclude, setMaintFeesInclude] = useState("");
@@ -66,14 +191,45 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
     const [builtYear, setBuiltYear] = useState("");
+
+    const [showBleedState] = useState(true);
+    const [showGuideState] = useState(true);
+
+    const showBleed =
+      propShowBleed !== undefined ? propShowBleed : showBleedState;
+    const showGuide =
+      propShowGuide !== undefined ? propShowGuide : showGuideState;
+
     const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
       {},
     );
-
     const updateFieldStyle = (field: string, style: TextStyle) =>
       setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
-    // --- images States ---
+    const [fieldPositions, setFieldPositions] = useState<
+      Record<string, { x: number; y: number }>
+    >({});
+
+    const updateFieldPosition = (id: string, pos: { x: number; y: number }) => {
+      setFieldPositions((prev) => ({ ...prev, [id]: pos }));
+    };
+
+    const [lockedSections, setLockedSections] = useState<
+      Record<string, boolean>
+    >({
+      address: false,
+      contact: false,
+      price: false,
+      description: false,
+      specs: false,
+      details: false,
+    });
+
+    const toggleSectionLock = (section: string) => {
+      setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    // ── Images States ──────────────────────────────────────────────────────
     const [images, setImages] = useState({
       image1: null as string | null,
       image2: null as string | null,
@@ -91,8 +247,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: null as string | null,
       image15: null as string | null,
       image16: null as string | null,
-      image17: null as string | null,
-      image18: null as string | null,
     });
 
     const [scale, setScale] = useState({
@@ -112,8 +266,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: 1,
       image15: 1,
       image16: 1,
-      image17: 1,
-      image18: 1,
     });
 
     const [position, setPosition] = useState({
@@ -133,8 +285,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: { x: 0, y: 0 },
       image15: { x: 0, y: 0 },
       image16: { x: 0, y: 0 },
-      image17: { x: 0, y: 0 },
-      image18: { x: 0, y: 0 },
     });
 
     const [rotation, setRotation] = useState({
@@ -154,8 +304,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: 0,
       image15: 0,
       image16: 0,
-      image17: 0,
-      image18: 0,
     });
 
     const [dragging, setDragging] = useState({
@@ -175,8 +323,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: false,
       image15: false,
       image16: false,
-      image17: false,
-      image18: false,
     });
 
     const lastPosition = useRef({
@@ -196,17 +342,32 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       image14: { x: 0, y: 0 },
       image15: { x: 0, y: 0 },
       image16: { x: 0, y: 0 },
-      image17: { x: 0, y: 0 },
-      image18: { x: 0, y: 0 },
     });
 
-    const [showImageSourceModal, setShowImageSourceModal] = useState(false);
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
     const [showGallery, setShowGallery] = useState(false);
+    const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+    const [activeSlot, setActiveSlot] = useState<string | null>(null);
 
-    // --- Refs ---
+    const isSlotActive = (key: string) =>
+      hoveredSlot === key ||
+      activeSlot === key ||
+      Boolean(dragging[key as keyof typeof dragging]);
+
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-image-slot="true"]')) {
+          setActiveSlot(null);
+        }
+      };
+      window.addEventListener("mousedown", handleClickOutside);
+      return () => window.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // ── Image Input Refs ──────────────────────────────────────────────────
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
     const fileInputRef2 = useRef<HTMLInputElement | null>(null);
     const fileInputRef3 = useRef<HTMLInputElement | null>(null);
@@ -223,8 +384,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
     const fileInputRef14 = useRef<HTMLInputElement | null>(null);
     const fileInputRef15 = useRef<HTMLInputElement | null>(null);
     const fileInputRef16 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef17 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef18 = useRef<HTMLInputElement | null>(null);
 
     // Auto-populate from orderData and context
     useEffect(() => {
@@ -310,6 +469,21 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             ...(formData.imagePositions as typeof position),
           }));
         }
+        if (formData.imageRotations) {
+          setRotation((prev) => ({
+            ...prev,
+            ...(formData.imageRotations as typeof rotation),
+          }));
+        }
+        if (formData.fieldPositions) {
+          setFieldPositions(formData.fieldPositions);
+        }
+        if (formData.deletedDetailFields) {
+          setDeletedDetailFields(formData.deletedDetailFields);
+        }
+        if (formData.deletedStandardFieldIds) {
+          setDeletedStandardFieldIds(formData.deletedStandardFieldIds);
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -341,6 +515,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
         images,
         imageScales: scale,
         imagePositions: position,
+        imageRotations: rotation,
+        fieldPositions,
+        deletedStandardFieldIds,
+        deletedDetailFields,
       });
     }, [
       byLawRestrictions,
@@ -367,10 +545,14 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       images,
       scale,
       position,
+      rotation,
+      fieldPositions,
+      deletedStandardFieldIds,
+      deletedDetailFields,
       updateFormData,
     ]);
 
-    // --- Handlers ---
+    // ── Image Handlers ────────────────────────────────────────────────────
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
       if (e.altKey) return;
       setDragging((prev) => ({ ...prev, [key]: true }));
@@ -411,6 +593,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+      setRotation((prev) => ({ ...prev, [key]: 0 }));
       if (ref.current) ref.current.value = "";
     };
 
@@ -426,73 +609,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       }
     };
 
-    const handleImageSourceSelect = (source: "local" | "gallery") => {
-      setShowImageSourceModal(false);
-
-      if (source === "local") {
-        switch (currentImageSlot) {
-          case "image1":
-            fileInputRef1.current?.click();
-            break;
-          case "image2":
-            fileInputRef2.current?.click();
-            break;
-          case "image3":
-            fileInputRef3.current?.click();
-            break;
-          case "image4":
-            fileInputRef4.current?.click();
-            break;
-          case "image5":
-            fileInputRef5.current?.click();
-            break;
-          case "image6":
-            fileInputRef6.current?.click();
-            break;
-          case "image7":
-            fileInputRef7.current?.click();
-            break;
-          case "image8":
-            fileInputRef8.current?.click();
-            break;
-          case "image9":
-            fileInputRef9.current?.click();
-            break;
-          case "image10":
-            fileInputRef10.current?.click();
-            break;
-          case "image11":
-            fileInputRef11.current?.click();
-            break;
-          case "image12":
-            fileInputRef12.current?.click();
-            break;
-          case "image13":
-            fileInputRef13.current?.click();
-            break;
-          case "image14":
-            fileInputRef14.current?.click();
-            break;
-          case "image15":
-            fileInputRef15.current?.click();
-            break;
-          case "image16":
-            fileInputRef16.current?.click();
-            break;
-          case "image17":
-            fileInputRef17.current?.click();
-            break;
-          case "image18":
-            fileInputRef18.current?.click();
-            break;
-          default:
-            break;
-        }
-      } else if (source === "gallery") {
-        setShowGallery(true);
-      }
-    };
-
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
@@ -500,12 +616,13 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       setCurrentImageSlot(null);
     };
 
-    const openImageSourceModal = (imageSlot: string) => {
+    const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
+      if (e?.altKey) return;
       setCurrentImageSlot(imageSlot);
       setShowGallery(true);
     };
 
-    // Expose methods to parent component via ref
+    // ── Expose imperative methods to parent ──────────────────────────────
     useImperativeHandle(ref, () => ({
       exportToPayload: async () => {
         const payload = await featureSheetService.buildPayload({
@@ -513,7 +630,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
           templateKey: "BCFPStandard4",
           uploadedBy: "admin",
           type: "template",
-          primaryColor: "#376173",
+          primaryColor: "#416173",
           offeredAtPrice: {
             value: amount,
             style: {
@@ -546,7 +663,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             value: description,
             style: {
               ...fieldStyles.description,
-              fontSize: fieldStyles.description?.fontSize || "11px",
+              fontSize: fieldStyles.description?.fontSize || "14px",
             },
           },
           expandedDetail1Title: "By-law Restrictions",
@@ -554,7 +671,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             value: byLawRestrictions,
             style: {
               ...fieldStyles.byLawRestrictions,
-              fontSize: fieldStyles.byLawRestrictions?.fontSize || "11px",
+              fontSize: fieldStyles.byLawRestrictions?.fontSize || "10px",
             },
           },
           expandedDetail2Title: "Maintenance Fees",
@@ -562,7 +679,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             value: maintFees,
             style: {
               ...fieldStyles.maintFees,
-              fontSize: fieldStyles.maintFees?.fontSize || "11px",
+              fontSize: fieldStyles.maintFees?.fontSize || "10px",
             },
           },
           expandedDetail3Title: "Maintenance Fee Includes",
@@ -570,7 +687,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             value: maintFeesInclude,
             style: {
               ...fieldStyles.maintFeesInclude,
-              fontSize: fieldStyles.maintFeesInclude?.fontSize || "11px",
+              fontSize: fieldStyles.maintFeesInclude?.fontSize || "10px",
             },
           },
           expandedDetail4Title: "Amenities",
@@ -578,7 +695,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             value: amenities,
             style: {
               ...fieldStyles.amenities,
-              fontSize: fieldStyles.amenities?.fontSize || "11px",
+              fontSize: fieldStyles.amenities?.fontSize || "10px",
             },
           },
           keyHighlightLabel: "Features Included",
@@ -590,49 +707,49 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
               value: view,
               style: {
                 ...fieldStyles.view,
-                fontSize: fieldStyles.view?.fontSize || "11px",
+                fontSize: fieldStyles.view?.fontSize || "10px",
               },
             },
             bedroom: {
               value: bedroom,
               style: {
                 ...fieldStyles.bedroom,
-                fontSize: fieldStyles.bedroom?.fontSize || "11px",
+                fontSize: fieldStyles.bedroom?.fontSize || "22px",
               },
             },
             bathroom: {
               value: bathroom,
               style: {
                 ...fieldStyles.bathroom,
-                fontSize: fieldStyles.bathroom?.fontSize || "11px",
+                fontSize: fieldStyles.bathroom?.fontSize || "22px",
               },
             },
             sqft: {
               value: sqft,
               style: {
                 ...fieldStyles.sqft,
-                fontSize: fieldStyles.sqft?.fontSize || "11px",
+                fontSize: fieldStyles.sqft?.fontSize || "22px",
               },
             },
             builtYear: {
               value: builtYear,
               style: {
                 ...fieldStyles.builtYear,
-                fontSize: fieldStyles.builtYear?.fontSize || "11px",
+                fontSize: fieldStyles.builtYear?.fontSize || "22px",
               },
             },
             mlsNumber: {
               value: mlsNumber,
               style: {
                 ...fieldStyles.mlsNumber,
-                fontSize: fieldStyles.mlsNumber?.fontSize || "11px",
+                fontSize: fieldStyles.mlsNumber?.fontSize || "10px",
               },
             },
             siteInfluences: {
               value: siteInfluences,
               style: {
                 ...fieldStyles.siteInfluences,
-                fontSize: fieldStyles.siteInfluences?.fontSize || "11px",
+                fontSize: fieldStyles.siteInfluences?.fontSize || "10px",
               },
             },
             number: {
@@ -646,34 +763,35 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
               value: addressCode,
               style: {
                 ...fieldStyles.addressCode,
-                fontSize: fieldStyles.addressCode?.fontSize || "11px",
+                fontSize: fieldStyles.addressCode?.fontSize || "30px",
               },
             },
             roadName: {
               value: roadName,
               style: {
                 ...fieldStyles.roadName,
-                fontSize: fieldStyles.roadName?.fontSize || "24px",
+                fontSize: fieldStyles.roadName?.fontSize || "30px",
               },
             },
             cityLine: {
               value: cityLine,
               style: {
                 ...fieldStyles.cityLine,
-                fontSize: fieldStyles.cityLine?.fontSize || "14px",
+                fontSize: fieldStyles.cityLine?.fontSize || "13px",
               },
             },
             featuresIncluded: {
               value: featuresIncluded,
               style: {
                 ...fieldStyles.featuresIncluded,
-                fontSize: fieldStyles.featuresIncluded?.fontSize || "11px",
+                fontSize: fieldStyles.featuresIncluded?.fontSize || "10px",
               },
             },
           },
           images,
           imageScales: scale,
           imagePositions: position,
+          imageRotations: rotation,
         });
         return payload;
       },
@@ -776,18 +894,16 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
             ...prev,
             ...(state.imagePositions as unknown as typeof position),
           }));
+        if (state.imageRotations)
+          setRotation((prev) => ({
+            ...prev,
+            ...(state.imageRotations as unknown as typeof rotation),
+          }));
       },
     }));
 
     return (
       <>
-        {showImageSourceModal && (
-          <ImageSourceModal
-            onClose={() => setShowImageSourceModal(false)}
-            onSelectSource={handleImageSourceSelect}
-          />
-        )}
-
         {showGallery && (
           <FileManagerGallery
             isOpen={showGallery}
@@ -820,7 +936,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
 
           {/* pdf-page 1 */}
           <div
-            className="flex items-stretch pdf-page bg-white shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden"
+            className="flex items-stretch pdf-page bg-white shadow-[6px_6px_12px_rgba(0,0,0,0.85)] relative overflow-hidden"
             style={{
               width: showBleed ? "17.25in" : "17in",
               height: showBleed ? "11.25in" : "11in",
@@ -845,7 +961,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     }}
                   >
                     {/* image1 */}
-                    <div className="w-full h-full mb-[20px] place-self-center relative overflow-hidden group pb-2">
+                    <div
+                      data-image-slot="true"
+                      className="w-full h-full mb-[20px] place-self-center relative overflow-hidden group pb-2 cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image1")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image1");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image1")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image1", e)}
@@ -867,7 +994,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image1", "in")}
@@ -890,7 +1017,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image1")}
-                              className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -899,8 +1026,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image1")}
-                              className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image1", e)}
+                              className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -912,7 +1039,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image1", fileInputRef1)
                               }
-                              className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -920,7 +1047,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image1")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image1", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -966,9 +1094,14 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                       />
                     </svg>
 
-                    {/* Solid white card below wave curve */}
+                    {/* Solid white card below wave curve with section lock */}
                     <div
-                      className="bg-white relative z-10 text-black pr-6 mt-[-35px]"
+                      data-safezone-container="true"
+                      className={`bg-white relative z-10 text-black pr-6 mt-[-35px] transition-all duration-150 group/sec rounded-lg border-[3.5px] border-solid border-transparent ${
+                        lockedSections.contact
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
                       style={{
                         paddingLeft: showBleed
                           ? "calc(0.375in + 12px)"
@@ -978,68 +1111,228 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           : "24px",
                       }}
                     >
-                      <div className="font-bold text-[11px] pt-1">
-                        <span className="font-normal">CONTACT:</span>
-                        <StyledInput
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                          inputStyle={fieldStyles.fullName}
-                          className=" text-[11px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                          placeholder="FIRSTNAME LASTNAME"
-                        />
-                      </div>
-                      <StyledInput
-                        value={propertyName}
-                        onChange={(e) => setPropertyName(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("propertyName", s)
+                      {/* Lock / Unlock Toggle Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("contact");
+                        }}
+                        className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.contact
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.contact
+                            ? "Unlock Contact Section (enable dragging)"
+                            : "Lock Contact Section (disable dragging)"
                         }
-                        inputStyle={fieldStyles.propertyName}
-                        className=" text-[11px] font-thin h-[18px] bg-transparent text-left text-black w-full focus:outline-none border-none placeholder-black placeholder:font-[200]"
-                        placeholder="MACDONALD Realty"
-                      />
+                      >
+                        {lockedSections.contact ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      {!isFieldDeleted("fullName") && (
+                        <DraggableBox
+                          id="fullName"
+                          position={fieldPositions.fullName}
+                          onPositionChange={updateFieldPosition}
+                          label="Agent Name"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "fullName",
+                              "Agent Name",
+                              fullName,
+                              "Page 1 - Contact",
+                              fieldStyles.fullName,
+                            )
+                          }
+                          deleteTitle="Remove Agent Name"
+                        >
+                          <div className="font-bold text-[11px] pt-1 flex items-center gap-1">
+                            <span className="font-normal shrink-0">
+                              CONTACT:
+                            </span>
+                            <StyledInput
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("fullName", s)
+                              }
+                              inputStyle={fieldStyles.fullName}
+                              className="text-[11px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                              placeholder="FIRSTNAME LASTNAME"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("propertyName") && (
+                        <DraggableBox
+                          id="propertyName"
+                          position={fieldPositions.propertyName}
+                          onPositionChange={updateFieldPosition}
+                          label="Brokerage"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "propertyName",
+                              "Brokerage",
+                              propertyName,
+                              "Page 1 - Contact",
+                              fieldStyles.propertyName,
+                            )
+                          }
+                          deleteTitle="Remove Brokerage"
+                        >
+                          <StyledInput
+                            value={propertyName}
+                            onChange={(e) => setPropertyName(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("propertyName", s)
+                            }
+                            inputStyle={fieldStyles.propertyName}
+                            className="text-[11px] font-thin h-[18px] bg-transparent text-left text-black w-full focus:outline-none border-none placeholder-black placeholder:font-[200]"
+                            placeholder="MACDONALD Realty"
+                          />
+                        </DraggableBox>
+                      )}
+
                       <div className="flex gap-2">
-                        <div className="flex gap-2 text-black text-[11px]">
-                          PHONE:
-                          <StyledInput
-                            value={number}
-                            onChange={(e) => setNumber(e.target.value)}
-                            onChangeStyle={(s) => updateFieldStyle("number", s)}
-                            inputStyle={fieldStyles.number}
-                            className="font-thin text-[11px] h-[22px] bg-transparent text-left w-[100px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                            placeholder="604.000.0000"
-                          />
-                        </div>
-                        <div className="flex gap-2 text-black text-[11px]">
-                          EMAIL:
-                          <StyledInput
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            onChangeStyle={(s) => updateFieldStyle("email", s)}
-                            inputStyle={fieldStyles.email}
-                            className="font-thin text-[11px] h-[22px] bg-transparent text-left w-[150px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                            placeholder="FIRST@LAST.COM"
-                          />
-                        </div>
+                        {!isFieldDeleted("number") && (
+                          <DraggableBox
+                            id="number"
+                            position={fieldPositions.number}
+                            onPositionChange={updateFieldPosition}
+                            label="Phone"
+                            zoom={0.55}
+                            disabled={lockedSections.contact}
+                            onDelete={() =>
+                              removeStandardField(
+                                "number",
+                                "Phone",
+                                number,
+                                "Page 1 - Contact",
+                                fieldStyles.number,
+                              )
+                            }
+                            deleteTitle="Remove Phone"
+                          >
+                            <div className="flex gap-1 text-black text-[11px] items-center">
+                              <span className="shrink-0">PHONE:</span>
+                              <StyledInput
+                                value={number}
+                                onChange={(e) => setNumber(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("number", s)
+                                }
+                                inputStyle={fieldStyles.number}
+                                className="font-thin text-[11px] h-[22px] bg-transparent text-left w-[100px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                                placeholder="604.000.0000"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("email") && (
+                          <DraggableBox
+                            id="email"
+                            position={fieldPositions.email}
+                            onPositionChange={updateFieldPosition}
+                            label="Email"
+                            zoom={0.55}
+                            disabled={lockedSections.contact}
+                            onDelete={() =>
+                              removeStandardField(
+                                "email",
+                                "Email",
+                                email,
+                                "Page 1 - Contact",
+                                fieldStyles.email,
+                              )
+                            }
+                            deleteTitle="Remove Email"
+                          >
+                            <div className="flex gap-1 text-black text-[11px] items-center">
+                              <span className="shrink-0">EMAIL:</span>
+                              <StyledInput
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                onChangeStyle={(s) =>
+                                  updateFieldStyle("email", s)
+                                }
+                                inputStyle={fieldStyles.email}
+                                className="font-thin text-[11px] h-[22px] bg-transparent text-left w-[150px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                                placeholder="FIRST@LAST.COM"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
                       </div>
-                      <p className="text-[6px] w-[67%] leading-tight">
-                        All information deemed reliable but not guaranteed and
-                        should be independently verified. All properties are
-                        subject to prior sale, change or withdrawal. Neither
-                        listing broker(s) nor BC Floor Plans shall be
-                        responsible for any typographical errors,
-                        misinformation, misprints and shall be held totally
-                        harmless.
-                      </p>
+
+                      {!isFieldDeleted("contactDisclaimer") && (
+                        <DraggableBox
+                          id="contactDisclaimer"
+                          position={fieldPositions.contactDisclaimer}
+                          onPositionChange={updateFieldPosition}
+                          label="Disclaimer"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactDisclaimer",
+                              "Disclaimer",
+                              "All information deemed reliable...",
+                              "Page 1 - Contact",
+                            )
+                          }
+                          deleteTitle="Remove Disclaimer"
+                        >
+                          <p className="text-[6px] w-[67%] leading-tight">
+                            All information deemed reliable but not guaranteed
+                            and should be independently verified. All properties
+                            are subject to prior sale, change or withdrawal.
+                            Neither listing broker(s) nor BC Floor Plans shall
+                            be responsible for any typographical errors,
+                            misinformation, misprints and shall be held totally
+                            harmless.
+                          </p>
+                        </DraggableBox>
+                      )}
+
                       <p className="font-bold text-[10px]">
                         DESIGNED AND PRINTED BY BC FLOOR PLANS
                       </p>
                     </div>
 
                     {/* image2 */}
-                    <div className="absolute top-[10px] right-[55px] z-20 group">
+                    <div
+                      data-image-slot="true"
+                      className="absolute top-[10px] right-[55px] z-20 group cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image2")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image2");
+                      }}
+                    >
                       <div className="w-[200px] h-[110px] relative bg-white shadow-md group overflow-hidden">
+                        <BoxIndicator isVisible={isSlotActive("image2")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image2", e)}
@@ -1063,7 +1356,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </div>
 
                               {/* Zoom Controls */}
-                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleZoom("image2", "in")}
@@ -1086,7 +1379,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               <button
                                 type="button"
                                 onClick={() => handleRotate("image2")}
-                                className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                 title="Rotate image"
                               >
                                 <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1095,8 +1388,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               {/* Edit */}
                               <button
                                 type="button"
-                                onClick={() => openImageSourceModal("image2")}
-                                className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                onClick={(e) =>
+                                  openImageSourceModal("image2", e)
+                                }
+                                className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Edit image"
                               >
                                 <Pencil className="w-4 h-4 text-gray-700" />
@@ -1108,7 +1403,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 onClick={() =>
                                   handleDelete("image2", fileInputRef2)
                                 }
-                                className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Delete image"
                               >
                                 <Trash className="w-4 h-4 text-red-500" />
@@ -1116,7 +1411,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </>
                           ) : (
                             <div
-                              onClick={() => openImageSourceModal("image2")}
+                              data-html2canvas-ignore="true"
+                              onClick={(e) => openImageSourceModal("image2", e)}
                               className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
                               Select Image
@@ -1214,8 +1510,19 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </svg>
 
                     {/* image3 */}
-                    <div className="absolute top-[60px] left-[68px] group">
+                    <div
+                      data-image-slot="true"
+                      className="absolute top-[60px] left-[68px] group cursor-pointer z-20 shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image3")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image3");
+                      }}
+                    >
                       <div className="w-[170px] h-[94px] relative bg-white shadow-md group overflow-hidden">
+                        <BoxIndicator isVisible={isSlotActive("image3")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image3", e)}
@@ -1239,7 +1546,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </div>
 
                               {/* Zoom Controls */}
-                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleZoom("image3", "in")}
@@ -1262,7 +1569,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               <button
                                 type="button"
                                 onClick={() => handleRotate("image3")}
-                                className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                 title="Rotate image"
                               >
                                 <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1271,8 +1578,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               {/* Edit */}
                               <button
                                 type="button"
-                                onClick={() => openImageSourceModal("image3")}
-                                className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                onClick={(e) =>
+                                  openImageSourceModal("image3", e)
+                                }
+                                className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Edit image"
                               >
                                 <Pencil className="w-4 h-4 text-gray-700" />
@@ -1284,7 +1593,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 onClick={() =>
                                   handleDelete("image3", fileInputRef3)
                                 }
-                                className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Delete image"
                               >
                                 <Trash className="w-4 h-4 text-red-500" />
@@ -1292,7 +1601,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </>
                           ) : (
                             <div
-                              onClick={() => openImageSourceModal("image3")}
+                              data-html2canvas-ignore="true"
+                              onClick={(e) => openImageSourceModal("image3", e)}
                               className="w-[170px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
                               Select Image
@@ -1312,7 +1622,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                   </div>
 
                   {/* image4 */}
-                  <div className="w-full h-[580px] mt-[35px] place-self-center relative overflow-hidden group">
+                  <div
+                    data-image-slot="true"
+                      className="w-full h-[580px] mt-[35px] place-self-center relative overflow-hidden group cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                    onMouseEnter={() => setHoveredSlot("image4")}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    onClick={(e) => {
+                      if (e.altKey) return;
+                      e.stopPropagation();
+                      setActiveSlot("image4");
+                    }}
+                  >
+                    <BoxIndicator isVisible={isSlotActive("image4")} />
                     <div
                       className="w-full h-full relative overflow-hidden flex items-center justify-center"
                       onMouseMove={(e) => handleMouseMove("image4", e)}
@@ -1334,7 +1655,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </div>
 
                           {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                             <button
                               type="button"
                               onClick={() => handleZoom("image4", "in")}
@@ -1357,7 +1678,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           <button
                             type="button"
                             onClick={() => handleRotate("image4")}
-                            className="absolute top-24 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            className="absolute top-24 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                             title="Rotate image"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1366,8 +1687,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           {/* Edit */}
                           <button
                             type="button"
-                            onClick={() => openImageSourceModal("image4")}
-                            className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            onClick={(e) => openImageSourceModal("image4", e)}
+                            className="absolute top-24 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                             title="Edit image"
                           >
                             <Pencil className="w-4 h-4 text-gray-700" />
@@ -1379,7 +1700,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             onClick={() =>
                               handleDelete("image4", fileInputRef4)
                             }
-                            className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            className="absolute top-24 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                             title="Delete image"
                           >
                             <Trash className="w-4 h-4 text-red-500" />
@@ -1387,7 +1708,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         </>
                       ) : (
                         <div
-                          onClick={() => openImageSourceModal("image4")}
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => openImageSourceModal("image4", e)}
                           className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                         >
                           Select Image
@@ -1406,7 +1728,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                   {/* 4 Bottom Grid Photos (image5, image6, image7, image8) */}
                   <div className="grid grid-cols-4">
                     {/* image5 */}
-                    <div className="h-[150px] relative group overflow-hidden">
+                    <div
+                      data-image-slot="true"
+                      className="h-[150px] relative group overflow-hidden cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image5")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image5");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image5")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image5", e)}
@@ -1428,7 +1761,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image5", "in")}
@@ -1451,7 +1784,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image5")}
-                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1460,8 +1793,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image5")}
-                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image5", e)}
+                              className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -1473,7 +1806,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image5", fileInputRef5)
                               }
-                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -1481,7 +1814,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image5")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image5", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -1498,7 +1832,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </div>
 
                     {/* image6 */}
-                    <div className="h-[150px] relative group overflow-hidden">
+                    <div
+                      data-image-slot="true"
+                      className="h-[150px] relative group overflow-hidden cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image6")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image6");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image6")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image6", e)}
@@ -1520,7 +1865,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image6", "in")}
@@ -1543,7 +1888,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image6")}
-                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1552,8 +1897,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image6")}
-                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image6", e)}
+                              className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -1565,7 +1910,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image6", fileInputRef6)
                               }
-                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -1573,7 +1918,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image6")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image6", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -1590,7 +1936,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </div>
 
                     {/* image7 */}
-                    <div className="h-[150px] relative group overflow-hidden">
+                    <div
+                      data-image-slot="true"
+                      className="h-[150px] relative group overflow-hidden cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image7")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image7");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image7")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image7", e)}
@@ -1612,7 +1969,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image7", "in")}
@@ -1635,7 +1992,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image7")}
-                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1644,8 +2001,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image7")}
-                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image7", e)}
+                              className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -1657,7 +2014,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image7", fileInputRef7)
                               }
-                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -1665,7 +2022,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image7")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image7", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -1682,7 +2040,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </div>
 
                     {/* image8 */}
-                    <div className="h-[150px] relative group overflow-hidden">
+                    <div
+                      data-image-slot="true"
+                      className="h-[150px] relative group overflow-hidden cursor-pointer shadow-[6px_6px_12px_rgba(0,0,0,0.85)]"
+                      onMouseEnter={() => setHoveredSlot("image8")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image8");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image8")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image8", e)}
@@ -1704,7 +2073,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image8", "in")}
@@ -1727,7 +2096,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image8")}
-                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1736,8 +2105,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image8")}
-                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image8", e)}
+                              className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -1749,7 +2118,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image8", fileInputRef8)
                               }
-                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -1757,7 +2126,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image8")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image8", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -1774,53 +2144,183 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </div>
                   </div>
 
-                  {/* Text Info Section */}
-                  <div className="text-white flex flex-col items-center justify-center py-10 gap-2">
-                    <div className="tracking-wide mt-0 flex">
-                      #
-                      <StyledInput
-                        value={addressCode}
-                        onChange={(e) => setAddressCode(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("addressCode", s)
+                  {/* Text Info Section (Address & Price) with Section Lock */}
+                  <div
+                    data-safezone-container="true"
+                    className={`text-white flex flex-col items-center justify-center py-10 gap-2 relative transition-all duration-150 group/sec rounded-lg border-[3.5px] border-solid border-transparent ${
+                      lockedSections.address
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Lock / Unlock Toggle Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("address");
+                      }}
+                      className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.address
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.address
+                          ? "Unlock Address Section (enable dragging)"
+                          : "Lock Address Section (disable dragging)"
+                      }
+                    >
+                      {lockedSections.address ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    {!isFieldDeleted("addressCode") && (
+                      <DraggableBox
+                        id="addressCode"
+                        position={fieldPositions.addressCode}
+                        onPositionChange={updateFieldPosition}
+                        label="MLS / Suite"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "addressCode",
+                            "MLS / Suite",
+                            addressCode,
+                            "Page 1 - Address",
+                            fieldStyles.addressCode,
+                          )
                         }
-                        inputStyle={fieldStyles.addressCode}
-                        className="font-light text-[30px] h-[30px] w-[180px] leading-none mt-0 bg-transparent text-[#FFF] text-left focus:outline-none border-none placeholder-[#FFF] placeholder:font-[200]"
-                        placeholder="0000-0000"
-                      />
-                    </div>
-                    <div className="text-[60px] font-light leading-none mt-0 flex">
-                      Number
-                      <StyledInput
-                        value={roadName}
-                        onChange={(e) => setRoadName(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                        inputStyle={fieldStyles.roadName}
-                        className="font-light text-[30px] h-[30px] leading-none mt-0 bg-transparent text-[#fff] text-center w-[65px] focus:outline-none border-none placeholder-[#fff] placeholder:font-[200]"
-                        placeholder="0"
-                      />
-                      Road
-                    </div>
-                    <div className=" tracking-[2px] uppercase mt-0 flex justify-center">
-                      <StyledInput
-                        value={cityLine}
-                        onChange={(e) => setCityLine(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                        inputStyle={fieldStyles.cityLine}
-                        className="text-white text-[13px] h-[20px] bg-transparent text-center w-[300px] focus:outline-none border-none placeholder-[#FFF] placeholder:font-[200]"
-                        placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                      />
-                    </div>
-                    <div className="text-[30px] font-light mt-0">
-                      <StyledInput
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                        inputStyle={fieldStyles.amount}
-                        className="font-semibold text-center text-[#fff] text-[30px] h-[40px] bg-transparent w-[150px] focus:outline-none border-none placeholder-[#fff] placeholder:font-[500]"
-                        placeholder="$000,000"
-                      />
-                    </div>
+                        deleteTitle="Remove MLS / Suite"
+                      >
+                        <div className="tracking-wide mt-0 flex items-center">
+                          <span className="shrink-0">#</span>
+                          <StyledInput
+                            value={addressCode}
+                            onChange={(e) => setAddressCode(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("addressCode", s)
+                            }
+                            inputStyle={fieldStyles.addressCode}
+                            className="font-light text-[30px] h-[30px] w-[180px] leading-none mt-0 bg-transparent text-[#FFF] text-left focus:outline-none border-none placeholder-[#FFF] placeholder:font-[200]"
+                            placeholder="0000-0000"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
+
+                    {!isFieldDeleted("roadName") && (
+                      <DraggableBox
+                        id="roadName"
+                        position={fieldPositions.roadName}
+                        onPositionChange={updateFieldPosition}
+                        label="Road Name"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "roadName",
+                            "Road Name",
+                            roadName,
+                            "Page 1 - Address",
+                            fieldStyles.roadName,
+                          )
+                        }
+                        deleteTitle="Remove Road Name"
+                      >
+                        <div className="text-[60px] font-light leading-none mt-0 flex items-center">
+                          <span className="shrink-0">Number</span>
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            inputStyle={fieldStyles.roadName}
+                            className="font-light text-[30px] h-[30px] leading-none mt-0 bg-transparent text-[#fff] text-center w-[65px] focus:outline-none border-none placeholder-[#fff] placeholder:font-[200]"
+                            placeholder="0"
+                          />
+                          <span className="shrink-0">Road</span>
+                        </div>
+                      </DraggableBox>
+                    )}
+
+                    {!isFieldDeleted("cityLine") && (
+                      <DraggableBox
+                        id="cityLine"
+                        position={fieldPositions.cityLine}
+                        onPositionChange={updateFieldPosition}
+                        label="City Line"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "cityLine",
+                            "City Line",
+                            cityLine,
+                            "Page 1 - Address",
+                            fieldStyles.cityLine,
+                          )
+                        }
+                        deleteTitle="Remove City Line"
+                      >
+                        <div className="tracking-[2px] uppercase mt-0 flex justify-center">
+                          <StyledInput
+                            value={cityLine}
+                            onChange={(e) => setCityLine(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("cityLine", s)
+                            }
+                            inputStyle={fieldStyles.cityLine}
+                            className="text-white text-[13px] h-[20px] bg-transparent text-center w-[300px] focus:outline-none border-none placeholder-[#FFF] placeholder:font-[200]"
+                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
+
+                    {!isFieldDeleted("amount") && (
+                      <DraggableBox
+                        id="amount"
+                        position={fieldPositions.amount}
+                        onPositionChange={updateFieldPosition}
+                        label="Price"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "amount",
+                            "Price",
+                            amount,
+                            "Page 1 - Address",
+                            fieldStyles.amount,
+                          )
+                        }
+                        deleteTitle="Remove Price"
+                      >
+                        <div className="text-[30px] font-light mt-0">
+                          <StyledInput
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                            inputStyle={fieldStyles.amount}
+                            className="font-semibold text-center text-[#fff] text-[30px] h-[40px] bg-transparent w-[150px] focus:outline-none border-none placeholder-[#fff] placeholder:font-[500]"
+                            placeholder="$000,000"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1865,7 +2365,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                   {/* Page 2 Left Column */}
                   <div className="w-1/2 flex flex-col justify-between gap-6 h-full">
                     {/* image9 */}
-                    <div className="w-full flex-1 place-self-center z-10 relative overflow-hidden group shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                    <div
+                      data-image-slot="true"
+                      className="w-full flex-1 place-self-center z-10 relative overflow-hidden group shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                      onMouseEnter={() => setHoveredSlot("image9")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image9");
+                      }}
+                    >
+                      <BoxIndicator isVisible={isSlotActive("image9")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
                         onMouseMove={(e) => handleMouseMove("image9", e)}
@@ -1887,7 +2398,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                               <button
                                 type="button"
                                 onClick={() => handleZoom("image9", "in")}
@@ -1910,7 +2421,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             <button
                               type="button"
                               onClick={() => handleRotate("image9")}
-                              className="absolute top-24 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              className="absolute top-24 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                               title="Rotate image"
                             >
                               <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1919,8 +2430,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             {/* Edit */}
                             <button
                               type="button"
-                              onClick={() => openImageSourceModal("image9")}
-                              className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              onClick={(e) => openImageSourceModal("image9", e)}
+                              className="absolute top-24 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Edit image"
                             >
                               <Pencil className="w-4 h-4 text-gray-700" />
@@ -1932,7 +2443,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               onClick={() =>
                                 handleDelete("image9", fileInputRef9)
                               }
-                              className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              className="absolute top-24 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
                               <Trash className="w-4 h-4 text-red-500" />
@@ -1940,7 +2451,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                           </>
                         ) : (
                           <div
-                            onClick={() => openImageSourceModal("image9")}
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image9", e)}
                             className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                           >
                             Select Image
@@ -1958,7 +2470,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
 
                     <div className="grid grid-cols-2 gap-4">
                       {/* image10 */}
-                      <div className="h-[210px] relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                      <div
+                        data-image-slot="true"
+                        className="h-[210px] relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image10")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image10");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image10")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image10", e)}
@@ -1982,7 +2505,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </div>
 
                               {/* Zoom Controls */}
-                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleZoom("image10", "in")}
@@ -2005,7 +2528,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               <button
                                 type="button"
                                 onClick={() => handleRotate("image10")}
-                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                 title="Rotate image"
                               >
                                 <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2014,8 +2537,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               {/* Edit */}
                               <button
                                 type="button"
-                                onClick={() => openImageSourceModal("image10")}
-                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                onClick={(e) =>
+                                  openImageSourceModal("image10", e)
+                                }
+                                className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Edit image"
                               >
                                 <Pencil className="w-4 h-4 text-gray-700" />
@@ -2027,7 +2552,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 onClick={() =>
                                   handleDelete("image10", fileInputRef10)
                                 }
-                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Delete image"
                               >
                                 <Trash className="w-4 h-4 text-red-500" />
@@ -2035,7 +2560,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </>
                           ) : (
                             <div
-                              onClick={() => openImageSourceModal("image10")}
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image10", e)
+                              }
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
                               Select Image
@@ -2052,7 +2580,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                       </div>
 
                       {/* image11 */}
-                      <div className="h-[210px] relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                      <div
+                        data-image-slot="true"
+                        className="h-[210px] relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image11")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image11");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image11")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image11", e)}
@@ -2076,7 +2615,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </div>
 
                               {/* Zoom Controls */}
-                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleZoom("image11", "in")}
@@ -2099,7 +2638,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               <button
                                 type="button"
                                 onClick={() => handleRotate("image11")}
-                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                 title="Rotate image"
                               >
                                 <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2108,8 +2647,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               {/* Edit */}
                               <button
                                 type="button"
-                                onClick={() => openImageSourceModal("image11")}
-                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                onClick={(e) =>
+                                  openImageSourceModal("image11", e)
+                                }
+                                className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Edit image"
                               >
                                 <Pencil className="w-4 h-4 text-gray-700" />
@@ -2121,7 +2662,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 onClick={() =>
                                   handleDelete("image11", fileInputRef11)
                                 }
-                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Delete image"
                               >
                                 <Trash className="w-4 h-4 text-red-500" />
@@ -2129,7 +2670,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </>
                           ) : (
                             <div
-                              onClick={() => openImageSourceModal("image11")}
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image11", e)
+                              }
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
                               Select Image
@@ -2146,17 +2690,78 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                       </div>
                     </div>
 
-                    <div className="text-[10px] font-normal text-white italic relative z-10">
-                      <StyledInput
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("description", s)
+                    {/* Description Section with Section Lock */}
+                    <div
+                      data-safezone-container="true"
+                      className={`text-[10px] font-normal text-white italic relative z-10 transition-all duration-150 group/sec rounded-lg border-[3.5px] border-solid border-transparent ${
+                        lockedSections.description
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
+                    >
+                      {/* Lock / Unlock Toggle Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("description");
+                        }}
+                        className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.description
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.description
+                            ? "Unlock Description Section (enable dragging)"
+                            : "Lock Description Section (disable dragging)"
                         }
-                        inputStyle={fieldStyles.description}
-                        className="font-normal text-[14px]  min-h-[100px]  z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                        placeholder="Enter description here..."
-                      />
+                      >
+                        {lockedSections.description ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      {!isFieldDeleted("description") && (
+                        <DraggableBox
+                          id="description"
+                          position={fieldPositions.description}
+                          onPositionChange={updateFieldPosition}
+                          label="Description"
+                          zoom={0.55}
+                          disabled={lockedSections.description}
+                          onDelete={() =>
+                            removeStandardField(
+                              "description",
+                              "Description",
+                              description,
+                              "Page 2 - Description",
+                              fieldStyles.description,
+                            )
+                          }
+                          deleteTitle="Remove Description"
+                        >
+                          <StyledInput
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("description", s)
+                            }
+                            inputStyle={fieldStyles.description}
+                            className="font-normal text-[14px] min-h-[100px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                            placeholder="Enter description here..."
+                          />
+                        </DraggableBox>
+                      )}
                     </div>
                   </div>
 
@@ -2165,7 +2770,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     <div className="w-[40%] flex flex-col justify-between gap-2 h-full">
                       <div className="grid grid-rows-4 gap-6 flex-1 h-full">
                         {/* image12 */}
-                        <div className="w-full h-full relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-full relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image12")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image12");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image12")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image12", e)}
@@ -2189,7 +2805,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 </div>
 
                                 {/* Zoom Controls */}
-                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                   <button
                                     type="button"
                                     onClick={() => handleZoom("image12", "in")}
@@ -2212,7 +2828,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 <button
                                   type="button"
                                   onClick={() => handleRotate("image12")}
-                                  className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                   title="Rotate image"
                                 >
                                   <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2224,7 +2840,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     openImageSourceModal("image12")
                                   }
-                                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Edit image"
                                 >
                                   <Pencil className="w-4 h-4 text-gray-700" />
@@ -2236,7 +2852,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     handleDelete("image12", fileInputRef12)
                                   }
-                                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
                                   <Trash className="w-4 h-4 text-red-500" />
@@ -2244,7 +2860,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </>
                             ) : (
                               <div
-                                onClick={() => openImageSourceModal("image12")}
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image12", e)
+                                }
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
                                 Select Image
@@ -2261,7 +2880,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         </div>
 
                         {/* image13 */}
-                        <div className="w-full h-full relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-full relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image13")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image13");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image13")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image13", e)}
@@ -2285,7 +2915,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 </div>
 
                                 {/* Zoom Controls */}
-                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                   <button
                                     type="button"
                                     onClick={() => handleZoom("image13", "in")}
@@ -2308,7 +2938,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 <button
                                   type="button"
                                   onClick={() => handleRotate("image13")}
-                                  className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                   title="Rotate image"
                                 >
                                   <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2320,7 +2950,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     openImageSourceModal("image13")
                                   }
-                                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Edit image"
                                 >
                                   <Pencil className="w-4 h-4 text-gray-700" />
@@ -2332,7 +2962,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     handleDelete("image13", fileInputRef13)
                                   }
-                                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
                                   <Trash className="w-4 h-4 text-red-500" />
@@ -2340,7 +2970,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </>
                             ) : (
                               <div
-                                onClick={() => openImageSourceModal("image13")}
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image13", e)
+                                }
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
                                 Select Image
@@ -2357,7 +2990,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         </div>
 
                         {/* image14 */}
-                        <div className="w-full h-full relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-full relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image14")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image14");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image14")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image14", e)}
@@ -2381,7 +3025,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 </div>
 
                                 {/* Zoom Controls */}
-                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                   <button
                                     type="button"
                                     onClick={() => handleZoom("image14", "in")}
@@ -2404,7 +3048,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 <button
                                   type="button"
                                   onClick={() => handleRotate("image14")}
-                                  className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                   title="Rotate image"
                                 >
                                   <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2416,7 +3060,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     openImageSourceModal("image14")
                                   }
-                                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Edit image"
                                 >
                                   <Pencil className="w-4 h-4 text-gray-700" />
@@ -2428,7 +3072,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     handleDelete("image14", fileInputRef14)
                                   }
-                                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
                                   <Trash className="w-4 h-4 text-red-500" />
@@ -2436,7 +3080,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </>
                             ) : (
                               <div
-                                onClick={() => openImageSourceModal("image14")}
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image14", e)
+                                }
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
                                 Select Image
@@ -2453,7 +3100,18 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         </div>
 
                         {/* image15 */}
-                        <div className="w-full h-full relative z-10 group overflow-hidden shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-full relative z-10 group overflow-hidden shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image15")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image15");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image15")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
                             onMouseMove={(e) => handleMouseMove("image15", e)}
@@ -2477,7 +3135,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 </div>
 
                                 {/* Zoom Controls */}
-                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <div className="absolute bottom-1 left-1 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                   <button
                                     type="button"
                                     onClick={() => handleZoom("image15", "in")}
@@ -2500,7 +3158,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 <button
                                   type="button"
                                   onClick={() => handleRotate("image15")}
-                                  className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                   title="Rotate image"
                                 >
                                   <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2512,7 +3170,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     openImageSourceModal("image15")
                                   }
-                                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Edit image"
                                 >
                                   <Pencil className="w-4 h-4 text-gray-700" />
@@ -2524,7 +3182,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   onClick={() =>
                                     handleDelete("image15", fileInputRef15)
                                   }
-                                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                   title="Delete image"
                                 >
                                   <Trash className="w-4 h-4 text-red-500" />
@@ -2532,7 +3190,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </>
                             ) : (
                               <div
-                                onClick={() => openImageSourceModal("image15")}
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image15", e)
+                                }
                                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                               >
                                 Select Image
@@ -2551,131 +3212,360 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                     </div>
 
                     <div className="w-[60%] flex flex-col justify-between gap-4 h-full">
-                      <div className="flex gap-4 text-white text-[12px] leading-relaxed">
+                      {/* Details section with section lock */}
+                      <div
+                        data-safezone-container="true"
+                        className={`flex gap-4 text-white text-[12px] leading-relaxed relative transition-all duration-150 group/sec rounded-lg border-[3.5px] border-solid border-transparent ${
+                          lockedSections.details
+                            ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                            : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                        }`}
+                      >
+                        {/* Lock / Unlock Toggle Button */}
+                        <button
+                          type="button"
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSectionLock("details");
+                          }}
+                          className={`absolute top-0 right-0 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                            lockedSections.details
+                              ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                              : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                          }`}
+                          title={
+                            lockedSections.details
+                              ? "Unlock Details Section (enable dragging)"
+                              : "Lock Details Section (disable dragging)"
+                          }
+                        >
+                          {lockedSections.details ? (
+                            <>
+                              <Lock className="w-3 h-3" />
+                              <span>Locked</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="w-3 h-3" />
+                              <span>Lock</span>
+                            </>
+                          )}
+                        </button>
+
                         <div className="space-y-2 text-[10px] w-1/2">
-                          <div>
-                            <span className="font-bold">
-                              BY-LAW RESTRICTIONS:
-                            </span>{" "}
-                            <StyledInput
-                              value={byLawRestrictions}
-                              onChange={(e) =>
-                                setByLawRestrictions(e.target.value)
+                          {!isFieldDeleted("byLawRestrictions") && (
+                            <DraggableBox
+                              id="byLawRestrictions"
+                              position={fieldPositions.byLawRestrictions}
+                              onPositionChange={updateFieldPosition}
+                              label="By-law Restrictions"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "byLawRestrictions",
+                                  "By-law Restrictions",
+                                  byLawRestrictions,
+                                  "Page 2 - Details",
+                                  fieldStyles.byLawRestrictions,
+                                )
                               }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("byLawRestrictions", s)
+                              deleteTitle="Remove By-law Restrictions"
+                            >
+                              <div>
+                                <span className="font-bold">
+                                  BY-LAW RESTRICTIONS:
+                                </span>{" "}
+                                <StyledInput
+                                  value={byLawRestrictions}
+                                  onChange={(e) =>
+                                    setByLawRestrictions(e.target.value)
+                                  }
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("byLawRestrictions", s)
+                                  }
+                                  inputStyle={fieldStyles.byLawRestrictions}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("maintFees") && (
+                            <DraggableBox
+                              id="maintFees"
+                              position={fieldPositions.maintFees}
+                              onPositionChange={updateFieldPosition}
+                              label="Maint. Fees"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "maintFees",
+                                  "Maint. Fees",
+                                  maintFees,
+                                  "Page 2 - Details",
+                                  fieldStyles.maintFees,
+                                )
                               }
-                              inputStyle={fieldStyles.byLawRestrictions}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold">MAINT. FEES:</span>{" "}
-                            <StyledInput
-                              value={maintFees}
-                              onChange={(e) => setMaintFees(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("maintFees", s)
+                              deleteTitle="Remove Maint. Fees"
+                            >
+                              <div>
+                                <span className="font-bold">MAINT. FEES:</span>{" "}
+                                <StyledInput
+                                  value={maintFees}
+                                  onChange={(e) => setMaintFees(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("maintFees", s)
+                                  }
+                                  inputStyle={fieldStyles.maintFees}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="$000.00"
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("maintFeesInclude") && (
+                            <DraggableBox
+                              id="maintFeesInclude"
+                              position={fieldPositions.maintFeesInclude}
+                              onPositionChange={updateFieldPosition}
+                              label="Maint. Fees Include"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "maintFeesInclude",
+                                  "Maint. Fees Include",
+                                  maintFeesInclude,
+                                  "Page 2 - Details",
+                                  fieldStyles.maintFeesInclude,
+                                )
                               }
-                              inputStyle={fieldStyles.maintFees}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="$000.00"
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold">
-                              MAINT. FEES INCLUDE:
-                            </span>
-                            <StyledInput
-                              value={maintFeesInclude}
-                              onChange={(e) =>
-                                setMaintFeesInclude(e.target.value)
+                              deleteTitle="Remove Maint. Fees Include"
+                            >
+                              <div>
+                                <span className="font-bold">
+                                  MAINT. FEES INCLUDE:
+                                </span>
+                                <StyledInput
+                                  value={maintFeesInclude}
+                                  onChange={(e) =>
+                                    setMaintFeesInclude(e.target.value)
+                                  }
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("maintFeesInclude", s)
+                                  }
+                                  inputStyle={fieldStyles.maintFeesInclude}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
+                                  placeholder="Gardening, Garbage Pickup, Gas, Hot Water..."
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("featuresIncluded") && (
+                            <DraggableBox
+                              id="featuresIncluded"
+                              position={fieldPositions.featuresIncluded}
+                              onPositionChange={updateFieldPosition}
+                              label="Features Included"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "featuresIncluded",
+                                  "Features Included",
+                                  featuresIncluded,
+                                  "Page 2 - Details",
+                                  fieldStyles.featuresIncluded,
+                                )
                               }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("maintFeesInclude", s)
-                              }
-                              inputStyle={fieldStyles.maintFeesInclude}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
-                              placeholder="Gardening, Garbage Pickup, Gas, Hot Water..."
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold">
-                              FEATURES INCLUDED:
-                            </span>
-                            <StyledInput
-                              value={featuresIncluded}
-                              onChange={(e) =>
-                                setFeaturesIncluded(e.target.value)
-                              }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("featuresIncluded", s)
-                              }
-                              inputStyle={fieldStyles.featuresIncluded}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#fff] placeholder:font-[500]"
-                              placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW..."
-                            />
-                          </div>
+                              deleteTitle="Remove Features Included"
+                            >
+                              <div>
+                                <span className="font-bold">
+                                  FEATURES INCLUDED:
+                                </span>
+                                <StyledInput
+                                  value={featuresIncluded}
+                                  onChange={(e) =>
+                                    setFeaturesIncluded(e.target.value)
+                                  }
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("featuresIncluded", s)
+                                  }
+                                  inputStyle={fieldStyles.featuresIncluded}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#fff] placeholder:font-[500]"
+                                  placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW..."
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
                         </div>
 
                         <div className="space-y-2 text-[10px] w-1/2">
-                          <div>
-                            <span className="font-bold">SITE INFLUENCES:</span>
-                            <StyledInput
-                              value={siteInfluences}
-                              onChange={(e) =>
-                                setSiteInfluences(e.target.value)
+                          {!isFieldDeleted("siteInfluences") && (
+                            <DraggableBox
+                              id="siteInfluences"
+                              position={fieldPositions.siteInfluences}
+                              onPositionChange={updateFieldPosition}
+                              label="Site Influences"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "siteInfluences",
+                                  "Site Influences",
+                                  siteInfluences,
+                                  "Page 2 - Details",
+                                  fieldStyles.siteInfluences,
+                                )
                               }
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("siteInfluences", s)
+                              deleteTitle="Remove Site Influences"
+                            >
+                              <div>
+                                <span className="font-bold">
+                                  SITE INFLUENCES:
+                                </span>
+                                <StyledInput
+                                  value={siteInfluences}
+                                  onChange={(e) =>
+                                    setSiteInfluences(e.target.value)
+                                  }
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("siteInfluences", s)
+                                  }
+                                  inputStyle={fieldStyles.siteInfluences}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="Central Location, Golf Course Nearby..."
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("amenities") && (
+                            <DraggableBox
+                              id="amenities"
+                              position={fieldPositions.amenities}
+                              onPositionChange={updateFieldPosition}
+                              label="Amenities"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "amenities",
+                                  "Amenities",
+                                  amenities,
+                                  "Page 2 - Details",
+                                  fieldStyles.amenities,
+                                )
                               }
-                              inputStyle={fieldStyles.siteInfluences}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Central Location, Golf Course Nearby..."
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold">AMENITIES:</span>
-                            <StyledInput
-                              value={amenities}
-                              onChange={(e) => setAmenities(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("amenities", s)
+                              deleteTitle="Remove Amenities"
+                            >
+                              <div>
+                                <span className="font-bold">AMENITIES:</span>
+                                <StyledInput
+                                  value={amenities}
+                                  onChange={(e) => setAmenities(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("amenities", s)
+                                  }
+                                  inputStyle={fieldStyles.amenities}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="Exercise Centre, Garden..."
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("view") && (
+                            <DraggableBox
+                              id="view"
+                              position={fieldPositions.view}
+                              onPositionChange={updateFieldPosition}
+                              label="View"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "view",
+                                  "View",
+                                  view,
+                                  "Page 2 - Details",
+                                  fieldStyles.view,
+                                )
                               }
-                              inputStyle={fieldStyles.amenities}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Exercise Centre, Garden..."
-                            />
-                          </div>
-                          <div>
-                            <span className="font-bold">VIEW:</span>{" "}
-                            <StyledInput
-                              value={view}
-                              onChange={(e) => setView(e.target.value)}
-                              onChangeStyle={(s) => updateFieldStyle("view", s)}
-                              inputStyle={fieldStyles.view}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="South & SW - Van Isl."
-                            />
-                          </div>
-                          <div className="mt-0">
-                            <StyledInput
-                              value={mlsNumber}
-                              onChange={(e) => setMlsNumber(e.target.value)}
-                              onChangeStyle={(s) =>
-                                updateFieldStyle("mlsNumber", s)
+                              deleteTitle="Remove View"
+                            >
+                              <div>
+                                <span className="font-bold">VIEW:</span>{" "}
+                                <StyledInput
+                                  value={view}
+                                  onChange={(e) => setView(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("view", s)
+                                  }
+                                  inputStyle={fieldStyles.view}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="South & SW - Van Isl."
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("mlsNumber") && (
+                            <DraggableBox
+                              id="mlsNumber"
+                              position={fieldPositions.mlsNumber}
+                              onPositionChange={updateFieldPosition}
+                              label="MLS Number"
+                              zoom={0.55}
+                              disabled={lockedSections.details}
+                              onDelete={() =>
+                                removeStandardField(
+                                  "mlsNumber",
+                                  "MLS Number",
+                                  mlsNumber,
+                                  "Page 2 - Details",
+                                  fieldStyles.mlsNumber,
+                                )
                               }
-                              inputStyle={fieldStyles.mlsNumber}
-                              className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Enter MLS here"
-                            />
-                          </div>
+                              deleteTitle="Remove MLS Number"
+                            >
+                              <div className="mt-0">
+                                <StyledInput
+                                  value={mlsNumber}
+                                  onChange={(e) => setMlsNumber(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("mlsNumber", s)
+                                  }
+                                  inputStyle={fieldStyles.mlsNumber}
+                                  className="font-semibold text-[10px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                                  placeholder="Enter MLS here"
+                                />
+                              </div>
+                            </DraggableBox>
+                          )}
                         </div>
                       </div>
 
                       {/* image16 */}
-                      <div className="w-full h-[650px] place-self-center border-2 z-10 border-[#fff] relative overflow-hidden group shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
+                      <div
+                        data-image-slot="true"
+                        className="w-full h-[650px] place-self-center border-2 z-10 border-[#fff] relative overflow-hidden group shadow-[6px_6px_12px_rgba(0,0,0,0.85)] cursor-pointer"
+                        onMouseEnter={() => setHoveredSlot("image16")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image16");
+                        }}
+                      >
+                        <BoxIndicator isVisible={isSlotActive("image16")} />
                         <div
                           className="w-full h-full relative overflow-hidden flex items-center justify-center"
                           onMouseMove={(e) => handleMouseMove("image16", e)}
@@ -2699,7 +3589,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               </div>
 
                               {/* Zoom Controls */}
-                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleZoom("image16", "in")}
@@ -2722,7 +3612,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               <button
                                 type="button"
                                 onClick={() => handleRotate("image16")}
-                                className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                 title="Rotate image"
                               >
                                 <RotateCw className="w-4 h-4 text-gray-700" />
@@ -2731,8 +3621,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               {/* Edit */}
                               <button
                                 type="button"
-                                onClick={() => openImageSourceModal("image16")}
-                                className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                onClick={(e) =>
+                                  openImageSourceModal("image16", e)
+                                }
+                                className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Edit image"
                               >
                                 <Pencil className="w-4 h-4 text-gray-700" />
@@ -2744,7 +3636,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 onClick={() =>
                                   handleDelete("image16", fileInputRef16)
                                 }
-                                className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                 title="Delete image"
                               >
                                 <Trash className="w-4 h-4 text-red-500" />
@@ -2752,7 +3644,10 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                             </>
                           ) : (
                             <div
-                              onClick={() => openImageSourceModal("image16")}
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image16", e)
+                              }
                               className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                             >
                               Select Image
@@ -2771,51 +3666,186 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                   </div>
                 </div>
 
-                <div className="font-bold text-white text-[27px] tracking-[4px] h-[80px] relative z-10 pt-4 pb-1 shrink-0 flex items-center">
-                  <div className="inline">
-                    <StyledInput
-                      value={bedroom}
-                      onChange={(e) => setBedroom(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                      inputStyle={fieldStyles.bedroom}
-                      className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                      placeholder="0"
-                    />
-                  </div>
-                  BEDROOM •
-                  <div className="inline">
-                    <StyledInput
-                      value={bathroom}
-                      onChange={(e) => setBathroom(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                      inputStyle={fieldStyles.bathroom}
-                      className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[30px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                      placeholder="0"
-                    />
-                  </div>
-                  BATHROOM •
-                  <div className="inline">
-                    <StyledInput
-                      value={sqft}
-                      onChange={(e) => setSqft(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                      inputStyle={fieldStyles.sqft}
-                      className="font-semibold text-[22px] bg-transparent text-left h-[20px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                      placeholder="000"
-                    />
-                  </div>
-                  SQ FT •
-                  <div className="inline">
-                    <StyledInput
-                      value={builtYear}
-                      onChange={(e) => setBuiltYear(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                      inputStyle={fieldStyles.builtYear}
-                      className="font-semibold text-[22px] mr-[5px] bg-transparent text-left h-[30px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                      placeholder="0000"
-                    />
-                  </div>
-                  BUILT IN
+                {/* Property Specs Bar Section with Section Lock */}
+                <div
+                  data-safezone-container="true"
+                  className={`font-bold text-white text-[27px] tracking-[4px] h-[80px] relative z-10 pt-4 pb-1 shrink-0 flex items-center transition-all duration-150 group/sec rounded-lg border-[3.5px] border-solid border-transparent ${
+                    lockedSections.specs
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
+                  {/* Lock / Unlock Toggle Button */}
+                  <button
+                    type="button"
+                    data-html2canvas-ignore="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSectionLock("specs");
+                    }}
+                    className={`absolute top-0 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                      lockedSections.specs
+                        ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                        : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                    }`}
+                    title={
+                      lockedSections.specs
+                        ? "Unlock Specs Section (enable dragging)"
+                        : "Lock Specs Section (disable dragging)"
+                    }
+                  >
+                    {lockedSections.specs ? (
+                      <>
+                        <Lock className="w-3 h-3" />
+                        <span>Locked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="w-3 h-3" />
+                        <span>Lock</span>
+                      </>
+                    )}
+                  </button>
+
+                  {!isFieldDeleted("bedroom") && (
+                    <DraggableBox
+                      id="bedroom"
+                      position={fieldPositions.bedroom}
+                      onPositionChange={updateFieldPosition}
+                      label="Bedrooms"
+                      zoom={0.55}
+                      disabled={lockedSections.specs}
+                      onDelete={() =>
+                        removeStandardField(
+                          "bedroom",
+                          "Bedrooms",
+                          bedroom,
+                          "Page 2 - Specs",
+                          fieldStyles.bedroom,
+                        )
+                      }
+                      deleteTitle="Remove Bedrooms"
+                    >
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <StyledInput
+                          value={bedroom}
+                          onChange={(e) => setBedroom(e.target.value)}
+                          onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
+                          inputStyle={fieldStyles.bedroom}
+                          className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[30px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                          placeholder="0"
+                        />
+                        <span className="shrink-0">
+                          BEDROOM {!isFieldDeleted("bathroom") && "•"}
+                        </span>
+                      </div>
+                    </DraggableBox>
+                  )}
+
+                  {!isFieldDeleted("bathroom") && (
+                    <DraggableBox
+                      id="bathroom"
+                      position={fieldPositions.bathroom}
+                      onPositionChange={updateFieldPosition}
+                      label="Bathrooms"
+                      zoom={0.55}
+                      disabled={lockedSections.specs}
+                      onDelete={() =>
+                        removeStandardField(
+                          "bathroom",
+                          "Bathrooms",
+                          bathroom,
+                          "Page 2 - Specs",
+                          fieldStyles.bathroom,
+                        )
+                      }
+                      deleteTitle="Remove Bathrooms"
+                    >
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <StyledInput
+                          value={bathroom}
+                          onChange={(e) => setBathroom(e.target.value)}
+                          onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
+                          inputStyle={fieldStyles.bathroom}
+                          className="font-semibold text-[22px] bg-transparent text-left w-[40px] h-[30px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                          placeholder="0"
+                        />
+                        <span className="shrink-0">
+                          BATHROOM {!isFieldDeleted("sqft") && "•"}
+                        </span>
+                      </div>
+                    </DraggableBox>
+                  )}
+
+                  {!isFieldDeleted("sqft") && (
+                    <DraggableBox
+                      id="sqft"
+                      position={fieldPositions.sqft}
+                      onPositionChange={updateFieldPosition}
+                      label="Sq Ft"
+                      zoom={0.55}
+                      disabled={lockedSections.specs}
+                      onDelete={() =>
+                        removeStandardField(
+                          "sqft",
+                          "Sq Ft",
+                          sqft,
+                          "Page 2 - Specs",
+                          fieldStyles.sqft,
+                        )
+                      }
+                      deleteTitle="Remove Sq Ft"
+                    >
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <StyledInput
+                          value={sqft}
+                          onChange={(e) => setSqft(e.target.value)}
+                          onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                          inputStyle={fieldStyles.sqft}
+                          className="font-semibold text-[22px] bg-transparent text-left h-[30px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                          placeholder="000"
+                        />
+                        <span className="shrink-0">
+                          SQ FT {!isFieldDeleted("builtYear") && "•"}
+                        </span>
+                      </div>
+                    </DraggableBox>
+                  )}
+
+                  {!isFieldDeleted("builtYear") && (
+                    <DraggableBox
+                      id="builtYear"
+                      position={fieldPositions.builtYear}
+                      onPositionChange={updateFieldPosition}
+                      label="Built Year"
+                      zoom={0.55}
+                      disabled={lockedSections.specs}
+                      onDelete={() =>
+                        removeStandardField(
+                          "builtYear",
+                          "Built Year",
+                          builtYear,
+                          "Page 2 - Specs",
+                          fieldStyles.builtYear,
+                        )
+                      }
+                      deleteTitle="Remove Built Year"
+                    >
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <StyledInput
+                          value={builtYear}
+                          onChange={(e) => setBuiltYear(e.target.value)}
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("builtYear", s)
+                          }
+                          inputStyle={fieldStyles.builtYear}
+                          className="font-semibold text-[22px] mr-[5px] bg-transparent text-left h-[30px] w-[90px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                          placeholder="0000"
+                        />
+                        <span className="shrink-0">BUILT IN</span>
+                      </div>
+                    </DraggableBox>
+                  )}
                 </div>
 
                 <svg

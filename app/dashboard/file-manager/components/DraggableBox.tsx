@@ -48,7 +48,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   const hasMoved = posX !== 0 || posY !== 0;
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (disabled || e.button !== 0) return;
+    if (disabled || e.button !== 0 || e.altKey) return;
     // Don't drag if user is actively interacting with an input or button inside
     const target = e.target as HTMLElement;
     if (
@@ -64,7 +64,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   };
 
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
-    if (disabled || e.button !== 0) return;
+    if (disabled || e.button !== 0 || e.altKey) return;
     e.stopPropagation();
     setIsDragging(true);
     lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -238,11 +238,10 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
                   e.stopPropagation();
                 }}
                 onClick={handleReset}
-                className="bg-gray-800/95 text-white p-0.5 px-1.5 rounded shadow text-[8px] flex items-center gap-1 hover:bg-gray-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                className="bg-gray-800/95 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
                 title="Reset position"
               >
-                <RotateCcw size={8} />
-                <span>Reset</span>
+                <RotateCcw size={10} />
               </button>
             )}
 
@@ -259,11 +258,10 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="bg-red-600/90 text-white p-0.5 px-1.5 rounded shadow text-[8px] flex items-center gap-1 hover:bg-red-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                className="bg-red-600/90 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-red-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
                 title={deleteTitle || "Delete field"}
               >
-                <Trash2 size={8} />
-                <span>Delete</span>
+                <Trash2 size={10} />
               </button>
             )}
           </div>

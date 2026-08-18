@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -2091,10 +2091,10 @@ const CreateFeatureSheet = forwardRef<
                             <button
                               type="button"
                               onClick={resetPanAndZoom}
-                              className="px-2 py-0.5 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 font-medium text-[11px] transition-colors"
+                              className="p-1 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center transition-colors shadow-2xs"
                               title="Reset View (100%)"
                             >
-                              Reset
+                              <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
@@ -2164,7 +2164,7 @@ const CreateFeatureSheet = forwardRef<
 
                       {/* Deleted Fields Floating Button (attached 30px below the header, scrolls with header) */}
                       {!isReadonly && (
-                        <div className="absolute top-[calc(100%+30px)] left-6 pointer-events-auto z-[50]">
+                        <div className="absolute top-[calc(100%+30px)] left-6 pointer-events-auto z-[999]">
                           <DeletedFieldsPanel
                             deletedFields={formData.deletedDetailFields || []}
                             onRestore={(id) => restoreDetailFieldHandler?.(id)}
