@@ -400,6 +400,18 @@ const BcfpStandard = forwardRef<BcfpStandardRef, BcfpStandardProps>(
     const [companyName, setCompanyName] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
+    const [contactLabel, setContactLabel] = useState("Contact:");
+    const [phoneLabel, setPhoneLabel] = useState("PHONE:");
+    const [emailLabel, setEmailLabel] = useState("Email:");
+    const [bedroomLabel, setBedroomLabel] = useState("BEDROOM •");
+    const [bathroomLabel, setBathroomLabel] = useState("BATHROOM •");
+    const [sqftLabel, setSqftLabel] = useState("SQ FT •");
+    const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("Number");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("Road");
+    const [disclaimerText, setDisclaimerText] = useState(
+      "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
+    );
 
     // ── 4. Bleed & Guide ─────────────────────────────────────────────────────
     const [showBleedState] = useState(true);
@@ -727,6 +739,33 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 </div>
 ```
 
+### 7.4 Editable Labels & Section Titles Pattern (`StyledInput`)
+
+> **RULE:** Static text labels (e.g. `"Contact:"`, `"PHONE:"`, `"Email:"`, `"BEDROOM •"`, `"BATHROOM •"`, `"SQ FT •"`, `"BUILT IN"`, `"Number"`, `"Road"`, and Disclaimer text) **MUST NOT** be hardcoded static `<span>` elements.
+> Wrap all labels in `StyledInput` so users can edit label text inline and customize font family, size, weight, alignment, and color from the floating toolbar portal.
+
+```tsx
+{/* Editable Contact Label */}
+<StyledInput
+  value={contactLabel}
+  onChange={(e) => setContactLabel(e.target.value)}
+  onChangeStyle={(s) => updateFieldStyle("contactLabel", s)}
+  inputStyle={fieldStyles.contactLabel}
+  className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300"
+  placeholder="Contact:"
+/>
+
+{/* Editable Property Spec Label */}
+<StyledInput
+  value={bedroomLabel}
+  onChange={(e) => setBedroomLabel(e.target.value)}
+  onChangeStyle={(s) => updateFieldStyle("bedroomLabel", s)}
+  inputStyle={fieldStyles.bedroomLabel}
+  className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+  placeholder="BEDROOM •"
+/>
+```
+
 ---
 
 ## 8. EDGE-TO-EDGE BLEED HANDLING IN TABLOIDS
@@ -873,6 +912,8 @@ Before considering any Tabloid Sheet upgrade complete, verify every item:
 - [ ] Lock button label: **"Lock"** (unlocked state), **"Locked"** (locked state). NOT "Unlocked".
 - [ ] `DraggableBox` props use `position=` (not `initialPosition=`), `disabled=` (not `isLocked=`), `onPositionChange={updateFieldPosition}` (direct ref), `zoom={0.55}`, `label=`, `onDelete=`, `deleteTitle=`.
 - [ ] `updateFormData` uses `imageScales:`, `imagePositions:`, `imageRotations:` keys (NOT `scale:`, `position:`, `rotation:`).
+- [ ] Section labels (`Contact:`, `PHONE:`, `Email:`, `BEDROOM •`, `BATHROOM •`, `SQ FT •`, `BUILT IN`, `Number`, `Road`, `Disclaimer`) use `StyledInput` instead of hardcoded static `<span>` elements.
+- [ ] Label states (`contactLabel`, `phoneLabel`, etc.) and `fieldStyles` are synced in `updateFormData`, exported in `exportToPayload`, and restored in `importFromPayload`.
 - [ ] Export uses `featureSheetService.buildPayload()` — NOT a plain object return.
 - [ ] Deleting a standard or detail field registers in `DeletedFieldsPanel` and can be restored individually or via "Restore All".
 - [ ] PDF export does not contain any border indicators, guides, or hover buttons.

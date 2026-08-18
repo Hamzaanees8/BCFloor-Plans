@@ -230,6 +230,16 @@ type FormData = {
   rightDetailFields?: DetailField[];
   deletedDetailFields?: any[];
   deletedStandardFieldIds?: string[];
+  contactLabel?: string;
+  phoneLabel?: string;
+  emailLabel?: string;
+  bedroomLabel?: string;
+  bathroomLabel?: string;
+  sqftLabel?: string;
+  builtYearLabel?: string;
+  roadLabelBefore?: string;
+  roadLabelAfter?: string;
+  disclaimerText?: string;
 };
 
 type FileManagerContextType = {

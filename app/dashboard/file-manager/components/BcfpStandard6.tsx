@@ -477,6 +477,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     const [companyName, setCompanyName] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
+    const [contactLabel, setContactLabel] = useState("Contact:");
+    const [phoneLabel, setPhoneLabel] = useState("PHONE:");
+    const [emailLabel, setEmailLabel] = useState("Email:");
+    const [bedroomLabel, setBedroomLabel] = useState("BEDROOM •");
+    const [bathroomLabel, setBathroomLabel] = useState("BATHROOM •");
+    const [sqftLabel, setSqftLabel] = useState("SQ FT •");
+    const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("Number");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("Road");
+    const [disclaimerText, setDisclaimerText] = useState(
+      "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
+    );
     const [showBleedState] = useState(true);
     const [showGuideState] = useState(true);
 
@@ -770,6 +782,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         if (formData.addressCode) setAddressCode(s(formData.addressCode));
         if (formData.roadName) setRoadName(s(formData.roadName));
         if (formData.cityLine) setCityLine(s(formData.cityLine));
+        if (formData.contactLabel) setContactLabel(s(formData.contactLabel));
+        if (formData.phoneLabel) setPhoneLabel(s(formData.phoneLabel));
+        if (formData.emailLabel) setEmailLabel(s(formData.emailLabel));
+        if (formData.bedroomLabel) setBedroomLabel(s(formData.bedroomLabel));
+        if (formData.bathroomLabel) setBathroomLabel(s(formData.bathroomLabel));
+        if (formData.sqftLabel) setSqftLabel(s(formData.sqftLabel));
+        if (formData.builtYearLabel) setBuiltYearLabel(s(formData.builtYearLabel));
+        if (formData.roadLabelBefore) setRoadLabelBefore(s(formData.roadLabelBefore));
+        if (formData.roadLabelAfter) setRoadLabelAfter(s(formData.roadLabelAfter));
+        if (formData.disclaimerText) setDisclaimerText(s(formData.disclaimerText));
 
         if (formData.images) {
           const loadedImages = formData.images as typeof images;
@@ -842,6 +864,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         addressCode,
         roadName,
         cityLine,
+        contactLabel,
+        phoneLabel,
+        emailLabel,
+        bedroomLabel,
+        bathroomLabel,
+        sqftLabel,
+        builtYearLabel,
+        roadLabelBefore,
+        roadLabelAfter,
+        disclaimerText,
         images,
         imageScales: scale,
         imagePositions: position,
@@ -866,6 +898,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       addressCode,
       roadName,
       cityLine,
+      contactLabel,
+      phoneLabel,
+      emailLabel,
+      bedroomLabel,
+      bathroomLabel,
+      sqftLabel,
+      builtYearLabel,
+      roadLabelBefore,
+      roadLabelAfter,
+      disclaimerText,
       images,
       scale,
       position,
@@ -1266,6 +1308,46 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
               value: cityLine,
               style: fieldStyles.cityLine || ({} as TextStyle),
             },
+            contactLabel: {
+              value: contactLabel,
+              style: fieldStyles.contactLabel || ({} as TextStyle),
+            },
+            phoneLabel: {
+              value: phoneLabel,
+              style: fieldStyles.phoneLabel || ({} as TextStyle),
+            },
+            emailLabel: {
+              value: emailLabel,
+              style: fieldStyles.emailLabel || ({} as TextStyle),
+            },
+            bedroomLabel: {
+              value: bedroomLabel,
+              style: fieldStyles.bedroomLabel || ({} as TextStyle),
+            },
+            bathroomLabel: {
+              value: bathroomLabel,
+              style: fieldStyles.bathroomLabel || ({} as TextStyle),
+            },
+            sqftLabel: {
+              value: sqftLabel,
+              style: fieldStyles.sqftLabel || ({} as TextStyle),
+            },
+            builtYearLabel: {
+              value: builtYearLabel,
+              style: fieldStyles.builtYearLabel || ({} as TextStyle),
+            },
+            roadLabelBefore: {
+              value: roadLabelBefore,
+              style: fieldStyles.roadLabelBefore || ({} as TextStyle),
+            },
+            roadLabelAfter: {
+              value: roadLabelAfter,
+              style: fieldStyles.roadLabelAfter || ({} as TextStyle),
+            },
+            disclaimerText: {
+              value: disclaimerText,
+              style: fieldStyles.disclaimerText || ({} as TextStyle),
+            },
             fieldPositions,
             _lockedSections: lockedSections,
             _leftDetailFields: leftDetailFields,
@@ -1463,6 +1545,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           if (details.number) setNumber(s(details.number));
           if (details.addressCode) setAddressCode(s(details.addressCode));
           if (details.cityLine) setCityLine(s(details.cityLine));
+          if (details.contactLabel) setContactLabel(s(details.contactLabel));
+          if (details.phoneLabel) setPhoneLabel(s(details.phoneLabel));
+          if (details.emailLabel) setEmailLabel(s(details.emailLabel));
+          if (details.bedroomLabel) setBedroomLabel(s(details.bedroomLabel));
+          if (details.bathroomLabel) setBathroomLabel(s(details.bathroomLabel));
+          if (details.sqftLabel) setSqftLabel(s(details.sqftLabel));
+          if (details.builtYearLabel) setBuiltYearLabel(s(details.builtYearLabel));
+          if (details.roadLabelBefore) setRoadLabelBefore(s(details.roadLabelBefore));
+          if (details.roadLabelAfter) setRoadLabelAfter(s(details.roadLabelAfter));
+          if (details.disclaimerText) setDisclaimerText(s(details.disclaimerText));
         }
 
         const styles: Record<string, TextStyle> = {};
@@ -1487,6 +1579,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           if (st(od.number)) styles.number = st(od.number);
           if (st(od.addressCode)) styles.addressCode = st(od.addressCode);
           if (st(od.cityLine)) styles.cityLine = st(od.cityLine);
+          if (st(od.contactLabel)) styles.contactLabel = st(od.contactLabel);
+          if (st(od.phoneLabel)) styles.phoneLabel = st(od.phoneLabel);
+          if (st(od.emailLabel)) styles.emailLabel = st(od.emailLabel);
+          if (st(od.bedroomLabel)) styles.bedroomLabel = st(od.bedroomLabel);
+          if (st(od.bathroomLabel)) styles.bathroomLabel = st(od.bathroomLabel);
+          if (st(od.sqftLabel)) styles.sqftLabel = st(od.sqftLabel);
+          if (st(od.builtYearLabel)) styles.builtYearLabel = st(od.builtYearLabel);
+          if (st(od.roadLabelBefore)) styles.roadLabelBefore = st(od.roadLabelBefore);
+          if (st(od.roadLabelAfter)) styles.roadLabelAfter = st(od.roadLabelAfter);
+          if (st(od.disclaimerText)) styles.disclaimerText = st(od.disclaimerText);
         }
 
         setFieldStyles(styles);
@@ -1575,7 +1677,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           />
         )}
 
-        <div className="w-full relative flex flex-col items-center justify-center font-alexandria py-8 gap-0">
+        <div className="w-full relative flex flex-col items-center justify-center font-alexandria pb-8 pt-0 gap-0">
           {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
           <div
             data-html2canvas-ignore="true"
@@ -1825,8 +1927,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               }
                               deleteTitle="Remove Road / Unit #"
                             >
-                              <span className="text-[#226292] flex items-center" style={{ fontFamily: getFontFamilyCss(fieldStyles.roadName?.fontFamily) }}>
-                                Number
+                              <span className="text-[#226292] flex items-center gap-1">
+                                <StyledInput
+                                  value={roadLabelBefore}
+                                  onChange={(e) => setRoadLabelBefore(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("roadLabelBefore", s)
+                                  }
+                                  inputStyle={fieldStyles.roadLabelBefore}
+                                  className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#226292] text-right focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                  placeholder="Number"
+                                />
                                 <StyledInput
                                   value={roadName}
                                   onChange={(e) => setRoadName(e.target.value)}
@@ -1834,10 +1945,19 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     updateFieldStyle("roadName", s)
                                   }
                                   inputStyle={fieldStyles.roadName}
-                                  className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                  className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                                   placeholder="0"
                                 />
-                                Road
+                                <StyledInput
+                                  value={roadLabelAfter}
+                                  onChange={(e) => setRoadLabelAfter(e.target.value)}
+                                  onChangeStyle={(s) =>
+                                    updateFieldStyle("roadLabelAfter", s)
+                                  }
+                                  inputStyle={fieldStyles.roadLabelAfter}
+                                  className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#226292] text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                                  placeholder="Road"
+                                />
                               </span>
                             </DraggableBox>
                           )}
@@ -2751,9 +2871,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Contact Name"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.fullName?.fontFamily) }}>
-                                    Contact:
-                                  </span>
+                                  <StyledInput
+                                    value={contactLabel}
+                                    onChange={(e) =>
+                                      setContactLabel(e.target.value)
+                                    }
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("contactLabel", s)
+                                    }
+                                    inputStyle={fieldStyles.contactLabel}
+                                    className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300]"
+                                    placeholder="Contact:"
+                                  />
                                   <StyledInput
                                     value={fullName}
                                     onChange={(e) =>
@@ -2831,9 +2960,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Phone"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.number?.fontFamily) }}>
-                                    PHONE:
-                                  </span>
+                                  <StyledInput
+                                    value={phoneLabel}
+                                    onChange={(e) =>
+                                      setPhoneLabel(e.target.value)
+                                    }
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("phoneLabel", s)
+                                    }
+                                    inputStyle={fieldStyles.phoneLabel}
+                                    className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300] uppercase"
+                                    placeholder="PHONE:"
+                                  />
                                   <StyledInput
                                     value={number}
                                     onChange={(e) => setNumber(e.target.value)}
@@ -2869,9 +3007,18 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 deleteTitle="Remove Email"
                               >
                                 <div className="flex items-center gap-1 w-full">
-                                  <span className="text-[20px] font-[300]" style={{ fontFamily: getFontFamilyCss(fieldStyles.email?.fontFamily) }}>
-                                    Email:
-                                  </span>
+                                  <StyledInput
+                                    value={emailLabel}
+                                    onChange={(e) =>
+                                      setEmailLabel(e.target.value)
+                                    }
+                                    onChangeStyle={(s) =>
+                                      updateFieldStyle("emailLabel", s)
+                                    }
+                                    inputStyle={fieldStyles.emailLabel}
+                                    className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300]"
+                                    placeholder="Email:"
+                                  />
                                   <StyledInput
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -2908,17 +3055,21 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           }
                           deleteTitle="Remove Disclaimer"
                         >
-                          <div className="text-start font-light flex w-[80%]">
-                            <span className="text-[8px]">
-                              All information deemed reliable but not guaranteed
-                              and should be independently verified. All
-                              properties are subject to prior sale, change or
-                              withdrawal. Neither listing broker(s) nor BC Floor
-                              Plans shall be responsible for any typographical
-                              errors, misinformation, misprints and shall be
-                              held totally harmless.
-                            </span>
-                            <span className="flex mt-2">
+                          <div className="text-start font-light flex w-[80%] items-start gap-1">
+                            <div
+                              style={{
+                                fontSize: fieldStyles.disclaimerText?.fontSize || "8px",
+                                fontWeight: fieldStyles.disclaimerText?.fontWeight || "300",
+                                fontFamily: getFontFamilyCss(fieldStyles.disclaimerText?.fontFamily) || "inherit",
+                                color: fieldStyles.disclaimerText?.color || "inherit",
+                                textAlign: (fieldStyles.disclaimerText?.textAlign as any) || "left",
+                                lineHeight: 1.2,
+                              }}
+                              className="text-[8px] font-light bg-transparent text-left w-full border-none select-none"
+                            >
+                              {disclaimerText}
+                            </div>
+                            <span className="flex mt-1 shrink-0">
                               <House className="w-4 h-4" />
                               <svg
                                 width="16"
@@ -3725,7 +3876,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="0"
                             />
                           </div>
-                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.bedroom?.fontFamily) }}>BEDROOM •</span>
+                          <StyledInput
+                            value={bedroomLabel}
+                            onChange={(e) => setBedroomLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bedroomLabel", s)
+                            }
+                            inputStyle={fieldStyles.bedroomLabel}
+                            className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+                            placeholder="BEDROOM •"
+                          />
                         </DraggableBox>
                       )}
 
@@ -3761,7 +3921,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="0"
                             />
                           </div>
-                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.bathroom?.fontFamily) }}>BATHROOM •</span>
+                          <StyledInput
+                            value={bathroomLabel}
+                            onChange={(e) => setBathroomLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bathroomLabel", s)
+                            }
+                            inputStyle={fieldStyles.bathroomLabel}
+                            className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+                            placeholder="BATHROOM •"
+                          />
                         </DraggableBox>
                       )}
 
@@ -3795,7 +3964,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               placeholder="000"
                             />
                           </div>
-                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.sqft?.fontFamily) }}>SQ FT •</span>
+                          <StyledInput
+                            value={sqftLabel}
+                            onChange={(e) => setSqftLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("sqftLabel", s)
+                            }
+                            inputStyle={fieldStyles.sqftLabel}
+                            className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+                            placeholder="SQ FT •"
+                          />
                         </DraggableBox>
                       )}
 
@@ -3819,7 +3997,16 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           }
                           deleteTitle="Remove Year Built"
                         >
-                          <span style={{ fontFamily: getFontFamilyCss(fieldStyles.builtYear?.fontFamily) }}>BUILT IN</span>
+                          <StyledInput
+                            value={builtYearLabel}
+                            onChange={(e) => setBuiltYearLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("builtYearLabel", s)
+                            }
+                            inputStyle={fieldStyles.builtYearLabel}
+                            className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+                            placeholder="BUILT IN"
+                          />
                           <div className="inline">
                             <StyledInput
                               value={builtYear}

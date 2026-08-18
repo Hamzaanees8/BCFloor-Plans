@@ -713,22 +713,26 @@ export default function StyledInput({
               </button>
 
               {activeDropdown === "size" && (
-                <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-28 max-h-40 overflow-auto">
+                <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-28 max-h-64 overflow-auto">
                   {(() => {
                     const ALL_SIZES = [
-                      8, 10, 12, 14, 16, 18, 20, 21, 24, 28, 32, 36, 40, 48, 60,
-                      72,
+                      8, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 60, 72,
                     ];
                     let allowedSizes = [8, 12, 14, 16, 18, 24, 28, 36, 40, 48];
 
-                    if (defaultFontSizeRef.current !== null) {
+                    const activeNum = parseInt(fontSize.replace("px", ""), 10);
+                    const targetSize = !isNaN(activeNum)
+                      ? activeNum
+                      : defaultFontSizeRef.current;
+
+                    if (targetSize !== null && targetSize !== undefined) {
                       const sorted = Array.from(
-                        new Set([...ALL_SIZES, defaultFontSizeRef.current]),
+                        new Set([...ALL_SIZES, targetSize]),
                       ).sort((a, b) => a - b);
-                      const idx = sorted.indexOf(defaultFontSizeRef.current);
+                      const idx = sorted.indexOf(targetSize);
                       allowedSizes = sorted.slice(
-                        Math.max(0, idx - 2),
-                        idx + 3,
+                        Math.max(0, idx - 3),
+                        idx + 4,
                       );
                     }
 

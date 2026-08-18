@@ -29,54 +29,39 @@ const TabloidPdfGenerator = async (
 
   const bgColor = getBackgroundColor(section);
 
-  // Full render dimensions including 0.125" bleed zone on all 4 sides (17.25" x 11.25")
-  const fullWidth = 17.25;
-  const fullHeight = 11.25;
+  // The DOM is ALWAYS rendered at full bleed size (17.25" × 11.25").
+  // This is the layout canvas the component is designed for.
+  // For no-bleed output we crop the captured canvas by 0.125" on each edge
+  // to remove the bleed zone before writing to the PDF.
+  const BLEED_IN    = 0.125;  // 3mm per edge
+  const bleedWidth  = 17.25;
+  const bleedHeight = 11.25;
 
-  // Reference dimensions in px at 96 DPI
-  const renderWidth = fullWidth * 96;  // 1656px
-  const renderHeight = fullHeight * 96; // 1080px
+  // Reference dimensions in px at 96 DPI — always the full bleed canvas
+  const renderWidth  = bleedWidth  * 96; // 1656px
+  const renderHeight = bleedHeight * 96; // 1080px
 
-  // ─── Capture image transforms & metrics from live DOM BEFORE cloning ───────
+  // ─── Capture inline transforms from live DOM BEFORE cloning ─────────────
+  // ImageEditor sets img.style.transform = "translate(tx,ty) scale(s) rotate(deg)"
+  // We capture this BEFORE cloning because cloneNode copies it faithfully.
+  // We do NOT need to read container sizes here; we'll read them from the
+  // clone (after zoom:1 is forced) for accurate unzoomed dimensions.
+
   const liveImages = Array.from(section.querySelectorAll('img[alt="uploaded"]'));
-  const capturedTransforms = liveImages.map((img, idx) => {
-    const computedStyle = window.getComputedStyle(img);
-    const liveTransform = computedStyle.transform;
-    const container = img.closest('.relative.flex.items-center.justify-center');
-    const page = img.closest('.pdf-page');
-
-    const metrics = {
-      index: idx,
-      sheetWidth: page ? page.clientWidth : section.clientWidth,
-      sheetHeight: page ? page.clientHeight : section.clientHeight,
-      containerWidth: container ? container.clientWidth : 0,
-      containerHeight: container ? container.clientHeight : 0,
-      imageRenderedWidth: img.clientWidth,
-      imageRenderedHeight: img.clientHeight,
-      imageBoundingClientRect: img.getBoundingClientRect(),
-      containerBoundingClientRect: container ? container.getBoundingClientRect() : null,
-      pageBoundingClientRect: page ? page.getBoundingClientRect() : section.getBoundingClientRect(),
-      offsetWidth: img.offsetWidth,
-      offsetHeight: img.offsetHeight,
-      scrollWidth: img.scrollWidth,
-      scrollHeight: img.scrollHeight,
-      computedTransform: liveTransform,
-    };
-
-    console.log(`[TabloidPdfGenerator Debug BEFORE] Image #${idx}:`, metrics);
-
-    return { img, liveTransform, container, metrics };
-  });
+  const capturedTransforms = liveImages.map((img) => ({
+    inlineTransform: img.style.transform || '',
+  }));
 
   const clone = section.cloneNode(true);
   clone.style.position = "absolute";
   clone.style.top = "-9999px";
   clone.style.left = "-9999px";
   clone.style.width = `${renderWidth}px`;
-  clone.style.height = "auto"; // Allow container to expand naturally for multi-page tabloid sheets
+  clone.style.height = "auto";
   clone.style.overflow = "visible";
   clone.style.maxHeight = "none";
-  // Set zoom=1 and enforce full 17.25x11.25 rendering size so bleed area and elements render accurately
+
+  // Remove UI zoom and fix each pdf-page to exact render dimensions
   const pdfPages = clone.querySelectorAll('.pdf-page');
   pdfPages.forEach(page => {
     page.style.zoom = '1';
@@ -94,80 +79,58 @@ const TabloidPdfGenerator = async (
 
   await preloadImages(clone);
 
-  // ─── Re-apply image transforms with explicit aspect ratio in clone ────────
+  // ─── Fix uploaded img sizing so html2canvas captures without stretching ───
+  // html2canvas ignores object-fit on <img> and stretches the image to its
+  // box. Fix: read naturalWidth/Height from the preloaded clone img, compute
+  // the object-contain pixel size, set the img to exactly those dimensions
+  // with objectFit:'none', then center it with position+translate.
+  // The user's pan/scale/rotate from ImageEditor is prepended to the centering
+  // transform so the final visual matches the live screen exactly.
   const cloneImages = Array.from(clone.querySelectorAll('img[alt="uploaded"]'));
-  capturedTransforms.forEach(({ liveTransform, container: origContainer }, i) => {
+  capturedTransforms.forEach(({ inlineTransform }, i) => {
     const cloneImg = cloneImages[i];
     if (!cloneImg) return;
 
-    const cloneContainer = cloneImg.closest('.relative.flex.items-center.justify-center');
-
-    const matrixMatch = liveTransform.match(/matrix\(([^)]+)\)/);
-    if (!matrixMatch) return;
-
-    const parts = matrixMatch[1].split(',').map(v => parseFloat(v.trim()));
-    const [a, b, , , tx, ty] = parts;
-    const liveScale = Math.sqrt(a * a + b * b);
-    const liveAngleDeg = Math.round(Math.atan2(b, a) * 180 / Math.PI);
-
-    const cloneW = cloneContainer ? cloneContainer.clientWidth : 0;
-    const cloneH = cloneContainer ? cloneContainer.clientHeight : 0;
-    const origW = origContainer ? origContainer.clientWidth : cloneW;
-    const origH = origContainer ? origContainer.clientHeight : cloneH;
     const natW = cloneImg.naturalWidth;
     const natH = cloneImg.naturalHeight;
+    if (!natW || !natH) return;
 
-    if (cloneW > 0 && cloneH > 0 && natW > 0 && natH > 0) {
-      const isRotated90 = Math.abs(liveAngleDeg) === 90 || Math.abs(liveAngleDeg) === 270;
-      const effW = isRotated90 ? natH : natW;
-      const effH = isRotated90 ? natW : natH;
-      const imageAR = effW / effH;
+    const cloneContainer = cloneImg.closest('.relative.flex.items-center.justify-center');
+    if (!cloneContainer) return;
 
-      const containerAR = cloneW / cloneH;
-      let drawnW, drawnH;
-      if (imageAR > containerAR) {
-        drawnW = cloneW;
-        drawnH = cloneW / imageAR;
-      } else {
-        drawnH = cloneH;
-        drawnW = cloneH * imageAR;
-      }
+    const cloneW = cloneContainer.clientWidth;
+    const cloneH = cloneContainer.clientHeight;
+    if (!cloneW || !cloneH) return;
 
-      const newBaseScale = Math.max(cloneW / drawnW, cloneH / drawnH);
-
-      const origContainerAR = origW / (origH || 1);
-      let oDrawnW, oDrawnH;
-      if (imageAR > origContainerAR) {
-        oDrawnW = origW;
-        oDrawnH = origW / imageAR;
-      } else {
-        oDrawnH = origH;
-        oDrawnW = origH * imageAR;
-      }
-      const origBaseScale = Math.max(origW / (oDrawnW || 1), origH / (oDrawnH || 1));
-
-      const userScale = origBaseScale > 0 ? liveScale / origBaseScale : liveScale;
-      const scaleRatio = cloneW / (origW || 1);
-      const userTx = tx * scaleRatio;
-      const userTy = ty * scaleRatio;
-
-      const imgW = isRotated90 ? drawnH : drawnW;
-      const imgH = isRotated90 ? drawnW : drawnH;
-
-      cloneImg.style.position = 'absolute';
-      cloneImg.style.left = '50%';
-      cloneImg.style.top = '50%';
-      cloneImg.style.width = `${imgW}px`;
-      cloneImg.style.height = `${imgH}px`;
-      cloneImg.style.maxWidth = 'none';
-      cloneImg.style.maxHeight = 'none';
-      cloneImg.style.objectFit = 'fill';
-      
-      const finalScale = userScale * newBaseScale;
-      cloneImg.style.transform = `translate(-50%, -50%) translate(${userTx}px, ${userTy}px) scale(${finalScale}) rotate(${liveAngleDeg}deg)`;
-      cloneImg.style.transition = 'none';
+    // Compute object-contain fit: largest box that fits image AR inside container
+    const imageAR = natW / natH;
+    const containerAR = cloneW / cloneH;
+    let imgW, imgH;
+    if (imageAR > containerAR) {
+      imgW = cloneW;
+      imgH = cloneW / imageAR;
+    } else {
+      imgH = cloneH;
+      imgW = cloneH * imageAR;
     }
+
+    // Set img to exact px dimensions — html2canvas renders this with zero stretch
+    cloneImg.style.position      = 'absolute';
+    cloneImg.style.inset         = 'auto';
+    cloneImg.style.left          = '50%';
+    cloneImg.style.top           = '50%';
+    cloneImg.style.width         = `${imgW}px`;
+    cloneImg.style.height        = `${imgH}px`;
+    cloneImg.style.maxWidth      = 'none';
+    cloneImg.style.maxHeight     = 'none';
+    cloneImg.style.objectFit     = 'none'; // explicit size → no objectFit stretch needed
+    // translate(-50%,-50%) centers the img at container midpoint;
+    // then the user's translate/scale/rotate (from ImageEditor) is applied on top.
+    cloneImg.style.transform     = `translate(-50%, -50%) ${inlineTransform}`;
+    cloneImg.style.transformOrigin = 'center center';
+    cloneImg.style.transition    = 'none';
   });
+
 
   // Sync inputs, excluding file inputs entirely to avoid InvalidStateError
   const originalInputs = section.querySelectorAll("input:not([type='file']), textarea");
@@ -269,28 +232,27 @@ const TabloidPdfGenerator = async (
 
       const canvas = await html2canvas(el, elOptions);
 
-      let finalCanvas = canvas;
-
+      // For no-bleed: crop the 0.125" bleed zone from all 4 edges of the
+      // captured canvas, leaving only the 17"×11" safe-zone content.
+      // For with-bleed: use the full canvas as-is (17.25"×11.25").
+      let finalImgData;
       if (!withBleed) {
-        // Crop out the 0.125" outer bleed zone from all 4 edges (area outside red border)
-        const scale = options.scale || 6.25;
-        const cropPx = 0.125 * 96 * scale; // 0.125" bleed in canvas pixels
-        const cropWidth = canvas.width - (cropPx * 2);
-        const cropHeight = canvas.height - (cropPx * 2);
-
-        const croppedCanvas = document.createElement("canvas");
-        croppedCanvas.width = cropWidth;
-        croppedCanvas.height = cropHeight;
-        const ctx = croppedCanvas.getContext("2d");
-        ctx.drawImage(
+        const scale    = options.scale || 6.25;
+        const cropPx   = Math.round(BLEED_IN * 96 * scale); // 0.125" in canvas px
+        const cropW    = canvas.width  - cropPx * 2;
+        const cropH    = canvas.height - cropPx * 2;
+        const cropped  = document.createElement('canvas');
+        cropped.width  = cropW;
+        cropped.height = cropH;
+        cropped.getContext('2d').drawImage(
           canvas,
-          cropPx, cropPx, cropWidth, cropHeight,
-          0, 0, cropWidth, cropHeight
+          cropPx, cropPx, cropW, cropH,
+          0,      0,      cropW, cropH
         );
-        finalCanvas = croppedCanvas;
+        finalImgData = cropped.toDataURL('image/jpeg', 0.95);
+      } else {
+        finalImgData = canvas.toDataURL('image/jpeg', 0.95);
       }
-
-      const finalImgData = finalCanvas.toDataURL("image/jpeg", 0.95);
 
       if (i > 0) {
         pdf.addPage([finalPaperWidth, finalPaperHeight], orientation);

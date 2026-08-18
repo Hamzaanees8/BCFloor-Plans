@@ -933,7 +933,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
           />
         )}
 
-        <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
+        <div className="w-full flex flex-col items-center justify-center font-alexandria pb-8 pt-0 gap-0">
           {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
           <div
             data-html2canvas-ignore="true"
