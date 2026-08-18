@@ -111,10 +111,11 @@ const TourConfirm = ({
 
   const fileManagerContext = useOptionalFileManagerContext();
   const selectedFiles = fileManagerContext?.selectedFiles || [];
-  const delay =
+  const rawDelay =
     fileManagerContext?.delay ||
     Number(orderData?.tours?.[0]?.slide_show?.slide_delay) ||
     4000;
+  const delay = rawDelay < 50 ? rawDelay * 1000 : rawDelay;
   const transition =
     fileManagerContext?.transition ||
     orderData?.tours?.[0]?.slide_show?.transitions ||
@@ -135,7 +136,9 @@ const TourConfirm = ({
   const [open, setOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
-  const [isSideContactOpen, setIsSideContactOpen] = useState(false);
+  const [isSideContactOpen, setIsSideContactOpen] = useState(true);
+  const [hasUserClosedSideContact, setHasUserClosedSideContact] = useState(false);
+  const [isHomeSlideshowPlaying, setIsHomeSlideshowPlaying] = useState(true);
   const [photoGridSize, setPhotoGridSize] = useState<
     "small" | "medium" | "large"
   >("medium");
@@ -144,17 +147,25 @@ const TourConfirm = ({
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   useEffect(() => {
-    // Stop slideshow and audio when switching tabs, and reset Home index
-    if (setIsAudioPlaying) {
-      setIsAudioPlaying(false);
-    }
     if (activeTab === "Home") {
       setCurrentImageIndex(0);
+      setIsHomeSlideshowPlaying(true);
+      if (hasUserClosedSideContact) {
+        setIsSideContactOpen(false);
+      } else {
+        setIsSideContactOpen(true);
+      }
+    } else {
+      setIsHomeSlideshowPlaying(false);
+      if (setIsAudioPlaying) {
+        setIsAudioPlaying(false);
+      }
+      setIsSideContactOpen(false);
     }
     if (activeTab !== "Photos") {
       setIsFullscreenSlideshowOpen(false);
     }
-  }, [activeTab, setIsAudioPlaying]);
+  }, [activeTab, setIsAudioPlaying, hasUserClosedSideContact]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -619,21 +630,37 @@ const TourConfirm = ({
                 {isPublicView && (
                   <div className="flex flex-col items-center text-center bg-transparent px-2 py-1">
                     <span
-                      className="text-white font-bold text-[20px] md:text-[28px] leading-tight tracking-wide"
-                      style={{
-                        textShadow:
-                          "0px 3px 10px rgba(0, 0, 0, 0.4), 0px 1px 4px rgba(0, 0, 0, 0.4)",
-                      }}
+                      className={`font-bold text-[20px] md:text-[28px] leading-tight tracking-wide ${
+                        activeTab === "Home"
+                          ? "text-white"
+                          : "text-[#1b365d]"
+                      }`}
+                      style={
+                        activeTab === "Home"
+                          ? {
+                              textShadow:
+                                "0px 3px 10px rgba(0, 0, 0, 0.4), 0px 1px 4px rgba(0, 0, 0, 0.4)",
+                            }
+                          : undefined
+                      }
                     >
                       {orderData?.property_address ||
                         orderData?.property?.address}
                     </span>
                     <span
-                      className="text-white/95 font-semibold text-xs md:text-[15px] leading-tight mt-1"
-                      style={{
-                        textShadow:
-                          "0px 2px 6px rgba(0, 0, 0, 0.35), 0px 1px 3px rgba(0, 0, 0, 0.35)",
-                      }}
+                      className={`font-semibold text-xs md:text-[15px] leading-tight mt-1 ${
+                        activeTab === "Home"
+                          ? "text-white/95"
+                          : "text-gray-600"
+                      }`}
+                      style={
+                        activeTab === "Home"
+                          ? {
+                              textShadow:
+                                "0px 2px 6px rgba(0, 0, 0, 0.35), 0px 1px 3px rgba(0, 0, 0, 0.35)",
+                            }
+                          : undefined
+                      }
                     >
                       {orderData?.property_location ||
                         `${orderData?.property?.city || ""}, ${orderData?.property?.province || ""}`}
@@ -738,9 +765,9 @@ const TourConfirm = ({
                           }
                         }}
                         externalAudioControl={isPublicView ? true : undefined}
-                        propIsPlaying={isAudioPlaying}
+                        propIsPlaying={isHomeSlideshowPlaying}
                         propIsMuted={isAudioMuted}
-                        propSetIsPlaying={setIsAudioPlaying}
+                        propSetIsPlaying={setIsHomeSlideshowPlaying}
                         propSetIsMuted={setIsAudioMuted}
                         watermarkUrl={actualWatermarkLogo}
                       />
@@ -1640,7 +1667,10 @@ const TourConfirm = ({
         <div className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-auto">
           {!isSideContactOpen ? (
             <button
-              onClick={() => setIsSideContactOpen(true)}
+              onClick={() => {
+                setHasUserClosedSideContact(false);
+                setIsSideContactOpen(true);
+              }}
               className="bg-[#4290E9] hover:bg-[#337ab7] text-white py-4 px-2 rounded-l-xl shadow-xl cursor-pointer flex flex-col items-center gap-2 select-none transition-all"
               title="Open Contact Info"
             >
@@ -1656,7 +1686,10 @@ const TourConfirm = ({
               {/* Close Button */}
               <div className="flex justify-end mb-2">
                 <button
-                  onClick={() => setIsSideContactOpen(false)}
+                  onClick={() => {
+                    setHasUserClosedSideContact(true);
+                    setIsSideContactOpen(false);
+                  }}
                   className="w-7 h-7 rounded-full bg-[#1b365d] hover:bg-[#2b6cb0] text-white flex items-center justify-center transition-colors shadow cursor-pointer"
                   title="Close Contact Info"
                 >
