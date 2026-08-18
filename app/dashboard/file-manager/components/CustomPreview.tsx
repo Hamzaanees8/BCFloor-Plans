@@ -50,7 +50,6 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   audioUrl,
   transition,
   api_images,
-  watermarkUrl,
   onSlideChange,
   currentIndex: propCurrentIndex,
   externalAudioControl,
@@ -439,9 +438,9 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
         );
       })}
       {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
-      {watermarkUrl && (
+      {_watermarkUrl && (
         <img
-          src={watermarkUrl}
+          src={_watermarkUrl}
           alt="Watermark"
           className="absolute bottom-10 right-36 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
         />

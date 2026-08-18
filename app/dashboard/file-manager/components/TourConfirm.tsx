@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Play,
+  Pause,
   Maximize,
   X,
   Volume2,
@@ -90,7 +91,6 @@ const TourConfirm = ({
   publicVideoFiles,
   publicFloorPlanFiles,
   publicMatterportLinks,
-  isAudioPlaying,
   isAudioMuted,
   setIsAudioPlaying,
   setIsAudioMuted,
@@ -161,6 +161,38 @@ const TourConfirm = ({
     y: number;
   }>({ x: 0, y: 0 });
 
+  const heroVideoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [isHeroVideoPlaying, setIsHeroVideoPlaying] = useState(true);
+  const [localHeroMuted, setLocalHeroMuted] = useState(true);
+
+  const effectiveHeroMuted = isPublicView
+    ? (isAudioMuted ?? true)
+    : localHeroMuted;
+
+  const toggleHeroVideoPlay = React.useCallback(() => {
+    if (!heroVideoRef.current) return;
+    if (heroVideoRef.current.paused) {
+      heroVideoRef.current
+        .play()
+        .then(() => setIsHeroVideoPlaying(true))
+        .catch(() => {});
+    } else {
+      heroVideoRef.current.pause();
+      setIsHeroVideoPlaying(false);
+    }
+  }, []);
+
+  const toggleHeroVideoMute = React.useCallback(() => {
+    if (isPublicView && setIsAudioMuted) {
+      setIsAudioMuted(!isAudioMuted);
+    } else {
+      setLocalHeroMuted((prev) => !prev);
+      if (heroVideoRef.current) {
+        heroVideoRef.current.muted = !heroVideoRef.current.muted;
+      }
+    }
+  }, [isPublicView, isAudioMuted, setIsAudioMuted]);
+
   const resetLightboxZoom = React.useCallback(() => {
     setLightboxZoom(1);
     setLightboxPan({ x: 0, y: 0 });
@@ -178,6 +210,36 @@ const TourConfirm = ({
     });
   }, []);
 
+  const isMediaApprovedByAgent = React.useCallback((file: any) => {
+    return (
+      file?.is_agent_approved === true ||
+      file?.is_agent_approved === 1 ||
+      file?.is_agent_approved === "1" ||
+      file?.is_agent_approved === "true" ||
+      file?.is_complimentary === true ||
+      file?.is_complimentary === 1 ||
+      file?.is_complimentary === "1" ||
+      file?.is_complimentary === "true"
+    );
+  }, []);
+
+  const currentTourPhotos = React.useMemo(() => {
+    let photos = isPublicView
+      ? publicTourPhotos
+      : filesData?.files?.filter(
+          (file) =>
+            file?.service?.name !== "2D Floor Plans" &&
+            file?.service?.name !== "3D Floor Plans" &&
+            file.type === "photo",
+        );
+
+    if (photos) {
+      photos = getGlobalPhotoOrder(photos as any);
+      photos = photos?.filter(isMediaApprovedByAgent);
+    }
+    return photos;
+  }, [isPublicView, publicTourPhotos, filesData?.files, isMediaApprovedByAgent]);
+
   useEffect(() => {
     if (activeTab === "Home") {
       setCurrentImageIndex(0);
@@ -187,18 +249,30 @@ const TourConfirm = ({
       } else {
         setIsSideContactOpen(true);
       }
+      if (heroVideoRef.current && isHeroVideoPlaying) {
+        heroVideoRef.current.play().catch(() => {});
+      }
     } else {
       setIsHomeSlideshowPlaying(false);
       if (setIsAudioPlaying) {
         setIsAudioPlaying(false);
       }
       setIsSideContactOpen(false);
+      if (heroVideoRef.current) {
+        heroVideoRef.current.pause();
+      }
     }
     if (activeTab !== "Photos") {
       setIsFullscreenSlideshowOpen(false);
       resetLightboxZoom();
     }
-  }, [activeTab, setIsAudioPlaying, hasUserClosedSideContact, resetLightboxZoom]);
+  }, [
+    activeTab,
+    setIsAudioPlaying,
+    hasUserClosedSideContact,
+    resetLightboxZoom,
+    isHeroVideoPlaying,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -302,33 +376,6 @@ const TourConfirm = ({
     fetchFeatureSheets();
   }, [orderData?.uuid]);
 
-  let currentTourPhotos = isPublicView
-    ? publicTourPhotos
-    : filesData?.files?.filter(
-        (file) =>
-          file?.service?.name !== "2D Floor Plans" &&
-          file?.service?.name !== "3D Floor Plans" &&
-          file.type === "photo",
-      );
-
-  const isMediaApprovedByAgent = (file: any) => {
-    return (
-      file?.is_agent_approved === true ||
-      file?.is_agent_approved === 1 ||
-      file?.is_agent_approved === "1" ||
-      file?.is_agent_approved === "true" ||
-      file?.is_complimentary === true ||
-      file?.is_complimentary === 1 ||
-      file?.is_complimentary === "1" ||
-      file?.is_complimentary === "true"
-    );
-  };
-
-  if (currentTourPhotos) {
-    currentTourPhotos = getGlobalPhotoOrder(currentTourPhotos as any);
-    currentTourPhotos = currentTourPhotos?.filter(isMediaApprovedByAgent);
-  }
-
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
   const currentVideoFiles = React.useMemo(() => {
@@ -340,7 +387,7 @@ const TourConfirm = ({
       files = files?.filter(isMediaApprovedByAgent);
     }
     return files;
-  }, [isPublicView, publicVideoFiles, filesData?.files]);
+  }, [isPublicView, publicVideoFiles, filesData?.files, isMediaApprovedByAgent]);
 
   const heroType =
     fileManagerContext?.heroType ||
@@ -702,47 +749,45 @@ const TourConfirm = ({
             >
               {/* Top Header: Address & Tabs */}
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 max-w-[95%] md:max-w-none w-full md:w-auto pointer-events-auto">
-                {/* Top Center Address */}
-                {isPublicView && (
-                  <div className="flex flex-col items-center text-center bg-transparent px-2 py-1">
-                    <span
-                      className={`font-bold text-[20px] md:text-[28px] leading-tight tracking-wide ${
-                        activeTab === "Home"
-                          ? "text-white"
-                          : "text-[#1b365d]"
-                      }`}
-                      style={
-                        activeTab === "Home"
-                          ? {
-                              textShadow:
-                                "0px 3px 10px rgba(0, 0, 0, 0.4), 0px 1px 4px rgba(0, 0, 0, 0.4)",
-                            }
-                          : undefined
-                      }
-                    >
-                      {orderData?.property_address ||
-                        orderData?.property?.address}
-                    </span>
-                    <span
-                      className={`font-semibold text-xs md:text-[15px] leading-tight mt-1 ${
-                        activeTab === "Home"
-                          ? "text-white/95"
-                          : "text-gray-600"
-                      }`}
-                      style={
-                        activeTab === "Home"
-                          ? {
-                              textShadow:
-                                "0px 2px 6px rgba(0, 0, 0, 0.35), 0px 1px 3px rgba(0, 0, 0, 0.35)",
-                            }
-                          : undefined
-                      }
-                    >
-                      {orderData?.property_location ||
-                        `${orderData?.property?.city || ""}, ${orderData?.property?.province || ""}`}
-                    </span>
-                  </div>
-                )}
+                {/* Top Center Address (rendered in both preview and public tour) */}
+                <div className="flex flex-col items-center text-center bg-transparent px-2 py-1">
+                  <span
+                    className={`font-bold text-[20px] md:text-[28px] leading-tight tracking-wide ${
+                      activeTab === "Home"
+                        ? "text-white"
+                        : "text-[#1b365d]"
+                    }`}
+                    style={
+                      activeTab === "Home"
+                        ? {
+                            textShadow:
+                              "0px 3px 10px rgba(0, 0, 0, 0.4), 0px 1px 4px rgba(0, 0, 0, 0.4)",
+                          }
+                        : undefined
+                    }
+                  >
+                    {orderData?.property_address ||
+                      orderData?.property?.address}
+                  </span>
+                  <span
+                    className={`font-semibold text-xs md:text-[15px] leading-tight mt-1 ${
+                      activeTab === "Home"
+                        ? "text-white/95"
+                        : "text-gray-600"
+                    }`}
+                    style={
+                      activeTab === "Home"
+                        ? {
+                            textShadow:
+                              "0px 2px 6px rgba(0, 0, 0, 0.35), 0px 1px 3px rgba(0, 0, 0, 0.35)",
+                          }
+                        : undefined
+                    }
+                  >
+                    {orderData?.property_location ||
+                      `${orderData?.property?.city || ""}, ${orderData?.property?.province || ""}`}
+                  </span>
+                </div>
 
                 {/* Tabs directly under address */}
                 <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-full px-4 gap-2 py-1 justify-start md:justify-center w-full md:w-auto">
@@ -822,49 +867,68 @@ const TourConfirm = ({
                       className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
                     >
                       <video
+                        ref={heroVideoRef}
                         src={activeHeroVideoUrl}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                         autoPlay
                         loop
-                        muted={isAudioMuted}
+                        muted={effectiveHeroMuted}
                         playsInline
+                        onClick={toggleHeroVideoPlay}
                       />
-                      {/* Video Sound / Mute Toggle Button */}
-                      <button
-                        onClick={() => setIsAudioMuted(!isAudioMuted)}
-                        className="absolute bottom-6 right-6 z-30 p-3 bg-black/50 hover:bg-black/75 text-white rounded-full backdrop-blur-sm border border-white/20 transition-all cursor-pointer shadow-lg"
-                        title={isAudioMuted ? "Unmute Video" : "Mute Video"}
-                      >
-                        {isAudioMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
-                      </button>
+                      {/* Video Controls: Play/Pause and Mute/Unmute */}
+                      <div className="absolute bottom-6 right-6 z-30 flex items-center gap-2.5">
+                        {/* Play/Pause Button */}
+                        <button
+                          onClick={toggleHeroVideoPlay}
+                          className="p-3 bg-black/60 hover:bg-black/85 text-white rounded-full backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-lg hover:scale-105"
+                          title={isHeroVideoPlaying ? "Pause Video" : "Play Video"}
+                        >
+                          {isHeroVideoPlaying ? (
+                            <Pause size={20} />
+                          ) : (
+                            <Play size={20} className="translate-x-0.5" />
+                          )}
+                        </button>
+                        {/* Sound Toggle Button */}
+                        <button
+                          onClick={toggleHeroVideoMute}
+                          className="p-3 bg-black/60 hover:bg-black/85 text-white rounded-full backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-lg hover:scale-105"
+                          title={effectiveHeroMuted ? "Unmute Video" : "Mute Video"}
+                        >
+                          {effectiveHeroMuted ? (
+                            <VolumeX size={20} />
+                          ) : (
+                            <Volume2 size={20} />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ) : heroType === "single_photo" &&
                     (uploadedImages.length > 0 ||
                       (currentTourPhotos?.length ?? 0) > 0) ? (
-                    <div
-                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black`}
-                    >
-                      <CustomSlideshow
-                        images={uploadedImages.length > 0 ? [uploadedImages[0]] : []}
-                        delay={999999}
-                        transition="fade-in"
-                        audioUrl={audioUrl}
-                        api_images={
-                          currentTourPhotos && currentTourPhotos.length > 0
-                            ? [currentTourPhotos[0]]
-                            : []
-                        }
-                        className="h-full"
-                        currentIndex={0}
-                        externalAudioControl={isPublicView ? true : undefined}
-                        propIsPlaying={false}
-                        propIsMuted={isAudioMuted}
-                        propSetIsPlaying={() => {}}
-                        propSetIsMuted={setIsAudioMuted}
-                        objectFit="cover"
-                        watermarkUrl={actualWatermarkLogo}
-                      />
-                    </div>
+                    (() => {
+                      const coverSrc =
+                        uploadedImages.length > 0
+                          ? URL.createObjectURL(uploadedImages[0].file)
+                          : currentTourPhotos?.[0]?.variant_urls?.landing ||
+                            currentTourPhotos?.[0]?.variant_urls?.slider ||
+                            currentTourPhotos?.[0]?.url ||
+                            `${API_URL}/${currentTourPhotos?.[0]?.file_path}`;
+
+                      return (
+                        <div
+                          className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={coverSrc}
+                            alt={orderData?.property_address || "Cover Photo"}
+                            className="w-full h-full object-cover select-none"
+                          />
+                        </div>
+                      );
+                    })()
                   ) : (
                     (uploadedImages.length > 0 ||
                       (currentTourPhotos?.length ?? 0) > 0) && (
@@ -1493,10 +1557,10 @@ const TourConfirm = ({
                               })}
                             </div>
 
-                            {/* Standard Interactive Pop-up Gallery Lightbox Modal */}
+                            {/* Standard Interactive Pop-up Gallery Lightbox Modal (White Theme) */}
                             {isFullscreenSlideshowOpen && allLightboxPhotos.length > 0 && (
                               <div
-                                className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-md flex flex-col justify-between items-center select-none animate-in fade-in duration-200"
+                                className="fixed inset-0 z-[99999] bg-white/98 backdrop-blur-md flex flex-col justify-between items-center select-none animate-in fade-in duration-200"
                                 onClick={(e) => {
                                   if (e.target === e.currentTarget) {
                                     setIsFullscreenSlideshowOpen(false);
@@ -1505,14 +1569,14 @@ const TourConfirm = ({
                                 }}
                               >
                                 {/* Top Controls Bar */}
-                                <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+                                <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-gradient-to-b from-white/95 via-white/70 to-transparent border-b border-gray-100/80">
                                   {/* Counter & Name */}
                                   <div className="flex items-center gap-3">
-                                    <span className="text-white/90 text-sm font-semibold tracking-wide bg-white/10 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md font-alexandria">
+                                    <span className="text-[#1b365d] text-sm font-semibold tracking-wide bg-gray-100/90 px-3 py-1.5 rounded-full border border-gray-200/80 shadow-sm font-alexandria">
                                       {selectedPhotoIndex + 1} / {allLightboxPhotos.length}
                                     </span>
                                     {allLightboxPhotos[selectedPhotoIndex]?.name && (
-                                      <span className="text-white/70 text-xs sm:text-sm font-medium hidden sm:inline-block truncate max-w-md font-alexandria">
+                                      <span className="text-gray-700 text-xs sm:text-sm font-medium hidden sm:inline-block truncate max-w-md font-alexandria">
                                         {allLightboxPhotos[selectedPhotoIndex].name}
                                       </span>
                                     )}
@@ -1521,35 +1585,36 @@ const TourConfirm = ({
                                   {/* Zoom & Action Controls */}
                                   <div className="flex items-center gap-2">
                                     {/* Zoom Controls */}
-                                    <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md px-2 py-1 rounded-full border border-white/15">
+                                    <div className="flex items-center gap-1 bg-gray-100/90 backdrop-blur-md px-2 py-1 rounded-full border border-gray-200/80 shadow-sm">
+                                      {/* Reset Zoom Button on the LEFT of Zoom Out */}
+                                      {lightboxZoom > 1 && (
+                                        <button
+                                          onClick={resetLightboxZoom}
+                                          className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all cursor-pointer mr-0.5"
+                                          title="Reset Zoom (100%)"
+                                        >
+                                          <RotateCcw size={15} />
+                                        </button>
+                                      )}
                                       <button
                                         onClick={handleLightboxZoomOut}
                                         disabled={lightboxZoom <= 1}
-                                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                        className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
                                         title="Zoom Out"
                                       >
                                         <ZoomOut size={18} />
                                       </button>
-                                      <span className="text-white text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
+                                      <span className="text-[#1b365d] text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
                                         {Math.round(lightboxZoom * 100)}%
                                       </span>
                                       <button
                                         onClick={handleLightboxZoomIn}
                                         disabled={lightboxZoom >= 3}
-                                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                        className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
                                         title="Zoom In"
                                       >
                                         <ZoomIn size={18} />
                                       </button>
-                                      {lightboxZoom > 1 && (
-                                        <button
-                                          onClick={resetLightboxZoom}
-                                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-full transition-all cursor-pointer ml-0.5"
-                                          title="Reset Zoom"
-                                        >
-                                          <RotateCcw size={15} />
-                                        </button>
-                                      )}
                                     </div>
 
                                     {/* Close Button */}
@@ -1559,7 +1624,7 @@ const TourConfirm = ({
                                         resetLightboxZoom();
                                         setSelectedPhotoIndex(0);
                                       }}
-                                      className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer ml-2 shadow-md"
+                                      className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-[#1b365d] flex items-center justify-center border border-gray-200 transition-all cursor-pointer ml-2 shadow-sm"
                                       title="Close (Esc)"
                                     >
                                       <X size={20} />
@@ -1594,7 +1659,7 @@ const TourConfirm = ({
                                   <img
                                     src={allLightboxPhotos[selectedPhotoIndex]?.src}
                                     alt={`Photo ${selectedPhotoIndex + 1}`}
-                                    className="max-h-[82vh] max-w-[90vw] object-contain transition-transform duration-100 ease-out select-none shadow-2xl rounded-sm"
+                                    className="max-h-[82vh] max-w-[90vw] object-contain transition-transform duration-100 ease-out select-none shadow-xl rounded-sm"
                                     style={{
                                       transform: `scale(${lightboxZoom}) translate(${lightboxPan.x / lightboxZoom}px, ${lightboxPan.y / lightboxZoom}px)`,
                                       cursor:
@@ -1634,7 +1699,7 @@ const TourConfirm = ({
                                         onMediaView(allLightboxPhotos[newIdx].uuid);
                                       }
                                     }}
-                                    className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-xl backdrop-blur-md group hover:scale-105"
+                                    className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-white text-[#1b365d] flex items-center justify-center border border-gray-200/80 transition-all cursor-pointer shadow-lg backdrop-blur-md group hover:scale-105"
                                     title="Previous (Left Arrow)"
                                   >
                                     <ChevronLeft
@@ -1662,7 +1727,7 @@ const TourConfirm = ({
                                         onMediaView(allLightboxPhotos[newIdx].uuid);
                                       }
                                     }}
-                                    className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer shadow-xl backdrop-blur-md group hover:scale-105"
+                                    className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-white text-[#1b365d] flex items-center justify-center border border-gray-200/80 transition-all cursor-pointer shadow-lg backdrop-blur-md group hover:scale-105"
                                     title="Next (Right Arrow)"
                                   >
                                     <ChevronRight
@@ -1673,8 +1738,8 @@ const TourConfirm = ({
                                 )}
 
                                 {/* Bottom Mini Tip */}
-                                <div className="w-full z-50 py-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center justify-center">
-                                  <span className="text-white/50 text-xs tracking-wider font-alexandria">
+                                <div className="w-full z-50 py-3 bg-gradient-to-t from-white/95 via-white/70 to-transparent flex items-center justify-center">
+                                  <span className="text-gray-500 text-xs tracking-wider font-alexandria">
                                     Use Left / Right arrow keys to navigate • Double-click or use zoom tools to magnify • Esc to close
                                   </span>
                                 </div>

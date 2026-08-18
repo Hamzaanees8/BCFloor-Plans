@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useState, useCallback, useEffect } from "react";
 import { useFileManagerContext } from "../FileManagerContext";
-import { Check, X, GripVertical, ArrowLeftRight } from "lucide-react";
+import { Check, X, GripVertical, ArrowLeftRight, Play, Video } from "lucide-react";
 import { PanoramaBadge } from "./PanoramaBadge";
 import { isPanoramaFile } from "../utils/panoramaUtils";
 import {
@@ -85,6 +85,24 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   const availableVideos = React.useMemo(() => {
     return filesData?.files?.filter((f) => f.type === "video" && !f.is_deleted) || [];
   }, [filesData?.files]);
+
+  const selectedHeroVideo = React.useMemo(() => {
+    if (!availableVideos || availableVideos.length === 0) return null;
+    return (
+      availableVideos.find((v) => v.uuid === heroVideoUuid) ||
+      availableVideos[0]
+    );
+  }, [availableVideos, heroVideoUuid]);
+
+  const selectedHeroVideoUrl = React.useMemo(() => {
+    if (!selectedHeroVideo) return "";
+    return (
+      selectedHeroVideo.variant_urls?.landing ||
+      selectedHeroVideo.variant_urls?.slider ||
+      selectedHeroVideo.url ||
+      (selectedHeroVideo.file_path ? `${API_URL}/${selectedHeroVideo.file_path}` : "")
+    );
+  }, [selectedHeroVideo, API_URL]);
 
   // ─── Agent audio fetch ─────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -743,24 +761,75 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
                 {heroType === "video" && (
                   <div className="grid grid-cols-2 gap-[16px]">
-                    <div className="col-span-2">
-                      <label htmlFor="">Select Hero Video</label>
+                    <div className="col-span-2 space-y-2">
+                      <label className="text-sm font-medium text-[#424242]">Select Hero Video</label>
                       {availableVideos.length > 0 ? (
-                        <Select
-                          value={heroVideoUuid || availableVideos[0]?.uuid}
-                          onValueChange={(val) => setHeroVideoUuid(val)}
-                        >
-                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                            <SelectValue placeholder="Select Hero Video" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableVideos.map((v, i) => (
-                              <SelectItem key={v.uuid || i} value={v.uuid}>
-                                {v.name || `Video ${i + 1}`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-3">
+                          {/* Visual Video Cards Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto pr-1">
+                            {availableVideos.map((v, i) => {
+                              const isSelected = (heroVideoUuid || availableVideos[0]?.uuid) === v.uuid;
+                              const videoSrc =
+                                v.variant_urls?.landing ||
+                                v.variant_urls?.slider ||
+                                v.url ||
+                                (v.file_path ? `${API_URL}/${v.file_path}` : "");
+                              const thumbSrc =
+                                v.variant_urls?.thumb ||
+                                v.thumbnail_url;
+
+                              return (
+                                <div
+                                  key={v.uuid || i}
+                                  onClick={() => setHeroVideoUuid(v.uuid)}
+                                  className={`relative rounded-xl border-2 p-2 cursor-pointer transition-all flex flex-col gap-2 ${
+                                    isSelected
+                                      ? "border-[#1b365d] bg-[#1b365d]/5 shadow-md ring-2 ring-[#1b365d]/20"
+                                      : "border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50/80"
+                                  }`}
+                                >
+                                  <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
+                                    {thumbSrc ? (
+                                      /* eslint-disable-next-line @next/next/no-img-element */
+                                      <img
+                                        src={thumbSrc}
+                                        alt={v.name || `Video ${i + 1}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <video
+                                        src={videoSrc}
+                                        className="w-full h-full object-cover pointer-events-none"
+                                        preload="metadata"
+                                        muted
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                                      <div className="w-8 h-8 rounded-full bg-white/90 text-[#1b365d] flex items-center justify-center shadow-md">
+                                        <Play size={14} className="translate-x-0.5" />
+                                      </div>
+                                    </div>
+                                    {isSelected && (
+                                      <div className="absolute top-2 right-2 bg-[#1b365d] text-white p-1 rounded-full shadow">
+                                        <Check size={12} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between px-1">
+                                    <span className="text-xs font-semibold text-gray-800 truncate max-w-[170px]" title={v.name}>
+                                      {v.name || `Video ${i + 1}`}
+                                    </span>
+                                    {isSelected && (
+                                      <span className="text-[10px] uppercase font-bold text-[#1b365d] bg-[#1b365d]/10 px-2 py-0.5 rounded-full">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       ) : (
                         <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
                           No videos uploaded yet. Please upload a video in the Videos tab first.
@@ -791,28 +860,77 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
           </div>
         </AccordionItem>
 
-        {/* ── Slideshow Preview ──────────────────────────────────────────── */}
+        {/* ── Preview Section (Dynamically reflects Home Hero Media selection) ────────────────── */}
         <AccordionItem value="item-3">
-          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-            Slideshow Video Preview
+          <AccordionTrigger
+            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+          >
+            {heroType === "video"
+              ? "Home Video Hero Preview"
+              : heroType === "single_photo"
+              ? "Home Single Cover Photo Preview"
+              : "Slideshow Video Preview"}
           </AccordionTrigger>
           <AccordionContent>
             <div className="p-4 space-y-4 h-[350px] md:h-[700px]">
-              <CustomSlideshow
-                images={checkedImages}
-                delay={delay}
-                transition={transition}
-                audioUrl={audioUrl}
-                api_images={globalSortedPhotos}
-                watermarkUrl={
-                  branding === "realtor" && orderData?.agent?.company_logo_url
-                    ? `${orderData.agent.company_logo_url}`
-                    : undefined
-                }
-                propIsPlaying={autoPlay}
-                propSetIsPlaying={setAutoPlay}
-                className="w-full h-full"
-              />
+              {heroType === "video" ? (
+                selectedHeroVideoUrl ? (
+                  <div className="w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-lg border border-gray-200 relative">
+                    <video
+                      src={selectedHeroVideoUrl}
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 rounded-xl border border-dashed border-gray-300 text-gray-500">
+                    <Video size={40} className="mb-2 text-gray-400" />
+                    <p className="font-semibold text-sm">No Hero Video Selected</p>
+                    <p className="text-xs text-gray-400">Please upload and select a video in the settings above</p>
+                  </div>
+                )
+              ) : heroType === "single_photo" ? (
+                globalSortedPhotos.length > 0 ? (
+                  <div className="w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-lg border border-gray-200 relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        globalSortedPhotos[0]?.variant_urls?.landing ||
+                        globalSortedPhotos[0]?.variant_urls?.slider ||
+                        globalSortedPhotos[0]?.url ||
+                        `${API_URL}/${globalSortedPhotos[0]?.file_path}`
+                      }
+                      alt="Cover Photo Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 rounded-xl border border-dashed border-gray-300 text-gray-500">
+                    <p className="font-semibold text-sm">No Cover Photo Available</p>
+                  </div>
+                )
+              ) : (
+                <CustomSlideshow
+                  images={checkedImages}
+                  delay={delay}
+                  transition={transition}
+                  audioUrl={audioUrl}
+                  api_images={globalSortedPhotos}
+                  watermarkUrl={
+                    branding === "realtor" && orderData?.agent?.company_logo_url
+                      ? `${orderData.agent.company_logo_url}`
+                      : undefined
+                  }
+                  propIsPlaying={autoPlay}
+                  propSetIsPlaying={setAutoPlay}
+                  className="w-full h-full"
+                />
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
