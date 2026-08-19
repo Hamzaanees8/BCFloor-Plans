@@ -168,6 +168,28 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
 };
 ```
 
+### 3.3 DraggableBox (Canva-Style Draggable & Deletable Field Wrapper)
+All repositionable text fields (Agent Name, Brokerage, Address, Specs, Description, etc.) MUST be wrapped in `<DraggableBox>` from `./DraggableBox`.
+- Features cyan `#00B9F2` border on hover/drag, "Move" handle badge, reset position button, and delete button.
+- Uses origin-vector dragging + zero-latency RAF transform updates to guarantee 100% jitter-free drag tracking.
+- Clamps dynamically within the parent `[data-safezone-container="true"]`.
+
+```tsx
+<DraggableBox
+  id="fullName"
+  position={fieldPositions.fullName}
+  onPositionChange={updateFieldPosition}
+  label="Agent Name"
+  zoom={0.55} // Matches page zoom (0.55 for Tabloid spreads)
+  disabled={lockedSections.contact}
+  onDelete={() => removeStandardField("fullName", "Agent Name", fullName, "Page 1 - Contact", fieldStyles.fullName)}
+  deleteTitle="Remove Agent Name"
+>
+  {/* Field Content */}
+</DraggableBox>
+```
+
+
 ---
 
 ## 4. STANDARD FIELD IDS & MODULE CONSTANTS

@@ -45,7 +45,13 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const startMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const currentPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const activeDragIdRef = useRef<string | null>(null);
+  const rafId = useRef<number | null>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Merge all fields into a single list for freeform canvas placement
   const allFields = useMemo(() => [...leftFields, ...rightFields], [leftFields, rightFields]);
@@ -72,7 +78,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     e: React.MouseEvent,
     fieldId: string
   ) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.altKey) return;
     const target = e.target as HTMLElement;
     if (
       target.tagName === "INPUT" ||
@@ -82,51 +88,89 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       return;
     }
     e.stopPropagation();
+
+    const fieldIndex = allFields.findIndex((f) => f.id === fieldId);
+    const currentPos = fieldIndex >= 0
+      ? getFieldPos(allFields[fieldIndex], fieldIndex)
+      : { x: 0, y: 0 };
+
+    startMouseRef.current = { x: e.clientX, y: e.clientY };
+    startPosRef.current = { x: currentPos.x, y: currentPos.y };
+    currentPosRef.current = { x: currentPos.x, y: currentPos.y };
+    activeDragIdRef.current = fieldId;
     setActiveDragId(fieldId);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
   };
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!activeDragId || !onPositionChange) return;
+      const dragId = activeDragIdRef.current;
+      if (!dragId || !onPositionChange) return;
       e.preventDefault();
+      e.stopPropagation();
 
-      const dx = (e.clientX - lastMousePos.current.x) / zoom;
-      const dy = (e.clientY - lastMousePos.current.y) / zoom;
-
-      // Find current field and its current position
-      const fieldIndex = allFields.findIndex((f) => f.id === activeDragId);
-      const currentPos = fieldIndex >= 0
-        ? getFieldPos(allFields[fieldIndex], fieldIndex)
-        : { x: 0, y: 0 };
+      const totalDx = (e.clientX - startMouseRef.current.x) / zoom;
+      const totalDy = (e.clientY - startMouseRef.current.y) / zoom;
 
       // Safezone container boundary bounds (container width ~350px, height ~245px)
-      // Clamping limits so field is always 100% visible inside the blue shape
       const minX = 0;
       const maxX = 190;
       const minY = 0;
       const maxY = 185;
 
-      const newX = Math.max(minX, Math.min(maxX, currentPos.x + dx));
-      const newY = Math.max(minY, Math.min(maxY, currentPos.y + dy));
+      const rawX = startPosRef.current.x + totalDx;
+      const rawY = startPosRef.current.y + totalDy;
 
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-      onPositionChange(activeDragId, {
-        x: Math.round(newX),
-        y: Math.round(newY),
+      const nextX = Math.round(Math.max(minX, Math.min(maxX, rawX)));
+      const nextY = Math.round(Math.max(minY, Math.min(maxY, rawY)));
+
+      currentPosRef.current = { x: nextX, y: nextY };
+
+      // Instant 0ms visual update on the DOM
+      const itemEl = itemRefs.current[dragId];
+      if (itemEl) {
+        itemEl.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+      }
+
+      // Schedule React state update smoothly with requestAnimationFrame
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => {
+        onPositionChange(dragId, { x: nextX, y: nextY });
       });
     },
-    [activeDragId, zoom, allFields, getFieldPos, onPositionChange]
+    [zoom, onPositionChange]
   );
 
-  const handleMouseUp = useCallback(() => {
-    setActiveDragId(null);
-  }, []);
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      const dragId = activeDragIdRef.current;
+      if (!dragId) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+
+      if (onPositionChange) {
+        onPositionChange(dragId, currentPosRef.current);
+      }
+
+      activeDragIdRef.current = null;
+      setActiveDragId(null);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    },
+    [onPositionChange]
+  );
 
   useEffect(() => {
     if (activeDragId) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove, { passive: false });
+      window.addEventListener("mouseup", handleMouseUp, { passive: false });
     } else {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
@@ -134,6 +178,11 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+      }
     };
   }, [activeDragId, handleMouseMove, handleMouseUp]);
 
@@ -153,7 +202,13 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   const handleResetPosition = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (onPositionChange && DEFAULT_POSITIONS[id]) {
-      onPositionChange(id, DEFAULT_POSITIONS[id]);
+      const defaultPos = DEFAULT_POSITIONS[id];
+      currentPosRef.current = defaultPos;
+      const itemEl = itemRefs.current[id];
+      if (itemEl) {
+        itemEl.style.transform = `translate3d(${defaultPos.x}px, ${defaultPos.y}px, 0)`;
+      }
+      onPositionChange(id, defaultPos);
     }
   };
 
@@ -173,17 +228,21 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
         return (
           <div
             key={field.id}
+            ref={(el) => {
+              itemRefs.current[field.id] = el;
+            }}
             onMouseDown={(e) => handleMouseDown(e, field.id)}
             onMouseEnter={() => setHoveredId(field.id)}
             onMouseLeave={() => setHoveredId(null)}
-            className={`absolute w-[155px] p-1 rounded transition-shadow ${
+            className={`absolute w-[155px] p-1 rounded ${
               isDragging
-                ? "z-40 cursor-grabbing shadow-2xl scale-[1.02]"
-                : "cursor-grab"
+                ? "z-40 cursor-grabbing shadow-2xl scale-[1.02] !transition-none select-none"
+                : "cursor-grab transition-shadow"
             }`}
             style={{
               transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
               transition: isDragging ? "none" : "transform 0.05s ease-out",
+              willChange: isDragging ? "transform" : "auto",
             }}
           >
             {/* Canva-style outline on hover */}

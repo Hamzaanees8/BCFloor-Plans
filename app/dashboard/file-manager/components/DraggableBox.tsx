@@ -40,16 +40,98 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   const [isToolbarHovered, setIsToolbarHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const startMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const currentPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const boundsRef = useRef<{ minX: number; maxX: number; minY: number; maxY: number }>({
+    minX: -10000,
+    maxX: 10000,
+    minY: -10000,
+    maxY: 10000,
+  });
+  const rafId = useRef<number | null>(null);
 
   const posX = position?.x || 0;
   const posY = position?.y || 0;
   const hasMoved = posX !== 0 || posY !== 0;
 
+  // Keep currentPosRef synchronized when position prop changes and not dragging
+  useEffect(() => {
+    if (!isDragging) {
+      currentPosRef.current = { x: posX, y: posY };
+    }
+  }, [posX, posY, isDragging]);
+
+  const startDrag = (clientX: number, clientY: number) => {
+    if (disabled) return;
+
+    startMouseRef.current = { x: clientX, y: clientY };
+    startPosRef.current = { x: posX, y: posY };
+    currentPosRef.current = { x: posX, y: posY };
+
+    // Calculate boundary limits once at drag start based on parent safezone container
+    let minX = -10000;
+    let maxX = 10000;
+    let minY = -10000;
+    let maxY = 10000;
+
+    if (boxRef.current) {
+      const container =
+        boxRef.current.closest('[data-safezone-container="true"]') ||
+        boxRef.current.parentElement;
+      if (container) {
+        const cRect = container.getBoundingClientRect();
+        const eRect = boxRef.current.getBoundingClientRect();
+
+        const pad = 2;
+        const cLeft = cRect.left + pad;
+        const cRight = cRect.right - pad;
+        const cTop = cRect.top + pad;
+        const cBottom = cRect.bottom - pad;
+
+        // Base unscaled coordinates of the element when position is (0, 0)
+        const baseLeft = eRect.left - posX * zoom;
+        const baseTop = eRect.top - posY * zoom;
+
+        const leftBound = (cLeft - baseLeft) / zoom;
+        const rightBound = (cRight - (baseLeft + eRect.width)) / zoom;
+        const topBound = (cTop - baseTop) / zoom;
+        const bottomBound = (cBottom - (baseTop + eRect.height)) / zoom;
+
+        if (rightBound >= leftBound) {
+          minX = leftBound;
+          maxX = rightBound;
+        }
+        if (bottomBound >= topBound) {
+          minY = topBound;
+          maxY = bottomBound;
+        }
+      }
+    }
+
+    if (boundaryLimits) {
+      if (boundaryLimits.minX !== undefined) minX = Math.max(minX, boundaryLimits.minX);
+      if (boundaryLimits.maxX !== undefined) maxX = Math.min(maxX, boundaryLimits.maxX);
+      if (boundaryLimits.minY !== undefined) minY = Math.max(minY, boundaryLimits.minY);
+      if (boundaryLimits.maxY !== undefined) maxY = Math.min(maxY, boundaryLimits.maxY);
+    }
+
+    boundsRef.current = {
+      minX: Math.min(minX, maxX),
+      maxX: Math.max(minX, maxX),
+      minY: Math.min(minY, maxY),
+      maxY: Math.max(minY, maxY),
+    };
+
+    setIsDragging(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (disabled || e.button !== 0 || e.altKey) return;
-    // Don't drag if user is actively interacting with an input or button inside
     const target = e.target as HTMLElement;
     if (
       target.tagName === "INPUT" ||
@@ -59,15 +141,14 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       return;
     }
     e.stopPropagation();
-    setIsDragging(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    startDrag(e.clientX, e.clientY);
   };
 
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
     if (disabled || e.button !== 0 || e.altKey) return;
     e.stopPropagation();
-    setIsDragging(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
   };
 
   const handleMouseMove = useCallback(
@@ -76,78 +157,57 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      const dx = (e.clientX - lastMousePos.current.x) / zoom;
-      const dy = (e.clientY - lastMousePos.current.y) / zoom;
+      const totalDx = (e.clientX - startMouseRef.current.x) / zoom;
+      const totalDy = (e.clientY - startMouseRef.current.y) / zoom;
 
-      let minX = -10000;
-      let maxX = 10000;
-      let minY = -10000;
-      let maxY = 10000;
+      const rawX = startPosRef.current.x + totalDx;
+      const rawY = startPosRef.current.y + totalDy;
 
-      // Always clamp strictly within the parent safezone container:
+      const b = boundsRef.current;
+      const nextX = Math.round(Math.max(b.minX, Math.min(b.maxX, rawX)));
+      const nextY = Math.round(Math.max(b.minY, Math.min(b.maxY, rawY)));
+
+      currentPosRef.current = { x: nextX, y: nextY };
+
+      // Instant 0ms visual update on the DOM
       if (boxRef.current) {
-        const container =
-          boxRef.current.closest('[data-safezone-container="true"]') ||
-          boxRef.current.parentElement;
-        if (container) {
-          const cRect = container.getBoundingClientRect();
-          const eRect = boxRef.current.getBoundingClientRect();
-
-          // 2px inner buffer to stay cleanly inside the container borders
-          const pad = 2;
-          const cLeft = cRect.left + pad;
-          const cRight = cRect.right - pad;
-          const cTop = cRect.top + pad;
-          const cBottom = cRect.bottom - pad;
-
-          // Available bounds in unscaled coordinates
-          const leftBound = posX + (cLeft - eRect.left) / zoom;
-          const rightBound = posX + (cRight - eRect.right) / zoom;
-          const topBound = posY + (cTop - eRect.top) / zoom;
-          const bottomBound = posY + (cBottom - eRect.bottom) / zoom;
-
-          if (rightBound >= leftBound) {
-            minX = leftBound;
-            maxX = rightBound;
-          }
-          if (bottomBound >= topBound) {
-            minY = topBound;
-            maxY = bottomBound;
-          }
-        }
+        boxRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
       }
 
-      // If explicit boundaryLimits were passed and tighter than container
-      if (boundaryLimits) {
-        if (boundaryLimits.minX !== undefined)
-          minX = Math.max(minX, boundaryLimits.minX);
-        if (boundaryLimits.maxX !== undefined)
-          maxX = Math.min(maxX, boundaryLimits.maxX);
-        if (boundaryLimits.minY !== undefined)
-          minY = Math.max(minY, boundaryLimits.minY);
-        if (boundaryLimits.maxY !== undefined)
-          maxY = Math.min(maxY, boundaryLimits.maxY);
-      }
-
-      const newX = Math.max(minX, Math.min(maxX, posX + dx));
-      const newY = Math.max(minY, Math.min(maxY, posY + dy));
-
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-      onPositionChange(id, { x: Math.round(newX), y: Math.round(newY) });
+      // Schedule React state update smoothly with requestAnimationFrame
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => {
+        onPositionChange(id, { x: nextX, y: nextY });
+      });
     },
-    [isDragging, zoom, boundaryLimits, posX, posY, id, onPositionChange],
+    [isDragging, zoom, id, onPositionChange],
   );
 
-  const handleMouseUp = useCallback(() => {
-    if (isDragging) {
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+
       setIsDragging(false);
-    }
-  }, [isDragging]);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+
+      // Commit final position to parent state
+      onPositionChange(id, currentPosRef.current);
+    },
+    [isDragging, id, onPositionChange],
+  );
 
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove, { passive: false });
+      window.addEventListener("mouseup", handleMouseUp, { passive: false });
     } else {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
@@ -155,6 +215,11 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+      }
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
@@ -162,6 +227,10 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsFocused(false);
+    currentPosRef.current = { x: 0, y: 0 };
+    if (boxRef.current) {
+      boxRef.current.style.transform = "translate3d(0px, 0px, 0)";
+    }
     onPositionChange(id, { x: 0, y: 0 });
   };
 
@@ -173,8 +242,8 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     <div
       ref={boxRef}
       onMouseDown={handleMouseDown}
-      className={`relative group transition-[box-shadow] ${
-        isDragging ? "z-40 cursor-grabbing" : "cursor-grab"
+      className={`relative group ${
+        isDragging ? "z-40 cursor-grabbing !transition-none select-none" : "cursor-grab transition-[box-shadow]"
       } ${containerClassName}`}
       onMouseEnter={() => {
         setIsHovered(true);
@@ -189,6 +258,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       style={{
         transform: `translate3d(${posX}px, ${posY}px, 0)`,
         transition: isDragging ? "none" : "transform 0.05s ease-out",
+        willChange: isDragging ? "transform" : "auto",
       }}
     >
       {/* Canva-style Bound/Border Indicator (Cyan #00B9F2 to distinguish from #8B3DFF Section Border) */}
