@@ -200,77 +200,313 @@
 
 /* Use Tailwind-compatible utility classes */
 .animate-kenburns {
-  animation: kenburns 20s ease-in-out forwards;
+  animation: kenburns 15s ease-out forwards;
 }
 
 .animate-fade-in {
-  animation: fade-in 2.5s ease-in-out forwards;
+  animation: fade-in 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-slide-right-left {
-  animation: slide-right-left 2.5s ease-in-out forwards;
+  animation: slide-right-left 1.0s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .animate-slide-right-left-fast {
-  animation: slide-right-left 0.4s ease-in-out forwards;
+  animation: slide-right-left 0.4s ease-out forwards;
 }
 
 .animate-slide-left-right {
-  animation: slide-left-right 2.5s ease-in-out forwards;
+  animation: slide-left-right 1.0s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .animate-slide-left-right-fast {
-  animation: slide-left-right 0.4s ease-in-out forwards;
+  animation: slide-left-right 0.4s ease-out forwards;
 }
 
 .animate-slide-top-bottom {
-  animation: slide-top-bottom 2.5s ease-in-out forwards;
+  animation: slide-top-bottom 1.0s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .animate-slide-bottom-top {
-  animation: slide-bottom-top 2.5s ease-in-out forwards;
+  animation: slide-bottom-top 1.0s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .animate-reveal-left-right {
-  animation: reveal-left-right 2.5s ease-in-out forwards;
+  animation: reveal-left-right 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-rotate-bottom-left {
-  animation: rotate-bottom-left 2.5s ease-in-out forwards;
+  animation: rotate-bottom-left 1.0s ease-out forwards;
 }
 
 .animate-rotate-bottom-right {
-  animation: rotate-bottom-right 2.5s ease-in-out forwards;
+  animation: rotate-bottom-right 1.0s ease-out forwards;
 }
 
 .animate-rotate-left-bottom {
-  animation: rotate-left-bottom 2.5s ease-in-out forwards;
+  animation: rotate-left-bottom 1.0s ease-out forwards;
 }
 
 .animate-rotate-left-top {
-  animation: rotate-left-top 2.5s ease-in-out forwards;
+  animation: rotate-left-top 1.0s ease-out forwards;
 }
 
 .animate-fade-move-left {
-  animation: fade-move-left 2.5s ease-in-out forwards;
+  animation: fade-move-left 1.0s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-fade-move-right {
-  animation: fade-move-right 2.5s ease-in-out forwards;
+  animation: fade-move-right 1.0s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-fade-across-right {
-  animation: fade-across-right 1.5s linear;
+  animation: fade-across-right 1.2s linear;
 }
 
 .animate-fade-across-left {
-  animation: fade-across-left 1.5s linear;
+  animation: fade-across-left 1.2s linear;
 }
 
 .animate-zoom-fast {
-  animation: zoom-fast 20s ease-out forwards;
+  animation: zoom-fast 12s ease-out forwards;
 }
 
 .animate-zoom-slow {
-  animation: zoom-slow 20s ease-in-out forwards;
+  animation: zoom-slow 18s ease-in-out forwards;
 }
+
+/* Dynamic Directional Pan / Ken Burns Animations */
+@keyframes pan-up {
+  0% {
+    transform: scale(1.16) translateY(3.5%);
+  }
+  100% {
+    transform: scale(1.16) translateY(-3.5%);
+  }
+}
+
+@keyframes pan-down {
+  0% {
+    transform: scale(1.16) translateY(-3.5%);
+  }
+  100% {
+    transform: scale(1.16) translateY(3.5%);
+  }
+}
+
+@keyframes pan-left {
+  0% {
+    transform: scale(1.16) translateX(3.5%);
+  }
+  100% {
+    transform: scale(1.16) translateX(-3.5%);
+  }
+}
+
+@keyframes pan-right {
+  0% {
+    transform: scale(1.16) translateX(-3.5%);
+  }
+  100% {
+    transform: scale(1.16) translateX(3.5%);
+  }
+}
+
+@keyframes pan-zoom-in {
+  0% {
+    transform: scale(1.06) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.22) translate(-2.5%, -2%);
+  }
+}
+
+@keyframes pan-zoom-out {
+  0% {
+    transform: scale(1.22) translate(2.5%, 2%);
+  }
+  100% {
+    transform: scale(1.06) translate(0, 0);
+  }
+}
+
+@keyframes pan-top-left {
+  0% {
+    transform: scale(1.14) translate(2.5%, 2.5%);
+  }
+  100% {
+    transform: scale(1.22) translate(-2.5%, -2.5%);
+  }
+}
+
+@keyframes pan-top-right {
+  0% {
+    transform: scale(1.14) translate(-2.5%, 2.5%);
+  }
+  100% {
+    transform: scale(1.22) translate(2.5%, -2.5%);
+  }
+}
+
+@keyframes pan-bottom-left {
+  0% {
+    transform: scale(1.14) translate(2.5%, -2.5%);
+  }
+  100% {
+    transform: scale(1.22) translate(-2.5%, 2.5%);
+  }
+}
+
+@keyframes pan-bottom-right {
+  0% {
+    transform: scale(1.14) translate(-2.5%, -2.5%);
+  }
+  100% {
+    transform: scale(1.22) translate(2.5%, 2.5%);
+  }
+}
+
+.animate-pan-up {
+  animation: pan-up var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-down {
+  animation: pan-down var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-left {
+  animation: pan-left var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-right {
+  animation: pan-right var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-zoom-in {
+  animation: pan-zoom-in var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-zoom-out {
+  animation: pan-zoom-out var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-top-left {
+  animation: pan-top-left var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-top-right {
+  animation: pan-top-right var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-bottom-left {
+  animation: pan-bottom-left var(--slide-duration, 8s) ease-out forwards;
+}
+
+.animate-pan-bottom-right {
+  animation: pan-bottom-right var(--slide-duration, 8s) ease-out forwards;
+}
+
+/* Panning for object-cover cut-off areas (starts from center 50% 50% towards hidden edges) */
+@keyframes pan-cover-top {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 50% 0%;
+  }
+}
+
+@keyframes pan-cover-bottom {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 50% 100%;
+  }
+}
+
+@keyframes pan-cover-left {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 0% 50%;
+  }
+}
+
+@keyframes pan-cover-right {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 100% 50%;
+  }
+}
+
+@keyframes pan-cover-top-left {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 0% 0%;
+  }
+}
+
+@keyframes pan-cover-top-right {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 100% 0%;
+  }
+}
+
+@keyframes pan-cover-bottom-left {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 0% 100%;
+  }
+}
+
+@keyframes pan-cover-bottom-right {
+  0% {
+    object-position: 50% 50%;
+  }
+  100% {
+    object-position: 100% 100%;
+  }
+}
+
+.animate-pan-cover-top {
+  animation: pan-cover-top var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-bottom {
+  animation: pan-cover-bottom var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-left {
+  animation: pan-cover-left var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-right {
+  animation: pan-cover-right var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-top-left {
+  animation: pan-cover-top-left var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-top-right {
+  animation: pan-cover-top-right var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-bottom-left {
+  animation: pan-cover-bottom-left var(--pan-duration, 6s) ease-in-out forwards;
+}
+
+.animate-pan-cover-bottom-right {
+  animation: pan-cover-bottom-right var(--pan-duration, 6s) ease-in-out forwards;
+}

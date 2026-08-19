@@ -21,10 +21,10 @@ interface CustomSlideshowProps {
   propSetIsMuted?: (muted: boolean) => void;
   className?: string;
   bgClass?: string;
+  objectFit?: "cover" | "contain";
 }
 
 const transitionClasses = [
-  'kenburns',
   'fade-in',
   'slide-right-left',
   'slide-left-right',
@@ -41,6 +41,7 @@ const transitionClasses = [
   'fade-across-left',
   'zoom-fast',
   'zoom-slow',
+  'kenburns',
 ];
 
 const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
@@ -49,7 +50,6 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   audioUrl,
   transition,
   api_images,
-  watermarkUrl,
   onSlideChange,
   currentIndex: propCurrentIndex,
   externalAudioControl,
@@ -58,11 +58,14 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   propSetIsPlaying,
   propSetIsMuted,
   className = "h-[100vh]",
-  bgClass = "bg-white",
+  bgClass = "bg-black",
+  objectFit = "cover",
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [transitionIndex, setTransitionIndex] = useState(0);
+  const [slideCycle, setSlideCycle] = useState(0);
+  const [imageRatios, setImageRatios] = useState<{ [key: number]: number }>({});
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
   const [internalIsMuted, setInternalIsMuted] = useState(false);
   const [manualTransition, setManualTransition] = useState<string | null>(null);
@@ -94,7 +97,6 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     }));
 
     const remoteImages = (api_images || []).map((img, idx) => {
-      console.log(`Slideshow Image ${idx} raw data:`, img);
       return {
         src: img.url || img.variant_urls?.popup || img.variant_urls?.slider || `${API_URL}/${img.file_path}`,
         isLocal: false,
@@ -115,9 +117,68 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     };
   }, [allImages]);
 
+  const handleImageLoad = (idx: number, width: number, height: number) => {
+    if (width > 0 && height > 0) {
+      setImageRatios((prev) => ({
+        ...prev,
+        [idx]: width / height,
+      }));
+    }
+  };
+
+  const getPanAnimation = (idx: number) => {
+    if (objectFit === "contain") return "";
+
+    const imgRatio = imageRatios[idx];
+    const containerRatio =
+      typeof window !== "undefined"
+        ? window.innerWidth / Math.max(window.innerHeight, 1)
+        : 16 / 9;
+
+    let possiblePans: string[];
+
+    if (imgRatio) {
+      if (imgRatio < containerRatio - 0.08) {
+        // Image is taller than container -> vertical cut-off (top/bottom)
+        possiblePans = ['pan-cover-top', 'pan-cover-bottom'];
+      } else if (imgRatio > containerRatio + 0.08) {
+        // Image is wider than container -> horizontal cut-off (left/right)
+        possiblePans = ['pan-cover-left', 'pan-cover-right'];
+      } else {
+        // Close fit or diagonal overflow
+        possiblePans = [
+          'pan-cover-top',
+          'pan-cover-bottom',
+          'pan-cover-left',
+          'pan-cover-right',
+          'pan-cover-top-left',
+          'pan-cover-top-right',
+          'pan-cover-bottom-left',
+          'pan-cover-bottom-right',
+        ];
+      }
+    } else {
+      possiblePans = [
+        'pan-cover-top',
+        'pan-cover-bottom',
+        'pan-cover-left',
+        'pan-cover-right',
+        'pan-cover-top-left',
+        'pan-cover-bottom-right',
+      ];
+    }
+
+    // Pick a random direction from center for this slide visit
+    const seed =
+      (slideCycle * 17 + idx * 31 + Math.abs(Math.floor(Math.sin(slideCycle + idx * 7) * 10000))) >>>
+      0;
+    return possiblePans[seed % possiblePans.length];
+  };
+
   const getTransitionClass = () => {
     if (manualTransition) return manualTransition;
-    return transition ? transition : transitionClasses[transitionIndex];
+    if (transition) return transition;
+    return transitionClasses[transitionIndex % transitionClasses.length];
   };
 
   useEffect(() => {
@@ -136,6 +197,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     if (isPlaying && allImages.length > 0) {
       intervalRef.current = setInterval(() => {
         setManualTransition(null);
+        setSlideCycle((prev) => prev + 1);
         const nextIndex = (currentIndex + 1) % allImages.length;
         setLastIndex(currentIndex);
         setCurrentIndex(nextIndex);
@@ -240,6 +302,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     if (e) e.stopPropagation();
     if (allImages.length === 0) return;
     setManualTransition('slide-right-left-fast');
+    setSlideCycle((prev) => prev + 1);
     const nextIndex = (currentIndex + 1) % allImages.length;
     setLastIndex(currentIndex);
     setCurrentIndex(nextIndex);
@@ -255,6 +318,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     if (e) e.stopPropagation();
     if (allImages.length === 0) return;
     setManualTransition('slide-left-right-fast');
+    setSlideCycle((prev) => prev + 1);
     const prevIndex = currentIndex === 0 ? allImages.length - 1 : currentIndex - 1;
     setLastIndex(currentIndex);
     setCurrentIndex(prevIndex);
@@ -330,26 +394,58 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       )}
 
       {/* eslint-disable @next/next/no-img-element */}
-      {allImages.map((item, idx) => (
-        <img
-          key={item.id}
-          src={item.src}
-          className={`absolute top-0 left-0 w-full h-full object-contain ${bgClass} transition-opacity duration-[2500ms] ${idx === currentIndex
-            ? `opacity-100 z-20 animate-${getTransitionClass()}`
-            : idx === lastIndex
-              ? `opacity-100 z-10 animate-${getTransitionClass()}`
-              : 'opacity-0 z-0'
+      {allImages.map((item, idx) => {
+        const isActive = idx === currentIndex;
+        const isPrev = idx === lastIndex;
+        if (!isActive && !isPrev) {
+          return null;
+        }
+
+        const transitionClass = getTransitionClass();
+        const panClass = getPanAnimation(idx);
+        const panDuration = Math.max(delay || 4000, 3000);
+
+        return (
+          <div
+            key={`${item.id}-${isActive ? `active-${currentIndex}-${slideCycle}` : `prev-${lastIndex}`}`}
+            className={`absolute inset-0 w-full h-full overflow-hidden ${
+              isActive
+                ? `opacity-100 z-20 animate-${transitionClass}`
+                : "opacity-100 z-10 pointer-events-none"
             }`}
-          alt={`Slide ${idx}`}
-        />
-      ))}
-      {watermarkUrl && (
+          >
+            <img
+              src={item.src}
+              onLoad={(e) => {
+                handleImageLoad(
+                  idx,
+                  e.currentTarget.naturalWidth,
+                  e.currentTarget.naturalHeight,
+                );
+              }}
+              className={`w-full h-full ${
+                objectFit === "contain" ? "object-contain" : "object-cover"
+              } ${bgClass} ${isActive && panClass ? `animate-${panClass}` : ""}`}
+              style={{
+                ["--pan-duration" as any]: `${panDuration}ms`,
+                animationDuration: `${panDuration}ms`,
+                animationTimingFunction: "ease-in-out",
+                animationFillMode: "forwards",
+              }}
+              alt={`Slide ${idx}`}
+            />
+          </div>
+        );
+      })}
+      {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
+      {_watermarkUrl && (
         <img
-          src={watermarkUrl}
+          src={_watermarkUrl}
           alt="Watermark"
           className="absolute bottom-10 right-36 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
         />
       )}
+      */}
 
       {/* Play/Pause Button */}
       <div

@@ -68,7 +68,6 @@ function PdfPlaceholder({ className = '', onClick }: { className?: string; onCli
 function PublicTourFloorPlans({
     floorPlanFiles = [],
     snapshots = [],
-    watermarkLogo
 }: PublicTourFloorPlansProps) {
     const [isMobile, setIsMobile] = useState(false);
     React.useEffect(() => {
@@ -295,16 +294,17 @@ function PublicTourFloorPlans({
                                         className="object-contain max-h-[75vh] max-w-full w-auto h-auto mx-auto rounded-lg select-none pointer-events-none"
                                         draggable={false}
                                     />
-                                    {watermarkLogo && (
+                                    {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later
+                                    {_watermarkLogo && (
                                         <>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
-                                                src={watermarkLogo}
+                                                src={_watermarkLogo}
                                                 alt="Watermark"
                                                 className="absolute bottom-4 right-4 w-[120px] sm:w-[150px] object-contain opacity-60 pointer-events-none z-[50]"
                                             />
                                         </>
                                     )}
+                                    */}
 
                                     {/* Render camera snapshot markers */}
                                     {[...filteredSnapshots, ...currentLocalSnapshots].map((snapshot, idx) => (
