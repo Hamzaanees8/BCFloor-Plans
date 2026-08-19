@@ -1,25 +1,38 @@
-import { House, Pencil, Trash, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import {
+  House,
+  Pencil,
+  Trash,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Lock,
+  Unlock,
+} from "lucide-react";
+import ImageEditor from "./ImageEditor";
 import React, {
   forwardRef,
   useImperativeHandle,
   useRef,
   useState,
   useEffect,
+  useCallback,
 } from "react";
 import { Order } from "../../orders/page";
-import "../../../globals.css";
-import StyledInput from "./StyledInput";
-import ImageSourceModal from "./ImageSourceModal";
-import FileManagerGallery from "./fileManagerGallery";
-import ImageEditor from "./ImageEditor";
-import { useFileManagerContext } from "../FileManagerContext";
 import { featureSheetService } from "../file-manager";
 import {
-  FeatureSheetPayload,
   FeatureSheetResponse,
+  FeatureSheetPayload,
   TextStyle,
   StyledTextField,
+  DetailField,
 } from "../types/featureSheetTypes";
+import "../../../globals.css";
+import StyledInput from "./StyledInput";
+import FileManagerGallery from "./fileManagerGallery";
+import { useFileManagerContext } from "../FileManagerContext";
+import SafeZoneWrapper from "./SafeZoneWrapper";
+import DraggableBox from "./DraggableBox";
+import { DeletedDetailFieldItem } from "./DeletedFieldsPanel";
 
 export interface BcfpStandard7Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -28,17 +41,388 @@ export interface BcfpStandard7Ref {
 
 interface BcfpStandard7Props {
   orderData: Order | null;
+  showBleed?: boolean;
+  showGuide?: boolean;
 }
 
+// ─── BoxIndicator ─────────────────────────────────────────────────────────────
+// Renders a Canva-style 3.5px colored border indicator to indicate the bounds
+// of an image container on hover, click (active), or drag.
+interface BoxIndicatorProps {
+  isVisible: boolean;
+}
+
+const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div
+      data-html2canvas-ignore="true"
+      className="absolute inset-0 border-[3.5px] border-[#8B3DFF] pointer-events-none z-30 transition-all duration-100"
+      style={{
+        boxShadow:
+          "0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 8px rgba(139, 61, 255, 0.4)",
+      }}
+    />
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ─── DetailFieldRow ────────────────────────────────────────────────────────────
+// Renders a single editable title + editable value input row.
+interface DetailFieldRowProps {
+  field: {
+    id: string;
+    title: string;
+    value: string;
+    style?: TextStyle;
+    titleStyle?: TextStyle;
+  };
+  onTitleChange: (title: string) => void;
+  onTitleStyleChange?: (style: TextStyle) => void;
+  onValueChange: (value: string) => void;
+  onStyleChange: (style: TextStyle) => void;
+  onRemove?: () => void;
+}
+
+const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
+  field,
+  onTitleChange,
+  onTitleStyleChange,
+  onValueChange,
+  onStyleChange,
+}) => {
+  const sharedFontFamily =
+    field.style?.fontFamily || field.titleStyle?.fontFamily;
+
+  const effectiveTitleStyle: TextStyle = {
+    fontSize: field.titleStyle?.fontSize || "12px",
+    fontWeight: field.titleStyle?.fontWeight,
+    fontFamily: field.titleStyle?.fontFamily || sharedFontFamily,
+    color: field.titleStyle?.color,
+    textAlign: field.titleStyle?.textAlign,
+  };
+
+  const effectiveValueStyle: TextStyle = {
+    fontSize: field.style?.fontSize || "8px",
+    fontWeight: field.style?.fontWeight,
+    fontFamily: field.style?.fontFamily || sharedFontFamily,
+    color: field.style?.color,
+    textAlign: field.style?.textAlign,
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-1 relative">
+        <StyledInput
+          value={field.title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          onChangeStyle={onTitleStyleChange}
+          inputStyle={effectiveTitleStyle}
+          className="font-bold text-[#B3B394] text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 uppercase"
+          placeholder="ENTER TITLE HERE"
+        />
+      </div>
+      <StyledInput
+        value={field.value}
+        onChange={(e) => onValueChange(e.target.value)}
+        onChangeStyle={onStyleChange}
+        inputStyle={effectiveValueStyle}
+        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
+        placeholder="Enter details here"
+      />
+    </div>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_LEFT_DETAIL_FIELDS: DetailField[] = [
+  { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "" },
+  { id: "maintFees", title: "MAINT. FEES:", value: "" },
+  { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "" },
+  { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "" },
+];
+
+const DEFAULT_RIGHT_DETAIL_FIELDS: DetailField[] = [
+  { id: "siteInfluences", title: "SITE INFLUENCES:", value: "" },
+  { id: "amenities", title: "AMENITIES:", value: "" },
+  { id: "view", title: "VIEW:", value: "" },
+];
+
+const STANDARD_FIELD_IDS = new Set([
+  "addressCode",
+  "roadName",
+  "cityLine",
+  "contactName",
+  "contactBrokerage",
+  "contactPhone",
+  "contactEmail",
+  "contactDisclaimer",
+  "printedByText",
+  "priceAmount",
+  "propertyDescription",
+  "specBedroom",
+  "specBathroom",
+  "specSqft",
+  "specBuiltYear",
+]);
+
 const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
-  ({ orderData }, ref) => {
-    const [byLawRestrictions, setByLawRestrictions] = useState("");
-    const [maintFees, setMaintFees] = useState("");
-    const [maintFeesInclude, setMaintFeesInclude] = useState("");
-    const [featuresIncluded, setFeaturesIncluded] = useState("");
-    const [siteInfluences, setSiteInfluences] = useState("");
-    const [amenities, setAmenities] = useState("");
-    const [view, setView] = useState("");
+  ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
+    const {
+      formData,
+      updateFormData,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    } = useFileManagerContext();
+
+    // ── 1. Detail Fields ─────────────────────────────────────────────────────
+    const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
+      DEFAULT_LEFT_DETAIL_FIELDS,
+    );
+    const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
+      DEFAULT_RIGHT_DETAIL_FIELDS,
+    );
+
+    const updateDetailTitle = (id: string, title: string) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, title } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, title } : f)),
+      );
+    };
+
+    const updateDetailValue = (id: string, value: string) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, value } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, value } : f)),
+      );
+    };
+
+    const updateDetailStyle = (id: string, style: TextStyle) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedTitleStyle: TextStyle | undefined = style.fontFamily
+            ? f.titleStyle
+              ? { ...f.titleStyle, fontFamily: style.fontFamily }
+              : { fontSize: "12px", fontFamily: style.fontFamily }
+            : f.titleStyle;
+          return { ...f, style, titleStyle: updatedTitleStyle };
+        }),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => {
+          if (f.id !== id) return f;
+          const updatedTitleStyle: TextStyle | undefined = style.fontFamily
+            ? f.titleStyle
+              ? { ...f.titleStyle, fontFamily: style.fontFamily }
+              : { fontSize: "12px", fontFamily: style.fontFamily }
+            : f.titleStyle;
+          return { ...f, style, titleStyle: updatedTitleStyle };
+        }),
+      );
+    };
+
+    const updateDetailTitleStyle = (id: string, style: TextStyle) => {
+      setLeftDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+      );
+      setRightDetailFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, titleStyle: style } : f)),
+      );
+    };
+
+    // ── 2. Deletion & Restoration State ──────────────────────────────────────
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
+      formData.deletedDetailFields || [],
+    );
+    const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
+      string[]
+    >(formData.deletedStandardFieldIds || []);
+
+    const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
+
+    const removeStandardField = (
+      id: string,
+      title: string,
+      value: string,
+      section: string,
+      style?: TextStyle,
+    ) => {
+      setDeletedStandardFieldIds((prevStandard) => {
+        if (prevStandard.includes(id)) return prevStandard;
+        const newDeletedStandard = [...prevStandard, id];
+        const deletedItem: DeletedDetailFieldItem = {
+          id,
+          title,
+          value: value || "",
+          section,
+          style,
+          deletedAt: Date.now(),
+        };
+        setDeletedDetailFields((prevDetail) => {
+          const newDeletedDetail = [
+            ...prevDetail.filter((f) => f.id !== id),
+            deletedItem,
+          ];
+          updateFormData({
+            deletedStandardFieldIds: newDeletedStandard,
+            deletedDetailFields: newDeletedDetail,
+          });
+          return newDeletedDetail;
+        });
+        return newDeletedStandard;
+      });
+    };
+
+    const removeDetailField = (id: string) => {
+      const leftField = leftDetailFields.find((f) => f.id === id);
+      if (leftField) {
+        const newDeleted: DeletedDetailFieldItem[] = [
+          ...deletedDetailFields.filter((f) => f.id !== id),
+          {
+            ...leftField,
+            column: "left",
+            section: "Page 3 - Left Column",
+            deletedAt: Date.now(),
+          },
+        ];
+        setDeletedDetailFields(newDeleted);
+        updateFormData({ deletedDetailFields: newDeleted });
+        setLeftDetailFields((prev) => prev.filter((f) => f.id !== id));
+        return;
+      }
+      const rightField = rightDetailFields.find((f) => f.id === id);
+      if (rightField) {
+        const newDeleted: DeletedDetailFieldItem[] = [
+          ...deletedDetailFields.filter((f) => f.id !== id),
+          {
+            ...rightField,
+            column: "right",
+            section: "Page 3 - Right Column",
+            deletedAt: Date.now(),
+          },
+        ];
+        setDeletedDetailFields(newDeleted);
+        updateFormData({ deletedDetailFields: newDeleted });
+        setRightDetailFields((prev) => prev.filter((f) => f.id !== id));
+      }
+    };
+
+    const restoreDetailField = useCallback(
+      (id: string) => {
+        const isStandard =
+          STANDARD_FIELD_IDS.has(id) || deletedStandardFieldIds.includes(id);
+        if (isStandard) {
+          setDeletedStandardFieldIds((prevStandard) => {
+            const updatedStandard = prevStandard.filter((fId) => fId !== id);
+            setDeletedDetailFields((prevDetail) => {
+              const updatedDeleted = prevDetail.filter((f) => f.id !== id);
+              updateFormData({
+                deletedStandardFieldIds: updatedStandard,
+                deletedDetailFields: updatedDeleted,
+              });
+              return updatedDeleted;
+            });
+            return updatedStandard;
+          });
+          return;
+        }
+        setDeletedDetailFields((prevDetail) => {
+          const fieldToRestore = prevDetail.find((f) => f.id === id);
+          if (!fieldToRestore) return prevDetail;
+          const cleanField: DetailField = {
+            id: fieldToRestore.id,
+            title: fieldToRestore.title,
+            value: fieldToRestore.value,
+            style: fieldToRestore.style,
+            titleStyle: fieldToRestore.titleStyle,
+          };
+          if (fieldToRestore.column === "right") {
+            setRightDetailFields((prev) => [
+              ...prev.filter((f) => f.id !== id),
+              cleanField,
+            ]);
+          } else {
+            setLeftDetailFields((prev) => [
+              ...prev.filter((f) => f.id !== id),
+              cleanField,
+            ]);
+          }
+          const updated = prevDetail.filter((f) => f.id !== id);
+          updateFormData({ deletedDetailFields: updated });
+          return updated;
+        });
+      },
+      [deletedStandardFieldIds, updateFormData],
+    );
+
+    const restoreAllDetailFields = useCallback(() => {
+      setDeletedDetailFields((prevDetail) => {
+        const leftRestored: DetailField[] = [];
+        const rightRestored: DetailField[] = [];
+
+        prevDetail.forEach((field) => {
+          if (
+            STANDARD_FIELD_IDS.has(field.id) ||
+            deletedStandardFieldIds.includes(field.id)
+          ) {
+            return;
+          }
+          const cleanField: DetailField = {
+            id: field.id,
+            title: field.title,
+            value: field.value,
+            style: field.style,
+            titleStyle: field.titleStyle,
+          };
+          if (field.column === "right") {
+            rightRestored.push(cleanField);
+          } else {
+            leftRestored.push(cleanField);
+          }
+        });
+
+        if (leftRestored.length > 0) {
+          setLeftDetailFields((prev) => [...prev, ...leftRestored]);
+        }
+        if (rightRestored.length > 0) {
+          setRightDetailFields((prev) => [...prev, ...rightRestored]);
+        }
+        setDeletedStandardFieldIds([]);
+        updateFormData({
+          deletedStandardFieldIds: [],
+          deletedDetailFields: [],
+        });
+        return [];
+      });
+    }, [deletedStandardFieldIds, updateFormData]);
+
+    // Register restore handlers with context
+    useEffect(() => {
+      if (setRestoreDetailFieldHandler) {
+        setRestoreDetailFieldHandler(() => restoreDetailField);
+      }
+      if (setRestoreAllDetailFieldsHandler) {
+        setRestoreAllDetailFieldsHandler(() => restoreAllDetailFields);
+      }
+      return () => {
+        if (setRestoreDetailFieldHandler) setRestoreDetailFieldHandler(null);
+        if (setRestoreAllDetailFieldsHandler)
+          setRestoreAllDetailFieldsHandler(null);
+      };
+    }, [
+      restoreDetailField,
+      restoreAllDetailFields,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    ]);
+
+    // ── 3. Text Fields ────────────────────────────────────────────────────────
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
@@ -52,6 +436,33 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
+
+    // Editable labels
+    const [contactLabel, setContactLabel] = useState("CONTACT:");
+    const [phoneLabel, setPhoneLabel] = useState("Phone:");
+    const [emailLabel, setEmailLabel] = useState("Email:");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("Number");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("Road");
+    const [bedroomLabel, setBedroomLabel] = useState("BEDROOM |");
+    const [bathroomLabel, setBathroomLabel] = useState("BATHROOM |");
+    const [sqftLabel, setSqftLabel] = useState("SQ FT |");
+    const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
+    const [printedByText, setPrintedByText] = useState(
+      "DESIGNED AND PRINTED BY BC FLOOR PLANS",
+    );
+    const [disclaimerText, setDisclaimerText] = useState(
+      "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
+    );
+
+    // ── 4. Bleed & Guide ─────────────────────────────────────────────────────
+    const [showBleedState] = useState(true);
+    const [showGuideState] = useState(true);
+    const showBleed =
+      propShowBleed !== undefined ? propShowBleed : showBleedState;
+    const showGuide =
+      propShowGuide !== undefined ? propShowGuide : showGuideState;
+
+    // ── 5. Styles, Positions, Locks ──────────────────────────────────────────
     const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
       {},
     );
@@ -59,7 +470,31 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     const updateFieldStyle = (field: string, style: TextStyle) =>
       setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
-    // --- images States ---
+    const [fieldPositions, setFieldPositions] = useState<
+      Record<string, { x: number; y: number }>
+    >({});
+
+    const updateFieldPosition = (id: string, pos: { x: number; y: number }) => {
+      setFieldPositions((prev) => ({ ...prev, [id]: pos }));
+    };
+
+    const [lockedSections, setLockedSections] = useState<
+      Record<string, boolean>
+    >({
+      address: false,
+      contact: false,
+      price: false,
+      description: false,
+      specs: false,
+      details: false,
+      footer: false,
+    });
+
+    const toggleSectionLock = (section: string) => {
+      setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    // ── 6. Images States ─────────────────────────────────────────────────────
     const [images, setImages] = useState({
       image1: null as string | null,
       image2: null as string | null,
@@ -185,16 +620,37 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
       image17: { x: 0, y: 0 },
       image18: { x: 0, y: 0 },
     });
-    const [showImageSourceModal, setShowImageSourceModal] = useState(false);
+
+    // ── 7. Modals & Slot Active State ────────────────────────────────────────
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
     const [showGallery, setShowGallery] = useState(false);
+    const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+    const [activeSlot, setActiveSlot] = useState<string | null>(null);
 
-    const openImageSourceModal = (slot: string | null) => {
-      setCurrentImageSlot(slot);
+    const isSlotActive = (key: string) =>
+      hoveredSlot === key ||
+      activeSlot === key ||
+      Boolean(dragging[key as keyof typeof dragging]);
+
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-image-slot="true"]')) {
+          setActiveSlot(null);
+        }
+      };
+      window.addEventListener("mousedown", handleClickOutside);
+      return () => window.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
+      if (e?.altKey) return;
+      setCurrentImageSlot(imageSlot);
       setShowGallery(true);
     };
+
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
     const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -214,7 +670,6 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     const fileInputRef16 = useRef<HTMLInputElement | null>(null);
     const fileInputRef17 = useRef<HTMLInputElement | null>(null);
     const fileInputRef18 = useRef<HTMLInputElement | null>(null);
-    const { formData, updateFormData } = useFileManagerContext();
 
     // Auto-populate from orderData & initial sync from context
     useEffect(() => {
@@ -248,6 +703,18 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
             );
           if (agent.email) setEmail(agent.email);
           if (agent.company_name) setPropertyName(agent.company_name);
+
+          const agentLogo =
+            (agent as any)?.company_logo_url ||
+            (agent as any)?.logo_url ||
+            (agent as any)?.logo ||
+            null;
+          if (agentLogo) {
+            setImages((prev) => ({
+              ...prev,
+              image8: prev.image8 || agentLogo,
+            }));
+          }
         }
       }
 
@@ -255,17 +722,15 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
         const s = (val: any) =>
           typeof val === "string" ? val : val?.value || "";
 
-        if (formData.byLawRestrictions)
-          setByLawRestrictions(s(formData.byLawRestrictions));
-        if (formData.maintenanceFees) setMaintFees(s(formData.maintenanceFees));
-        if (formData.maintenanceFeesInclude)
-          setMaintFeesInclude(s(formData.maintenanceFeesInclude));
-        if (formData.featuresIncluded)
-          setFeaturesIncluded(s(formData.featuresIncluded));
-        if (formData.siteInfluences)
-          setSiteInfluences(s(formData.siteInfluences));
-        if (formData.amenities) setAmenities(s(formData.amenities));
-        if (formData.view) setView(s(formData.view));
+        if (formData.leftDetailFields)
+          setLeftDetailFields(formData.leftDetailFields);
+        if (formData.rightDetailFields)
+          setRightDetailFields(formData.rightDetailFields);
+        if (formData.deletedStandardFieldIds)
+          setDeletedStandardFieldIds(formData.deletedStandardFieldIds);
+        if (formData.deletedDetailFields)
+          setDeletedDetailFields(formData.deletedDetailFields);
+
         if (formData.bedroom) setBedroom(s(formData.bedroom));
         if (formData.bathroom) setBathroom(s(formData.bathroom));
         if (formData.sqft) setSqft(s(formData.sqft));
@@ -279,6 +744,22 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
         if (formData.addressCode) setAddressCode(s(formData.addressCode));
         if (formData.roadName) setRoadName(s(formData.roadName));
         if (formData.cityLine) setCityLine(s(formData.cityLine));
+
+        if (formData.contactLabel) setContactLabel(s(formData.contactLabel));
+        if (formData.phoneLabel) setPhoneLabel(s(formData.phoneLabel));
+        if (formData.emailLabel) setEmailLabel(s(formData.emailLabel));
+        if (formData.roadLabelBefore)
+          setRoadLabelBefore(s(formData.roadLabelBefore));
+        if (formData.roadLabelAfter)
+          setRoadLabelAfter(s(formData.roadLabelAfter));
+        if (formData.bedroomLabel) setBedroomLabel(s(formData.bedroomLabel));
+        if (formData.bathroomLabel) setBathroomLabel(s(formData.bathroomLabel));
+        if (formData.sqftLabel) setSqftLabel(s(formData.sqftLabel));
+        if (formData.builtYearLabel)
+          setBuiltYearLabel(s(formData.builtYearLabel));
+        if (formData.printedByText) setPrintedByText(s(formData.printedByText));
+        if (formData.disclaimerText)
+          setDisclaimerText(s(formData.disclaimerText));
 
         if (formData.images) {
           setImages((prev) => ({
@@ -298,6 +779,17 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
             ...(formData.imagePositions as typeof position),
           }));
         }
+        if (formData.imageRotations) {
+          setRotation((prev) => ({
+            ...prev,
+            ...(formData.imageRotations as typeof rotation),
+          }));
+        }
+        if (formData.fieldPositions) {
+          setFieldPositions(
+            formData.fieldPositions as Record<string, { x: number; y: number }>,
+          );
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -305,13 +797,10 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     // Update context when local state changes
     useEffect(() => {
       updateFormData({
-        byLawRestrictions,
-        maintenanceFees: maintFees,
-        maintenanceFeesInclude: maintFeesInclude,
-        featuresIncluded,
-        siteInfluences,
-        amenities,
-        view,
+        leftDetailFields,
+        rightDetailFields,
+        deletedStandardFieldIds,
+        deletedDetailFields,
         bedroom,
         bathroom,
         sqft,
@@ -325,19 +814,28 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
         addressCode,
         roadName,
         cityLine,
+        contactLabel,
+        phoneLabel,
+        emailLabel,
+        roadLabelBefore,
+        roadLabelAfter,
+        bedroomLabel,
+        bathroomLabel,
+        sqftLabel,
+        builtYearLabel,
+        printedByText,
+        disclaimerText,
         images,
         imageScales: scale,
         imagePositions: position,
+        imageRotations: rotation,
+        fieldPositions,
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-      byLawRestrictions,
-      maintFees,
-      maintFeesInclude,
-      featuresIncluded,
-      siteInfluences,
-      amenities,
-      view,
+      leftDetailFields,
+      rightDetailFields,
+      deletedStandardFieldIds,
+      deletedDetailFields,
       bedroom,
       bathroom,
       sqft,
@@ -351,9 +849,23 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
       addressCode,
       roadName,
       cityLine,
+      contactLabel,
+      phoneLabel,
+      emailLabel,
+      roadLabelBefore,
+      roadLabelAfter,
+      bedroomLabel,
+      bathroomLabel,
+      sqftLabel,
+      builtYearLabel,
+      printedByText,
+      disclaimerText,
       images,
       scale,
       position,
+      rotation,
+      fieldPositions,
+      updateFormData,
     ]);
 
     // --- Handlers ---
@@ -365,6 +877,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
         setImages((prev) => ({ ...prev, [key]: url }));
+        setScale((prev) => ({ ...prev, [key]: 1 }));
       }
     };
 
@@ -375,6 +888,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+      setRotation((prev) => ({ ...prev, [key]: 0 }));
       if (ref.current) ref.current.value = "";
     };
 
@@ -391,6 +905,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
 
     const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
       if (e.altKey) return;
+      setActiveSlot(key);
       setDragging((prev) => ({ ...prev, [key]: true }));
       lastPosition.current[key] = { x: e.clientX, y: e.clientY };
     };
@@ -416,134 +931,13 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
       setDragging((prev) => ({ ...prev, [key]: false }));
     };
 
-    const handleImageSourceSelect = (source: "local" | "gallery") => {
-      setShowImageSourceModal(false);
-
-      if (source === "local") {
-        switch (currentImageSlot) {
-          case "image1":
-            fileInputRef1.current?.click();
-            break;
-          case "image2":
-            fileInputRef2.current?.click();
-            break;
-          case "image3":
-            fileInputRef3.current?.click();
-            break;
-          case "image4":
-            fileInputRef4.current?.click();
-            break;
-          case "image5":
-            fileInputRef5.current?.click();
-            break;
-          case "image6":
-            fileInputRef6.current?.click();
-            break;
-          case "image7":
-            fileInputRef7.current?.click();
-            break;
-          case "image8":
-            fileInputRef8.current?.click();
-            break;
-          case "image9":
-            fileInputRef9.current?.click();
-            break;
-          case "image10":
-            fileInputRef10.current?.click();
-            break;
-          case "image11":
-            fileInputRef11.current?.click();
-            break;
-          case "image12":
-            fileInputRef12.current?.click();
-            break;
-          case "image13":
-            fileInputRef13.current?.click();
-            break;
-          case "image14":
-            fileInputRef14.current?.click();
-            break;
-          case "image15":
-            fileInputRef15.current?.click();
-            break;
-          case "image16":
-            fileInputRef16.current?.click();
-            break;
-          case "image17":
-            fileInputRef17.current?.click();
-            break;
-          case "image18":
-            fileInputRef18.current?.click();
-            break;
-          default:
-            break;
-        }
-      } else if (source === "gallery") {
-        setShowGallery(true);
-      }
-    };
-
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-
-      switch (currentImageSlot) {
-        case "image1":
-          setImages((prev) => ({ ...prev, image1: imageUrl }));
-          break;
-        case "image2":
-          setImages((prev) => ({ ...prev, image2: imageUrl }));
-          break;
-        case "image3":
-          setImages((prev) => ({ ...prev, image3: imageUrl }));
-          break;
-        case "image4":
-          setImages((prev) => ({ ...prev, image4: imageUrl }));
-          break;
-        case "image5":
-          setImages((prev) => ({ ...prev, image5: imageUrl }));
-          break;
-        case "image6":
-          setImages((prev) => ({ ...prev, image6: imageUrl }));
-          break;
-        case "image7":
-          setImages((prev) => ({ ...prev, image7: imageUrl }));
-          break;
-        case "image8":
-          setImages((prev) => ({ ...prev, image8: imageUrl }));
-          break;
-        case "image9":
-          setImages((prev) => ({ ...prev, image9: imageUrl }));
-          break;
-        case "image10":
-          setImages((prev) => ({ ...prev, image10: imageUrl }));
-          break;
-        case "image11":
-          setImages((prev) => ({ ...prev, image11: imageUrl }));
-          break;
-        case "image12":
-          setImages((prev) => ({ ...prev, image12: imageUrl }));
-          break;
-        case "image13":
-          setImages((prev) => ({ ...prev, image13: imageUrl }));
-          break;
-        case "image14":
-          setImages((prev) => ({ ...prev, image14: imageUrl }));
-          break;
-        case "image15":
-          setImages((prev) => ({ ...prev, image15: imageUrl }));
-          break;
-        case "image16":
-          setImages((prev) => ({ ...prev, image16: imageUrl }));
-          break;
-        case "image17":
-          setImages((prev) => ({ ...prev, image17: imageUrl }));
-          break;
-        case "image18":
-          setImages((prev) => ({ ...prev, image18: imageUrl }));
-          break;
-        default:
-          break;
-      }
+      setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
+      setScale((prev) => ({
+        ...prev,
+        [currentImageSlot as keyof typeof scale]: 1,
+      }));
       setShowGallery(false);
       setCurrentImageSlot(null);
     };
@@ -558,65 +952,326 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
           primaryColor: "#8FABBA",
           offeredAtPrice: {
             value: amount,
-            style: fieldStyles.amount || ({} as TextStyle),
+            style: {
+              ...fieldStyles.amount,
+              fontSize: fieldStyles.amount?.fontSize || "30px",
+            },
           },
           realtorName: {
             value: fullName,
-            style: fieldStyles.fullName || ({} as TextStyle),
+            style: {
+              ...fieldStyles.fullName,
+              fontSize: fieldStyles.fullName?.fontSize || "14px",
+            },
           },
           emailLink: {
             value: email,
-            style: fieldStyles.email || ({} as TextStyle),
+            style: {
+              ...fieldStyles.email,
+              fontSize: fieldStyles.email?.fontSize || "14px",
+            },
+          },
+          companyName: {
+            value: propertyName,
+            style: {
+              ...fieldStyles.propertyName,
+              fontSize: fieldStyles.propertyName?.fontSize || "14px",
+            },
           },
           propertyNotesTitle: {
             value: roadName,
-            style: fieldStyles.roadName || ({} as TextStyle),
+            style: {
+              ...fieldStyles.roadName,
+              fontSize: fieldStyles.roadName?.fontSize || "28px",
+            },
           },
           propertyNotesDescription: {
             value: description,
-            style: fieldStyles.description || ({} as TextStyle),
-          },
-          expandedDetail1Title: "By-law Restrictions",
-          expandedDetail1Description: {
-            value: byLawRestrictions,
-            style: fieldStyles.byLawRestrictions || ({} as TextStyle),
-          },
-          expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: {
-            value: maintFees,
-            style: fieldStyles.maintFees || ({} as TextStyle),
-          },
-          expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: {
-            value: maintFeesInclude,
-            style: fieldStyles.maintFeesInclude || ({} as TextStyle),
-          },
-          expandedDetail4Title: "Features Included",
-          expandedDetail4Description: {
-            value: featuresIncluded,
-            style: fieldStyles.featuresIncluded || ({} as TextStyle),
-          },
-          keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences
-            ? siteInfluences.split("\n").filter(Boolean)
-            : [],
-          otherDetails: {
-            amenities: {
-              value: amenities,
-              style: fieldStyles.amenities || ({} as TextStyle),
+            style: {
+              ...fieldStyles.description,
+              fontSize: fieldStyles.description?.fontSize || "10px",
             },
-            view: { value: view, style: fieldStyles.view || ({} as TextStyle) },
+          },
+          expandedDetail1Title: leftDetailFields.find(
+            (f) => f.id === "byLawRestrictions",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "byLawRestrictions",
+                )!.title,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                    .titleStyle,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                      .titleStyle?.fontSize || "12px",
+                },
+              }
+            : undefined,
+          expandedDetail1Description: leftDetailFields.find(
+            (f) => f.id === "byLawRestrictions",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "byLawRestrictions",
+                )!.value,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                    .style,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "byLawRestrictions")!
+                      .style?.fontSize || "8px",
+                },
+              }
+            : undefined,
+          expandedDetail2Title: leftDetailFields.find(
+            (f) => f.id === "maintFees",
+          )
+            ? {
+                value: leftDetailFields.find((f) => f.id === "maintFees")!
+                  .title,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "maintFees")!
+                    .titleStyle,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "maintFees")!
+                      .titleStyle?.fontSize || "12px",
+                },
+              }
+            : undefined,
+          expandedDetail2Description: leftDetailFields.find(
+            (f) => f.id === "maintFees",
+          )
+            ? {
+                value: leftDetailFields.find((f) => f.id === "maintFees")!
+                  .value,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "maintFees")!.style,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "maintFees")!.style
+                      ?.fontSize || "8px",
+                },
+              }
+            : undefined,
+          expandedDetail3Title: leftDetailFields.find(
+            (f) => f.id === "maintFeesInclude",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "maintFeesInclude",
+                )!.title,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                    .titleStyle,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                      .titleStyle?.fontSize || "12px",
+                },
+              }
+            : undefined,
+          expandedDetail3Description: leftDetailFields.find(
+            (f) => f.id === "maintFeesInclude",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "maintFeesInclude",
+                )!.value,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                    .style,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "maintFeesInclude")!
+                      .style?.fontSize || "8px",
+                },
+              }
+            : undefined,
+          expandedDetail4Title: leftDetailFields.find(
+            (f) => f.id === "featuresIncluded",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "featuresIncluded",
+                )!.title,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                    .titleStyle,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                      .titleStyle?.fontSize || "12px",
+                },
+              }
+            : undefined,
+          expandedDetail4Description: leftDetailFields.find(
+            (f) => f.id === "featuresIncluded",
+          )
+            ? {
+                value: leftDetailFields.find(
+                  (f) => f.id === "featuresIncluded",
+                )!.value,
+                style: {
+                  ...leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                    .style,
+                  fontSize:
+                    leftDetailFields.find((f) => f.id === "featuresIncluded")!
+                      .style?.fontSize || "8px",
+                },
+              }
+            : undefined,
+          keyHighlightLabel:
+            rightDetailFields.find((f) => f.id === "siteInfluences")?.title ||
+            "SITE INFLUENCES:",
+          keyHighlights: (() => {
+            const sf = rightDetailFields.find((f) => f.id === "siteInfluences");
+            return sf && sf.value ? sf.value.split("\n").filter(Boolean) : [];
+          })(),
+          otherDetails: {
+            ...[...leftDetailFields, ...rightDetailFields]
+              .filter(
+                (f) =>
+                  ![
+                    "byLawRestrictions",
+                    "maintFees",
+                    "maintFeesInclude",
+                    "featuresIncluded",
+                    "siteInfluences",
+                  ].includes(f.id),
+              )
+              .reduce(
+                (acc, f) => ({
+                  ...acc,
+                  [f.id]: {
+                    title: f.title,
+                    value: f.value,
+                    style: f.style || ({} as TextStyle),
+                  },
+                }),
+                {} as Record<string, any>,
+              ),
             number: {
               value: number,
-              style: fieldStyles.number || ({} as TextStyle),
+              style: {
+                ...fieldStyles.number,
+                fontSize: fieldStyles.number?.fontSize || "14px",
+              },
             },
             addressCode: {
               value: addressCode,
-              style: fieldStyles.addressCode || ({} as TextStyle),
+              style: {
+                ...fieldStyles.addressCode,
+                fontSize: fieldStyles.addressCode?.fontSize || "28px",
+              },
             },
             cityLine: {
               value: cityLine,
-              style: fieldStyles.cityLine || ({} as TextStyle),
+              style: {
+                ...fieldStyles.cityLine,
+                fontSize: fieldStyles.cityLine?.fontSize || "10px",
+              },
+            },
+            contactLabel: {
+              value: contactLabel,
+              style: {
+                ...fieldStyles.contactLabel,
+                fontSize: fieldStyles.contactLabel?.fontSize || "14px",
+              },
+            },
+            phoneLabel: {
+              value: phoneLabel,
+              style: {
+                ...fieldStyles.phoneLabel,
+                fontSize: fieldStyles.phoneLabel?.fontSize || "14px",
+              },
+            },
+            emailLabel: {
+              value: emailLabel,
+              style: {
+                ...fieldStyles.emailLabel,
+                fontSize: fieldStyles.emailLabel?.fontSize || "14px",
+              },
+            },
+            roadLabelBefore: {
+              value: roadLabelBefore,
+              style: {
+                ...fieldStyles.roadLabelBefore,
+                fontSize: fieldStyles.roadLabelBefore?.fontSize || "28px",
+              },
+            },
+            roadLabelAfter: {
+              value: roadLabelAfter,
+              style: {
+                ...fieldStyles.roadLabelAfter,
+                fontSize: fieldStyles.roadLabelAfter?.fontSize || "28px",
+              },
+            },
+            bedroom: {
+              value: bedroom,
+              style: {
+                ...fieldStyles.bedroom,
+                fontSize: fieldStyles.bedroom?.fontSize || "14px",
+              },
+            },
+            bathroom: {
+              value: bathroom,
+              style: {
+                ...fieldStyles.bathroom,
+                fontSize: fieldStyles.bathroom?.fontSize || "14px",
+              },
+            },
+            sqft: {
+              value: sqft,
+              style: {
+                ...fieldStyles.sqft,
+                fontSize: fieldStyles.sqft?.fontSize || "14px",
+              },
+            },
+            builtYear: {
+              value: builtYear,
+              style: {
+                ...fieldStyles.builtYear,
+                fontSize: fieldStyles.builtYear?.fontSize || "14px",
+              },
+            },
+            bedroomLabel: {
+              value: bedroomLabel,
+              style: {
+                ...fieldStyles.bedroomLabel,
+                fontSize: fieldStyles.bedroomLabel?.fontSize || "14px",
+              },
+            },
+            bathroomLabel: {
+              value: bathroomLabel,
+              style: {
+                ...fieldStyles.bathroomLabel,
+                fontSize: fieldStyles.bathroomLabel?.fontSize || "14px",
+              },
+            },
+            sqftLabel: {
+              value: sqftLabel,
+              style: {
+                ...fieldStyles.sqftLabel,
+                fontSize: fieldStyles.sqftLabel?.fontSize || "14px",
+              },
+            },
+            builtYearLabel: {
+              value: builtYearLabel,
+              style: {
+                ...fieldStyles.builtYearLabel,
+                fontSize: fieldStyles.builtYearLabel?.fontSize || "14px",
+              },
+            },
+            printedByText: {
+              value: printedByText,
+              style: {
+                ...fieldStyles.printedByText,
+                fontSize: fieldStyles.printedByText?.fontSize || "15px",
+              },
+            },
+            disclaimerText: {
+              value: disclaimerText,
+              style: {
+                ...fieldStyles.disclaimerText,
+                fontSize: fieldStyles.disclaimerText?.fontSize || "10px",
+              },
             },
           },
           images,
@@ -639,33 +1294,79 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
         if (state.propertyNotesDescription)
           setDescription(s(state.propertyNotesDescription));
 
-        if (state.expandedDetail1Description)
-          setByLawRestrictions(s(state.expandedDetail1Description));
-        if (state.expandedDetail2Description)
-          setMaintFees(s(state.expandedDetail2Description));
-        if (state.expandedDetail3Description)
-          setMaintFeesInclude(s(state.expandedDetail3Description));
-        if (state.expandedDetail4Description)
-          setFeaturesIncluded(s(state.expandedDetail4Description));
+        // Restore detail fields
+        const leftFields: DetailField[] = [...DEFAULT_LEFT_DETAIL_FIELDS];
+        const rightFields: DetailField[] = [...DEFAULT_RIGHT_DETAIL_FIELDS];
+
+        if (state.expandedDetail1Description) {
+          const idx = leftFields.findIndex((f) => f.id === "byLawRestrictions");
+          if (idx !== -1)
+            leftFields[idx].value = s(state.expandedDetail1Description);
+        }
+        if (state.expandedDetail2Description) {
+          const idx = leftFields.findIndex((f) => f.id === "maintFees");
+          if (idx !== -1)
+            leftFields[idx].value = s(state.expandedDetail2Description);
+        }
+        if (state.expandedDetail3Description) {
+          const idx = leftFields.findIndex((f) => f.id === "maintFeesInclude");
+          if (idx !== -1)
+            leftFields[idx].value = s(state.expandedDetail3Description);
+        }
+        if (state.expandedDetail4Description) {
+          const idx = leftFields.findIndex((f) => f.id === "featuresIncluded");
+          if (idx !== -1)
+            leftFields[idx].value = s(state.expandedDetail4Description);
+        }
 
         if (state.keyHighlights) {
-          setSiteInfluences(
-            Array.isArray(state.keyHighlights)
+          const idx = rightFields.findIndex((f) => f.id === "siteInfluences");
+          if (idx !== -1) {
+            rightFields[idx].value = Array.isArray(state.keyHighlights)
               ? state.keyHighlights.map((h) => s(h)).join("\n")
-              : s(state.keyHighlights),
-          );
+              : s(state.keyHighlights);
+          }
         }
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, any>;
-          if (details.amenities) setAmenities(s(details.amenities));
-          if (details.view) setView(s(details.view));
+          if (details.amenities) {
+            const idx = rightFields.findIndex((f) => f.id === "amenities");
+            if (idx !== -1) rightFields[idx].value = s(details.amenities);
+          }
+          if (details.view) {
+            const idx = rightFields.findIndex((f) => f.id === "view");
+            if (idx !== -1) rightFields[idx].value = s(details.view);
+          }
           if (details.number) setNumber(s(details.number));
           if (details.addressCode) setAddressCode(s(details.addressCode));
           if (details.cityLine) setCityLine(s(details.cityLine));
+
+          if (details.contactLabel) setContactLabel(s(details.contactLabel));
+          if (details.phoneLabel) setPhoneLabel(s(details.phoneLabel));
+          if (details.emailLabel) setEmailLabel(s(details.emailLabel));
+          if (details.roadLabelBefore)
+            setRoadLabelBefore(s(details.roadLabelBefore));
+          if (details.roadLabelAfter)
+            setRoadLabelAfter(s(details.roadLabelAfter));
+          if (details.bedroom) setBedroom(s(details.bedroom));
+          if (details.bathroom) setBathroom(s(details.bathroom));
+          if (details.sqft) setSqft(s(details.sqft));
+          if (details.builtYear) setBuiltYear(s(details.builtYear));
+          if (details.bedroomLabel) setBedroomLabel(s(details.bedroomLabel));
+          if (details.bathroomLabel) setBathroomLabel(s(details.bathroomLabel));
+          if (details.sqftLabel) setSqftLabel(s(details.sqftLabel));
+          if (details.builtYearLabel)
+            setBuiltYearLabel(s(details.builtYearLabel));
+          if (details.printedByText) setPrintedByText(s(details.printedByText));
+          if (details.disclaimerText)
+            setDisclaimerText(s(details.disclaimerText));
         }
 
-        // Restore saved styles from server payload
+        setLeftDetailFields(leftFields);
+        setRightDetailFields(rightFields);
+
+        // Restore saved styles
         const styles: Record<string, TextStyle> = {};
         const c = payload.content;
         const st = (f: any) => (f as StyledTextField)?.style;
@@ -678,22 +1379,31 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
           styles.roadName = st(c.propertyNotesTitle);
         if (st(c.propertyNotesDescription))
           styles.description = st(c.propertyNotesDescription);
-        if (st(c.expandedDetail1Description))
-          styles.byLawRestrictions = st(c.expandedDetail1Description);
-        if (st(c.expandedDetail2Description))
-          styles.maintFees = st(c.expandedDetail2Description);
-        if (st(c.expandedDetail3Description))
-          styles.maintFeesInclude = st(c.expandedDetail3Description);
-        if (st(c.expandedDetail4Description))
-          styles.featuresIncluded = st(c.expandedDetail4Description);
 
         const od = c.otherDetails as Record<string, any>;
         if (od) {
-          if (st(od.amenities)) styles.amenities = st(od.amenities);
-          if (st(od.view)) styles.view = st(od.view);
           if (st(od.number)) styles.number = st(od.number);
           if (st(od.addressCode)) styles.addressCode = st(od.addressCode);
           if (st(od.cityLine)) styles.cityLine = st(od.cityLine);
+          if (st(od.contactLabel)) styles.contactLabel = st(od.contactLabel);
+          if (st(od.phoneLabel)) styles.phoneLabel = st(od.phoneLabel);
+          if (st(od.emailLabel)) styles.emailLabel = st(od.emailLabel);
+          if (st(od.roadLabelBefore))
+            styles.roadLabelBefore = st(od.roadLabelBefore);
+          if (st(od.roadLabelAfter))
+            styles.roadLabelAfter = st(od.roadLabelAfter);
+          if (st(od.bedroom)) styles.bedroom = st(od.bedroom);
+          if (st(od.bathroom)) styles.bathroom = st(od.bathroom);
+          if (st(od.sqft)) styles.sqft = st(od.sqft);
+          if (st(od.builtYear)) styles.builtYear = st(od.builtYear);
+          if (st(od.bedroomLabel)) styles.bedroomLabel = st(od.bedroomLabel);
+          if (st(od.bathroomLabel)) styles.bathroomLabel = st(od.bathroomLabel);
+          if (st(od.sqftLabel)) styles.sqftLabel = st(od.sqftLabel);
+          if (st(od.builtYearLabel))
+            styles.builtYearLabel = st(od.builtYearLabel);
+          if (st(od.printedByText)) styles.printedByText = st(od.printedByText);
+          if (st(od.disclaimerText))
+            styles.disclaimerText = st(od.disclaimerText);
         }
 
         setFieldStyles(styles);
@@ -718,13 +1428,6 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
 
     return (
       <>
-        {showImageSourceModal && (
-          <ImageSourceModal
-            onClose={() => setShowImageSourceModal(false)}
-            onSelectSource={handleImageSourceSelect}
-          />
-        )}
-
         {showGallery && (
           <FileManagerGallery
             isOpen={showGallery}
@@ -735,6 +1438,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
             onImageSelect={handleGalleryImageSelect}
           />
         )}
+
         <div className="w-full flex flex-col items-center justify-center font-alexandria py-8 gap-0">
           {/* TOP SHEET BANNERS (PAGE 4 | PAGE 1) */}
           <div
@@ -750,907 +1454,25 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
             </div>
           </div>
 
-          {/* pdf-page 1 */}
+          {/* pdf-page 1 (SPREAD 1: PAGE 4 | PAGE 1) */}
           <div
-            className="flex items-stretch pdf-page bg-[#8FABBA] p-[0.25in] shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden"
+            className="flex items-stretch pdf-page bg-[#8FABBA] shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden"
             style={{
-              width: "17in",
-              height: "11in",
+              width: showBleed ? "17.25in" : "17in",
+              height: showBleed ? "11.25in" : "11in",
               zoom: 0.55,
               margin: "0 auto",
               marginBottom: "40px",
             }}
           >
-            <div className="w-1/2 flex flex-col gap-4 relative z-[1] pr-10">
-              {/* image1 */}
-              <div className="w-full h-[600px]  bg-white border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseMove={(e) => handleMouseMove("image1", e)}
-                  onMouseUp={() => handleMouseUp("image1")}
-                  onMouseLeave={() => handleMouseLeave("image1")}
-                >
-                  {images.image1 ? (
-                    <>
-                      <div
-                        className="w-full h-full cursor-grab active:cursor-grabbing"
-                        onMouseDown={(e) => handleMouseDown("image1", e)}
-                      >
-                        <ImageEditor
-                          src={images.image1}
-                          scale={scale.image1}
-                          position={position.image1}
-                          rotation={rotation.image1}
-                        />
-                      </div>
-
-                      {/* Zoom Controls */}
-                      <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image1", "in")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom In"
-                        >
-                          <ZoomIn className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image1", "out")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom Out"
-                        >
-                          <ZoomOut className="w-4 h-4 text-gray-700" />
-                        </button>
-                      </div>
-
-                      {/* Rotate */}
-                      <button
-                        type="button"
-                        onClick={() => handleRotate("image1")}
-                        className="absolute top-5 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                        title="Rotate image"
-                      >
-                        <RotateCw className="w-4 h-4 text-gray-700" />
-                      </button>
-
-                      {/* Edit Button */}
-                      <button
-                        type="button"
-                        onClick={() => openImageSourceModal("image1")}
-                        className="absolute top-5 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Edit image"
-                      >
-                        <Pencil className="w-4 h-4 text-gray-700" />
-                      </button>
-
-                      {/* Delete Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDelete("image1", fileInputRef1)}
-                        className="absolute top-5 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Delete image"
-                      >
-                        <Trash className="w-4 h-4 text-red-500" />
-                      </button>
-                    </>
-                  ) : (
-                    <div
-                      onClick={() => openImageSourceModal("image1")}
-                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                    >
-                      Select Image
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef1}
-                    onChange={(e) => handleImageChange("image1", e)}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="group z-10">
-                  {/* image2 */}
-                  <div className="w-full h-[110px] relative bg-white shadow-md overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image2", e)}
-                      onMouseUp={() => handleMouseUp("image2")}
-                      onMouseLeave={() => handleMouseLeave("image2")}
-                    >
-                      {images.image2 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image2", e)}
-                          >
-                            <ImageEditor
-                              src={images.image2}
-                              scale={scale.image2}
-                              position={position.image2}
-                              rotation={rotation.image2}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image2", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image2", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image2")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image2")}
-                            className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image2", fileInputRef2)
-                            }
-                            className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image2")}
-                          className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef2}
-                        onChange={(e) => handleImageChange("image2", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="">
-                  <span className="text-[20px] text-white">CONTACT:</span>
-                  <StyledInput
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                    inputStyle={fieldStyles.fullName}
-                    className=" text-[20px] text-black h-[22px] bg-transparent text-left w-[270px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                    placeholder="FIRSTNAME LASTNAME"
-                  />
-                  <StyledInput
-                    value={propertyName}
-                    onChange={(e) => setPropertyName(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                    inputStyle={fieldStyles.propertyName}
-                    className=" text-[20px] font-thin h-[22px] font- bg-transparent text-left w-[270px] text-black focus:outline-none border-none placeholder-black placeholder:font-[200]"
-                    placeholder="MACDONALD  Realty"
-                  />
-                  <div className="flex gap-2 font-normal text-[20px] text-black">
-                    Phone:
-                    <StyledInput
-                      value={number}
-                      onChange={(e) => setNumber(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("number", s)}
-                      inputStyle={fieldStyles.number}
-                      className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[500]"
-                      placeholder="604.000.0000"
-                    />
-                  </div>
-                  <div className="flex gap-2 font-normal text-[20px] text-black">
-                    Email:
-                    <StyledInput
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("email", s)}
-                      inputStyle={fieldStyles.email}
-                      className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[200]"
-                      placeholder="Enter email here"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="text-start mt-3  font-thin flex gap-2 text-white ">
-                <span className="flex flex-col mt-1">
-                  <House className="w-4 h-4" />
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 8 8"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                      fill="white"
-                    />
-                  </svg>
-                </span>
-                <span className="text-[10px] font-bold">
-                  All information deemed reliable but not guaranteed and should
-                  be independently verified. All properties are subject to prior
-                  sale, change or withdrawal. Neither listing broker(s) nor BC
-                  Floor Plans shall be responsible for any typographical errors,
-                  misinformation, misprints and shall be held totally harmless.
-                </span>
-              </div>
-              <div className="text-[15px] font-bold text-white">
-                DESIGNED AND PRINTED BY BC FLOOR PLANS
-              </div>
-            </div>
-            <div className="w-1/2 flex flex-col relative z-[1] gap-4">
-              <div className="">
-                {/* image3 */}
-                <div className="w-full h-[400px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                  <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseMove={(e) => handleMouseMove("image3", e)}
-                    onMouseUp={() => handleMouseUp("image3")}
-                    onMouseLeave={() => handleMouseLeave("image3")}
-                  >
-                    {images.image3 ? (
-                      <>
-                        <div
-                          className="w-full h-full cursor-grab active:cursor-grabbing"
-                          onMouseDown={(e) => handleMouseDown("image3", e)}
-                        >
-                          <ImageEditor
-                            src={images.image3}
-                            scale={scale.image3}
-                            position={position.image3}
-                            rotation={rotation.image3}
-                          />
-                        </div>
-
-                        {/* Zoom Controls */}
-                        <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image3", "in")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom In"
-                          >
-                            <ZoomIn className="w-4 h-4 text-gray-700" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image3", "out")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom Out"
-                          >
-                            <ZoomOut className="w-4 h-4 text-gray-700" />
-                          </button>
-                        </div>
-
-                        {/* Rotate */}
-                        <button
-                          type="button"
-                          onClick={() => handleRotate("image3")}
-                          className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                          title="Rotate image"
-                        >
-                          <RotateCw className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image3")}
-                          className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image3", fileInputRef3)}
-                          className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    ) : (
-                      <div
-                        onClick={() => openImageSourceModal("image3")}
-                        className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                      >
-                        Select Image
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef3}
-                      onChange={(e) => handleImageChange("image3", e)}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex w-full flex-col justify-center relative z-[19] items-center">
-                <div className="text-[28px] font-light leading-none mt-0 text-white flex items-center">
-                  <span className="text-[16px]">#</span>
-                  <span className="inline">
-                    <StyledInput
-                      value={addressCode}
-                      onChange={(e) => setAddressCode(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                      inputStyle={fieldStyles.addressCode}
-                      className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="0000-0000"
-                    />
-                  </span>
-                  <span className="text-white flex">
-                    Number
-                    <StyledInput
-                      value={roadName}
-                      onChange={(e) => setRoadName(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                      inputStyle={fieldStyles.roadName}
-                      className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="0"
-                    />
-                    Road
-                  </span>
-                </div>
-                <div className="text-white text-[10px]">
-                  <StyledInput
-                    value={cityLine}
-                    onChange={(e) => setCityLine(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                    inputStyle={fieldStyles.cityLine}
-                    className="text-white text-[10px] h-[20px] bg-transparent text-center w-[250px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                    placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col relative justify-center items-center">
-                <div className="grid grid-cols-2 gap-3 w-full">
-                  {/* image4 */}
-                  <div className="w-full h-[200px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image4", e)}
-                      onMouseUp={() => handleMouseUp("image4")}
-                      onMouseLeave={() => handleMouseLeave("image4")}
-                    >
-                      {images.image4 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image4", e)}
-                          >
-                            <ImageEditor
-                              src={images.image4}
-                              scale={scale.image4}
-                              position={position.image4}
-                              rotation={rotation.image4}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image4", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image4", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image4")}
-                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image4")}
-                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image4", fileInputRef4)
-                            }
-                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image4")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef4}
-                        onChange={(e) => handleImageChange("image4", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image5 */}
-                  <div className="w-full h-[200px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image5", e)}
-                      onMouseUp={() => handleMouseUp("image5")}
-                      onMouseLeave={() => handleMouseLeave("image5")}
-                    >
-                      {images.image5 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image5", e)}
-                          >
-                            <ImageEditor
-                              src={images.image5}
-                              scale={scale.image5}
-                              position={position.image5}
-                              rotation={rotation.image5}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image5", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image5", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image5")}
-                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image5")}
-                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image5", fileInputRef5)
-                            }
-                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image5")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef5}
-                        onChange={(e) => handleImageChange("image5", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image6 */}
-                  <div className="w-full h-[200px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image6", e)}
-                      onMouseUp={() => handleMouseUp("image6")}
-                      onMouseLeave={() => handleMouseLeave("image6")}
-                    >
-                      {images.image6 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image6", e)}
-                          >
-                            <ImageEditor
-                              src={images.image6}
-                              scale={scale.image6}
-                              position={position.image6}
-                              rotation={rotation.image6}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image6", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image6", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image6")}
-                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image6")}
-                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image6", fileInputRef6)
-                            }
-                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image6")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef6}
-                        onChange={(e) => handleImageChange("image6", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image7 */}
-                  <div className="w-full h-[200px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image7", e)}
-                      onMouseUp={() => handleMouseUp("image7")}
-                      onMouseLeave={() => handleMouseLeave("image7")}
-                    >
-                      {images.image7 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image7", e)}
-                          >
-                            <ImageEditor
-                              src={images.image7}
-                              scale={scale.image7}
-                              position={position.image7}
-                              rotation={rotation.image7}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image7", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image7", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image7")}
-                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image7")}
-                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image7", fileInputRef7)
-                            }
-                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image7")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef7}
-                        onChange={(e) => handleImageChange("image7", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* image8 */}
-                <div className="absolute group z-10">
-                  <div className="w-[200px] h-[110px] relative bg-white shadow-md overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image8", e)}
-                      onMouseUp={() => handleMouseUp("image8")}
-                      onMouseLeave={() => handleMouseLeave("image8")}
-                    >
-                      {images.image8 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image8", e)}
-                          >
-                            <ImageEditor
-                              src={images.image8}
-                              scale={scale.image8}
-                              position={position.image8}
-                              rotation={rotation.image8}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image8", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image8", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image8")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image8")}
-                            className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image8", fileInputRef8)
-                            }
-                            className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image8")}
-                          className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef8}
-                        onChange={(e) => handleImageChange("image8", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* CONTAINER 1: FULL-BLEED DECORATIVE SVG (SHIFTED TO BLEED CONTAINER) */}
             <svg
               width="100%"
               height="100%"
               viewBox="0 0 1251 828"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className="absolute top-0 left-0 right-0 bottom-0"
+              className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
             >
               <path
                 opacity="0.199997"
@@ -2256,1095 +2078,1756 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                 />
               </g>
             </svg>
-          </div>
-        </div>
 
-        {/* BOTTOM SHEET BANNERS (PAGE 2 | PAGE 3) */}
-        <div
-          data-html2canvas-ignore="true"
-          className="w-[17in] flex items-center justify-between gap-6 select-none"
-          style={{ zoom: 0.55, margin: "48px auto 32px auto" }}
-        >
-          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
-            PAGE 2
-          </div>
-          <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
-            PAGE 3
-          </div>
-        </div>
+            {/* CONTAINER 2: SafeZoneWrapper */}
+            <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
+              {/* CONTAINER 3: Inner Content Container */}
+              <div className="relative w-full h-full z-10 flex gap-[60px]">
+                {/* PAGE 4 (Left Column) */}
+                <div className="w-1/2 flex flex-col gap-4 relative z-[1]">
+                  {/* image1 */}
 
-        {/* pdf-page 2 */}
-        <div
-          className="flex items-stretch pdf-page bg-[#8FABBA] shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden"
-          style={{
-            width: "17in",
-            height: "11in",
-            zoom: 0.55,
-            margin: "0 auto",
-            marginBottom: "40px",
-          }}
-        >
-          <div className="flex gap-4 bg-[#8FABBA] relative w-full h-full p-[.25in]">
-            <div className="w-1/2  flex flex-col gap-4">
-              {/* image9 */}
-              <div className="w-full h-[420px] border-[2px] border-white shadow-sm place-self-center z-10 relative overflow-hidden group">
-                <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                  onMouseMove={(e) => handleMouseMove("image9", e)}
-                  onMouseUp={() => handleMouseUp("image9")}
-                  onMouseLeave={() => handleMouseLeave("image9")}
-                >
-                  {images.image9 ? (
-                    <>
-                      <div
-                        className="w-full h-full cursor-grab active:cursor-grabbing"
-                        onMouseDown={(e) => handleMouseDown("image9", e)}
-                      >
-                        <ImageEditor
-                          src={images.image9}
-                          scale={scale.image9}
-                          position={position.image9}
-                          rotation={rotation.image9}
-                        />
-                      </div>
+                  {/* LAYER 1: Outer Slot Container */}
+                  <div
+                    data-image-slot="true"
+                    className="w-full h-[750px] bg-transparent border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group cursor-pointer "
+                    onMouseEnter={() => setHoveredSlot("image1")}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    onClick={(e) => {
+                      if (e.altKey) return;
+                      e.stopPropagation();
+                      setActiveSlot("image1");
+                    }}
+                  >
+                    {/* Canva-Style Box Indicator */}
+                    <BoxIndicator isVisible={isSlotActive("image1")} />
 
-                      {/* Zoom Controls */}
-                      <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image9", "in")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom In"
-                        >
-                          <ZoomIn className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleZoom("image9", "out")}
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                          title="Zoom Out"
-                        >
-                          <ZoomOut className="w-4 h-4 text-gray-700" />
-                        </button>
-                      </div>
-
-                      {/* Rotate */}
-                      <button
-                        type="button"
-                        onClick={() => handleRotate("image9")}
-                        className="absolute top-24 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                        title="Rotate image"
-                      >
-                        <RotateCw className="w-4 h-4 text-gray-700" />
-                      </button>
-
-                      {/* Edit Button */}
-                      <button
-                        type="button"
-                        onClick={() => openImageSourceModal("image9")}
-                        className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Edit image"
-                      >
-                        <Pencil className="w-4 h-4 text-gray-700" />
-                      </button>
-
-                      {/* Delete Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDelete("image9", fileInputRef9)}
-                        className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Delete image"
-                      >
-                        <Trash className="w-4 h-4 text-red-500" />
-                      </button>
-                    </>
-                  ) : (
+                    {/* LAYER 2: Middle Mouse Event Container */}
                     <div
-                      onClick={() => openImageSourceModal("image9")}
-                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      onMouseMove={(e) => handleMouseMove("image1", e)}
+                      onMouseUp={() => handleMouseUp("image1")}
+                      onMouseLeave={() => handleMouseLeave("image1")}
                     >
-                      Select Image
+                      {images.image1 ? (
+                        <>
+                          {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                          <div
+                            className="w-full h-full cursor-grab active:cursor-grabbing"
+                            onMouseDown={(e) => handleMouseDown("image1", e)}
+                          >
+                            <ImageEditor
+                              src={images.image1}
+                              scale={scale.image1}
+                              position={position.image1}
+                              rotation={rotation.image1}
+                            />
+                          </div>
+
+                          {/* Zoom Controls */}
+                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image1", "in")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom In"
+                            >
+                              <ZoomIn className="w-4 h-4 text-gray-700" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image1", "out")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom Out"
+                            >
+                              <ZoomOut className="w-4 h-4 text-gray-700" />
+                            </button>
+                          </div>
+
+                          {/* Rotate */}
+                          <button
+                            type="button"
+                            onClick={() => handleRotate("image1")}
+                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            title="Rotate image"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => openImageSourceModal("image1", e)}
+                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete("image1", fileInputRef1)
+                            }
+                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
+                        </>
+                      ) : (
+                        <div
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => openImageSourceModal("image1", e)}
+                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                        >
+                          Select Image
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef1}
+                        onChange={(e) => handleImageChange("image1", e)}
+                        className="hidden"
+                      />
                     </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef9}
-                    onChange={(e) => handleImageChange("image9", e)}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-              <StyledInput
-                value={description}
-                rows={8}
-                onChange={(e) => setDescription(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("description", s)}
-                inputStyle={fieldStyles.description}
-                className="font-normal text-[10px] h-[80px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to
-                the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark
-                laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony,
-                great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage
-                locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your viewing.
-                MLS # V981073 This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking
-                Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross
-                unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge
-                private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking,
-                and storage locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your
-                viewing. MLS # 00000"
-              />
-              <div className="grid grid-cols-2 gap-4">
-                {/* image10 */}
-                <div className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group overflow-hidden">
-                  <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseMove={(e) => handleMouseMove("image10", e)}
-                    onMouseUp={() => handleMouseUp("image10")}
-                    onMouseLeave={() => handleMouseLeave("image10")}
-                  >
-                    {images.image10 ? (
-                      <>
+                  </div>
+
+                  {/* image2 and Contact details row */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-[200px] shrink-0">
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className="w-full h-[110px] bg-transparent border-[2px] border-white shadow-sm place-self-center relative overflow-hidden group cursor-pointer "
+                        onMouseEnter={() => setHoveredSlot("image2")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image2");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image2")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
                         <div
-                          className="w-full h-full cursor-grab active:cursor-grabbing"
-                          onMouseDown={(e) => handleMouseDown("image10", e)}
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image2", e)}
+                          onMouseUp={() => handleMouseUp("image2")}
+                          onMouseLeave={() => handleMouseLeave("image2")}
                         >
-                          <ImageEditor
-                            src={images.image10}
-                            scale={scale.image10}
-                            position={position.image10}
-                            rotation={rotation.image10}
+                          {images.image2 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image2", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image2}
+                                  scale={scale.image2}
+                                  position={position.image2}
+                                  rotation={rotation.image2}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image2", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image2", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image2")}
+                                className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image2", e)
+                                }
+                                className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image2", fileInputRef2)
+                                }
+                                className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) => openImageSourceModal("image2", e)}
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef2}
+                            onChange={(e) => handleImageChange("image2", e)}
+                            className="hidden"
                           />
                         </div>
-
-                        {/* Zoom Controls */}
-                        <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image10", "in")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom In"
-                          >
-                            <ZoomIn className="w-4 h-4 text-gray-700" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image10", "out")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom Out"
-                          >
-                            <ZoomOut className="w-4 h-4 text-gray-700" />
-                          </button>
-                        </div>
-
-                        {/* Rotate */}
-                        <button
-                          type="button"
-                          onClick={() => handleRotate("image10")}
-                          className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                          title="Rotate image"
-                        >
-                          <RotateCw className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image10")}
-                          className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete("image10", fileInputRef10)
-                          }
-                          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    ) : (
-                      <div
-                        onClick={() => openImageSourceModal("image10")}
-                        className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                      >
-                        Select Image
                       </div>
+                    </div>
+
+                    {/* Contact Section */}
+                    <div
+                      data-safezone-container="true"
+                      className={`flex-1 flex flex-col relative z-[19] border-[3.5px] border-solid border-transparent rounded-lg p-2 transition-all duration-150 group/sec ${
+                        lockedSections.contact
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
+                    >
+                      {/* Lock button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("contact");
+                        }}
+                        className={`absolute top-1 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.contact
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.contact
+                            ? "Unlock Contact Section"
+                            : "Lock Contact Section"
+                        }
+                      >
+                        {lockedSections.contact ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Contact Label */}
+                      <StyledInput
+                        value={contactLabel}
+                        onChange={(e) => setContactLabel(e.target.value)}
+                        onChangeStyle={(s) =>
+                          updateFieldStyle("contactLabel", s)
+                        }
+                        inputStyle={fieldStyles.contactLabel}
+                        className="text-[14px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-200 uppercase font-semibold"
+                        placeholder="CONTACT:"
+                      />
+
+                      {/* Agent Name */}
+                      {!isFieldDeleted("contactName") && (
+                        <DraggableBox
+                          id="contactName"
+                          position={fieldPositions.contactName}
+                          onPositionChange={updateFieldPosition}
+                          label="Agent Name"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactName",
+                              "Agent Name",
+                              fullName,
+                              "Page 4 - Contact",
+                              fieldStyles.fullName,
+                            )
+                          }
+                          deleteTitle="Remove Agent Name"
+                        >
+                          <StyledInput
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("fullName", s)
+                            }
+                            inputStyle={fieldStyles.fullName}
+                            className="text-[14px] text-black h-[18px] bg-transparent text-left w-[270px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                            placeholder="FIRSTNAME LASTNAME"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {/* Brokerage / Property Name */}
+                      {!isFieldDeleted("contactBrokerage") && (
+                        <DraggableBox
+                          id="contactBrokerage"
+                          position={fieldPositions.contactBrokerage}
+                          onPositionChange={updateFieldPosition}
+                          label="Brokerage"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactBrokerage",
+                              "Brokerage",
+                              propertyName,
+                              "Page 4 - Contact",
+                              fieldStyles.propertyName,
+                            )
+                          }
+                          deleteTitle="Remove Brokerage"
+                        >
+                          <StyledInput
+                            value={propertyName}
+                            onChange={(e) => setPropertyName(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("propertyName", s)
+                            }
+                            inputStyle={fieldStyles.propertyName}
+                            className="text-[14px] font-thin h-[18px] bg-transparent text-left w-[270px] text-black focus:outline-none border-none placeholder-black placeholder:font-[200]"
+                            placeholder="MACDONALD  Realty"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {/* Phone */}
+                      {!isFieldDeleted("contactPhone") && (
+                        <DraggableBox
+                          id="contactPhone"
+                          position={fieldPositions.contactPhone}
+                          onPositionChange={updateFieldPosition}
+                          label="Phone"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactPhone",
+                              "Phone",
+                              number,
+                              "Page 4 - Contact",
+                              fieldStyles.number,
+                            )
+                          }
+                          deleteTitle="Remove Phone"
+                        >
+                          <div className="flex gap-2 font-normal text-[14px] text-black items-center">
+                            <StyledInput
+                              value={phoneLabel}
+                              onChange={(e) => setPhoneLabel(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("phoneLabel", s)
+                              }
+                              inputStyle={fieldStyles.phoneLabel}
+                              className="text-[14px] text-black bg-transparent focus:outline-none border-none"
+                              placeholder="Phone:"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={number}
+                              onChange={(e) => setNumber(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("number", s)
+                              }
+                              inputStyle={fieldStyles.number}
+                              className="font-thin text-[14px] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                              placeholder="604.000.0000"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {/* Email */}
+                      {!isFieldDeleted("contactEmail") && (
+                        <DraggableBox
+                          id="contactEmail"
+                          position={fieldPositions.contactEmail}
+                          onPositionChange={updateFieldPosition}
+                          label="Email"
+                          zoom={0.55}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactEmail",
+                              "Email",
+                              email,
+                              "Page 4 - Contact",
+                              fieldStyles.email,
+                            )
+                          }
+                          deleteTitle="Remove Email"
+                        >
+                          <div className="flex gap-2 font-normal text-[14px] text-black items-center">
+                            <StyledInput
+                              value={emailLabel}
+                              onChange={(e) => setEmailLabel(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("emailLabel", s)
+                              }
+                              inputStyle={fieldStyles.emailLabel}
+                              className="text-[14px] text-black bg-transparent focus:outline-none border-none"
+                              placeholder="Email:"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("email", s)
+                              }
+                              inputStyle={fieldStyles.email}
+                              className="font-thin text-[14px] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                              placeholder="Enter email here"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer Section (Disclaimer & Printed By) with Drag & Lock */}
+                  <div
+                    data-safezone-container="true"
+                    className={`w-full flex flex-col gap-2 rounded-lg p-2 border-[3.5px] border-solid border-transparent transition-all duration-150 relative group/sec ${
+                      lockedSections.footer
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Lock button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("footer");
+                      }}
+                      className={`absolute top-1 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.footer
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.footer
+                          ? "Unlock Footer Section"
+                          : "Lock Footer Section"
+                      }
+                    >
+                      {lockedSections.footer ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Disclaimer & Equal Housing / Realtor SVG logo */}
+                    {!isFieldDeleted("contactDisclaimer") && (
+                      <DraggableBox
+                        id="contactDisclaimer"
+                        position={fieldPositions.contactDisclaimer}
+                        onPositionChange={updateFieldPosition}
+                        label="Disclaimer"
+                        zoom={0.55}
+                        disabled={lockedSections.footer}
+                        containerClassName="w-full"
+                        onDelete={() =>
+                          removeStandardField(
+                            "contactDisclaimer",
+                            "Disclaimer",
+                            disclaimerText,
+                            "Page 4 - Disclaimer",
+                            fieldStyles.disclaimerText,
+                          )
+                        }
+                        deleteTitle="Remove Disclaimer"
+                      >
+                        <div className="text-start mt-1 font-thin flex gap-2 text-white items-start">
+                          <span className="flex flex-col mt-1 shrink-0">
+                            <House className="w-4 h-4" />
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 8 8"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
+                                fill="white"
+                              />
+                            </svg>
+                          </span>
+                          <StyledInput
+                            value={disclaimerText}
+                            rows={3}
+                            onChange={(e) => setDisclaimerText(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("disclaimerText", s)
+                            }
+                            inputStyle={fieldStyles.disclaimerText}
+                            className="text-[10px] font-bold text-white bg-transparent leading-tight focus:outline-none border-none placeholder-gray-200"
+                            placeholder="All information deemed reliable..."
+                          />
+                        </div>
+                      </DraggableBox>
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef10}
-                      onChange={(e) => handleImageChange("image10", e)}
-                      className="hidden"
-                    />
+
+                    {/* Printed By */}
+                    {!isFieldDeleted("printedByText") && (
+                      <DraggableBox
+                        id="printedByText"
+                        position={fieldPositions.printedByText}
+                        onPositionChange={updateFieldPosition}
+                        label="Printed By"
+                        zoom={0.55}
+                        disabled={lockedSections.footer}
+                        containerClassName="w-full"
+                        onDelete={() =>
+                          removeStandardField(
+                            "printedByText",
+                            "Printed By",
+                            printedByText,
+                            "Page 4 - Footer",
+                            fieldStyles.printedByText,
+                          )
+                        }
+                        deleteTitle="Remove Printed By"
+                      >
+                        <div className="text-[15px] font-bold text-white">
+                          <StyledInput
+                            value={printedByText}
+                            onChange={(e) => setPrintedByText(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("printedByText", s)
+                            }
+                            inputStyle={fieldStyles.printedByText}
+                            className="text-[15px] font-bold text-white bg-transparent focus:outline-none border-none"
+                            placeholder="DESIGNED AND PRINTED BY BC FLOOR PLANS"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
 
-                {/* image11 */}
-                <div className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group overflow-hidden">
+                {/* PAGE 1 (Right Column) */}
+                <div className="w-1/2 flex flex-col relative z-[1] gap-4">
+                  {/* image3 */}
+
+                  {/* LAYER 1: Outer Slot Container */}
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseMove={(e) => handleMouseMove("image11", e)}
-                    onMouseUp={() => handleMouseUp("image11")}
-                    onMouseLeave={() => handleMouseLeave("image11")}
+                    data-image-slot="true"
+                    className={`w-full h-[450px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                      images.image3 ? "border-[3px] border-white" : ""
+                    }`}
+                    onMouseEnter={() => setHoveredSlot("image3")}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    onClick={(e) => {
+                      if (e.altKey) return;
+                      e.stopPropagation();
+                      setActiveSlot("image3");
+                    }}
                   >
-                    {images.image11 ? (
-                      <>
+                    {/* Canva-Style Box Indicator */}
+                    <BoxIndicator isVisible={isSlotActive("image3")} />
+
+                    {/* LAYER 2: Middle Mouse Event Container */}
+                    <div
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      onMouseMove={(e) => handleMouseMove("image3", e)}
+                      onMouseUp={() => handleMouseUp("image3")}
+                      onMouseLeave={() => handleMouseLeave("image3")}
+                    >
+                      {images.image3 ? (
+                        <>
+                          {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                          <div
+                            className="w-full h-full cursor-grab active:cursor-grabbing"
+                            onMouseDown={(e) => handleMouseDown("image3", e)}
+                          >
+                            <ImageEditor
+                              src={images.image3}
+                              scale={scale.image3}
+                              position={position.image3}
+                              rotation={rotation.image3}
+                            />
+                          </div>
+
+                          {/* Zoom Controls */}
+                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image3", "in")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom In"
+                            >
+                              <ZoomIn className="w-4 h-4 text-gray-700" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image3", "out")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom Out"
+                            >
+                              <ZoomOut className="w-4 h-4 text-gray-700" />
+                            </button>
+                          </div>
+
+                          {/* Rotate */}
+                          <button
+                            type="button"
+                            onClick={() => handleRotate("image3")}
+                            className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            title="Rotate image"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => openImageSourceModal("image3", e)}
+                            className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete("image3", fileInputRef3)
+                            }
+                            className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
+                        </>
+                      ) : (
                         <div
-                          className="w-full h-full cursor-grab active:cursor-grabbing"
-                          onMouseDown={(e) => handleMouseDown("image11", e)}
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => openImageSourceModal("image3", e)}
+                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                         >
-                          <ImageEditor
-                            src={images.image11}
-                            scale={scale.image11}
-                            position={position.image11}
-                            rotation={rotation.image11}
+                          Select Image
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef3}
+                        onChange={(e) => handleImageChange("image3", e)}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address Section */}
+                  <div
+                    data-safezone-container="true"
+                    className={`flex w-full flex-col justify-center relative z-[19] items-center border-[3.5px] border-solid border-transparent rounded-lg p-2 transition-all duration-150 group/sec ${
+                      lockedSections.address
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Lock button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("address");
+                      }}
+                      className={`absolute top-1 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.address
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.address
+                          ? "Unlock Address Section"
+                          : "Lock Address Section"
+                      }
+                    >
+                      {lockedSections.address ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-[28px] font-light leading-none mt-0 text-white flex items-center flex-wrap justify-center">
+                      <span className="text-[16px] mr-1">#</span>
+                      {!isFieldDeleted("addressCode") && (
+                        <DraggableBox
+                          id="addressCode"
+                          position={fieldPositions.addressCode}
+                          onPositionChange={updateFieldPosition}
+                          label="MLS Code"
+                          zoom={0.55}
+                          disabled={lockedSections.address}
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressCode",
+                              "MLS Code",
+                              addressCode,
+                              "Page 1 - Address",
+                              fieldStyles.addressCode,
+                            )
+                          }
+                          deleteTitle="Remove MLS Code"
+                        >
+                          <StyledInput
+                            value={addressCode}
+                            onChange={(e) => setAddressCode(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("addressCode", s)
+                            }
+                            inputStyle={fieldStyles.addressCode}
+                            className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                            placeholder="0000-0000"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("roadName") && (
+                        <DraggableBox
+                          id="roadName"
+                          position={fieldPositions.roadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Road Name"
+                          zoom={0.55}
+                          disabled={lockedSections.address}
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadName",
+                              "Road Name",
+                              roadName,
+                              "Page 1 - Address",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Road Name"
+                        >
+                          <span className="text-white flex items-center">
+                            <StyledInput
+                              value={roadLabelBefore}
+                              onChange={(e) =>
+                                setRoadLabelBefore(e.target.value)
+                              }
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("roadLabelBefore", s)
+                              }
+                              inputStyle={fieldStyles.roadLabelBefore}
+                              className="text-[28px] text-white bg-transparent focus:outline-none border-none inline"
+                              placeholder="Number"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={roadName}
+                              onChange={(e) => setRoadName(e.target.value)}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("roadName", s)
+                              }
+                              inputStyle={fieldStyles.roadName}
+                              className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                              placeholder="0"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={roadLabelAfter}
+                              onChange={(e) =>
+                                setRoadLabelAfter(e.target.value)
+                              }
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("roadLabelAfter", s)
+                              }
+                              inputStyle={fieldStyles.roadLabelAfter}
+                              className="text-[28px] text-white bg-transparent focus:outline-none border-none inline"
+                              placeholder="Road"
+                              wrapperClassName="w-auto"
+                            />
+                          </span>
+                        </DraggableBox>
+                      )}
+                    </div>
+
+                    {!isFieldDeleted("cityLine") && (
+                      <DraggableBox
+                        id="cityLine"
+                        position={fieldPositions.cityLine}
+                        onPositionChange={updateFieldPosition}
+                        label="City Line"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "cityLine",
+                            "City Line",
+                            cityLine,
+                            "Page 1 - Address",
+                            fieldStyles.cityLine,
+                          )
+                        }
+                        deleteTitle="Remove City Line"
+                      >
+                        <div className="text-white text-[10px]">
+                          <StyledInput
+                            value={cityLine}
+                            onChange={(e) => setCityLine(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("cityLine", s)
+                            }
+                            inputStyle={fieldStyles.cityLine}
+                            className="text-white text-[16px] h-[20px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
                           />
                         </div>
+                      </DraggableBox>
+                    )}
+                  </div>
 
-                        {/* Zoom Controls */}
-                        <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image11", "in")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom In"
+                  {/* 4 Photos Grid (image4, image5, image6, image7) & Overlaid image8 */}
+                  <div className="flex flex-col relative justify-center items-center w-full">
+                    <div className=" w-[80%]">
+                      {" "}
+                      <div className="grid grid-cols-2 gap-3 w-full">
+                        {/* LAYER 1: Outer Slot Container */}
+                        <div
+                          data-image-slot="true"
+                          className={`w-full h-[200px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                            images.image4 ? "border-[3px] border-white" : ""
+                          }`}
+                          onMouseEnter={() => setHoveredSlot("image4")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image4");
+                          }}
+                        >
+                          {/* Canva-Style Box Indicator */}
+                          <BoxIndicator isVisible={isSlotActive("image4")} />
+
+                          {/* LAYER 2: Middle Mouse Event Container */}
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image4", e)}
+                            onMouseUp={() => handleMouseUp("image4")}
+                            onMouseLeave={() => handleMouseLeave("image4")}
                           >
-                            <ZoomIn className="w-4 h-4 text-gray-700" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image11", "out")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom Out"
-                          >
-                            <ZoomOut className="w-4 h-4 text-gray-700" />
-                          </button>
+                            {images.image4 ? (
+                              <>
+                                {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image4", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image4}
+                                    scale={scale.image4}
+                                    position={position.image4}
+                                    rotation={rotation.image4}
+                                  />
+                                </div>
+
+                                {/* Zoom Controls */}
+                                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image4", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image4", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+
+                                {/* Rotate */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image4")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image4", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image4", fileInputRef4)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image4", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef4}
+                              onChange={(e) => handleImageChange("image4", e)}
+                              className="hidden"
+                            />
+                          </div>
                         </div>
 
-                        {/* Rotate */}
-                        <button
-                          type="button"
-                          onClick={() => handleRotate("image11")}
-                          className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                          title="Rotate image"
+                        {/* LAYER 1: Outer Slot Container */}
+                        <div
+                          data-image-slot="true"
+                          className={`w-full h-[200px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                            images.image5 ? "border-[3px] border-white" : ""
+                          }`}
+                          onMouseEnter={() => setHoveredSlot("image5")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image5");
+                          }}
                         >
-                          <RotateCw className="w-4 h-4 text-gray-700" />
-                        </button>
+                          {/* Canva-Style Box Indicator */}
+                          <BoxIndicator isVisible={isSlotActive("image5")} />
 
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image11")}
-                          className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
+                          {/* LAYER 2: Middle Mouse Event Container */}
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image5", e)}
+                            onMouseUp={() => handleMouseUp("image5")}
+                            onMouseLeave={() => handleMouseLeave("image5")}
+                          >
+                            {images.image5 ? (
+                              <>
+                                {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image5", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image5}
+                                    scale={scale.image5}
+                                    position={position.image5}
+                                    rotation={rotation.image5}
+                                  />
+                                </div>
 
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete("image11", fileInputRef11)
-                          }
-                          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
+                                {/* Zoom Controls */}
+                                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image5", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image5", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+
+                                {/* Rotate */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image5")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image5", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image5", fileInputRef5)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image5", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef5}
+                              onChange={(e) => handleImageChange("image5", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+
+                        {/* LAYER 1: Outer Slot Container */}
+                        <div
+                          data-image-slot="true"
+                          className={`w-full h-[200px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                            images.image6 ? "border-[3px] border-white" : ""
+                          }`}
+                          onMouseEnter={() => setHoveredSlot("image6")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image6");
+                          }}
                         >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    ) : (
-                      <div
-                        onClick={() => openImageSourceModal("image11")}
-                        className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                      >
-                        Select Image
+                          {/* Canva-Style Box Indicator */}
+                          <BoxIndicator isVisible={isSlotActive("image6")} />
+
+                          {/* LAYER 2: Middle Mouse Event Container */}
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image6", e)}
+                            onMouseUp={() => handleMouseUp("image6")}
+                            onMouseLeave={() => handleMouseLeave("image6")}
+                          >
+                            {images.image6 ? (
+                              <>
+                                {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image6", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image6}
+                                    scale={scale.image6}
+                                    position={position.image6}
+                                    rotation={rotation.image6}
+                                  />
+                                </div>
+
+                                {/* Zoom Controls */}
+                                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image6", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image6", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+
+                                {/* Rotate */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image6")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image6", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image6", fileInputRef6)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image6", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef6}
+                              onChange={(e) => handleImageChange("image6", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+
+                        {/* LAYER 1: Outer Slot Container */}
+                        <div
+                          data-image-slot="true"
+                          className={`w-full h-[200px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                            images.image7 ? "border-[3px] border-white" : ""
+                          }`}
+                          onMouseEnter={() => setHoveredSlot("image7")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image7");
+                          }}
+                        >
+                          {/* Canva-Style Box Indicator */}
+                          <BoxIndicator isVisible={isSlotActive("image7")} />
+
+                          {/* LAYER 2: Middle Mouse Event Container */}
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image7", e)}
+                            onMouseUp={() => handleMouseUp("image7")}
+                            onMouseLeave={() => handleMouseLeave("image7")}
+                          >
+                            {images.image7 ? (
+                              <>
+                                {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image7", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image7}
+                                    scale={scale.image7}
+                                    position={position.image7}
+                                    rotation={rotation.image7}
+                                  />
+                                </div>
+
+                                {/* Zoom Controls */}
+                                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image7", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image7", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+
+                                {/* Rotate */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image7")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image7", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image7", fileInputRef7)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image7", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef7}
+                              onChange={(e) => handleImageChange("image7", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* image8 (Logo Slot Overlaid in Center) */}
+                    <div className="absolute z-20">
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        id="agentLogo1"
+                        data-image-slot="true"
+                        data-slot-type="logo"
+                        data-logo-slot="true"
+                        className={`w-[200px] h-[110px] bg-white place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image8 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image8")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image8");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image8")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image8", e)}
+                          onMouseUp={() => handleMouseUp("image8")}
+                          onMouseLeave={() => handleMouseLeave("image8")}
+                        >
+                          {images.image8 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image8", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image8}
+                                  scale={scale.image8}
+                                  position={position.image8}
+                                  rotation={rotation.image8}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image8", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image8", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image8")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image8", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image8", fileInputRef8)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) => openImageSourceModal("image8", e)}
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 text-[11px] font-medium"
+                            >
+                              Select Logo
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef8}
+                            onChange={(e) => handleImageChange("image8", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Property Specs Section (Bedroom, Bathroom, SqFt, Built Year) */}
+                  <div
+                    data-safezone-container="true"
+                    className={`w-full flex items-center justify-center gap-2 rounded-lg p-1.5 border-[3.5px] border-solid border-transparent transition-all duration-150 relative group/sec ${
+                      lockedSections.specs
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Lock button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("specs");
+                      }}
+                      className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.specs
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.specs
+                          ? "Unlock Specs Section"
+                          : "Lock Specs Section"
+                      }
+                    >
+                      {lockedSections.specs ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Bedroom */}
+                    {!isFieldDeleted("specBedroom") && (
+                      <DraggableBox
+                        id="specBedroom"
+                        position={fieldPositions.specBedroom}
+                        onPositionChange={updateFieldPosition}
+                        label="Bedroom"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                        onDelete={() =>
+                          removeStandardField(
+                            "specBedroom",
+                            "Bedrooms",
+                            `${bedroom || "0"} BEDROOM |`,
+                            "Page 1 - Property Specs",
+                            fieldStyles.bedroom,
+                          )
+                        }
+                        deleteTitle="Remove Bedrooms"
+                      >
+                        <div className="flex items-center gap-1 text-white font-bold text-[14px]">
+                          <StyledInput
+                            value={bedroom}
+                            onChange={(e) => setBedroom(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bedroom", s)
+                            }
+                            inputStyle={fieldStyles.bedroom}
+                            className="font-bold text-[14px] text-white bg-transparent text-right w-[24px] focus:outline-none border-none placeholder-white/80"
+                            placeholder="0"
+                            wrapperClassName="w-auto"
+                          />
+                          <StyledInput
+                            value={bedroomLabel}
+                            onChange={(e) => setBedroomLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bedroomLabel", s)
+                            }
+                            inputStyle={fieldStyles.bedroomLabel}
+                            className="font-bold text-[14px] text-white bg-transparent text-left focus:outline-none border-none placeholder-white/80 uppercase"
+                            placeholder="BEDROOM |"
+                            wrapperClassName="w-auto"
+                          />
+                        </div>
+                      </DraggableBox>
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef11}
-                      onChange={(e) => handleImageChange("image11", e)}
-                      className="hidden"
-                    />
+
+                    {/* Bathroom */}
+                    {!isFieldDeleted("specBathroom") && (
+                      <DraggableBox
+                        id="specBathroom"
+                        position={fieldPositions.specBathroom}
+                        onPositionChange={updateFieldPosition}
+                        label="Bathroom"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                        onDelete={() =>
+                          removeStandardField(
+                            "specBathroom",
+                            "Bathrooms",
+                            `${bathroom || "0"} BATHROOM |`,
+                            "Page 1 - Property Specs",
+                            fieldStyles.bathroom,
+                          )
+                        }
+                        deleteTitle="Remove Bathrooms"
+                      >
+                        <div className="flex items-center gap-1 text-white font-bold text-[14px]">
+                          <StyledInput
+                            value={bathroom}
+                            onChange={(e) => setBathroom(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bathroom", s)
+                            }
+                            inputStyle={fieldStyles.bathroom}
+                            className="font-bold text-[14px] text-white bg-transparent text-right w-[24px] focus:outline-none border-none placeholder-white/80"
+                            placeholder="0"
+                            wrapperClassName="w-auto"
+                          />
+                          <StyledInput
+                            value={bathroomLabel}
+                            onChange={(e) => setBathroomLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("bathroomLabel", s)
+                            }
+                            inputStyle={fieldStyles.bathroomLabel}
+                            className="font-bold text-[14px] text-white bg-transparent text-left focus:outline-none border-none placeholder-white/80 uppercase"
+                            placeholder="BATHROOM |"
+                            wrapperClassName="w-auto"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
+
+                    {/* SqFt */}
+                    {!isFieldDeleted("specSqft") && (
+                      <DraggableBox
+                        id="specSqft"
+                        position={fieldPositions.specSqft}
+                        onPositionChange={updateFieldPosition}
+                        label="Sq Ft"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                        onDelete={() =>
+                          removeStandardField(
+                            "specSqft",
+                            "Square Footage",
+                            `${sqft || "000"} SQ FT |`,
+                            "Page 1 - Property Specs",
+                            fieldStyles.sqft,
+                          )
+                        }
+                        deleteTitle="Remove Square Footage"
+                      >
+                        <div className="flex items-center gap-1 text-white font-bold text-[14px]">
+                          <StyledInput
+                            value={sqft}
+                            onChange={(e) => setSqft(e.target.value)}
+                            onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                            inputStyle={fieldStyles.sqft}
+                            className="font-bold text-[14px] text-white bg-transparent text-right w-[45px] focus:outline-none border-none placeholder-white/80"
+                            placeholder="000"
+                            wrapperClassName="w-auto"
+                          />
+                          <StyledInput
+                            value={sqftLabel}
+                            onChange={(e) => setSqftLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("sqftLabel", s)
+                            }
+                            inputStyle={fieldStyles.sqftLabel}
+                            className="font-bold text-[14px] text-white bg-transparent text-left focus:outline-none border-none placeholder-white/80 uppercase"
+                            placeholder="SQ FT |"
+                            wrapperClassName="w-auto"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
+
+                    {/* Built Year */}
+                    {!isFieldDeleted("specBuiltYear") && (
+                      <DraggableBox
+                        id="specBuiltYear"
+                        position={fieldPositions.specBuiltYear}
+                        onPositionChange={updateFieldPosition}
+                        label="Built"
+                        zoom={0.55}
+                        className="flex items-center gap-1"
+                        disabled={lockedSections.specs}
+                        onDelete={() =>
+                          removeStandardField(
+                            "specBuiltYear",
+                            "Built Year",
+                            `BUILT IN ${builtYear || "0000"}`,
+                            "Page 1 - Property Specs",
+                            fieldStyles.builtYear,
+                          )
+                        }
+                        deleteTitle="Remove Built Year"
+                      >
+                        <div className="flex items-center gap-1 text-white font-bold text-[14px]">
+                          <StyledInput
+                            value={builtYearLabel}
+                            onChange={(e) => setBuiltYearLabel(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("builtYearLabel", s)
+                            }
+                            inputStyle={fieldStyles.builtYearLabel}
+                            className="font-bold text-[14px] text-white bg-transparent text-left focus:outline-none border-none placeholder-white/80 uppercase"
+                            placeholder="BUILT IN"
+                            wrapperClassName="w-auto"
+                          />
+                          <StyledInput
+                            value={builtYear}
+                            onChange={(e) => setBuiltYear(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("builtYear", s)
+                            }
+                            inputStyle={fieldStyles.builtYear}
+                            className="font-bold text-[14px] text-white bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-white/80"
+                            placeholder="0000"
+                            wrapperClassName="w-auto"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
               </div>
+            </SafeZoneWrapper>
+          </div>
+
+          {/* BOTTOM SHEET BANNERS (PAGE 2 | PAGE 3) */}
+          <div
+            data-html2canvas-ignore="true"
+            className="w-[17in] flex items-center justify-between gap-6 select-none"
+            style={{ zoom: 0.55, margin: "48px auto 32px auto" }}
+          >
+            <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+              PAGE 2
             </div>
-            <div className="w-1/2 flex gap-4">
-              <div className="w-[70%] flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-2">
-                  {/* image12 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image12", e)}
-                      onMouseUp={() => handleMouseUp("image12")}
-                      onMouseLeave={() => handleMouseLeave("image12")}
-                    >
-                      {images.image12 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image12", e)}
-                          >
-                            <ImageEditor
-                              src={images.image12}
-                              scale={scale.image12}
-                              position={position.image12}
-                              rotation={rotation.image12}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image12", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image12", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image12")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image12")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image12", fileInputRef12)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image12")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef12}
-                        onChange={(e) => handleImageChange("image12", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image13 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image13", e)}
-                      onMouseUp={() => handleMouseUp("image13")}
-                      onMouseLeave={() => handleMouseLeave("image13")}
-                    >
-                      {images.image13 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image13", e)}
-                          >
-                            <ImageEditor
-                              src={images.image13}
-                              scale={scale.image13}
-                              position={position.image13}
-                              rotation={rotation.image13}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image13", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image13", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image13")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image13")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image13", fileInputRef13)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image13")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef13}
-                        onChange={(e) => handleImageChange("image13", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image14 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image14", e)}
-                      onMouseUp={() => handleMouseUp("image14")}
-                      onMouseLeave={() => handleMouseLeave("image14")}
-                    >
-                      {images.image14 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image14", e)}
-                          >
-                            <ImageEditor
-                              src={images.image14}
-                              scale={scale.image14}
-                              position={position.image14}
-                              rotation={rotation.image14}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image14", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image14", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image14")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image14")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image14", fileInputRef14)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image14")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef14}
-                        onChange={(e) => handleImageChange("image14", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image15 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image15", e)}
-                      onMouseUp={() => handleMouseUp("image15")}
-                      onMouseLeave={() => handleMouseLeave("image15")}
-                    >
-                      {images.image15 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image15", e)}
-                          >
-                            <ImageEditor
-                              src={images.image15}
-                              scale={scale.image15}
-                              position={position.image15}
-                              rotation={rotation.image15}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image15", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image15", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image15")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image15")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image15", fileInputRef15)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image15")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef15}
-                        onChange={(e) => handleImageChange("image15", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image16 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image16", e)}
-                      onMouseUp={() => handleMouseUp("image16")}
-                      onMouseLeave={() => handleMouseLeave("image16")}
-                    >
-                      {images.image16 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image16", e)}
-                          >
-                            <ImageEditor
-                              src={images.image16}
-                              scale={scale.image16}
-                              position={position.image16}
-                              rotation={rotation.image16}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image16", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image16", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image16")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image16")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image16", fileInputRef16)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image16")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef16}
-                        onChange={(e) => handleImageChange("image16", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* image17 */}
-                  <div className="h-[165px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                    <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                      onMouseMove={(e) => handleMouseMove("image17", e)}
-                      onMouseUp={() => handleMouseUp("image17")}
-                      onMouseLeave={() => handleMouseLeave("image17")}
-                    >
-                      {images.image17 ? (
-                        <>
-                          <div
-                            className="w-full h-full cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => handleMouseDown("image17", e)}
-                          >
-                            <ImageEditor
-                              src={images.image17}
-                              scale={scale.image17}
-                              position={position.image17}
-                              rotation={rotation.image17}
-                            />
-                          </div>
-
-                          {/* Zoom Controls */}
-                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image17", "in")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom In"
-                            >
-                              <ZoomIn className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleZoom("image17", "out")}
-                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut className="w-4 h-4 text-gray-700" />
-                            </button>
-                          </div>
-
-                          {/* Rotate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRotate("image17")}
-                            className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                            title="Rotate image"
-                          >
-                            <RotateCw className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Edit Button */}
-                          <button
-                            type="button"
-                            onClick={() => openImageSourceModal("image17")}
-                            className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Edit image"
-                          >
-                            <Pencil className="w-4 h-4 text-gray-700" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete("image17", fileInputRef17)
-                            }
-                            className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                            title="Delete image"
-                          >
-                            <Trash className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          onClick={() => openImageSourceModal("image17")}
-                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                        >
-                          Select Image
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef17}
-                        onChange={(e) => handleImageChange("image17", e)}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* image18 */}
-                <div className="h-[265px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden">
-                  <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
-                    onMouseMove={(e) => handleMouseMove("image18", e)}
-                    onMouseUp={() => handleMouseUp("image18")}
-                    onMouseLeave={() => handleMouseLeave("image18")}
-                  >
-                    {images.image18 ? (
-                      <>
-                        <div
-                          className="w-full h-full cursor-grab active:cursor-grabbing"
-                          onMouseDown={(e) => handleMouseDown("image18", e)}
-                        >
-                          <ImageEditor
-                            src={images.image18}
-                            scale={scale.image18}
-                            position={position.image18}
-                            rotation={rotation.image18}
-                          />
-                        </div>
-
-                        {/* Zoom Controls */}
-                        <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image18", "in")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom In"
-                          >
-                            <ZoomIn className="w-4 h-4 text-gray-700" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleZoom("image18", "out")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                            title="Zoom Out"
-                          >
-                            <ZoomOut className="w-4 h-4 text-gray-700" />
-                          </button>
-                        </div>
-
-                        {/* Rotate */}
-                        <button
-                          type="button"
-                          onClick={() => handleRotate("image18")}
-                          className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                          title="Rotate image"
-                        >
-                          <RotateCw className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image18")}
-                          className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete("image18", fileInputRef18)
-                          }
-                          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    ) : (
-                      <div
-                        onClick={() => openImageSourceModal("image18")}
-                        className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                      >
-                        Select Image
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef18}
-                      onChange={(e) => handleImageChange("image18", e)}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white w-[30%] py-[40px] pl-[18px] pr-[50px] ">
-                <div className="flex flex-col gap-4 text-black text-[12px] leading-relaxed relative z-10">
-                  <StyledInput
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                    inputStyle={fieldStyles.amount}
-                    className="font-semibold text-[#B3B394] text-left text-[30px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
-                    placeholder="$000,000"
-                  />
-                  <div className="space-y-2 text-[8px]">
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        BY-LAW RESTRICTIONS:
-                      </span>
-                      <StyledInput
-                        value={byLawRestrictions}
-                        onChange={(e) => setByLawRestrictions(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("byLawRestrictions", s)
-                        }
-                        inputStyle={fieldStyles.byLawRestrictions}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        MAINT. FEES:
-                      </span>
-                      <StyledInput
-                        value={maintFees}
-                        onChange={(e) => setMaintFees(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
-                        inputStyle={fieldStyles.maintFees}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="$000.00"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        MAINT. FEES INCLUDE:
-                      </span>
-                      <StyledInput
-                        value={maintFeesInclude}
-                        onChange={(e) => setMaintFeesInclude(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("maintFeesInclude", s)
-                        }
-                        inputStyle={fieldStyles.maintFeesInclude}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        FEATURES INCLUDED:
-                      </span>
-                      <StyledInput
-                        value={featuresIncluded}
-                        onChange={(e) => setFeaturesIncluded(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("featuresIncluded", s)
-                        }
-                        inputStyle={fieldStyles.featuresIncluded}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-[8px]">
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        SITE INFLUENCES:
-                      </span>
-                      <StyledInput
-                        value={siteInfluences}
-                        onChange={(e) => setSiteInfluences(e.target.value)}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("siteInfluences", s)
-                        }
-                        inputStyle={fieldStyles.siteInfluences}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        AMENITIES:
-                      </span>
-                      <StyledInput
-                        value={amenities}
-                        onChange={(e) => setAmenities(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                        inputStyle={fieldStyles.amenities}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-[#B3B394] text-[12px]">
-                        VIEW:
-                      </span>
-                      <StyledInput
-                        value={view}
-                        onChange={(e) => setView(e.target.value)}
-                        onChangeStyle={(s) => updateFieldStyle("view", s)}
-                        inputStyle={fieldStyles.view}
-                        className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#2C2E35] placeholder:font-[500]"
-                        placeholder="South & SW - Van Isl."
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="w-1/2 text-center text-gray-500 font-semibold text-[20px] tracking-widest uppercase">
+              PAGE 3
             </div>
-            <div className="absolute bottom-0 right-[-40px] w-[598px] h-[553px]">
+          </div>
+
+          {/* pdf-page 2 (SPREAD 2: PAGE 2 | PAGE 3) */}
+          <div
+            className="flex items-stretch pdf-page bg-[#8FABBA] shadow-[0_10px_25px_rgba(0,0,0,0.15)] relative overflow-hidden"
+            style={{
+              width: showBleed ? "17.25in" : "17in",
+              height: showBleed ? "11.25in" : "11in",
+              zoom: 0.55,
+              margin: "0 auto",
+              marginBottom: "40px",
+            }}
+          >
+            {/* CONTAINER 1: FULL-BLEED DECORATIVE SVG 2 (SHIFTED TO BLEED CONTAINER) */}
+            <div className="absolute bottom-0 right-[-40px] w-[598px] h-[553px] pointer-events-none z-20">
               <svg
                 width="100%"
                 height="100%"
@@ -3551,6 +4034,1424 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                 />
               </svg>
             </div>
+
+            {/* CONTAINER 2: SafeZoneWrapper */}
+            <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
+              {/* CONTAINER 3: Inner Content Container */}
+              <div className="relative w-full h-full z-10 flex gap-8 py-10">
+                {/* PAGE 2 (Left Column) */}
+                <div className="w-1/2 shrink-0 flex flex-col gap-4 h-full justify-between">
+                  {/* image9 */}
+
+                  {/* LAYER 1: Outer Slot Container */}
+                  <div
+                    data-image-slot="true"
+                    className={`w-full h-[460px] shrink-0 bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                      images.image9 ? "border-[3px] border-white" : ""
+                    }`}
+                    onMouseEnter={() => setHoveredSlot("image9")}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    onClick={(e) => {
+                      if (e.altKey) return;
+                      e.stopPropagation();
+                      setActiveSlot("image9");
+                    }}
+                  >
+                    {/* Canva-Style Box Indicator */}
+                    <BoxIndicator isVisible={isSlotActive("image9")} />
+
+                    {/* LAYER 2: Middle Mouse Event Container */}
+                    <div
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      onMouseMove={(e) => handleMouseMove("image9", e)}
+                      onMouseUp={() => handleMouseUp("image9")}
+                      onMouseLeave={() => handleMouseLeave("image9")}
+                    >
+                      {images.image9 ? (
+                        <>
+                          {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                          <div
+                            className="w-full h-full cursor-grab active:cursor-grabbing"
+                            onMouseDown={(e) => handleMouseDown("image9", e)}
+                          >
+                            <ImageEditor
+                              src={images.image9}
+                              scale={scale.image9}
+                              position={position.image9}
+                              rotation={rotation.image9}
+                            />
+                          </div>
+
+                          {/* Zoom Controls */}
+                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image9", "in")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom In"
+                            >
+                              <ZoomIn className="w-4 h-4 text-gray-700" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleZoom("image9", "out")}
+                              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom Out"
+                            >
+                              <ZoomOut className="w-4 h-4 text-gray-700" />
+                            </button>
+                          </div>
+
+                          {/* Rotate */}
+                          <button
+                            type="button"
+                            onClick={() => handleRotate("image9")}
+                            className="absolute top-24 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            title="Rotate image"
+                          >
+                            <RotateCw className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => openImageSourceModal("image9", e)}
+                            className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete("image9", fileInputRef9)
+                            }
+                            className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
+                        </>
+                      ) : (
+                        <div
+                          data-html2canvas-ignore="true"
+                          onClick={(e) => openImageSourceModal("image9", e)}
+                          className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                        >
+                          Select Image
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef9}
+                        onChange={(e) => handleImageChange("image9", e)}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Description Section with Drag & Lock */}
+                  <div
+                    data-safezone-container="true"
+                    className={`flex flex-col h-[200px] shrink-0 relative z-[19] border-[3.5px] border-solid border-transparent rounded-lg p-2 transition-all duration-150 group/sec ${
+                      lockedSections.description
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Lock button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("description");
+                      }}
+                      className={`absolute top-1 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.description
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.description
+                          ? "Unlock Description Section"
+                          : "Lock Description Section"
+                      }
+                    >
+                      {lockedSections.description ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    {!isFieldDeleted("propertyDescription") && (
+                      <DraggableBox
+                        id="propertyDescription"
+                        position={fieldPositions.propertyDescription}
+                        onPositionChange={updateFieldPosition}
+                        label="Description"
+                        zoom={0.55}
+                        disabled={lockedSections.description}
+                        containerClassName="w-full flex flex-col"
+                        className="w-full flex flex-col"
+                        onDelete={() =>
+                          removeStandardField(
+                            "propertyDescription",
+                            "Description",
+                            description,
+                            "Page 2 - Description",
+                            fieldStyles.description,
+                          )
+                        }
+                        deleteTitle="Remove Description"
+                      >
+                        <StyledInput
+                          value={description}
+                          rows={6}
+                          onChange={(e) => setDescription(e.target.value)}
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("description", s)
+                          }
+                          inputStyle={fieldStyles.description}
+                          wrapperClassName="!flex !flex-col w-full"
+                          className="font-normal text-[10px] w-full min-h-[120px] max-h-[160px] overflow-y-auto z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                          placeholder="This centrally located 2 bedroom, 2 bathroom home..."
+                        />
+                      </DraggableBox>
+                    )}
+                  </div>
+
+                  {/* image10 & image11 */}
+                  <div className="grid grid-cols-2 gap-4 shrink-0">
+                    {/* LAYER 1: Outer Slot Container */}
+                    <div
+                      data-image-slot="true"
+                      className={`w-full h-[250px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                        images.image10 ? "border-[3px] border-white" : ""
+                      }`}
+                      onMouseEnter={() => setHoveredSlot("image10")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image10");
+                      }}
+                    >
+                      {/* Canva-Style Box Indicator */}
+                      <BoxIndicator isVisible={isSlotActive("image10")} />
+
+                      {/* LAYER 2: Middle Mouse Event Container */}
+                      <div
+                        className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                        onMouseMove={(e) => handleMouseMove("image10", e)}
+                        onMouseUp={() => handleMouseUp("image10")}
+                        onMouseLeave={() => handleMouseLeave("image10")}
+                      >
+                        {images.image10 ? (
+                          <>
+                            {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                            <div
+                              className="w-full h-full cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => handleMouseDown("image10", e)}
+                            >
+                              <ImageEditor
+                                src={images.image10}
+                                scale={scale.image10}
+                                position={position.image10}
+                                rotation={rotation.image10}
+                              />
+                            </div>
+
+                            {/* Zoom Controls */}
+                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image10", "in")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom In"
+                              >
+                                <ZoomIn className="w-4 h-4 text-gray-700" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image10", "out")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom Out"
+                              >
+                                <ZoomOut className="w-4 h-4 text-gray-700" />
+                              </button>
+                            </div>
+
+                            {/* Rotate */}
+                            <button
+                              type="button"
+                              onClick={() => handleRotate("image10")}
+                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              title="Rotate image"
+                            >
+                              <RotateCw className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                openImageSourceModal("image10", e)
+                              }
+                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Edit image"
+                            >
+                              <Pencil className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDelete("image10", fileInputRef10)
+                              }
+                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Delete image"
+                            >
+                              <Trash className="w-4 h-4 text-red-500" />
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image10", e)}
+                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                          >
+                            Select Image
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={fileInputRef10}
+                          onChange={(e) => handleImageChange("image10", e)}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+
+                    {/* LAYER 1: Outer Slot Container */}
+                    <div
+                      data-image-slot="true"
+                      className={`w-full h-[250px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                        images.image11 ? "border-[3px] border-white" : ""
+                      }`}
+                      onMouseEnter={() => setHoveredSlot("image11")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image11");
+                      }}
+                    >
+                      {/* Canva-Style Box Indicator */}
+                      <BoxIndicator isVisible={isSlotActive("image11")} />
+
+                      {/* LAYER 2: Middle Mouse Event Container */}
+                      <div
+                        className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                        onMouseMove={(e) => handleMouseMove("image11", e)}
+                        onMouseUp={() => handleMouseUp("image11")}
+                        onMouseLeave={() => handleMouseLeave("image11")}
+                      >
+                        {images.image11 ? (
+                          <>
+                            {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                            <div
+                              className="w-full h-full cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => handleMouseDown("image11", e)}
+                            >
+                              <ImageEditor
+                                src={images.image11}
+                                scale={scale.image11}
+                                position={position.image11}
+                                rotation={rotation.image11}
+                              />
+                            </div>
+
+                            {/* Zoom Controls */}
+                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image11", "in")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom In"
+                              >
+                                <ZoomIn className="w-4 h-4 text-gray-700" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image11", "out")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom Out"
+                              >
+                                <ZoomOut className="w-4 h-4 text-gray-700" />
+                              </button>
+                            </div>
+
+                            {/* Rotate */}
+                            <button
+                              type="button"
+                              onClick={() => handleRotate("image11")}
+                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              title="Rotate image"
+                            >
+                              <RotateCw className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                openImageSourceModal("image11", e)
+                              }
+                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Edit image"
+                            >
+                              <Pencil className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDelete("image11", fileInputRef11)
+                              }
+                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Delete image"
+                            >
+                              <Trash className="w-4 h-4 text-red-500" />
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image11", e)}
+                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                          >
+                            Select Image
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={fileInputRef11}
+                          onChange={(e) => handleImageChange("image11", e)}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PAGE 3 (Right Column) */}
+                <div
+                  className="flex gap-4"
+                  style={{
+                    width: showBleed
+                      ? "calc(50% + 0.375in)"
+                      : "calc(50% + 0.25in)",
+                    marginRight: showBleed ? "-0.375in" : "-0.25in",
+                  }}
+                >
+                  {/* Left Sub-column (70%) */}
+                  <div className="w-[70%] shrink-0 flex flex-col gap-[55px]">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image12 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image12")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image12");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image12")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image12", e)}
+                          onMouseUp={() => handleMouseUp("image12")}
+                          onMouseLeave={() => handleMouseLeave("image12")}
+                        >
+                          {images.image12 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image12", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image12}
+                                  scale={scale.image12}
+                                  position={position.image12}
+                                  rotation={rotation.image12}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image12", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image12", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image12")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image12", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image12", fileInputRef12)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image12", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef12}
+                            onChange={(e) => handleImageChange("image12", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image13 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image13")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image13");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image13")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image13", e)}
+                          onMouseUp={() => handleMouseUp("image13")}
+                          onMouseLeave={() => handleMouseLeave("image13")}
+                        >
+                          {images.image13 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image13", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image13}
+                                  scale={scale.image13}
+                                  position={position.image13}
+                                  rotation={rotation.image13}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image13", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image13", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image13")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image13", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image13", fileInputRef13)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image13", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef13}
+                            onChange={(e) => handleImageChange("image13", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image14 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image14")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image14");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image14")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image14", e)}
+                          onMouseUp={() => handleMouseUp("image14")}
+                          onMouseLeave={() => handleMouseLeave("image14")}
+                        >
+                          {images.image14 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image14", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image14}
+                                  scale={scale.image14}
+                                  position={position.image14}
+                                  rotation={rotation.image14}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image14", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image14", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image14")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image14", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image14", fileInputRef14)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image14", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef14}
+                            onChange={(e) => handleImageChange("image14", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image15 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image15")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image15");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image15")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image15", e)}
+                          onMouseUp={() => handleMouseUp("image15")}
+                          onMouseLeave={() => handleMouseLeave("image15")}
+                        >
+                          {images.image15 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image15", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image15}
+                                  scale={scale.image15}
+                                  position={position.image15}
+                                  rotation={rotation.image15}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image15", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image15", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image15")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image15", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image15", fileInputRef15)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image15", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef15}
+                            onChange={(e) => handleImageChange("image15", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image16 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image16")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image16");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image16")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image16", e)}
+                          onMouseUp={() => handleMouseUp("image16")}
+                          onMouseLeave={() => handleMouseLeave("image16")}
+                        >
+                          {images.image16 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image16", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image16}
+                                  scale={scale.image16}
+                                  position={position.image16}
+                                  rotation={rotation.image16}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image16", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image16", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image16")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image16", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image16", fileInputRef16)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image16", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef16}
+                            onChange={(e) => handleImageChange("image16", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LAYER 1: Outer Slot Container */}
+                      <div
+                        data-image-slot="true"
+                        className={`w-full h-[180px] bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                          images.image17 ? "border-[3px] border-white" : ""
+                        }`}
+                        onMouseEnter={() => setHoveredSlot("image17")}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onClick={(e) => {
+                          if (e.altKey) return;
+                          e.stopPropagation();
+                          setActiveSlot("image17");
+                        }}
+                      >
+                        {/* Canva-Style Box Indicator */}
+                        <BoxIndicator isVisible={isSlotActive("image17")} />
+
+                        {/* LAYER 2: Middle Mouse Event Container */}
+                        <div
+                          className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                          onMouseMove={(e) => handleMouseMove("image17", e)}
+                          onMouseUp={() => handleMouseUp("image17")}
+                          onMouseLeave={() => handleMouseLeave("image17")}
+                        >
+                          {images.image17 ? (
+                            <>
+                              {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                              <div
+                                className="w-full h-full cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) =>
+                                  handleMouseDown("image17", e)
+                                }
+                              >
+                                <ImageEditor
+                                  src={images.image17}
+                                  scale={scale.image17}
+                                  position={position.image17}
+                                  rotation={rotation.image17}
+                                />
+                              </div>
+
+                              {/* Zoom Controls */}
+                              <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image17", "in")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleZoom("image17", "out")}
+                                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="w-4 h-4 text-gray-700" />
+                                </button>
+                              </div>
+
+                              {/* Rotate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRotate("image17")}
+                                className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                title="Rotate image"
+                              >
+                                <RotateCw className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  openImageSourceModal("image17", e)
+                                }
+                                className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Edit image"
+                              >
+                                <Pencil className="w-4 h-4 text-gray-700" />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete("image17", fileInputRef17)
+                                }
+                                className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                title="Delete image"
+                              >
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              data-html2canvas-ignore="true"
+                              onClick={(e) =>
+                                openImageSourceModal("image17", e)
+                              }
+                              className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                            >
+                              Select Image
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef17}
+                            onChange={(e) => handleImageChange("image17", e)}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* LAYER 1: Outer Slot Container */}
+                    <div
+                      data-image-slot="true"
+                      className={`w-full min-h-[250px] flex-1 bg-transparent place-self-center relative overflow-hidden group cursor-pointer z-10 shadow-[4px_4px_6px_rgba(0,0,0,0.85)] ${
+                        images.image18 ? "border-[3px] border-white" : ""
+                      }`}
+                      onMouseEnter={() => setHoveredSlot("image18")}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={(e) => {
+                        if (e.altKey) return;
+                        e.stopPropagation();
+                        setActiveSlot("image18");
+                      }}
+                    >
+                      {/* Canva-Style Box Indicator */}
+                      <BoxIndicator isVisible={isSlotActive("image18")} />
+
+                      {/* LAYER 2: Middle Mouse Event Container */}
+                      <div
+                        className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                        onMouseMove={(e) => handleMouseMove("image18", e)}
+                        onMouseUp={() => handleMouseUp("image18")}
+                        onMouseLeave={() => handleMouseLeave("image18")}
+                      >
+                        {images.image18 ? (
+                          <>
+                            {/* LAYER 3: Inner Drag Wrapper + ImageEditor */}
+                            <div
+                              className="w-full h-full cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => handleMouseDown("image18", e)}
+                            >
+                              <ImageEditor
+                                src={images.image18}
+                                scale={scale.image18}
+                                position={position.image18}
+                                rotation={rotation.image18}
+                              />
+                            </div>
+
+                            {/* Zoom Controls */}
+                            <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image18", "in")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom In"
+                              >
+                                <ZoomIn className="w-4 h-4 text-gray-700" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleZoom("image18", "out")}
+                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                title="Zoom Out"
+                              >
+                                <ZoomOut className="w-4 h-4 text-gray-700" />
+                              </button>
+                            </div>
+
+                            {/* Rotate */}
+                            <button
+                              type="button"
+                              onClick={() => handleRotate("image18")}
+                              className="absolute top-2 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              title="Rotate image"
+                            >
+                              <RotateCw className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                openImageSourceModal("image18", e)
+                              }
+                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Edit image"
+                            >
+                              <Pencil className="w-4 h-4 text-gray-700" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDelete("image18", fileInputRef18)
+                              }
+                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              title="Delete image"
+                            >
+                              <Trash className="w-4 h-4 text-red-500" />
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            data-html2canvas-ignore="true"
+                            onClick={(e) => openImageSourceModal("image18", e)}
+                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                          >
+                            Select Image
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={fileInputRef18}
+                          onChange={(e) => handleImageChange("image18", e)}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Sub-column - White Details Box Extended to Full Bleed */}
+                  <div
+                    className="bg-white flex-1 flex flex-col justify-start"
+                    style={{
+                      marginTop: showBleed
+                        ? "calc(-0.375in - 40px)"
+                        : "calc(-0.25in - 40px)",
+                      marginBottom: showBleed
+                        ? "calc(-0.375in - 40px)"
+                        : "calc(-0.25in - 40px)",
+                      paddingTop: showBleed
+                        ? "calc(40px + 0.375in)"
+                        : "calc(40px + 0.25in)",
+                      paddingBottom: showBleed
+                        ? "calc(40px + 0.375in)"
+                        : "calc(40px + 0.25in)",
+                      paddingLeft: "8px",
+                      paddingRight: showBleed ? "0.375in" : "0.25in",
+                    }}
+                  >
+                    <div
+                      data-safezone-container="true"
+                      className={`w-full flex flex-col gap-4 text-black text-[12px] leading-relaxed relative z-10 border-[3.5px] border-solid border-transparent rounded-lg p-2 transition-all duration-150 group/sec ${
+                        lockedSections.details
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
+                    >
+                      {/* Lock button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("details");
+                        }}
+                        className={`absolute top-1 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.details
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.details
+                            ? "Unlock Details Section"
+                            : "Lock Details Section"
+                        }
+                      >
+                        {lockedSections.details ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Price (Amount) */}
+                      {!isFieldDeleted("priceAmount") && (
+                        <DraggableBox
+                          id="priceAmount"
+                          position={fieldPositions.priceAmount}
+                          onPositionChange={updateFieldPosition}
+                          label="Price"
+                          zoom={0.55}
+                          disabled={lockedSections.details}
+                          containerClassName="w-full"
+                          onDelete={() =>
+                            removeStandardField(
+                              "priceAmount",
+                              "Price",
+                              amount,
+                              "Page 3 - Price",
+                              fieldStyles.amount,
+                            )
+                          }
+                          deleteTitle="Remove Price"
+                        >
+                          <StyledInput
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                            inputStyle={fieldStyles.amount}
+                            className="font-semibold text-[#B3B394] text-left text-[30px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
+                            placeholder="$000,000"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {/* Left Detail Fields */}
+                      <div className="space-y-2 text-[8px]">
+                        {leftDetailFields.map((field) => (
+                          <DraggableBox
+                            key={field.id}
+                            id={field.id}
+                            position={fieldPositions[field.id]}
+                            onPositionChange={updateFieldPosition}
+                            label={
+                              field.title.replace(/[:]/g, "").slice(0, 15) ||
+                              "Field"
+                            }
+                            zoom={0.55}
+                            disabled={lockedSections.details}
+                            containerClassName="w-full"
+                            onDelete={() => removeDetailField(field.id)}
+                            deleteTitle="Remove field"
+                          >
+                            <DetailFieldRow
+                              field={field}
+                              onTitleChange={(title) =>
+                                updateDetailTitle(field.id, title)
+                              }
+                              onTitleStyleChange={(style) =>
+                                updateDetailTitleStyle(field.id, style)
+                              }
+                              onValueChange={(val) =>
+                                updateDetailValue(field.id, val)
+                              }
+                              onStyleChange={(style) =>
+                                updateDetailStyle(field.id, style)
+                              }
+                            />
+                          </DraggableBox>
+                        ))}
+                      </div>
+
+                      {/* Right Detail Fields */}
+                      <div className="space-y-2 text-[8px]">
+                        {rightDetailFields.map((field) => (
+                          <DraggableBox
+                            key={field.id}
+                            id={field.id}
+                            position={fieldPositions[field.id]}
+                            onPositionChange={updateFieldPosition}
+                            label={
+                              field.title.replace(/[:]/g, "").slice(0, 15) ||
+                              "Field"
+                            }
+                            zoom={0.55}
+                            disabled={lockedSections.details}
+                            containerClassName="w-full"
+                            onDelete={() => removeDetailField(field.id)}
+                            deleteTitle="Remove field"
+                          >
+                            <DetailFieldRow
+                              field={field}
+                              onTitleChange={(title) =>
+                                updateDetailTitle(field.id, title)
+                              }
+                              onTitleStyleChange={(style) =>
+                                updateDetailTitleStyle(field.id, style)
+                              }
+                              onValueChange={(val) =>
+                                updateDetailValue(field.id, val)
+                              }
+                              onStyleChange={(style) =>
+                                updateDetailStyle(field.id, style)
+                              }
+                            />
+                          </DraggableBox>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SafeZoneWrapper>
           </div>
         </div>
       </>
