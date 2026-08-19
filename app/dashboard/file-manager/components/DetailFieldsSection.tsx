@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Plus, Trash, Move, RotateCcw } from "lucide-react";
 import { DetailField, TextStyle } from "../types/featureSheetTypes";
 import StyledInput from "./StyledInput";
@@ -60,10 +54,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Merge all fields into a single list
-  const allFields = useMemo(
-    () => [...leftFields, ...rightFields],
-    [leftFields, rightFields],
-  );
+  const allFields = useMemo(() => [...leftFields, ...rightFields], [leftFields, rightFields]);
 
   // Helper to get position of a field
   const getFieldPos = useCallback(
@@ -76,10 +67,13 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       }
       return { x: 0, y: Math.min(350, index * 52) };
     },
-    [fieldPositions],
+    [fieldPositions]
   );
 
-  const handleMouseDown = (e: React.MouseEvent, fieldId: string) => {
+  const handleMouseDown = (
+    e: React.MouseEvent,
+    fieldId: string
+  ) => {
     if (e.button !== 0 || e.altKey) return;
     const target = e.target as HTMLElement;
     if (
@@ -92,10 +86,9 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     e.stopPropagation();
 
     const fieldIndex = allFields.findIndex((f) => f.id === fieldId);
-    const currentPos =
-      fieldIndex >= 0
-        ? getFieldPos(allFields[fieldIndex], fieldIndex)
-        : { x: 0, y: 0 };
+    const currentPos = fieldIndex >= 0
+      ? getFieldPos(allFields[fieldIndex], fieldIndex)
+      : { x: 0, y: 0 };
 
     startMouseRef.current = { x: e.clientX, y: e.clientY };
     startPosRef.current = { x: currentPos.x, y: currentPos.y };
@@ -143,7 +136,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
         onPositionChange(dragId, { x: nextX, y: nextY });
       });
     },
-    [zoom, onPositionChange],
+    [zoom, onPositionChange]
   );
 
   const handleMouseUp = useCallback(
@@ -167,7 +160,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
     },
-    [onPositionChange],
+    [onPositionChange]
   );
 
   useEffect(() => {
@@ -198,10 +191,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     };
     onLeftFieldsChange([...leftFields, newField]);
     if (onPositionChange) {
-      onPositionChange(newId, {
-        x: 0,
-        y: Math.min(360, allFields.length * 52),
-      });
+      onPositionChange(newId, { x: 0, y: Math.min(360, allFields.length * 52) });
     }
   };
 
@@ -229,8 +219,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
         const isDragging = activeDragId === field.id;
         const isHovered = hoveredId === field.id || isDragging;
         const defaultPos = DEFAULT_POSITIONS[field.id];
-        const hasMoved =
-          defaultPos && (pos.x !== defaultPos.x || pos.y !== defaultPos.y);
+        const hasMoved = defaultPos && (pos.x !== defaultPos.x || pos.y !== defaultPos.y);
 
         return (
           <div
