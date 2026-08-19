@@ -34,7 +34,6 @@
     "@react-google-maps/api": "^2.20.7",
     "@tanstack/react-table": "^8.21.3",
     "@types/google.maps": "^3.58.1",
-    "@types/three": "^0.184.1",
     "@userback/widget": "^0.3.12",
     "axios": "^1.13.2",
     "chrono-node": "^2.8.2",
@@ -61,7 +60,6 @@
     "suneditor-react": "^3.6.1",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "three": "^0.184.0",
     "use-places-autocomplete": "^4.0.1"
   },
   "devDependencies": {

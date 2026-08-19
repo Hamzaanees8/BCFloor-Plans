@@ -16,6 +16,7 @@ import {
   convertUTCToTimezone,
   convertVendorWorkHoursToPropertyTimezone,
 } from '../../orders/orders';
+import { getVendorValidStartSlots, ValidStartSlotResult } from '../../orders/components/OneDayCalendar';
 import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import { toast } from 'sonner';
@@ -108,35 +109,10 @@ interface MinimalSlot {
   end_time: string;
   vendor_id?: string;
   vendor?: { uuid: string };
+  est_time?: string | number | null;
+  distance?: string | number | null;
 }
 
-interface VendorTimeOff {
-  id?: number;
-  uuid?: string;
-  vendor_id?: number;
-  title: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  address?: string;
-  start_date?: string;
-  end_date?: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  summary: string;
-  description?: string;
-  start: string;
-  end: string;
-  start_formatted?: string;
-  end_formatted?: string;
-  all_day: boolean;
-  status: string;
-  location?: string;
-  created?: string;
-  updated?: string;
-}
 
 function isSameService(slotServiceId: any, serviceObj: any): boolean {
   if (!slotServiceId || !serviceObj) return false;
@@ -148,40 +124,6 @@ function isSameService(slotServiceId: any, serviceObj: any): boolean {
 function isNextBookingSlotOnlyEnabled(vendor: VendorData): boolean {
   const value = vendor.settings?.next_booking_slot_only;
   return value === true || value === 1 || value === '1' || (typeof value === 'string' && value.toLowerCase() === 'true');
-}
-
-function getLatestBookedEndBoundary(date: string, vendorId: string, allBookedSlots: MinimalSlot[]): dayjs.Dayjs | null {
-  const relevantBookedSlots = allBookedSlots
-    ?.filter(s => (s?.vendor?.uuid || s?.vendor_id) === vendorId && s?.date === date)
-    .map(s => dayjs(`${s.date}T${s.end_time}`)) || [];
-
-  if (relevantBookedSlots.length === 0) {
-    return null;
-  }
-
-  return relevantBookedSlots.reduce((latest, current) => current.isAfter(latest) ? current : latest);
-}
-
-function getVendorRequiredSlotStart(
-  vendor: VendorData,
-  date: string,
-  allBookedSlots: MinimalSlot[],
-  vendorAvailableSlots: Slots[]
-): string | null {
-  if (!isNextBookingSlotOnlyEnabled(vendor) || vendorAvailableSlots.length === 0) {
-    return null;
-  }
-
-  const vendorId = vendor.uuid ?? '';
-  if (!vendorId) {
-    return null;
-  }
-
-  const latestBookedEnd = getLatestBookedEndBoundary(date, vendorId, allBookedSlots);
-  const boundary = latestBookedEnd ?? dayjs(vendorAvailableSlots[0].start);
-  const requiredSlot = vendorAvailableSlots.find(slot => !dayjs(slot.start).isBefore(boundary));
-
-  return requiredSlot?.start ?? null;
 }
 
 function isFloorPlanService(
@@ -214,166 +156,6 @@ function isMatterportService(
   ].join(' ').toLowerCase();
 
   return /matterport|3d\s*tour|3dtour|iguide/.test(searchable);
-}
-
-function getRestrictedDisplaySlots(
-  vendor: VendorData,
-  date: string,
-  allBookedSlots: MinimalSlot[],
-  vendorAvailableSlots: Slots[],
-  requiredSlotsCount: number,
-  shouldEnforceRule: boolean,
-  currentServiceUuid?: string,
-  selectedSlots?: Slot[]
-): Slots[] {
-  if (!shouldEnforceRule || !isNextBookingSlotOnlyEnabled(vendor) || vendorAvailableSlots.length === 0) {
-    return vendorAvailableSlots;
-  }
-
-  const requiredSlotStart = getVendorRequiredSlotStart(vendor, date, allBookedSlots, vendorAvailableSlots);
-  if (!requiredSlotStart) {
-    return vendorAvailableSlots;
-  }
-
-  // Find currently selected slots for this vendor/service/date to ensure they're shown during edit
-  const selectedSlotStarts = selectedSlots?.filter(s =>
-    (s.vendor_id === vendor.uuid || s.vendor?.uuid === vendor.uuid) &&
-    isSameService(s.service_id, { uuid: currentServiceUuid }) &&
-    s.date === date
-  ).map(s => dayjs(`${s.date} ${s.start_time}`).toISOString()) || [];
-
-  const startIndex = vendorAvailableSlots.findIndex(slot => dayjs(slot.start).isSame(requiredSlotStart));
-
-  const restrictedSlots: Slots[] = [];
-  if (startIndex !== -1) {
-    restrictedSlots.push(vendorAvailableSlots[startIndex]);
-    for (let i = startIndex + 1; i < vendorAvailableSlots.length && restrictedSlots.length < requiredSlotsCount; i++) {
-      const previous = restrictedSlots[restrictedSlots.length - 1];
-      const current = vendorAvailableSlots[i];
-      if (dayjs(current.start).isSame(dayjs(previous.end))) {
-        restrictedSlots.push(current);
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Include the restricted "next" slots PLUS any already "selected" slots for this order
-  return vendorAvailableSlots.filter(slot =>
-    restrictedSlots.some(rs => rs.start === slot.start) ||
-    selectedSlotStarts.includes(slot.start)
-  );
-}
-
-function generateMarkedSlots(
-  date: string,
-  workHours: WorkHours,
-  vendorId: string,
-  allBookedSlots: MinimalSlot[],
-  otherServiceSlots: MinimalSlot[] = [],
-  vendorTimeOffs: VendorTimeOff[] = [],
-  calendarEvents: CalendarEvent[] = [],
-  interval = 15
-): Slots[] {
-  if (!workHours) return [];
-
-  const dayOfWeek = dayjs(date).format('ddd').toLowerCase();
-  const daySchedule = workHours.work_days?.find(d => d.day === dayOfWeek);
-
-  if (daySchedule && (daySchedule.is_off === '1' || daySchedule.is_off === 1 || daySchedule.is_off === true)) {
-    return [];
-  }
-
-  const effectiveStartTime = daySchedule?.start_time || workHours.start_time;
-  const effectiveEndTime = daySchedule?.end_time || workHours.end_time;
-
-  if (!effectiveStartTime || !effectiveEndTime) return [];
-
-  const slots = [];
-  const start = dayjs(`${date}T${effectiveStartTime}`);
-  const end = dayjs(`${date}T${effectiveEndTime}`);
-  const breakStart = workHours.break_start ? dayjs(`${date}T${workHours.break_start}`) : null;
-  const breakEnd = workHours.break_end ? dayjs(`${date}T${workHours.break_end}`) : null;
-  const currentDateObj = dayjs(date);
-
-  let current = start;
-
-  while (current.isBefore(end)) {
-    const next = current.add(interval, 'minute');
-
-    const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
-
-    const isBooked = allBookedSlots?.some(bookedSlot => {
-      if (!bookedSlot) return false;
-      const bookedStart = dayjs(`${bookedSlot.date}T${bookedSlot.start_time}`);
-      const bookedEnd = dayjs(`${bookedSlot.date}T${bookedSlot.end_time}`);
-      const bookedVendorId = bookedSlot.vendor?.uuid || bookedSlot.vendor_id;
-      return (
-        bookedVendorId === vendorId &&
-        bookedSlot.date === date &&
-        current.isSameOrAfter(bookedStart) &&
-        next.isSameOrBefore(bookedEnd)
-      );
-    }) || false;
-
-    const isConflict = otherServiceSlots.some(conflictSlot => {
-      const conflictStart = dayjs(`${conflictSlot.date}T${conflictSlot.start_time}`);
-      const conflictEnd = dayjs(`${conflictSlot.date}T${conflictSlot.end_time}`);
-      return (
-        (conflictSlot.vendor?.uuid === vendorId || conflictSlot.vendor_id === vendorId) &&
-        conflictSlot.date === date &&
-        current.isSameOrAfter(conflictStart) &&
-        next.isSameOrBefore(conflictEnd)
-      );
-    });
-
-    const isTimeOff = vendorTimeOffs?.some(timeOff => {
-      if (!timeOff) return false;
-      const timeOffStartDate = timeOff.start_date || timeOff.date;
-      const timeOffEndDate = timeOff.end_date || timeOff.date;
-      const startDateObj = dayjs(timeOffStartDate);
-      const endDateObj = dayjs(timeOffEndDate);
-      const isDateInRange = currentDateObj.isSameOrAfter(startDateObj, 'day') && currentDateObj.isSameOrBefore(endDateObj, 'day');
-      if (!isDateInRange) return false;
-      const isStartDay = currentDateObj.isSame(startDateObj, 'day');
-      const isEndDay = currentDateObj.isSame(endDateObj, 'day');
-      if (isStartDay && isEndDay) {
-        const s = dayjs(`${date}T${timeOff.start_time}`);
-        const e = dayjs(`${date}T${timeOff.end_time}`);
-        return (current.isSameOrAfter(s) && current.isBefore(e)) || (next.isAfter(s) && next.isSameOrBefore(e)) || (current.isBefore(s) && next.isAfter(e));
-      } else if (isStartDay) {
-        return current.isSameOrAfter(dayjs(`${date}T${timeOff.start_time}`));
-      } else if (isEndDay) {
-        return current.isBefore(dayjs(`${date}T${timeOff.end_time}`));
-      }
-      return true;
-    }) || false;
-
-    const isCalendarEvent = calendarEvents?.some(event => {
-      if (!event || event.status === 'cancelled') return false;
-      const eventStart = dayjs(event.start);
-      const eventEnd = dayjs(event.end);
-      if (eventStart.format('YYYY-MM-DD') !== date) return false;
-      return (current.isSameOrAfter(eventStart) && current.isBefore(eventEnd)) ||
-        (next.isAfter(eventStart) && next.isSameOrBefore(eventEnd)) ||
-        (current.isBefore(eventStart) && next.isAfter(eventEnd));
-    }) || false;
-
-    if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent) {
-      slots.push({
-        id: current.toISOString(),
-        start: current.toISOString(),
-        end: next.toISOString(),
-        title: 'Available',
-        className: 'slot-available',
-        vendor_id: vendorId,
-      });
-    }
-
-    current = next;
-  }
-
-  return slots;
 }
 
 function generateAllDaySlots(date: string, interval = 15): Slots[] {
@@ -416,6 +198,7 @@ export default function OneDayCalendar({
     servicesData,
     selectedCurrentListing,
     tempPropertyData,
+    portalSettings,
   } = useOrderContext();
 
   const { userType } = useAppContext();
@@ -573,6 +356,8 @@ export default function OneDayCalendar({
         ? !vendorHasNextBookingFlag
         : (scheduleOverride === 1) && !(isSpecialService && vendorHasNextBookingFlag);
 
+      const allowBookingThroughLunch = portalSettings?.allow_booking_through_lunch ?? false;
+
       if (useFullDay) {
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
@@ -587,20 +372,23 @@ export default function OneDayCalendar({
             is_twilight: 0,
           }],
         };
-        const vendorSlots = generateMarkedSlots(date, fullDayWorkHours, vendorId, AllBookedSlots as unknown as MinimalSlot[], otherServiceSlots as unknown as MinimalSlot[], [], [], 15);
-        
-        const slotsToExpose = getRestrictedDisplaySlots(
+        const { startSlots } = getVendorValidStartSlots(
           vendor,
           date,
+          fullDayWorkHours as any,
           AllBookedSlots as unknown as MinimalSlot[],
-          vendorSlots,
+          otherServiceSlots as unknown as MinimalSlot[],
+          [],
+          [],
           requiredSlotsCountForService,
+          allowBookingThroughLunch,
           shouldEnforceForVendor,
           service.service.uuid,
-          selectedSlots
+          selectedSlots,
+          15
         );
-
-        slotsToExpose.forEach(slot => {
+        
+        startSlots.forEach(slot => {
           const key = `${slot.start}_${slot.end}`;
           if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
           slotVendorsMap.get(key)!.push(vendorId);
@@ -618,20 +406,23 @@ export default function OneDayCalendar({
           targetTimezone
         );
 
-        const vendorSlots = generateMarkedSlots(date, convertedWorkHours as any, vendorId, AllBookedSlots as unknown as MinimalSlot[], otherServiceSlots as unknown as MinimalSlot[], vendor.additional_breaks || [], vendor.calendar_events || [], 15);
-        
-        const slotsToExpose = getRestrictedDisplaySlots(
+        const { startSlots } = getVendorValidStartSlots(
           vendor,
           date,
+          convertedWorkHours as any,
           AllBookedSlots as unknown as MinimalSlot[],
-          vendorSlots,
+          otherServiceSlots as unknown as MinimalSlot[],
+          vendor.additional_breaks || [],
+          vendor.calendar_events || [],
           requiredSlotsCountForService,
+          allowBookingThroughLunch,
           shouldEnforceForVendor,
           service.service.uuid,
-          selectedSlots
+          selectedSlots,
+          15
         );
-
-        slotsToExpose.forEach(slot => {
+        
+        startSlots.forEach(slot => {
           const key = `${slot.start}_${slot.end}`;
           if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
           slotVendorsMap.get(key)!.push(vendorId);
@@ -929,131 +720,116 @@ export default function OneDayCalendar({
       return;
     }
 
-    const remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
-
-    const slotsToSelect: { start: string; end: string }[] = [];
-    for (let i = 0; i < remainingSlotsNeeded; i++) {
-      slotsToSelect.push({
-        start: dayjs(clicked.start).add(i * 15, 'minute').toISOString(),
-        end: dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString(),
-      });
-    }
-
     const currentServiceDataForClick = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
     const isNoTravelClick = currentServiceDataForClick?.is_travel_required === false;
     const isFloorPlanClick = isFloorPlanService(service.title, service.service.uuid, service.service.id, servicesData);
     const isMatterportClick = isMatterportService(service.title, service.service.uuid, service.service.id, servicesData);
     const isSpecialServiceClick = isFloorPlanClick || isMatterportClick;
+    const allowBookingThroughLunch = portalSettings?.allow_booking_through_lunch ?? false;
 
-    // Find vendors available for ALL consecutive slots
-    const matching = vendors.filter(vendor => {
-      if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
+    const getMatchingVendorsForClick = (startISO: string) => {
+      const candidates: { vendor: VendorData; proposedSlots: { start: string; end: string }[] }[] = [];
 
-      const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-      const shouldEnforceForVendor = isSpecialServiceClick
-        ? vendorHasNextBookingFlag
-        : true;
+      vendors.forEach((vendor) => {
+        if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
 
-      // Mirror the same useFullDay logic from event generation
-      const useFullDayClick = isNoTravelClick
-        ? !vendorHasNextBookingFlag
-        : (scheduleOverride === 1) && !(isSpecialServiceClick && vendorHasNextBookingFlag);
+        const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+        const shouldEnforceForVendor = isSpecialServiceClick ? vendorHasNextBookingFlag : true;
+        const useFullDayClick = isNoTravelClick
+          ? !vendorHasNextBookingFlag
+          : (scheduleOverride === 1) && !(isSpecialServiceClick && vendorHasNextBookingFlag);
 
-      if (useFullDayClick) {
-        const fullDayWorkHours: WorkHours = {
-          start_time: '00:00:00',
-          end_time: '23:59:59',
-          break_start: '',
-          break_end: '',
-          work_days: [
-            {
+        const otherSlotsForDate = selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selectedDate);
+
+        let validResult: ValidStartSlotResult;
+        if (useFullDayClick) {
+          const fullDayWorkHours: WorkHours = {
+            start_time: '00:00:00',
+            end_time: '23:59:59',
+            break_start: '',
+            break_end: '',
+            work_days: [{
               day: dayjs(selectedDate).format('ddd').toLowerCase(),
               start_time: '00:00:00',
               end_time: '23:59:59',
               is_off: 0,
               is_twilight: 0
-            }
-          ]
-        };
-
-        const vendorAvailableSlots = generateMarkedSlots(
-          selectedDate,
-          fullDayWorkHours,
-          vendor.uuid ?? '',
-          AllBookedSlots as unknown as MinimalSlot[],
-          selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selectedDate) as unknown as MinimalSlot[],
-          [],
-          [],
-          15
-        );
-
-        const requiredSlotStart = shouldEnforceForVendor
-          ? getVendorRequiredSlotStart(vendor, selectedDate, AllBookedSlots as unknown as MinimalSlot[], vendorAvailableSlots)
-          : null;
-        if (requiredSlotStart && currentServiceSlots.length === 0 && !dayjs(slotsToSelect[0].start).isSame(requiredSlotStart)) {
-          return false;
+            }]
+          };
+          validResult = getVendorValidStartSlots(
+            vendor,
+            selectedDate,
+            fullDayWorkHours as any,
+            AllBookedSlots as unknown as MinimalSlot[],
+            otherSlotsForDate as unknown as MinimalSlot[],
+            [],
+            [],
+            requiredSlots,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.service.uuid,
+            selectedSlots,
+            15
+          );
+        } else {
+          if (!vendor.work_hours) return;
+          const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
+          const targetTimezone = propertyTimezone || 'America/Vancouver';
+          const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
+            selectedDate,
+            vendor.work_hours,
+            vendorTimezone,
+            targetTimezone
+          );
+          validResult = getVendorValidStartSlots(
+            vendor,
+            selectedDate,
+            convertedWorkHours as any,
+            AllBookedSlots as unknown as MinimalSlot[],
+            otherSlotsForDate as unknown as MinimalSlot[],
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlots,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.service.uuid,
+            selectedSlots,
+            15
+          );
         }
 
-        return slotsToSelect.every(slotToSelect =>
-          vendorAvailableSlots.some(avail =>
-            dayjs(avail.start).isSame(slotToSelect.start) && dayjs(avail.end).isSame(slotToSelect.end)
-          )
-        );
-      }
+        if (validResult.proposedSlotsMap.has(startISO)) {
+          candidates.push({
+            vendor,
+            proposedSlots: validResult.proposedSlotsMap.get(startISO)!
+          });
+        }
+      });
 
-      if (!vendor.work_hours) return false;
+      return candidates;
+    };
 
-      const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
-      const targetTimezone = propertyTimezone || 'America/Vancouver';
-      const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
-        selectedDate,
-        vendor.work_hours,
-        vendorTimezone,
-        targetTimezone
-      );
-
-      const vendorAvailableSlots = generateMarkedSlots(
-        selectedDate,
-        convertedWorkHours as any,
-        vendor.uuid ?? '',
-        AllBookedSlots as unknown as MinimalSlot[],
-        selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selectedDate) as unknown as MinimalSlot[],
-        vendor.additional_breaks || [],
-        vendor.calendar_events || [],
-        15
-      );
-
-      const requiredSlotStart = shouldEnforceForVendor
-        ? getVendorRequiredSlotStart(vendor, selectedDate, AllBookedSlots as unknown as MinimalSlot[], vendorAvailableSlots)
-        : null;
-      if (requiredSlotStart && currentServiceSlots.length === 0 && !dayjs(slotsToSelect[0].start).isSame(requiredSlotStart)) {
-        return false;
-      }
-
-      return slotsToSelect.every(slotToSelect =>
-        vendorAvailableSlots.some(avail =>
-          dayjs(avail.start).isSame(slotToSelect.start) && dayjs(avail.end).isSame(slotToSelect.end)
-        )
-      );
-    });
+    const matching = getMatchingVendorsForClick(clicked.start);
+    if (matching.length === 0) {
+      toast.error(`There are not ${requiredDuration} min consecutive available slots for any eligible vendor starting at this time. Please select another slot.`);
+      return;
+    }
 
     const assignedVendorId = currentServiceSlots.length > 0
       ? (currentServiceSlots[0].vendor?.uuid || currentServiceSlots[0].vendor_id)
       : null;
 
     if (assignedVendorId) {
-      const stickyVendor = matching.find(v => v.uuid === assignedVendorId);
-      if (stickyVendor) { await handleAssignVendor(stickyVendor, slotsToSelect); return; }
+      const stickyMatch = matching.find(m => m.vendor.uuid === assignedVendorId);
+      if (stickyMatch) { await handleAssignVendor(stickyMatch.vendor, stickyMatch.proposedSlots); return; }
     }
 
     if (matching.length === 1) {
-      await handleAssignVendor(matching[0], slotsToSelect);
-    } else if (matching.length > 1) {
-      setClickedSlot(clicked);
-      setAvailableSlotVendors(matching);
-      setShowVendorModal(true);
+      await handleAssignVendor(matching[0].vendor, matching[0].proposedSlots);
     } else {
-      toast.error(`No vendor has ${remainingSlotsNeeded * 15} consecutive minutes available starting at this time.`);
+      setClickedSlot(clicked);
+      setAvailableSlotVendors(matching.map(m => m.vendor));
+      setShowVendorModal(true);
     }
   };
 
@@ -1301,21 +1077,91 @@ export default function OneDayCalendar({
                           key={vendor.uuid}
                           className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
                           onClick={async () => {
-                            const currentServiceData = servicesData?.find(s => isSameService(s.uuid, service.service));
-                            const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-                            const reqDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+                            const currentServiceDataForModal = servicesData?.find(s => isSameService(s.uuid, service.service));
+                            const isNoTravelModal = currentServiceDataForModal?.is_travel_required === false;
+                            const isFloorPlanModal = isFloorPlanService(service.title, service.service.uuid, service.service.id, servicesData);
+                            const isMatterportModal = isMatterportService(service.title, service.service.uuid, service.service.id, servicesData);
+                            const isSpecialServiceModal = isFloorPlanModal || isMatterportModal;
+                            const allowBookingThroughLunchModal = portalSettings?.allow_booking_through_lunch ?? false;
+
+                            const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+                            const shouldEnforceForVendor = isSpecialServiceModal ? vendorHasNextBookingFlag : true;
+                            const useFullDayModal = isNoTravelModal
+                              ? !vendorHasNextBookingFlag
+                              : (scheduleOverride === 1) && !(isSpecialServiceModal && vendorHasNextBookingFlag);
+
                             const selDate = dayjs(clickedSlot.start).format('YYYY-MM-DD');
-                            const existingSlots = selectedSlots.filter(s => isSameService(s.service_id, service.service) && s.date === selDate);
-                            let remaining = Math.ceil(reqDuration / 15) - existingSlots.length;
-                            if (remaining <= 0) remaining = 1;
-                            const slotsToSelect = [];
-                            for (let i = 0; i < remaining; i++) {
-                              slotsToSelect.push({
-                                start: dayjs(clickedSlot.start).add(i * 15, 'minute').toISOString(),
-                                end: dayjs(clickedSlot.start).add((i + 1) * 15, 'minute').toISOString(),
-                              });
+                            const otherSlotsForDate = selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selDate);
+                            const productOption = currentServiceDataForModal?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
+                            const reqDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+                            const requiredSlotsForModal = Math.max(1, Math.ceil(reqDuration / 15));
+
+                            let validResult: ValidStartSlotResult;
+                            if (useFullDayModal) {
+                              const fullDayWH: WorkHours = {
+                                start_time: '00:00:00',
+                                end_time: '23:59:59',
+                                break_start: '',
+                                break_end: '',
+                                work_days: [{
+                                  day: dayjs(selDate).format('ddd').toLowerCase(),
+                                  start_time: '00:00:00',
+                                  end_time: '23:59:59',
+                                  is_off: 0,
+                                  is_twilight: 0
+                                }]
+                              };
+                              validResult = getVendorValidStartSlots(
+                                vendor,
+                                selDate,
+                                fullDayWH as any,
+                                AllBookedSlots as unknown as MinimalSlot[],
+                                otherSlotsForDate as unknown as MinimalSlot[],
+                                [],
+                                [],
+                                requiredSlotsForModal,
+                                allowBookingThroughLunchModal,
+                                shouldEnforceForVendor,
+                                service.service.uuid,
+                                selectedSlots,
+                                15
+                              );
+                            } else {
+                              if (!vendor.work_hours) {
+                                toast.error('Vendor work hours not configured.');
+                                return;
+                              }
+                              const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
+                              const targetTimezone = propertyTimezone || 'America/Vancouver';
+                              const convertedWH = convertVendorWorkHoursToPropertyTimezone(
+                                selDate,
+                                vendor.work_hours,
+                                vendorTimezone,
+                                targetTimezone
+                              );
+                              validResult = getVendorValidStartSlots(
+                                vendor,
+                                selDate,
+                                convertedWH as any,
+                                AllBookedSlots as unknown as MinimalSlot[],
+                                otherSlotsForDate as unknown as MinimalSlot[],
+                                vendor.additional_breaks || [],
+                                vendor.calendar_events || [],
+                                requiredSlotsForModal,
+                                allowBookingThroughLunchModal,
+                                shouldEnforceForVendor,
+                                service.service.uuid,
+                                selectedSlots,
+                                15
+                              );
                             }
-                            await handleAssignVendor(vendor, slotsToSelect);
+
+                            const proposed = validResult.proposedSlotsMap.get(clickedSlot.start);
+                            if (proposed && proposed.length > 0) {
+                              await handleAssignVendor(vendor, proposed);
+                            } else {
+                              toast.error('Vendor is not available for the full duration starting at this time.');
+                            }
                           }}
                         >
                           <span style={{ backgroundColor: color }} className="flex h-[16px] w-[5px]"></span>

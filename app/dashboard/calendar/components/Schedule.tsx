@@ -139,6 +139,21 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
     const { setSelectedSlots, calendarServices, selectedSlots } = useOrderContext();
     const [serviceDates, setServiceDates] = useState<Record<number, Date | undefined>>({}); // For calendar control
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
+    const [customDurationMap, setCustomDurationMap] = useState<Record<string, number | null>>({});
+    const [bufferMinutesMap, setBufferMinutesMap] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (!currentOrder?.slots) return;
+        const durMap: Record<string, number | null> = {};
+        const bufMap: Record<string, number> = {};
+        currentOrder.slots.forEach(slot => {
+            const sKey = String(slot.service_id);
+            if (slot.custom_duration) durMap[sKey] = slot.custom_duration;
+            if (slot.buffer_minutes) bufMap[sKey] = slot.buffer_minutes;
+        });
+        setCustomDurationMap(prev => ({ ...durMap, ...prev }));
+        setBufferMinutesMap(prev => ({ ...bufMap, ...prev }));
+    }, [currentOrder]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -185,6 +200,9 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                     ...slot,
                     start_time: chunk.start_time,
                     end_time: chunk.end_time,
+                    custom_duration: slot.custom_duration ?? null,
+                    custom_end_time: slot.custom_end_time ?? null,
+                    buffer_minutes: slot.buffer_minutes ?? 0,
                     service_id: serviceIdToUuidMap[slot.service_id] || String(slot.service_id),
                     vendor_id: slot.vendor?.uuid || slot.vendor_id,
                 }));
@@ -612,6 +630,68 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                                 })()}
                                             </span>
                                         </p>
+                                        {userType === 'admin' && (
+                                            <div className="flex flex-wrap gap-4 mt-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[11px] font-semibold text-gray-700">Appointment Duration</label>
+                                                    <select
+                                                        value={customDurationMap[service.service.uuid] ?? ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value ? Number(e.target.value) : null;
+                                                            const sUuid = service.service.uuid;
+                                                            setCustomDurationMap(prev => ({ ...prev, [sUuid]: val }));
+                                                            setSelectedSlots(prev => prev.map(slot => {
+                                                                if (slot.service_id === sUuid || String(slot.service_id) === String(service.service.id)) {
+                                                                    return { ...slot, custom_duration: val };
+                                                                }
+                                                                return slot;
+                                                            }));
+                                                        }}
+                                                        className="h-[32px] px-2 text-[12px] rounded border border-gray-300 bg-white"
+                                                    >
+                                                        <option value="">Standard ({requiredDuration} mins)</option>
+                                                        <option value="15">15 mins</option>
+                                                        <option value="30">30 mins</option>
+                                                        <option value="45">45 mins</option>
+                                                        <option value="60">1 hour (60m)</option>
+                                                        <option value="75">1h 15m (75m)</option>
+                                                        <option value="90">1h 30m (90m)</option>
+                                                        <option value="105">1h 45m (105m)</option>
+                                                        <option value="120">2 hours (120m)</option>
+                                                        <option value="135">2h 15m (135m)</option>
+                                                        <option value="150">2h 30m (150m)</option>
+                                                        <option value="165">2h 45m (165m)</option>
+                                                        <option value="180">3 hours (180m)</option>
+                                                        <option value="210">3h 30m (210m)</option>
+                                                        <option value="240">4 hours (240m)</option>
+                                                    </select>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[11px] font-semibold text-gray-700">Buffer / Travel Time</label>
+                                                    <select
+                                                        value={bufferMinutesMap[service.service.uuid] ?? 0}
+                                                        onChange={(e) => {
+                                                            const val = Number(e.target.value);
+                                                            const sUuid = service.service.uuid;
+                                                            setBufferMinutesMap(prev => ({ ...prev, [sUuid]: val }));
+                                                            setSelectedSlots(prev => prev.map(slot => {
+                                                                if (slot.service_id === sUuid || String(slot.service_id) === String(service.service.id)) {
+                                                                    return { ...slot, buffer_minutes: val };
+                                                                }
+                                                                return slot;
+                                                            }));
+                                                        }}
+                                                        className="h-[32px] px-2 text-[12px] rounded border border-gray-300 bg-white"
+                                                    >
+                                                        <option value="0">0 mins (No Buffer)</option>
+                                                        <option value="15">15 mins</option>
+                                                        <option value="30">30 mins</option>
+                                                        <option value="45">45 mins</option>
+                                                        <option value="60">60 mins (1 hour)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className={cn(
                                         "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",

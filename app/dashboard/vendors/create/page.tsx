@@ -590,14 +590,17 @@ const VendorForm = () => {
               service_id: vs.service?.uuid || "",
               vendor_service_id: vs.uuid,
               options:
-                vs.options?.map((opt) => {
+                vs.options?.map((opt: any) => {
                   const productOption = serviceInfo?.product_options?.find(
                     (po) => po.id === opt.option_id
                   );
 
                   return {
                     option_uuid: productOption?.uuid || opt.product_option?.uuid || "",
+                    pay_type: opt.pay_type || (vs as any).pay_type || "flat",
                     vendor_price: Number(opt.vendor_price) || 0,
+                    sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? "",
+                    min_price: opt.min_price ?? (vs as any).min_price ?? "",
                     adjustment_time:
                       opt.vendor_adjustment_time || "no adjustment",
                   };

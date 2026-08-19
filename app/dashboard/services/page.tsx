@@ -36,6 +36,14 @@ export interface Services {
   thumbnail_url?: string
   status?: boolean;
   is_travel_required?: boolean;
+  gst_enabled?: boolean | number;
+  pst_enabled?: boolean | number;
+  vendor_pay_type?: string;
+  vendor_price?: number | string;
+  vendor_sq_ft_rate?: number | string;
+  vendor_min_price?: number | string;
+  vendor_unit_rate?: number | string;
+  vendor_hourly_rate?: number | string;
   type?: string;
   duration?: boolean;
   service_add_ons: {
@@ -243,6 +251,34 @@ const Page = () => {
           ></div>
         </div>
       )
+    },
+    {
+      header: "Taxes",
+      cell: ({ row }) => {
+        const gst = row.original.gst_enabled !== undefined ? (row.original.gst_enabled === true || row.original.gst_enabled === 1) : true;
+        const pst = row.original.pst_enabled !== undefined ? (row.original.pst_enabled === true || row.original.pst_enabled === 1) : false;
+
+        let label = "No Tax";
+        let colorClass = "bg-gray-100 text-gray-600 border-gray-300";
+        if (gst && pst) {
+          label = "GST + PST";
+          colorClass = "bg-purple-100 text-purple-700 border-purple-300";
+        } else if (gst) {
+          label = "GST (5%)";
+          colorClass = "bg-blue-100 text-blue-700 border-blue-300";
+        } else if (pst) {
+          label = "PST (7%)";
+          colorClass = "bg-amber-100 text-amber-700 border-amber-300";
+        }
+
+        return (
+          <div className="text-[12px] font-medium">
+            <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${colorClass}`}>
+              {label}
+            </span>
+          </div>
+        );
+      }
     },
     ...(userType !== "vendor" ? [{
       header: "Status",

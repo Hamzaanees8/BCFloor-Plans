@@ -48,7 +48,7 @@ interface ServiceItemProps {
   onChange: (
     index: number,
     optionUuid: string,
-    field: "vendor_price" | "adjustment_time",
+    field: "vendor_price" | "adjustment_time" | "pay_type" | "sq_ft_rate" | "min_price",
     value: number | string,
   ) => void;
   onRemove: (index: number) => void;
@@ -77,16 +77,12 @@ const ServiceItem = ({
   // Get product options from service data
   const productOptions = serviceData?.product_options || [];
 
-  const handleOptionPriceChange = (optionUuid: string, price: string) => {
-    const numericPrice = price === "" ? 0 : Number(price);
-    onChange(index, optionUuid, "vendor_price", numericPrice);
-  };
-
-  const handleTimeAdjustmentChange = (
+  const handleOptionChange = (
     optionUuid: string,
-    adjustment: string,
+    field: "vendor_price" | "adjustment_time" | "pay_type" | "sq_ft_rate" | "min_price",
+    value: string | number,
   ) => {
-    onChange(index, optionUuid, "adjustment_time", adjustment);
+    onChange(index, optionUuid, field, value);
   };
 
   // Find option data from selectedService
@@ -108,15 +104,18 @@ const ServiceItem = ({
       toast.error("Failed to remove service");
     }
   }
+
+  const isVendor = userType === "vendor";
+
   return (
-    <div className="p-4 w-full md:w-[450px] text-[#666] font-alexandria">
+    <div className="p-4 w-full md:w-[480px] text-[#666] font-alexandria">
       <label htmlFor="serviceName" className="block text-sm font-normal mb-2">
         Service Name <span className="text-red-500">*</span>
       </label>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center justify-between gap-3 w-full">
           <span
-            className={`flex-1 border rounded-[8px] h-[42px] flex items-center pl-2 ${
+            className={`flex-1 border rounded-[8px] h-[42px] flex items-center pl-2 text-sm font-medium ${
               fieldErrors?.[`services[${index}].service_id`]
                 ? "border-red-500"
                 : "border-[#BBBBBB]"
@@ -147,41 +146,127 @@ const ServiceItem = ({
               const optionData = getOptionData(option.uuid ?? "");
               const priceErrorKey = `services[${index}].options[${option.uuid}].vendor_price`;
               const hasError = fieldErrors?.[priceErrorKey];
+              const payType = optionData?.pay_type || "flat";
 
               return (
-                <AccordionItem key={option.uuid} value={option.uuid ?? ""}>
-                  <AccordionTrigger className="flex justify-between items-center px-3 py-2">
-                    <span className="font-medium text-sm">{option.title}</span>
+                <AccordionItem key={option.uuid} value={option.uuid ?? ""} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <AccordionTrigger className="flex justify-between items-center px-4 py-2.5 bg-gray-50/70 hover:bg-gray-100/70 text-sm">
+                    <span className="font-semibold text-gray-800">{option.title}</span>
                   </AccordionTrigger>
-                  <AccordionContent className="p-4 text-[#666]">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <AccordionContent className="p-4 text-[#666] space-y-3.5 bg-white">
+                    {/* Pay Type Selector */}
+                    <div>
+                      <Label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Payout Calculation Type
+                      </Label>
+                      <Select
+                        value={payType}
+                        onValueChange={(val) =>
+                          handleOptionChange(option.uuid ?? "", "pay_type", val)
+                        }
+                        disabled={isVendor}
+                      >
+                        <SelectTrigger
+                          className="h-[38px] w-full border text-xs border-gray-300"
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
+                        >
+                          <SelectValue placeholder="Select Payout Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flat">Flat Rate ($)</SelectItem>
+                          <SelectItem value="per_sq_ft">Per Sq. Ft. ($/sq.ft)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Rate inputs based on Pay Type */}
+                    {payType === "per_sq_ft" ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label
+                            htmlFor={`sqft-rate-${option.uuid}`}
+                            className="block text-xs font-semibold text-gray-700 mb-1"
+                          >
+                            Sq. Ft. Rate ($/sq.ft) <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id={`sqft-rate-${option.uuid}`}
+                            type="number"
+                            step="0.001"
+                            placeholder="e.g. 0.035"
+                            value={optionData?.sq_ft_rate ?? ""}
+                            onChange={(e) =>
+                              handleOptionChange(
+                                option.uuid ?? "",
+                                "sq_ft_rate",
+                                e.target.value === "" ? "" : Number(e.target.value),
+                              )
+                            }
+                            className="h-[38px] w-full border text-xs border-gray-300"
+                            style={{
+                              backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                            }}
+                            disabled={isVendor}
+                          />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor={`min-price-${option.uuid}`}
+                            className="block text-xs font-semibold text-gray-700 mb-1"
+                          >
+                            Guaranteed Minimum ($)
+                          </Label>
+                          <Input
+                            id={`min-price-${option.uuid}`}
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 75.00"
+                            value={optionData?.min_price ?? ""}
+                            onChange={(e) =>
+                              handleOptionChange(
+                                option.uuid ?? "",
+                                "min_price",
+                                e.target.value === "" ? "" : Number(e.target.value),
+                              )
+                            }
+                            className="h-[38px] w-full border text-xs border-gray-300"
+                            style={{
+                              backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                            }}
+                            disabled={isVendor}
+                          />
+                        </div>
+                      </div>
+                    ) : (
                       <div>
                         <Label
                           htmlFor={`price-${option.uuid}`}
-                          className="block text-sm font-normal mb-1"
+                          className="block text-xs font-semibold text-gray-700 mb-1"
                         >
-                          Vendor Pay Amount
-                          <span className="text-red-500">*</span>
+                          Flat Payout Amount ($) <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id={`price-${option.uuid}`}
                           type="number"
-                          inputMode="decimal"
-                          placeholder="Enter price"
+                          step="0.01"
+                          placeholder="e.g. 120.00"
                           value={optionData?.vendor_price || ""}
                           onChange={(e) =>
-                            handleOptionPriceChange(
+                            handleOptionChange(
                               option.uuid ?? "",
-                              e.target.value,
+                              "vendor_price",
+                              e.target.value === "" ? 0 : Number(e.target.value),
                             )
                           }
-                          className={`h-[42px] w-full border text-[16px] mt-[12px] placeholder:text-[#9ca3af] ${
-                            hasError ? "border-red-500" : "border-[#BBBBBB]"
+                          className={`h-[38px] w-full border text-xs ${
+                            hasError ? "border-red-500" : "border-gray-300"
                           }`}
                           style={{
                             backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                           }}
-                          disabled={userType === "vendor"}
+                          disabled={isVendor}
                         />
                         {hasError && (
                           <p className="text-red-500 text-xs mt-1">
@@ -189,38 +274,39 @@ const ServiceItem = ({
                           </p>
                         )}
                       </div>
-                      <div>
-                        <Label
-                          htmlFor={`time-${option.uuid}`}
-                          className="block text-sm font-normal mb-1"
+                    )}
+
+                    {/* Time Adjustment */}
+                    <div>
+                      <Label
+                        htmlFor={`time-${option.uuid}`}
+                        className="block text-xs font-semibold text-gray-700 mb-1"
+                      >
+                        Time Adjustment <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={optionData?.adjustment_time || "no adjustment"}
+                        onValueChange={(value) =>
+                          handleOptionChange(option.uuid ?? "", "adjustment_time", value)
+                        }
+                        disabled={isVendor}
+                      >
+                        <SelectTrigger
+                          className="h-[38px] w-full border text-xs border-gray-300"
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
                         >
-                          Time Adjustment{" "}
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Select
-                          value={optionData?.adjustment_time || "no adjustment"}
-                          onValueChange={(value) =>
-                            handleTimeAdjustmentChange(option.uuid ?? "", value)
-                          }
-                          disabled={userType === "vendor"}
-                        >
-                          <SelectTrigger
-                            className="h-[42px] w-full border text-[13px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
-                            style={{
-                              backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                            }}
-                          >
-                            <SelectValue placeholder="Select Time Adjustment" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {timeNeededOptions.map((opt, idx) => (
-                              <SelectItem key={idx} value={opt}>
-                                {opt}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          <SelectValue placeholder="Select Time Adjustment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeNeededOptions.map((opt, idx) => (
+                            <SelectItem key={idx} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -229,7 +315,7 @@ const ServiceItem = ({
           </Accordion>
         </div>
       )}
-      {userType !== "vendor" && (
+      {!isVendor && (
         <div className="flex justify-end mr-0 md:mr-9 mt-4">
           <Button
             className={`w-[110px] h-[35px] border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
@@ -242,7 +328,7 @@ const ServiceItem = ({
         </div>
       )}
       {showTimeFields && productOptions.length === 0 && (
-        <div className="text-center py-4 text-gray-500">
+        <div className="text-center py-4 text-gray-500 text-xs">
           No product options available for this service
         </div>
       )}

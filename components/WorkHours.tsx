@@ -291,10 +291,17 @@ export interface SelectedService {
   uuid?: string;
   service_id: string;
   vendor_service_id?: string;
+  pay_type?: string;
+  vendor_price?: number;
+  sq_ft_rate?: number | string;
+  min_price?: number | string;
   options: {
     uuid?: string;
     option_uuid: string;
-    vendor_price: number;
+    pay_type?: string;
+    vendor_price?: number | string;
+    sq_ft_rate?: number | string;
+    min_price?: number | string;
     adjustment_time: string;
   }[];
   service?: Services;
@@ -613,7 +620,7 @@ const VendorWorkHours = ({
   const handleServiceChange = (
     index: number,
     optionUuid: string,
-    field: "vendor_price" | "adjustment_time",
+    field: "vendor_price" | "adjustment_time" | "pay_type" | "sq_ft_rate" | "min_price",
     value: number | string,
   ) => {
     setSelectedServices((prev) => {
@@ -633,7 +640,7 @@ const VendorWorkHours = ({
   const handleVendorServiceChange = (
     index: number,
     optionUuid: string,
-    field: "vendor_price" | "adjustment_time",
+    field: "vendor_price" | "adjustment_time" | "pay_type" | "sq_ft_rate" | "min_price",
     value: number | string,
   ) => {
     setVendorServices((prev) => {

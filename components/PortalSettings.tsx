@@ -33,11 +33,13 @@ const PortalSettings = React.forwardRef<
         booking_cutoff_time: string;
         show_org_details_on_empty_schedule: boolean;
         allow_print_request: boolean;
+        allow_booking_through_lunch: boolean;
     }>({
         disable_next_day_booking: false,
         booking_cutoff_time: "17:00",
         show_org_details_on_empty_schedule: false,
         allow_print_request: false,
+        allow_booking_through_lunch: false,
     });
 
     // Area states
@@ -62,6 +64,7 @@ const PortalSettings = React.forwardRef<
                         booking_cutoff_time: settings.booking_cutoff_time || "17:00",
                         show_org_details_on_empty_schedule: settings.show_org_details_on_empty_schedule ?? false,
                         allow_print_request: settings.allow_print_request ?? false,
+                        allow_booking_through_lunch: settings.allow_booking_through_lunch ?? false,
                     });
                 }
                 if (res.data?.tour_settings) {
@@ -91,6 +94,7 @@ const PortalSettings = React.forwardRef<
                 booking_cutoff_time: formState.booking_cutoff_time,
                 show_org_details_on_empty_schedule: formState.show_org_details_on_empty_schedule,
                 allow_print_request: formState.allow_print_request,
+                allow_booking_through_lunch: formState.allow_booking_through_lunch,
             });
 
             toast.success("Portal settings updated successfully");
@@ -298,6 +302,19 @@ const PortalSettings = React.forwardRef<
                                     />
                                     <Label htmlFor="allow-print-request" className="cursor-pointer font-medium text-sm">
                                         Allow Print Request
+                                    </Label>
+                                </div>
+
+                                {/* Allow Booking Through Lunch */}
+                                <div className="col-span-1 md:col-span-2 flex items-center gap-3">
+                                    <Switch
+                                        id="allow-booking-through-lunch"
+                                        checked={formState.allow_booking_through_lunch}
+                                        onCheckedChange={(val) => setFormState(prev => ({ ...prev, allow_booking_through_lunch: val }))}
+                                        className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
+                                    />
+                                    <Label htmlFor="allow-booking-through-lunch" className="cursor-pointer font-medium text-sm">
+                                        Allow appointments to book through lunch time (additional appointment time will be added)
                                     </Label>
                                 </div>
 

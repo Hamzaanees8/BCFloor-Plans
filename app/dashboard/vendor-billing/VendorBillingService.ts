@@ -9,6 +9,12 @@ export interface UninvoicedVendor {
     uninvoiced_services_count: number;
 }
 
+export interface VendorBillingSummary {
+    total_outstanding: number;
+    approved_payouts: number;
+    paid_this_month: number;
+}
+
 export interface PendingItem {
     service: {
         uuid: string;
@@ -20,9 +26,15 @@ export interface PendingItem {
             id: number;
             property: {
                 property_address: string;
+                sq_ft?: number | string;
             };
         };
     };
+    vendor_pay_amount?: number;
+    pay_type?: string;
+    sq_ft_rate?: number;
+    min_price?: number;
+    property_sq_ft?: number;
     travel_cost: number;
     slot: {
         distance: number;
@@ -96,6 +108,13 @@ class VendorBillingService {
     }
 
     // Admin Endpoints
+    async getSummaryMetrics(token: string): Promise<VendorBillingSummary> {
+        const response = await api.get('/vendor-billing/summary', {
+            headers: this.getHeaders(token),
+        });
+        return response.data.data;
+    }
+
     async getUninvoicedVendors(token: string): Promise<UninvoicedVendor[]> {
         const response = await api.get('/vendor-billing/uninvoiced', {
             headers: this.getHeaders(token),
@@ -113,6 +132,23 @@ class VendorBillingService {
 
     async generateInvoice(payload: GenerateInvoicePayload, token: string): Promise<VendorInvoice> {
         const response = await api.post('/vendor-billing/generate', payload, {
+            headers: this.getHeaders(token),
+        });
+        return response.data.data;
+    }
+
+    async updateInvoiceStatus(
+        uuid: string,
+        data: {
+            status: string;
+            paid_at?: string;
+            payment_method?: string;
+            transaction_reference?: string;
+            notes?: string;
+        },
+        token: string
+    ): Promise<VendorInvoice> {
+        const response = await api.patch(`/vendor-billing/invoices/${uuid}/status`, data, {
             headers: this.getHeaders(token),
         });
         return response.data.data;

@@ -160,17 +160,28 @@ const PublicTour = () => {
   const tourPhotos = useMemo(() => {
     const filtered =
       orderData?.tours?.[0]?.files?.filter((file) => {
-        const isPhoto =
-          file.type === "photo" &&
-          file.service.name !== "2D Floor Plans" &&
-          file.service.name !== "3D Floor Plans" &&
-          file.service.category.name !== "2D Floor Plans" &&
-          file.service.category.name !== "3D Floor Plans" &&
+        const sName = (file.service?.name || "").toLowerCase();
+        const catName = (file.service?.category?.name || "").toLowerCase();
+        const isPano =
+          (file.type as string) === "panorama" ||
+          (file.type as string) === "360" ||
+          (file as any).image_type === "panorama" ||
+          (file as any).image_type === "360" ||
+          sName.includes("360") ||
+          sName.includes("panorama") ||
+          catName.includes("360") ||
+          catName.includes("panorama");
+
+        const isPhotoOrPano =
+          (file.type === "photo" || isPano) &&
+          file.service?.name !== "2D Floor Plans" &&
+          file.service?.name !== "3D Floor Plans" &&
+          file.service?.category?.name !== "2D Floor Plans" &&
+          file.service?.category?.name !== "3D Floor Plans" &&
           file.is_show !== false &&
           isFileApprovedByAgent(file) &&
-          (file as any).variant_urls &&
-          Object.keys((file as any).variant_urls).length > 0;
-        return isPhoto;
+          ((file as any).variant_urls && Object.keys((file as any).variant_urls).length > 0 || file.file_path || file.url);
+        return isPhotoOrPano;
       }) || [];
 
     return filtered.sort((a, b) => {
