@@ -27,7 +27,7 @@ import {
   DetailField,
 } from "../types/featureSheetTypes";
 import "../../../globals.css";
-import StyledInput from "./StyledInput";
+import StyledInput, { FontFolderProvider } from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import SafeZoneWrapper from "./SafeZoneWrapper";
@@ -1427,7 +1427,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     }));
 
     return (
-      <>
+      <FontFolderProvider value="BcfpStandard7">
         {showGallery && (
           <FileManagerGallery
             isOpen={showGallery}
@@ -5454,7 +5454,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
             </SafeZoneWrapper>
           </div>
         </div>
-      </>
+      </FontFolderProvider>
     );
   },
 );

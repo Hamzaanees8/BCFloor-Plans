@@ -1011,3 +1011,40 @@ textarea::placeholder {
   font-style: normal;
   font-display: swap;
 }
+
+/* ==========================================================================
+   BcfpStandard7 Custom Fonts
+   Font files live in /public/fonts/BcfpStandard7/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'ACaslonProBoldBcfp7';
+  src: url('/fonts/BcfpStandard7/ACaslonPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialRegularBcfp7';
+  src: url('/fonts/BcfpStandard7/arial.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBoldBcfp7';
+  src: url('/fonts/BcfpStandard7/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProBoldBcfp7';
+  src: url('/fonts/BcfpStandard7/TrajanPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

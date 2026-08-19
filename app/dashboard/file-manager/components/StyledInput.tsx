@@ -226,6 +226,56 @@ export const FONT_FOLDERS: Record<
       },
     ],
   },
+  BcfpStandard7: {
+    name: "BcfpStandard7",
+    fonts: [
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBoldBcfp7, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "ArialRegularBcfp7, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp7, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp7, serif",
+      },
+    ],
+  },
+  bcfpstandard7: {
+    name: "BcfpStandard7",
+    fonts: [
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBoldBcfp7, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "ArialRegularBcfp7, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp7, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp7, serif",
+      },
+    ],
+  },
 };
 
 export const FontFolderContext = createContext<string | undefined>(undefined);
