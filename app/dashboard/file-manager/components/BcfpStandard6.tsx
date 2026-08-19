@@ -2882,6 +2882,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     inputStyle={fieldStyles.contactLabel}
                                     className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300]"
                                     placeholder="Contact:"
+                                    wrapperClassName="w-auto"
                                   />
                                   <StyledInput
                                     value={fullName}
@@ -2971,6 +2972,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     inputStyle={fieldStyles.phoneLabel}
                                     className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300] uppercase"
                                     placeholder="PHONE:"
+                                    wrapperClassName="w-auto"
                                   />
                                   <StyledInput
                                     value={number}
@@ -3018,6 +3020,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     inputStyle={fieldStyles.emailLabel}
                                     className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[300]"
                                     placeholder="Email:"
+                                    wrapperClassName="w-auto"
                                   />
                                   <StyledInput
                                     value={email}

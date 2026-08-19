@@ -505,6 +505,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 
 > **KEY RULES:**
 > - Outer container MUST have `data-image-slot="true"`, `onMouseEnter/Leave` (sets `hoveredSlot`), and `onClick` (checks `e.altKey` before setting `activeSlot`).
+> - **Image Shadows:** Image container shadows must be applied ONLY to the right and bottom sides of the images (using `shadow-[4px_4px_6px_rgba(0,0,0,0.85)]` or similar offset box-shadows), never all sides (avoid generic classes like `shadow-lg` on image containers).
 > - `BoxIndicator` uses `isSlotActive("imageN")` helper — NOT `hoveredImage`.
 > - Rotate, Edit, Delete are **3 separate `absolute` buttons** — NOT in a shared flex wrapper.
 > - Zoom controls div has **NO** `data-html2canvas-ignore`.
@@ -515,7 +516,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 {/* LAYER 1: Outer Slot Container */}
 <div
   data-image-slot="true"
-  className="w-full h-[580px] place-self-center relative overflow-hidden group cursor-pointer"
+  className="w-full h-[580px] place-self-center relative overflow-hidden group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
   onMouseEnter={() => setHoveredSlot("image1")}
   onMouseLeave={() => setHoveredSlot(null)}
   onClick={(e) => {
@@ -620,6 +621,44 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   </div>
 </div>
 ```
+
+### 6.2 Agent Logo Image Slots (`w-[140px] h-[77px]` and Header Wave Slots)
+
+> **RULE**: Image slots with dimensions around `w-[140px] h-[77px]` (e.g. contact footer logo) or cover wave logo slots are **Agent Logo Slots**.
+> 
+> 1. **Attributes**:
+>    Add dedicated identifiers on the slot:
+>    ```tsx
+>    <div
+>      id="agentLogo2"
+>      data-image-slot="true"
+>      data-slot-type="logo"
+>      data-logo-slot="true"
+>      className="absolute right-[24px] top-[-35px] z-20 group cursor-pointer w-[140px] h-[77px] overflow-hidden"
+>      ...
+>    >
+>    ```
+> 2. **Automatic Population from `orderData.agent`**:
+>    On mount in `useEffect([orderData])`, extract the agent logo and assign it to the slot if not already set:
+>    ```tsx
+>    const agentLogo =
+>      (agent as any)?.company_logo_url ||
+>      (agent as any)?.logo_url ||
+>      (agent as any)?.logo ||
+>      null;
+>    if (agentLogo) {
+>      setImages((prev) => ({
+>        ...prev,
+>        image2: prev.image2 || agentLogo,
+>        image3: prev.image3 || agentLogo,
+>      }));
+>    }
+>    ```
+> 3. **Behavior**:
+>    - If agent logo is available: shows agent logo by default.
+>    - If no logo is available: shows the "Select Image" placeholder in edit mode and prints nothing in PDF (via `data-html2canvas-ignore="true"`).
+>    - If user uploads/selects a custom image: displays that custom image and saves it with the sheet payload.
+
 
 ---
 
@@ -743,6 +782,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 
 > **RULE:** Static text labels (e.g. `"Contact:"`, `"PHONE:"`, `"Email:"`, `"BEDROOM •"`, `"BATHROOM •"`, `"SQ FT •"`, `"BUILT IN"`, `"Number"`, `"Road"`, and Disclaimer text) **MUST NOT** be hardcoded static `<span>` elements.
 > Wrap all labels in `StyledInput` so users can edit label text inline and customize font family, size, weight, alignment, and color from the floating toolbar portal.
+> **Note:** For inline/grouped label fields (like `"Contact:"`, `"PHONE:"`, `"Email:"`), pass `wrapperClassName="w-auto"` so the input wrapper doesn't stretch to `w-full` and stays exactly the width of the label content.
 
 ```tsx
 {/* Editable Contact Label */}
@@ -753,6 +793,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   inputStyle={fieldStyles.contactLabel}
   className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300"
   placeholder="Contact:"
+  wrapperClassName="w-auto"
 />
 
 {/* Editable Property Spec Label */}
@@ -817,9 +858,67 @@ if (formData.imageRotations) setRotation((prev) => ({ ...prev, ...formData.image
 
 ---
 
-## 10. EXPORT PAYLOAD — USES `featureSheetService.buildPayload`
+## 10. EXPORT PAYLOAD — USES `featureSheetService.buildPayload` & PRESERVES FONT SIZES
 
 > **Do NOT export a plain object.** Always use `featureSheetService.buildPayload()`.
+>
+> ### ⚠️ CRITICAL: The Font Size Preservation Rule
+> `featureSheetService.buildPayload()` in `file-manager.ts` applies hardcoded fallback font sizes when no explicit `fontSize` is provided in `style`:
+> - `realtorName`: defaults to **`20px`**
+> - `companyName`: defaults to **`20px`**
+> - `emailLink`: defaults to **`20px`**
+> - `offeredAtPrice`: defaults to **`36px`**
+> - `propertyNotesTitle`: defaults to **`28px`**
+>
+> If a template's design uses different font sizes (for example, `11px` in a compact contact footer or `30px` for address/price), exporting `style: fieldStyles.X || ({} as TextStyle)` causes `buildPayload()` to inject its foreign `20px`/`36px` defaults into the saved payload. Upon save and reload, the template will inflate those fields to `20px`/`36px`.
+>
+> **HOW TO PREVENT & FIX:**
+> 1. In `exportToPayload`: Always supply the template's exact design default font size for every field:
+>    ```tsx
+>    realtorName: {
+>      value: fullName,
+>      style: { ...fieldStyles.fullName, fontSize: fieldStyles.fullName?.fontSize || "11px" },
+>    },
+>    companyName: {
+>      value: propertyName,
+>      style: { ...fieldStyles.propertyName, fontSize: fieldStyles.propertyName?.fontSize || "11px" },
+>    },
+>    emailLink: {
+>      value: email,
+>      style: { ...fieldStyles.email, fontSize: fieldStyles.email?.fontSize || "11px" },
+>    },
+>    offeredAtPrice: {
+>      value: amount,
+>      style: { ...fieldStyles.amount, fontSize: fieldStyles.amount?.fontSize || "30px" },
+>    },
+>    propertyNotesTitle: {
+>      value: roadName,
+>      style: { ...fieldStyles.roadName, fontSize: fieldStyles.roadName?.fontSize || "30px" },
+>    },
+>    ```
+> 2. In `importFromPayload`: Normalize previously injected backend defaults (e.g. `20px` for `11px` fields, `36px` for `30px` fields):
+>    ```tsx
+>    if (st(c.realtorName)) {
+>      const s = st(c.realtorName);
+>      styles.fullName = s.fontSize === "20px" ? { ...s, fontSize: "11px" } : s;
+>    }
+>    if (st(c.companyName)) {
+>      const s = st(c.companyName);
+>      styles.propertyName = s.fontSize === "20px" ? { ...s, fontSize: "11px" } : s;
+>    }
+>    if (st(c.emailLink)) {
+>      const s = st(c.emailLink);
+>      styles.email = s.fontSize === "20px" ? { ...s, fontSize: "11px" } : s;
+>    }
+>    ```
+> 3. Synchronize phone / number style keys across both JSX and payload handlers:
+>    ```tsx
+>    if (st(od.number) || st(od.phone)) {
+>      const numStyle = st(od.number) || st(od.phone);
+>      styles.number = numStyle;
+>      styles.phone = numStyle;
+>    }
+>    ```
 
 ```tsx
 useImperativeHandle(ref, () => ({
@@ -830,19 +929,37 @@ useImperativeHandle(ref, () => ({
       uploadedBy: "admin",
       type: "template",
       primaryColor: "#376173",
-      offeredAtPrice: { value: amount, style: fieldStyles.amount || ({} as TextStyle) },
-      realtorName: { value: fullName, style: fieldStyles.fullName || ({} as TextStyle) },
-      emailLink: { value: email, style: fieldStyles.email || ({} as TextStyle) },
-      companyName: { value: propertyName, style: fieldStyles.propertyName || ({} as TextStyle) },
-      propertyNotesTitle: { value: roadName, style: fieldStyles.roadName || ({} as TextStyle) },
-      propertyNotesDescription: { value: description, style: fieldStyles.description || ({} as TextStyle) },
-      // ... map remaining detail fields to their named payload keys
+      offeredAtPrice: {
+        value: amount,
+        style: { ...fieldStyles.amount, fontSize: fieldStyles.amount?.fontSize || "30px" },
+      },
+      realtorName: {
+        value: fullName,
+        style: { ...fieldStyles.fullName, fontSize: fieldStyles.fullName?.fontSize || "11px" },
+      },
+      emailLink: {
+        value: email,
+        style: { ...fieldStyles.email, fontSize: fieldStyles.email?.fontSize || "11px" },
+      },
+      companyName: {
+        value: propertyName,
+        style: { ...fieldStyles.propertyName, fontSize: fieldStyles.propertyName?.fontSize || "11px" },
+      },
+      propertyNotesTitle: {
+        value: roadName,
+        style: { ...fieldStyles.roadName, fontSize: fieldStyles.roadName?.fontSize || "30px" },
+      },
+      propertyNotesDescription: {
+        value: description,
+        style: { ...fieldStyles.description, fontSize: fieldStyles.description?.fontSize || "10px" },
+      },
+      // ... map remaining detail fields with explicit design default sizes
     });
     return payload;
   },
   importFromPayload: (payload: FeatureSheetResponse) => {
     if (!payload?.data) return;
-    // Restore via the same field mapping in reverse
+    // Restore via reverse mapping with size normalization
   },
 }));
 ```
@@ -914,6 +1031,6 @@ Before considering any Tabloid Sheet upgrade complete, verify every item:
 - [ ] `updateFormData` uses `imageScales:`, `imagePositions:`, `imageRotations:` keys (NOT `scale:`, `position:`, `rotation:`).
 - [ ] Section labels (`Contact:`, `PHONE:`, `Email:`, `BEDROOM •`, `BATHROOM •`, `SQ FT •`, `BUILT IN`, `Number`, `Road`, `Disclaimer`) use `StyledInput` instead of hardcoded static `<span>` elements.
 - [ ] Label states (`contactLabel`, `phoneLabel`, etc.) and `fieldStyles` are synced in `updateFormData`, exported in `exportToPayload`, and restored in `importFromPayload`.
-- [ ] Export uses `featureSheetService.buildPayload()` — NOT a plain object return.
+- [ ] Export uses `featureSheetService.buildPayload()` with explicit template design fallback font sizes for all fields (e.g. `fontSize: fieldStyles.fullName?.fontSize || "11px"`) to prevent backend defaults (`20px`/`36px`/`28px`) from inflating unedited fields on first save.
 - [ ] Deleting a standard or detail field registers in `DeletedFieldsPanel` and can be restored individually or via "Restore All".
 - [ ] PDF export does not contain any border indicators, guides, or hover buttons.

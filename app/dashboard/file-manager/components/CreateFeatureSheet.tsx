@@ -389,6 +389,18 @@ const CreateFeatureSheet = forwardRef<
         setSelectedSheetUuid(null);
         setSelectedTemplate("");
       }
+      updateFormData({
+        ...initialFormData,
+        avatar_url: orderData?.agent.avatar_url || "",
+        AvatarfileName: orderData?.agent.avatar || "",
+        images: {},
+        imageScales: {},
+        imagePositions: {},
+        imageRotations: {},
+        fieldPositions: {},
+        deletedDetailFields: [],
+        deletedStandardFieldIds: [],
+      });
       toast.success("Feature sheet deleted successfully!");
     } catch (error) {
       console.error("Error deleting feature sheet:", error);
@@ -802,13 +814,14 @@ const CreateFeatureSheet = forwardRef<
     }
   }, [isReadonly, featureSheets, selectedSheetUuid, previewSheetUuid]);
 
-  // Load data into formData when selectedTemplate changes
+  // Load data into formData when selectedTemplate or selectedSheetUuid changes
   useEffect(() => {
-    if (!selectedTemplate || featureSheets.length === 0) return;
+    if (!selectedTemplate) return;
 
-    const sheetData = featureSheets.find(
-      (s) => s.template_key === selectedTemplate,
-    );
+    const sheetData = selectedSheetUuid
+      ? featureSheets.find((s) => s.uuid === selectedSheetUuid)
+      : featureSheets.find((s) => s.template_key === selectedTemplate);
+
     if (sheetData) {
       console.log("Loading data for template:", selectedTemplate, sheetData);
       if (sheetData.type === "pdf") {
@@ -821,43 +834,44 @@ const CreateFeatureSheet = forwardRef<
       }
       const state = featureSheetService.parsePayloadToState(sheetData);
 
-      // We only update if the template data is different from current context to avoid unnecessary loops
       updateFormData({
         ...state,
-        // Ensure string fields are strings
         siteInfluences: (state.siteInfluences as string) || "",
         grossTaxes: (state.grossTaxes as string) || "",
         featuresIncluded: (state.featuresIncluded as string) || "",
-        // When initial loading a template, we take its data as primary.
-        // If we need to preserve current images, we should do it carefully.
-        // For now, let's just load the template state.
         images: state.images || {},
         imageScales: state.imageScales || {},
         imagePositions: state.imagePositions || {},
+        imageRotations: state.imageRotations || {},
+        fieldPositions: (state as any).fieldPositions || {},
+        deletedDetailFields: (state as any).deletedDetailFields || [],
+        deletedStandardFieldIds: (state as any).deletedStandardFieldIds || [],
       });
 
-      // Call importFromPayload on the template component to load data into its internal state
-      // Use setTimeout to ensure the ref is available after render
       setTimeout(() => {
         if (activeStandardRef.current?.importFromPayload) {
           activeStandardRef.current.importFromPayload(sheetData);
         }
       }, 0);
     } else {
-      // If no saved sheet data is found for this template, reset to initialFormData (plus order-specific defaults)
+      // If no saved sheet data is found for this template, reset to clean initialFormData
       updateFormData({
         ...initialFormData,
         avatar_url: orderData?.agent.avatar_url || "",
         AvatarfileName: orderData?.agent.avatar || "",
+        images: {},
+        imageScales: {},
+        imagePositions: {},
+        imageRotations: {},
+        fieldPositions: {},
+        deletedDetailFields: [],
+        deletedStandardFieldIds: [],
       });
-      setSelectedSheetUuid(null);
       setCustomPdf(null);
     }
-    // We intentionally only run this when selectedTemplate or featureSheets (data source) changes.
-
-    // Including formData components in deps creates a loop.
   }, [
     selectedTemplate,
+    selectedSheetUuid,
     featureSheets,
     updateFormData,
     orderData?.agent.avatar,
@@ -919,6 +933,13 @@ const CreateFeatureSheet = forwardRef<
         ...initialFormData,
         avatar_url: orderData?.agent.avatar_url || "",
         AvatarfileName: orderData?.agent.avatar || "",
+        images: {},
+        imageScales: {},
+        imagePositions: {},
+        imageRotations: {},
+        fieldPositions: {},
+        deletedDetailFields: [],
+        deletedStandardFieldIds: [],
       });
     }
 
@@ -1268,8 +1289,7 @@ const CreateFeatureSheet = forwardRef<
                       <p
                         className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
                         onClick={() => {
-                          setSelectedTemplate(template.id);
-                          setSelectedSheetUuid(null);
+                          handleTemplateChange(template.id);
                         }}
                       >
                         Edit Feature Sheet
@@ -1277,8 +1297,7 @@ const CreateFeatureSheet = forwardRef<
                     </div>
                     <div
                       onClick={() => {
-                        setSelectedTemplate(template.id);
-                        setSelectedSheetUuid(null);
+                        handleTemplateChange(template.id);
                       }}
                       className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${
                         selectedTemplate === template.id && !selectedSheetUuid
@@ -1654,6 +1673,18 @@ const CreateFeatureSheet = forwardRef<
                             onClick={() => {
                               setSelectedTemplate("");
                               setSelectedSheetUuid(null);
+                              updateFormData({
+                                ...initialFormData,
+                                avatar_url: orderData?.agent.avatar_url || "",
+                                AvatarfileName: orderData?.agent.avatar || "",
+                                images: {},
+                                imageScales: {},
+                                imagePositions: {},
+                                imageRotations: {},
+                                fieldPositions: {},
+                                deletedDetailFields: [],
+                                deletedStandardFieldIds: [],
+                              });
                             }}
                             className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] w-full sm:w-[20%] transition-colors border-2 ${userType}-border ${userType}-bg text-white rounded-[6px] font-[500] hover:opacity-80`}
                           >

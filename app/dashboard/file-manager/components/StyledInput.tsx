@@ -94,6 +94,7 @@ type StyledInputProps = {
   placeholder?: string;
   /** Optional font folder override (e.g. "BcfpStandard6"). If not specified, checks FontFolderContext */
   fontFolder?: string;
+  wrapperClassName?: string;
   [key: string]: any;
 };
 
@@ -185,6 +186,7 @@ export default function StyledInput({
   inputStyle,
   placeholder,
   fontFolder,
+  wrapperClassName,
   ...props
 }: StyledInputProps) {
   const contextFontFolder = useContext(FontFolderContext);
@@ -563,7 +565,7 @@ export default function StyledInput({
   return (
     <div
       ref={wrapperRef}
-      className="relative inline-block w-full content-center"
+      className={cn("relative inline-block w-full content-center", wrapperClassName)}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => {
         hoverRef.current = false;
@@ -721,9 +723,9 @@ export default function StyledInput({
                     let allowedSizes = [8, 12, 14, 16, 18, 24, 28, 36, 40, 48];
 
                     const activeNum = parseInt(fontSize.replace("px", ""), 10);
-                    const targetSize = !isNaN(activeNum)
-                      ? activeNum
-                      : defaultFontSizeRef.current;
+                    const targetSize = defaultFontSizeRef.current !== null
+                      ? defaultFontSizeRef.current
+                      : (!isNaN(activeNum) ? activeNum : 16);
 
                     if (targetSize !== null && targetSize !== undefined) {
                       const sorted = Array.from(
