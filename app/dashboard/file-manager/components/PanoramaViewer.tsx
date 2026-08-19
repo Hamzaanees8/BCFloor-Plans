@@ -222,10 +222,11 @@ function PanoramaViewerContent({ files, currentIndex, setCurrentIndex, onClose, 
   );
 }
 
-// ─── Main Export ───────────────────────────────────────────────────────────────
+import ThreeSixtyViewer from './ThreeSixtyViewer';
 
 export function PanoramaViewer({ files, initialIndex, onClose }: PanoramaViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [viewerMode, setViewerMode] = useState<'360' | 'flat'>('360');
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
   const currentFile = files[currentIndex];
@@ -242,6 +243,21 @@ export function PanoramaViewer({ files, initialIndex, onClose }: PanoramaViewerP
 
   if (typeof document === 'undefined') return null;
 
+  if (viewerMode === '360') {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-black">
+        <ThreeSixtyViewer
+          files={files as any}
+          initialIndex={currentIndex}
+          isEmbedded={false}
+          onClose={onClose}
+          onToggleFlatView={() => setViewerMode('flat')}
+        />
+      </div>,
+      document.body
+    );
+  }
+
   const sharedProps = {
     files,
     currentIndex,
@@ -252,7 +268,17 @@ export function PanoramaViewer({ files, initialIndex, onClose }: PanoramaViewerP
   };
 
   return createPortal(
-    <PanoramaViewerContent {...sharedProps} />,
+    <div className="relative">
+      <PanoramaViewerContent {...sharedProps} />
+      {/* Toggle to 360 Sphere mode */}
+      <button
+        onClick={() => setViewerMode('360')}
+        className="absolute top-4 right-14 z-[10000] px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white text-xs font-alexandria font-medium backdrop-blur-md border border-white/10 transition flex items-center gap-1.5"
+        title="Switch to 360° Sphere View"
+      >
+        <span>360° Sphere</span>
+      </button>
+    </div>,
     document.body
   );
 }

@@ -44,6 +44,9 @@ export type Slot = {
     travel: null;
     start_time: string;
     end_time: string;
+    custom_duration?: number | null;
+    custom_end_time?: string | null;
+    buffer_minutes?: number | null;
     est_time: number | null;
     distance: number | null;
     km_price: number | null;

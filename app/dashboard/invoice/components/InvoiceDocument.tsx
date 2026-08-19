@@ -5,6 +5,7 @@ import { MapPin, Mail, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { useOptionalWhiteLabel } from "@/app/context/Whitelabel";
 
@@ -15,7 +16,7 @@ interface InvoiceDocumentProps {
   updateItem: (index: number, field: string, value: any) => void;
   addItem: () => void;
   removeItem: (index: number) => void;
-  updateTaxRate: (val: string) => void;
+  updateTaxRate?: (val: string) => void;
   updateTaxType?: (val: string) => void;
   setEditData: (data: any) => void;
   roleSettings: any;
@@ -28,8 +29,6 @@ const InvoiceDocument = ({
   updateItem,
   addItem,
   removeItem,
-  updateTaxRate,
-  updateTaxType,
   setEditData,
   roleSettings,
 }: InvoiceDocumentProps) => {
@@ -50,7 +49,6 @@ const InvoiceDocument = ({
       org.uuid === invoice.organization_id ||
       org.uuid === invoice.organization_uuid,
   ) as any;
-  console.log("invoiceOrg", invoiceOrg);
 
   const invOrg = invoice.organization as any;
 
@@ -94,16 +92,30 @@ const InvoiceDocument = ({
     invoiceOrgWlsLogo ||
     settings?.logo ||
     currentOrg?.branding?.logo;
-  console.log("logoUrl", logoUrl);
 
-  // Only fallback to BCF logo if no organization logo is found and the organization is BC Floor plans,
-  // or if the logo explicitly falls back
   const isBcf =
     orgName.toLowerCase().includes("bcf") ||
     orgName.toLowerCase().includes("bc floor plans");
   if (!logoUrl && isBcf) {
     logoUrl = "/bcfloor.png";
   }
+
+  const province = (
+    invoice?.order?.property?.province ||
+    invoice?.order?.property?.state ||
+    invoice?.agent?.headquarter_province ||
+    "BC"
+  )
+    .toUpperCase()
+    .trim();
+
+  const isHstProvince = ["ON", "ONTARIO", "NB", "NEW BRUNSWICK", "NL", "NEWFOUNDLAND", "NS", "NOVA SCOTIA", "PE", "PRINCE EDWARD ISLAND"].includes(province);
+  const hasPst = ["BC", "BRITISH COLUMBIA", "SK", "SASKATCHEWAN", "MB", "MANITOBA", "QC", "QUEBEC"].includes(province);
+
+  const displayData = isEditing ? editData : invoice;
+  const paidAmount = parseFloat(displayData.paid_amount || invoice.paid_amount || 0);
+  const grandTotal = parseFloat(displayData.total || displayData.total_amount || invoice.total || "0");
+  const balanceDue = Math.max(0, grandTotal - paidAmount);
 
   return (
     <div
@@ -147,15 +159,17 @@ const InvoiceDocument = ({
                   paid: "bg-[#6BAE41]/10 text-[#6BAE41]",
                   issued: "bg-blue-100 text-blue-600",
                   unpaid: "bg-orange-100 text-orange-600",
+                  draft: "bg-amber-100 text-amber-600",
                   void: "bg-gray-100 text-gray-400",
-                  partial: "bg-yellow-100 text-yellow-600",
+                  partially_paid: "bg-yellow-100 text-yellow-700",
+                  partial: "bg-yellow-100 text-yellow-700",
                   refunded: "bg-red-100 text-red-600",
                 };
                 return (
                   <span
                     className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] leading-normal font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}
                   >
-                    {status}
+                    {status.replace('_', ' ')}
                   </span>
                 );
               })()}
@@ -289,13 +303,21 @@ const InvoiceDocument = ({
               className="border-t-2 border-opacity-30 text-[10px] font-bold uppercase text-gray-500"
               style={{ borderColor: settings.pageTabColor }}
             >
-              <th className="py-3 md:py-4 text-left px-2 md:px-4 w-[60%]">
-                Item
+              <th className="py-3 md:py-4 text-left px-2 md:px-4 w-[50%]">
+                Item Description
               </th>
-              <th className="py-3 md:py-4 text-left w-[15%]">Quantity</th>
-              <th className="py-3 md:py-4 text-left px-2 md:px-4 w-[25%]">
-                Amount
-              </th>
+              <th className="py-3 md:py-4 text-center w-[12%]">Quantity</th>
+              {isEditing ? (
+                <>
+                  <th className="py-3 md:py-4 text-center w-[14%]">Rate ($)</th>
+                  <th className="py-3 md:py-4 text-center w-[14%]">Taxable</th>
+                  <th className="py-3 md:py-4 text-right px-2 md:px-4 w-[10%]">Amount</th>
+                </>
+              ) : (
+                <th className="py-3 md:py-4 text-right px-2 md:px-4 w-[38%]">
+                  Amount
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="block md:table-row-group divide-y-0 md:divide-y md:divide-gray-100 italic-text-container">
@@ -304,6 +326,9 @@ const InvoiceDocument = ({
                 const serviceOption =
                   item.order_service?.option?.title ||
                   item.orderService?.option?.title;
+                const gstEnabled = item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true;
+                const pstEnabled = item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false;
+
                 return (
                   <tr
                     key={idx}
@@ -321,8 +346,8 @@ const InvoiceDocument = ({
                                 onChange={(e) =>
                                   updateItem(idx, "description", e.target.value)
                                 }
-                                className="font-medium text-gray-900 min-h-[90px] w-full text-sm bg-white p-2 leading-relaxed resize-y"
-                                rows={4}
+                                className="font-medium text-gray-900 min-h-[80px] w-full text-sm bg-white p-2 leading-relaxed resize-y"
+                                rows={3}
                                 placeholder="Item description"
                               />
                             ) : (
@@ -354,6 +379,30 @@ const InvoiceDocument = ({
                           )}
                         </div>
 
+                        {/* Middle row for editing: Tax toggles */}
+                        {isEditing && (
+                          <div className="flex items-center gap-4 bg-gray-100/70 p-2 rounded text-xs">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <Checkbox
+                                checked={gstEnabled}
+                                onCheckedChange={(val) => updateItem(idx, "gst_enabled", !!val)}
+                              />
+                              <span className="font-medium text-gray-700">
+                                {isHstProvince ? "HST (Taxable)" : "GST (5%)"}
+                              </span>
+                            </label>
+                            {hasPst && (
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <Checkbox
+                                  checked={pstEnabled}
+                                  onCheckedChange={(val) => updateItem(idx, "pst_enabled", !!val)}
+                                />
+                                <span className="font-medium text-gray-700">PST (7%)</span>
+                              </label>
+                            )}
+                          </div>
+                        )}
+
                         {/* Bottom row: Qty, Rate, Total Amount */}
                         <div className="flex justify-between items-end w-full mt-1 bg-white p-2.5 rounded-[6px] border border-[#EEEEEE] shadow-sm">
                           <div className="flex items-center gap-3">
@@ -364,6 +413,8 @@ const InvoiceDocument = ({
                               {isEditing ? (
                                 <Input
                                   type="number"
+                                  min="0.01"
+                                  step="1"
                                   value={item.quantity}
                                   onChange={(e) =>
                                     updateItem(idx, "quantity", e.target.value)
@@ -383,6 +434,8 @@ const InvoiceDocument = ({
                                 </span>
                                 <Input
                                   type="number"
+                                  min="0"
+                                  step="0.01"
                                   value={item.unit_price}
                                   onChange={(e) =>
                                     updateItem(
@@ -420,8 +473,8 @@ const InvoiceDocument = ({
                               onChange={(e) =>
                                 updateItem(idx, "description", e.target.value)
                               }
-                              className="font-medium text-gray-900 min-h-[90px] flex-grow text-xs md:text-sm bg-white p-2 leading-relaxed resize-y"
-                              rows={4}
+                              className="font-medium text-gray-900 min-h-[70px] flex-grow text-xs md:text-sm bg-white p-2 leading-relaxed resize-y"
+                              rows={3}
                             />
                           ) : (
                             <span className="font-medium text-gray-900 text-xs md:text-sm leading-relaxed whitespace-pre-line">
@@ -447,41 +500,75 @@ const InvoiceDocument = ({
                       {isEditing ? (
                         <Input
                           type="number"
+                          min="0.01"
+                          step="1"
                           value={item.quantity}
                           onChange={(e) =>
                             updateItem(idx, "quantity", e.target.value)
                           }
-                          className="w-full  text-center h-8"
+                          className="w-16 mx-auto text-center h-8"
                         />
                       ) : (
                         item.quantity
                       )}
                     </td>
-                    <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
-                      {isEditing ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="text-xs text-gray-400">Rate:</span>
+                    {isEditing ? (
+                      <>
+                        <td className="hidden md:table-cell py-3 md:py-4 text-center">
                           <Input
                             type="number"
+                            min="0"
+                            step="0.01"
                             value={item.unit_price}
                             onChange={(e) =>
                               updateItem(idx, "unit_price", e.target.value)
                             }
-                            className="w-full  text-right h-8 font-black"
+                            className="w-20 mx-auto text-right h-8 font-semibold text-xs"
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => removeItem(idx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        `$${parseFloat(item.amount || "0").toFixed(2)}`
-                      )}
-                    </td>
+                        </td>
+                        <td className="hidden md:table-cell py-3 md:py-4 text-center">
+                          <div className="flex flex-col items-center gap-1.5 text-[11px]">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <Checkbox
+                                checked={gstEnabled}
+                                onCheckedChange={(val) => updateItem(idx, "gst_enabled", !!val)}
+                              />
+                              <span className="text-gray-600 font-medium">
+                                {isHstProvince ? "HST" : "GST"}
+                              </span>
+                            </label>
+                            {hasPst && (
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <Checkbox
+                                  checked={pstEnabled}
+                                  onCheckedChange={(val) => updateItem(idx, "pst_enabled", !!val)}
+                                />
+                                <span className="text-gray-600 font-medium">PST</span>
+                              </label>
+                            )}
+                          </div>
+                        </td>
+                        <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-bold">
+                              ${Number(item.quantity * item.unit_price || 0).toFixed(2)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => removeItem(idx)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
+                        ${parseFloat(item.amount || "0").toFixed(2)}
+                      </td>
+                    )}
                   </tr>
                 );
               },
@@ -501,7 +588,7 @@ const InvoiceDocument = ({
                 borderColor: settings.pageTabColor,
               }}
             >
-              <Plus className="h-4 w-4" /> Add Item
+              <Plus className="h-4 w-4" /> Add Line Item
             </Button>
           </div>
         )}
@@ -544,6 +631,7 @@ const InvoiceDocument = ({
               ).toFixed(2)}
             </span>
           </div>
+
           {/* Travel Compensation row — shown when travel_amount > 0 */}
           {(() => {
             const travelAmt = parseFloat(
@@ -565,114 +653,40 @@ const InvoiceDocument = ({
               </div>
             ) : null;
           })()}
-          {isEditing ? (
-            <div className="flex flex-col w-full">
-              <div className="flex justify-between text-xs md:text-sm items-center w-full">
-                <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                  {updateTaxType ? (
-                    <Input
-                      value={editData.tax_type || "Tax"}
-                      onChange={(e) => updateTaxType(e.target.value)}
-                      className="w-24 h-6 inline-block mr-1 py-0 px-1 text-xs"
-                    />
-                  ) : (
-                    editData.tax_type || "Tax Rate"
-                  )}
-                  <Input
-                    type="number"
-                    value={editData.tax_rate}
-                    onChange={(e) => updateTaxRate(e.target.value)}
-                    className="w-16 h-6 inline-block ml-1 py-0 px-1 text-right"
-                  />
-                  %:
-                </span>
-                <span className="font-bold text-gray-900">
-                  ${parseFloat(editData.tax_amount || "0").toFixed(2)}
-                </span>
-              </div>
-              {editData.tax_snapshot &&
-                editData.tax_snapshot.is_registered &&
-                editData.tax_snapshot.taxes?.length > 0 && (
-                  <div className="pl-4 border-l-2 border-indigo-100 mt-1 mb-2">
-                    {editData.tax_snapshot.taxes.map((t: any, i: number) => (
-                      <div
-                        key={i}
-                        className="flex justify-between text-[10px] md:text-xs text-gray-400"
-                      >
-                        <span>
-                          {t.name} ({t.rate}%):
-                        </span>
-                        <span>
-                          $
-                          {(
-                            (parseFloat(editData.subtotal || 0) * t.rate) /
-                            100
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              {editData.tax_snapshot &&
-                !editData.tax_snapshot.is_registered && (
-                  <div className="text-[10px] md:text-xs text-gray-400 mt-1 mb-2 text-right">
-                    Vendor not registered for tax
-                  </div>
-                )}
-            </div>
-          ) : (
-            <div className="flex flex-col w-full gap-2">
-              {invoice.tax_snapshot && invoice.tax_snapshot.is_registered ? (
-                <>
-                  {invoice.tax_snapshot.taxes?.map((t: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex justify-between text-xs md:text-sm items-center"
-                    >
-                      <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                        {t.name} ({t.rate}%):
-                      </span>
-                      <span className="font-bold text-gray-900">
-                        $
-                        {(
-                          (parseFloat(invoice.subtotal || 0) * t.rate) /
-                          100
-                        ).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                  {(!invoice.tax_snapshot?.taxes ||
-                    invoice.tax_snapshot.taxes.length === 0) && (
-                    <div className="flex justify-between text-xs md:text-sm items-center">
-                      <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                        {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
-                      </span>
-                      <span className="font-bold text-gray-900">
-                        ${parseFloat(invoice.tax_amount || "0").toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : invoice.tax_snapshot &&
-                !invoice.tax_snapshot.is_registered ? (
-                <div className="flex justify-between text-xs md:text-sm items-center">
+
+          {/* Tax Breakdown */}
+          {(() => {
+            const currentTaxDetails = isEditing ? editData.tax_details : (invoice.tax_details || {});
+            const hasBreakdown = currentTaxDetails && Object.keys(currentTaxDetails).length > 0;
+
+            if (hasBreakdown) {
+              return Object.entries(currentTaxDetails).map(([key, val]: [string, any]) => (
+                <div key={key} className="flex justify-between text-xs md:text-sm items-center">
                   <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                    Tax (Not Registered):
-                  </span>
-                  <span className="font-bold text-gray-900">$0.00</span>
-                </div>
-              ) : (
-                <div className="flex justify-between text-xs md:text-sm items-center">
-                  <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
-                    {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
+                    {key} ({val?.rate || 0}%):
                   </span>
                   <span className="font-bold text-gray-900">
-                    ${parseFloat(invoice.tax_amount || "0").toFixed(2)}
+                    ${parseFloat(val?.amount || 0).toFixed(2)}
                   </span>
                 </div>
-              )}
-            </div>
-          )}
+              ));
+            }
+
+            const taxAmt = parseFloat(isEditing ? editData.tax_amount : invoice.tax_amount || "0");
+            const taxRate = parseFloat(isEditing ? editData.tax_rate : invoice.tax_rate || "0");
+            return (
+              <div className="flex justify-between text-xs md:text-sm items-center">
+                <span className="text-gray-500 font-medium uppercase tracking-wider text-[10px] md:text-xs">
+                  Tax ({taxRate}%):
+                </span>
+                <span className="font-bold text-gray-900">
+                  ${taxAmt.toFixed(2)}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Grand Total */}
           <div
             className="flex justify-between items-center px-4 md:px-5 py-3 md:py-4 text-white rounded-sm mt-4 md:mt-6"
             style={{ backgroundColor: settings.pageTabColor }}
@@ -682,13 +696,31 @@ const InvoiceDocument = ({
             </span>
             <span className="text-base md:text-xl font-bold leading-normal">
               ${" "}
-              {parseFloat(
-                isEditing
-                  ? editData.total
-                  : invoice.total || invoice.total_amount || "0",
-              ).toFixed(2)}
+              {grandTotal.toFixed(2)}
             </span>
           </div>
+
+          {/* Partial payment details if paid_amount > 0 */}
+          {paidAmount > 0 && (
+            <div className="space-y-1.5 pt-2 border-t border-gray-100">
+              <div className="flex justify-between text-xs text-gray-600">
+                <span className="font-medium uppercase tracking-wider text-[10px]">
+                  Amount Paid:
+                </span>
+                <span className="font-semibold text-green-600">
+                  -${paidAmount.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs md:text-sm">
+                <span className="font-bold uppercase tracking-wider text-[10px] text-gray-900">
+                  Balance Due:
+                </span>
+                <span className="font-extrabold text-red-600 text-sm md:text-base">
+                  ${balanceDue.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

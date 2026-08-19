@@ -42,6 +42,7 @@ import {
   UpdatePackage,
   GetOnePackage,
   PackagePayload,
+  BulkUpdateProductOptionSort,
 } from "../services";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Services } from "../page";
@@ -63,6 +64,7 @@ interface ProductOption {
   service_duration: number;
   amount: number;
   min_price: number;
+  sort_order?: number;
 }
 interface AddOns {
   uuid?: string;
@@ -101,6 +103,14 @@ const ServicesFrom = () => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [discount, setDiscount] = useState<number>(0);
   const [isTravelRequired, setIsTravelRequired] = useState<boolean>(true);
+  const [gstEnabled, setGstEnabled] = useState<boolean>(true);
+  const [pstEnabled, setPstEnabled] = useState<boolean>(false);
+  const [vendorPayType, setVendorPayType] = useState<string>("flat");
+  const [vendorPrice, setVendorPrice] = useState<number | string>("");
+  const [vendorSqFtRate, setVendorSqFtRate] = useState<number | string>("");
+  const [vendorMinPrice, setVendorMinPrice] = useState<number | string>("");
+  const [vendorUnitRate, setVendorUnitRate] = useState<number | string>("");
+  const [vendorHourlyRate, setVendorHourlyRate] = useState<number | string>("");
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef1 = useRef<HTMLDivElement | null>(null);
@@ -164,8 +174,9 @@ const ServicesFrom = () => {
     return 0;
   };
 
-  const getSortedProductOptions = <T,>(opts: T[]): T[] => {
+  const getSortedProductOptions = <T,>(opts: T[], dir?: "asc" | "desc"): T[] => {
     if (!opts || opts.length === 0) return opts;
+    const direction = dir || optionSortDirection;
 
     return [...opts].sort((a: any, b: any) => {
       const aHasRange = !!(
@@ -207,7 +218,7 @@ const ServicesFrom = () => {
         cmp = valA - valB;
       }
 
-      return optionSortDirection === "asc" ? cmp : -cmp;
+      return direction === "asc" ? cmp : -cmp;
     });
   };
   const [addOns, setAddOns] = useState<AddOns[]>([
@@ -282,6 +293,96 @@ const ServicesFrom = () => {
     newOptions[index] = newData;
     setOptions(newOptions);
   }
+
+  const handleMoveExistingOption = async (index: number, direction: "up" | "down") => {
+    if (!currentService?.product_options) return;
+    const currentList = [...currentService.product_options];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+    const temp = currentList[index];
+    currentList[index] = currentList[targetIndex];
+    currentList[targetIndex] = temp;
+
+    const reordered = currentList.map((opt, i) => ({
+      ...opt,
+      sort_order: i + 1,
+    }));
+
+    setCurrentService((prev) => (prev ? { ...prev, product_options: reordered } : prev));
+    setIsDirty(true);
+
+    const token = localStorage.getItem("token");
+    if (token && ServiceId) {
+      try {
+        const payload = {
+          options: reordered
+            .filter((o) => !!o.uuid)
+            .map((o, i) => ({
+              uuid: o.uuid!,
+              sort_order: i + 1,
+            })),
+        };
+        if (payload.options.length > 0) {
+          await BulkUpdateProductOptionSort(payload, token);
+          toast.success("Option sort order updated");
+        }
+      } catch (err: any) {
+        console.error("Failed to update option sort order:", err);
+      }
+    }
+  };
+
+  const handleMoveNewOption = (index: number, direction: "up" | "down") => {
+    const currentList = [...options];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+    const temp = currentList[index];
+    currentList[index] = currentList[targetIndex];
+    currentList[targetIndex] = temp;
+
+    setOptions(currentList);
+    setIsDirty(true);
+  };
+
+  const handleAutoSortOptions = async (direction: "asc" | "desc") => {
+    setOptionSortDirection(direction);
+    if (currentService?.product_options && currentService.product_options.length > 0) {
+      const sortedExisting = getSortedProductOptions(currentService.product_options, direction).map((opt, i) => ({
+        ...opt,
+        sort_order: i + 1,
+      }));
+      setCurrentService((prev) => (prev ? { ...prev, product_options: sortedExisting } : prev));
+      setIsDirty(true);
+
+      const token = localStorage.getItem("token");
+      if (token && ServiceId) {
+        try {
+          const payload = {
+            options: sortedExisting
+              .filter((o) => !!o.uuid)
+              .map((o, i) => ({
+                uuid: o.uuid!,
+                sort_order: i + 1,
+              })),
+          };
+          if (payload.options.length > 0) {
+            await BulkUpdateProductOptionSort(payload, token);
+            toast.success("Options auto-sorted and updated");
+          }
+        } catch (err: any) {
+          console.error("Failed to update auto-sort order:", err);
+        }
+      }
+    }
+
+    if (options && options.length > 0) {
+      const sortedNew = getSortedProductOptions(options, direction);
+      setOptions(sortedNew);
+      setIsDirty(true);
+    }
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPackageParam = searchParams.get("isPackage") === "true" || searchParams.get("category")?.toLowerCase() === "package";
@@ -410,6 +511,18 @@ const ServicesFrom = () => {
           setIsTravelRequired(
             data.is_travel_required === true || data.is_travel_required === 1,
           );
+          setGstEnabled(
+            data.gst_enabled !== undefined ? (data.gst_enabled === true || data.gst_enabled === 1) : true
+          );
+          setPstEnabled(
+            data.pst_enabled !== undefined ? (data.pst_enabled === true || data.pst_enabled === 1) : false
+          );
+          setVendorPayType(data.vendor_pay_type || "flat");
+          setVendorPrice(data.vendor_price ?? "");
+          setVendorSqFtRate(data.vendor_sq_ft_rate ?? "");
+          setVendorMinPrice(data.vendor_min_price ?? "");
+          setVendorUnitRate(data.vendor_unit_rate ?? "");
+          setVendorHourlyRate(data.vendor_hourly_rate ?? "");
           // Use setTimeout to ensure all state updates and DOM updates complete
           setTimeout(() => {
             isPopulatingData.current = false;
@@ -538,12 +651,13 @@ const ServicesFrom = () => {
 
         const cleanedProductOptions: CleanedProductOption[] = combinedOptions
           .filter(isOptionValid)
-          .map((option) => {
+          .map((option, index) => {
             const baseOption: CleanedProductOption = {
               title: option.title,
               amount: option.amount,
               min_price: option.min_price,
               uuid: option.uuid,
+              sort_order: index + 1,
             };
 
             if (
@@ -588,6 +702,14 @@ const ServicesFrom = () => {
           product_options: cleanedProductOptions,
           add_ons: cleanedAddOns,
           is_travel_required: isTravelRequired ? 1 : 0,
+          gst_enabled: gstEnabled ? 1 : 0,
+          pst_enabled: pstEnabled ? 1 : 0,
+          vendor_pay_type: vendorPayType,
+          vendor_price: vendorPrice !== "" ? Number(vendorPrice) : 0,
+          vendor_sq_ft_rate: vendorSqFtRate !== "" ? Number(vendorSqFtRate) : undefined,
+          vendor_min_price: vendorMinPrice !== "" ? Number(vendorMinPrice) : undefined,
+          vendor_unit_rate: vendorUnitRate !== "" ? Number(vendorUnitRate) : undefined,
+          vendor_hourly_rate: vendorHourlyRate !== "" ? Number(vendorHourlyRate) : undefined,
         };
 
         if (ServiceId) {
@@ -1020,21 +1142,205 @@ const ServicesFrom = () => {
                           )}
                         </div>
                         {categoryObject?.name.toLowerCase() !== "package" && (
-                          <div className="col-span-2 flex items-center justify-between">
-                            <label
-                              htmlFor="is_travel_required"
-                              className="text-sm font-medium"
-                              style={{ color: roleSettings.pageText }}
-                            >
-                              Requires travel scheduling
-                            </label>
-                            <Switch
-                              id="is_travel_required"
-                              checked={isTravelRequired}
-                              onCheckedChange={setIsTravelRequired}
-                              className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
-                            />
-                          </div>
+                          <>
+                            <div className="col-span-2 flex items-center justify-between">
+                              <label
+                                htmlFor="is_travel_required"
+                                className="text-sm font-medium"
+                                style={{ color: roleSettings.pageText }}
+                              >
+                                Requires travel scheduling
+                              </label>
+                              <Switch
+                                id="is_travel_required"
+                                checked={isTravelRequired}
+                                onCheckedChange={setIsTravelRequired}
+                                className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                              />
+                            </div>
+
+                            <div className="col-span-2 pt-4 border-t border-[#BBBBBB] flex flex-col gap-3">
+                              <label
+                                className="text-sm font-semibold"
+                                style={{ color: roleSettings.pageText }}
+                              >
+                                Sales Tax Settings
+                              </label>
+                              <p className="text-[12px] text-[#666666]">
+                                Select which sales taxes apply to this service (e.g., in British Columbia, some services are GST only while others are GST + PST).
+                              </p>
+                              <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 mt-1">
+                                <div className="flex items-center gap-3">
+                                  <Switch
+                                    id="gst_enabled"
+                                    checked={gstEnabled}
+                                    onCheckedChange={setGstEnabled}
+                                    className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-gray-400"
+                                  />
+                                  <label
+                                    htmlFor="gst_enabled"
+                                    className="text-sm font-medium cursor-pointer"
+                                    style={{ color: roleSettings.pageText }}
+                                  >
+                                    Apply GST (5%)
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Switch
+                                    id="pst_enabled"
+                                    checked={pstEnabled}
+                                    onCheckedChange={setPstEnabled}
+                                    className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-gray-400"
+                                  />
+                                  <label
+                                    htmlFor="pst_enabled"
+                                    className="text-sm font-medium cursor-pointer"
+                                    style={{ color: roleSettings.pageText }}
+                                  >
+                                    Apply PST (7%)
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="col-span-2 pt-4 border-t border-[#BBBBBB] flex flex-col gap-3">
+                              <label
+                                className="text-sm font-semibold"
+                                style={{ color: roleSettings.pageText }}
+                              >
+                                Vendor Pay Defaults
+                              </label>
+                              <p className="text-[12px] text-[#666666]">
+                                Configure the master default reimbursement rate for this service (e.g. flat pay, per sq. ft. rate with a minimum, or hourly rate).
+                              </p>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1">
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700">Pay Model</label>
+                                  <Select
+                                    value={vendorPayType}
+                                    onValueChange={(val) => setVendorPayType(val)}
+                                  >
+                                    <SelectTrigger className="w-full h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] mt-1">
+                                      <SelectValue placeholder="Select Pay Model" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="flat">Flat Rate ($)</SelectItem>
+                                      <SelectItem value="per_sq_ft">Per Sq. Ft. ($/sq.ft)</SelectItem>
+                                      <SelectItem value="per_unit">Per Unit ($/unit)</SelectItem>
+                                      <SelectItem value="hourly">Hourly Rate ($/hr)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {vendorPayType === "flat" && (
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700">Default Payout ($)</label>
+                                    <div className="relative mt-1">
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="e.g. 75.00"
+                                        value={vendorPrice}
+                                        onChange={(e) => setVendorPrice(e.target.value)}
+                                        className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {vendorPayType === "per_sq_ft" && (
+                                  <>
+                                    <div>
+                                      <label className="text-xs font-medium text-gray-700">Rate per Sq. Ft. ($)</label>
+                                      <div className="relative mt-1">
+                                        <Input
+                                          type="number"
+                                          step="0.0001"
+                                          min="0"
+                                          placeholder="e.g. 0.05"
+                                          value={vendorSqFtRate}
+                                          onChange={(e) => setVendorSqFtRate(e.target.value)}
+                                          className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-gray-700">Minimum Pay Guarantee ($)</label>
+                                      <div className="relative mt-1">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          placeholder="e.g. 60.00"
+                                          value={vendorMinPrice}
+                                          onChange={(e) => setVendorMinPrice(e.target.value)}
+                                          className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+
+                                {vendorPayType === "per_unit" && (
+                                  <>
+                                    <div>
+                                      <label className="text-xs font-medium text-gray-700">Rate per Unit ($)</label>
+                                      <div className="relative mt-1">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          placeholder="e.g. 25.00"
+                                          value={vendorUnitRate}
+                                          onChange={(e) => setVendorUnitRate(e.target.value)}
+                                          className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-gray-700">Minimum Pay Guarantee ($)</label>
+                                      <div className="relative mt-1">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          placeholder="e.g. 50.00"
+                                          value={vendorMinPrice}
+                                          onChange={(e) => setVendorMinPrice(e.target.value)}
+                                          className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+
+                                {vendorPayType === "hourly" && (
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700">Hourly Rate ($/hr)</label>
+                                    <div className="relative mt-1">
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="e.g. 45.00"
+                                        value={vendorHourlyRate}
+                                        onChange={(e) => setVendorHourlyRate(e.target.value)}
+                                        className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] pr-7"
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </>
                         )}
                         {categoryObject?.name.toLocaleLowerCase() ===
                           "package" && (
@@ -1093,22 +1399,22 @@ const ServicesFrom = () => {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setOptionSortDirection((prev) =>
-                          prev === "asc" ? "desc" : "asc",
+                        handleAutoSortOptions(
+                          optionSortDirection === "asc" ? "desc" : "asc",
                         )
                       }
                       className="flex items-center gap-1.5 text-xs font-semibold h-[32px] px-3 bg-white border border-[#BBBBBB] hover:bg-gray-100 shadow-sm"
-                      title="Sort by Sq. Ft. (Rate first, then Range)"
+                      title="Auto-sort by Sq. Ft. (Rate first, then Range)"
                     >
                       {optionSortDirection === "asc" ? (
                         <>
                           <ArrowUp className="w-3.5 h-3.5 text-[#4290E9]" />
-                          <span>Top to Bottom</span>
+                          <span>Auto-sort (Low to High)</span>
                         </>
                       ) : (
                         <>
                           <ArrowDown className="w-3.5 h-3.5 text-[#4290E9]" />
-                          <span>Bottom to Top</span>
+                          <span>Auto-sort (High to Low)</span>
                         </>
                       )}
                     </Button>
@@ -1133,14 +1439,17 @@ const ServicesFrom = () => {
                       color: roleSettings.pageTabColor,
                     }}
                   >
-                    Product Options{" "}
+Product Options{" "}
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4 !pb-0 overflow-x-auto">
                     <div className="w-full flex flex-col items-center mb-[40px]">
                       <Table className='font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]"'>
                         <TableHeader style={{ backgroundColor: headerBg }}>
-                          <TableRow className="text-[14px] !font-[700]">
-                            <TableHead className="text-[14px] font-bold pl-[15px]">
+                          <TableRow className="border-b-[1px] border-[#BBBBBB]">
+                            <TableHead className="text-[14px] font-bold w-[75px]">
+                              ORDER
+                            </TableHead>
+                            <TableHead className="text-[14px] font-bold">
                               TITLE <span className="text-red-500">*</span>
                             </TableHead>
                             {categoryObject?.type.includes("quantity") && (
@@ -1168,10 +1477,35 @@ const ServicesFrom = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {getSortedProductOptions(
-                            currentService?.product_options || [],
-                          ).map((opt, idx) => (
-                            <TableRow className="py-4" key={idx}>
+                          {(currentService?.product_options || []).map((opt, idx) => (
+                            <TableRow className="py-4" key={opt.uuid || idx}>
+                              <TableCell className="w-[75px]">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-bold text-gray-500 w-[18px]">
+                                    #{idx + 1}
+                                  </span>
+                                  <div className="flex flex-col gap-0.5">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveExistingOption(idx, "up")}
+                                      className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-25 disabled:cursor-not-allowed text-gray-700"
+                                      title="Move Option Up"
+                                    >
+                                      <ArrowUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === (currentService?.product_options?.length ?? 1) - 1}
+                                      onClick={() => handleMoveExistingOption(idx, "down")}
+                                      className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-25 disabled:cursor-not-allowed text-gray-700"
+                                      title="Move Option Down"
+                                    >
+                                      <ArrowDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 <Label className=" text-[15px] font-[400] text-[#666666] pl-[7px]">
                                   {opt?.title}
@@ -1317,6 +1651,33 @@ const ServicesFrom = () => {
                               key={idx}
                               className="text-[#666666] text-[14px] !border-b-0 "
                             >
+                              <TableCell className="w-[75px]">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-bold text-gray-500 w-[18px]">
+                                    #{(currentService?.product_options?.length ?? 0) + idx + 1}
+                                  </span>
+                                  <div className="flex flex-col gap-0.5">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveNewOption(idx, "up")}
+                                      className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-25 disabled:cursor-not-allowed text-gray-700"
+                                      title="Move Option Up"
+                                    >
+                                      <ArrowUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === options.length - 1}
+                                      onClick={() => handleMoveNewOption(idx, "down")}
+                                      className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-25 disabled:cursor-not-allowed text-gray-700"
+                                      title="Move Option Down"
+                                    >
+                                      <ArrowDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </TableCell>
                               <TableCell className="pl-[15px]">
                                 {/* <Label className='font-bold'>TITLE</Label> */}
                                 <Input

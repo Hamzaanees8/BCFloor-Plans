@@ -93,7 +93,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
     const [localComponents, setLocalComponents] = useState<AddressComponents>(addressComponents || {
         address_line_1: '',
         city: '',
-        province: '',
+        province: 'BC',
         country: 'CA',
         postal_code: '',
         full_address: ''
@@ -145,6 +145,15 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
                 body: JSON.stringify({
                     input: input,
                     includedRegionCodes: ['CA', 'US'],
+                    locationBias: {
+                        circle: {
+                            center: {
+                                latitude: 49.2827,
+                                longitude: -123.1207,
+                            },
+                            radius: 100000.0,
+                        },
+                    },
                 }),
             });
 
@@ -162,6 +171,18 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
 
             if (data.suggestions && data.suggestions.length > 0) {
                 const formattedPredictions = data.suggestions.map((s: { placePrediction: PlacePrediction }) => s.placePrediction);
+                
+                // Prioritize Canadian / BC suggestions at the top of the autocomplete list
+                formattedPredictions.sort((a: PlacePrediction, b: PlacePrediction) => {
+                    const textA = (a.text?.text || '').toLowerCase();
+                    const textB = (b.text?.text || '').toLowerCase();
+                    const isCanadaA = textA.includes(', bc,') || textA.includes(' bc ') || textA.includes(', canada') || textA.includes(', bc, canada');
+                    const isCanadaB = textB.includes(', bc,') || textB.includes(' bc ') || textB.includes(', canada') || textB.includes(', bc, canada');
+                    if (isCanadaA && !isCanadaB) return -1;
+                    if (!isCanadaA && isCanadaB) return 1;
+                    return 0;
+                });
+
                 setSuggestions(formattedPredictions);
                 setShowSuggestions(true);
                 setSelectedIndex(-1);

@@ -166,19 +166,26 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                             const qty = item.quantity || 1;
                             const amt = item.amount || (parseFloat(item.unit_price) * qty);
                             const serviceOption = item.order_service?.option?.title || item.orderService?.option?.title;
+                            const gstEnabled = item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true;
+                            const pstEnabled = item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false;
 
                             return (
                                 <tr key={idx}>
                                     <td className="py-4 px-4">
                                         <div className="font-medium text-gray-900 block whitespace-pre-line leading-relaxed">{desc}</div>
-                                        {serviceOption && (
-                                            <div className="mt-2 block">
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            {serviceOption && (
                                                 <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-opacity-20 leading-none"
                                                       style={{ color: settings.pageTabColor, backgroundColor: `${settings.pageTabColor}10`, borderColor: settings.pageTabColor }}>
                                                     {serviceOption}
                                                 </span>
-                                            </div>
-                                        )}
+                                            )}
+                                            {(gstEnabled || pstEnabled) && (
+                                                <span className="text-[9px] text-gray-400 font-medium">
+                                                    {[gstEnabled && 'GST', pstEnabled && 'PST'].filter(Boolean).join(' + ')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="py-4 px-4 text-center text-gray-700">{qty}</td>
                                     <td className="py-4 px-4 text-right font-medium text-gray-900">
@@ -204,16 +211,51 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         <span className="text-gray-500 font-medium uppercase text-xs">Subtotal:</span>
                         <span className="font-bold text-gray-900">${parseFloat(invoice.subtotal || '0').toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm px-4">
-                        <span className="text-gray-500 font-medium uppercase text-xs">
-                            {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
-                        </span>
-                        <span className="font-bold text-gray-900">${parseFloat(invoice.tax_amount || '0').toFixed(2)}</span>
-                    </div>
+
+                    {/* Tax Breakdown */}
+                    {(() => {
+                        const taxDetails = invoice.tax_details || {};
+                        if (taxDetails && Object.keys(taxDetails).length > 0) {
+                            return Object.entries(taxDetails).map(([key, val]: [string, any]) => (
+                                <div key={key} className="flex justify-between text-sm px-4">
+                                    <span className="text-gray-500 font-medium uppercase text-xs">
+                                        {key} ({val?.rate || 0}%):
+                                    </span>
+                                    <span className="font-bold text-gray-900">${parseFloat(val?.amount || 0).toFixed(2)}</span>
+                                </div>
+                            ));
+                        }
+
+                        return (
+                            <div className="flex justify-between text-sm px-4">
+                                <span className="text-gray-500 font-medium uppercase text-xs">
+                                    {invoice.tax_type || "Tax"} ({invoice.tax_rate || 0}%):
+                                </span>
+                                <span className="font-bold text-gray-900">${parseFloat(invoice.tax_amount || '0').toFixed(2)}</span>
+                            </div>
+                        );
+                    })()}
+
                     <div className="flex justify-between items-center p-4 text-white rounded mt-4" style={{ backgroundColor: settings.pageTabColor }}>
                         <span className="font-bold uppercase tracking-widest">Total</span>
                         <span className="text-xl font-bold">${parseFloat(invoice.total || invoice.total_amount || '0').toFixed(2)}</span>
                     </div>
+
+                    {/* Partial payments */}
+                    {parseFloat(invoice.paid_amount || '0') > 0 && (
+                        <div className="pt-2 px-4 space-y-1 text-xs">
+                            <div className="flex justify-between text-gray-600">
+                                <span>Paid:</span>
+                                <span className="font-semibold text-green-600">-${parseFloat(invoice.paid_amount).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-gray-900">
+                                <span>Balance Due:</span>
+                                <span className="text-red-600">
+                                    ${Math.max(0, parseFloat(invoice.total || '0') - parseFloat(invoice.paid_amount || '0')).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

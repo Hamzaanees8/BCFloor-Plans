@@ -945,6 +945,18 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     Processing...
                   </p>
                 </div>
+              ) : userType === "agent" &&
+                !(orderData?.payment_status === "PAID") &&
+                !(
+                  selectedFile &&
+                  "is_complimentary" in selectedFile &&
+                  selectedFile.is_complimentary
+                ) ? (
+                <PdfPlaceholder
+                  className="w-full h-full"
+                  isRestricted={true}
+                  message="Floor plan preview is protected until payment is completed"
+                />
               ) : isSelectedFilePDF && selectedFile ? (
                 "uuid" in selectedFile &&
                 (!selectedFile.variant_urls ||

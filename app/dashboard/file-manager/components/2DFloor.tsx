@@ -318,6 +318,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
 
 
     const handleImageClick = (imageUrl: string | File, file: SelectedFiles | Files) => {
+        if (userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && !('is_complimentary' in file && file.is_complimentary)) {
+            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+            return;
+        }
         setSelectedImageUrl(imageUrl);
         setEditingFile(file);
         setImagePopupOpen(true);
@@ -521,23 +525,23 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
                             </div>
+                        ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID' && !file.is_complimentary) ? (
+                            <PdfPlaceholder
+                                className="w-full h-full object-contain cursor-pointer"
+                                isRestricted={true}
+                                onClick={() => {
+                                    if (isHidingMode && file.uuid) {
+                                        setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                    } else if (!isHidingMode) {
+                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                                    }
+                                }}
+                            />
                         ) : isPdf ? (
                             isVariantUrlsEmpty ? (
                                 <PdfPlaceholder
                                     className="w-full h-full object-contain cursor-pointer"
                                     message="service is not paid yet"
-                                    onClick={() => {
-                                        if (isHidingMode && file.uuid) {
-                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
-                                        } else if (!isHidingMode) {
-                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
-                                        }
-                                    }}
-                                />
-                            ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
-                                <PdfPlaceholder
-                                    className="w-full h-full object-contain cursor-pointer"
-                                    isRestricted={true}
                                     onClick={() => {
                                         if (isHidingMode && file.uuid) {
                                             setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });

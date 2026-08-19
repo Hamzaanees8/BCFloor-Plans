@@ -176,6 +176,22 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [province, setProvince] = useState("");
     const [postalCode, setPostalCode] = useState("");
     const [country, setCountry] = useState("CA");
+    const [recentlySyncedFields, setRecentlySyncedFields] = useState<string[]>([]);
+
+    const formatPriceWithCommas = (val: string | number | undefined | null): string => {
+        if (val === undefined || val === null || val === '') return '';
+        const clean = val.toString().replace(/[^0-9.]/g, '');
+        const parts = clean.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.slice(0, 2).join('.');
+    };
+
+    const parsePriceToNumber = (val: string | number | undefined | null): number | undefined => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const clean = val.toString().replace(/,/g, '').trim();
+        const num = Number(clean);
+        return isNaN(num) ? undefined : num;
+    };
 
     const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
     const [squareFootage, setSquareFootage] = useState("");
@@ -538,7 +554,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             if (currentListing.agent?.uuid) {
                 setConnectedAgent(currentListing.agent.uuid);
             }
-            setListingPrice(currentListing.listing_price?.toString() || "");
+            setListingPrice(formatPriceWithCommas(currentListing.listing_price));
             setMls(currentListing.mls_number || "");
             setBedrooms(currentListing.bedrooms ?? "");
             setBathrooms(currentListing.bathrooms ?? "");
@@ -560,7 +576,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         } else if (tempPropertyData && !selectedListingId && !isInitialized) {
             // Restore from tempPropertyData if no listing is selected
             setConnectedAgent(tempPropertyData.agent_id || "");
-            setListingPrice(tempPropertyData.listing_price?.toString() || "");
+            setListingPrice(formatPriceWithCommas(tempPropertyData.listing_price));
             setMls(tempPropertyData.mls_number || "");
             setBedrooms(tempPropertyData.bedrooms ?? "");
             setBathrooms(tempPropertyData.bathrooms ?? "");
@@ -584,7 +600,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     useEffect(() => {
         if (!selectedListingId && (address || squareFootage) && !isLoading && !currentListing) {
             const payload = {
-                listing_price: listingPrice === "" ? undefined : Number(listingPrice),
+                listing_price: parsePriceToNumber(listingPrice),
                 mls_number: mls,
                 bedrooms: bedrooms === "" ? undefined : Number(bedrooms),
                 bathrooms: bathrooms === "" ? undefined : Number(bathrooms),
@@ -645,8 +661,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
         try {
             const token = localStorage.getItem('token') || '';
+            const parsedPrice = parsePriceToNumber(listingPrice);
             const apiPayload = {
-                listing_price: listingPrice === "" ? null : Number(listingPrice),
+                listing_price: parsedPrice !== undefined ? parsedPrice : null,
                 mls_number: mls || null,
                 bedrooms: bedrooms === "" ? null : Number(bedrooms),
                 bathrooms: bathrooms === "" ? null : Number(bathrooms),
@@ -668,7 +685,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             };
 
             const tempPayload = {
-                listing_price: listingPrice === "" ? undefined : Number(listingPrice),
+                listing_price: parsedPrice,
                 mls_number: mls,
                 bedrooms: bedrooms === "" ? undefined : Number(bedrooms),
                 bathrooms: bathrooms === "" ? undefined : Number(bathrooms),
@@ -749,89 +766,163 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             const mls_data = response.mls || response;
 
             if (mls_data && !mls_data.error) {
-                // Populate fields
-                setListingPrice(mls_data.listPrice?.toString() || "");
-                setBedrooms(mls_data.details?.numBedrooms?.toString() || "");
-                setBathrooms(mls_data.details?.numBathrooms?.toString() || "");
+                const updatedFields: string[] = [];
 
-                const style = mls_data.details?.style || "";
-                if (style.includes("Single Family Residence")) {
-                    setPropertyType("Detached Home");
-                } else if (style.includes("Townhouse") || style.includes("Townhome")) {
-                    setPropertyType("Townhouse");
-                } else if (style.includes("Condo") || style.includes("Condominium")) {
-                    setPropertyType("Condo");
-                } else if (style.includes("Apartment")) {
-                    setPropertyType("Apartment");
-                } else if (style.includes("Commercial")) {
-                    setPropertyType("Commercial");
+                // 1. Listing Price
+                if (mls_data.listPrice !== undefined && mls_data.listPrice !== null && mls_data.listPrice !== "") {
+                    setListingPrice(formatPriceWithCommas(mls_data.listPrice));
+                    updatedFields.push('price');
                 }
 
-                setSquareFootage(mls_data.details?.sqft?.toString() || "");
-                setYearConstructed(mls_data.details?.yearBuilt?.toString() || "");
+                // 2. Bedrooms & Bathrooms
+                if (mls_data.details?.numBedrooms !== undefined && mls_data.details?.numBedrooms !== null && mls_data.details?.numBedrooms !== "") {
+                    setBedrooms(Number(mls_data.details.numBedrooms));
+                    updatedFields.push('bedrooms');
+                }
+                if (mls_data.details?.numBathrooms !== undefined && mls_data.details?.numBathrooms !== null && mls_data.details?.numBathrooms !== "") {
+                    setBathrooms(Number(mls_data.details.numBathrooms));
+                    updatedFields.push('bathrooms');
+                }
 
-                const parkingSpaces = mls_data.details?.numParkingSpaces || mls_data.details?.numDrivewaySpaces;
-                setParkingSpots(parkingSpaces?.toString() || "");
+                // 3. Property Type
+                const style = mls_data.details?.style || "";
+                if (style) {
+                    if (style.includes("Single Family Residence") || style.includes("Detached")) {
+                        setPropertyType("Detached Home");
+                    } else if (style.includes("Townhouse") || style.includes("Townhome")) {
+                        setPropertyType("Townhouse");
+                    } else if (style.includes("Condo") || style.includes("Condominium")) {
+                        setPropertyType("Condo");
+                    } else if (style.includes("Apartment")) {
+                        setPropertyType("Apartment");
+                    } else if (style.includes("Commercial")) {
+                        setPropertyType("Commercial");
+                    }
+                    updatedFields.push('property_type');
+                }
 
+                // 4. Square footage & Year
+                if (mls_data.details?.sqft !== undefined && mls_data.details?.sqft !== null && mls_data.details?.sqft !== "") {
+                    setSquareFootage(mls_data.details.sqft.toString());
+                    updatedFields.push('sqft');
+                }
+                if (mls_data.details?.yearBuilt !== undefined && mls_data.details?.yearBuilt !== null && mls_data.details?.yearBuilt !== "") {
+                    setYearConstructed(mls_data.details.yearBuilt.toString());
+                    updatedFields.push('year');
+                }
+
+                // 5. Parking spots
+                const parkingSpaces = mls_data.details?.numParkingSpaces ?? mls_data.details?.numDrivewaySpaces;
+                if (parkingSpaces !== undefined && parkingSpaces !== null && parkingSpaces !== "") {
+                    setParkingSpots(parkingSpaces.toString());
+                    updatedFields.push('parking');
+                }
+
+                // 6. Property status
                 const standardStatus = mls_data.standardStatus || "";
                 if (standardStatus.includes("Active Under Contract")) {
                     setPropertyStatus("Under contract");
-                } else if (mls_data.status === "A") {
+                    updatedFields.push('property_status');
+                } else if (mls_data.status === "A" || standardStatus.toLowerCase().includes("active")) {
                     setPropertyStatus("Just listed");
-                } else if (mls_data.status === "S" || mls_data.status === "Sld") {
+                    updatedFields.push('property_status');
+                } else if (mls_data.status === "S" || mls_data.status === "Sld" || standardStatus.toLowerCase().includes("sold")) {
                     setPropertyStatus("Sold");
-                } else if (mls_data.status === "P") {
+                    updatedFields.push('property_status');
+                } else if (mls_data.status === "P" || standardStatus.toLowerCase().includes("pending")) {
                     setPropertyStatus("Pending");
+                    updatedFields.push('property_status');
                 }
 
+                // 7. Address components
                 const addressParts = [];
                 if (mls_data.address?.streetNumber) addressParts.push(mls_data.address.streetNumber);
                 if (mls_data.address?.streetName) addressParts.push(mls_data.address.streetName);
                 if (mls_data.address?.streetSuffix) addressParts.push(mls_data.address.streetSuffix);
 
-                const fullAddress = addressParts.join(" ");
-                setAddress(fullAddress.trim());
-
-                setCity(mls_data.address?.city || "");
-                setPostalCode(mls_data.address?.zip || "");
-
-                if (mls_data.address?.state === "NC") {
-                    setCountry("US");
-                    setProvince("NC");
-                } else if (mls_data.address?.country === "US" || mls_data.address?.state) {
-                    setCountry("US");
-                    if (mls_data.address?.state) {
-                        setProvince(mls_data.address.state);
-                    }
+                if (addressParts.length > 0) {
+                    setAddress(addressParts.join(" ").trim());
+                    updatedFields.push('address');
                 }
 
+                if (mls_data.address?.city) {
+                    setCity(mls_data.address.city);
+                    updatedFields.push('city');
+                }
+
+                if (mls_data.address?.zip || mls_data.address?.postalCode) {
+                    setPostalCode(mls_data.address.zip || mls_data.address.postalCode);
+                    updatedFields.push('postal_code');
+                }
+
+                // 8. Canadian vs US detection
+                const stateOrProvince = (mls_data.address?.state || mls_data.address?.province || "").trim();
+                const countryVal = (mls_data.address?.country || "").trim().toUpperCase();
+
+                const canadianProvinces = [
+                    "BC", "AB", "ON", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "YT", "NT", "NU",
+                    "BRITISH COLUMBIA", "ALBERTA", "ONTARIO", "QUEBEC"
+                ];
+
+                if (canadianProvinces.includes(stateOrProvince.toUpperCase()) || countryVal === "CA" || countryVal === "CANADA") {
+                    setCountry("CA");
+                    if (stateOrProvince) {
+                        setProvince(stateOrProvince.toUpperCase() === "BRITISH COLUMBIA" ? "BC" : stateOrProvince.toUpperCase());
+                    }
+                    updatedFields.push('country', 'province');
+                } else if (countryVal === "US" || countryVal === "USA" || countryVal === "UNITED STATES") {
+                    setCountry("US");
+                    if (stateOrProvince) setProvince(stateOrProvince);
+                    updatedFields.push('country', 'province');
+                } else if (stateOrProvince) {
+                    setProvince(stateOrProvince);
+                    updatedFields.push('province');
+                }
+
+                // 9. Lot size
                 if (mls_data.lot?.size) {
                     setLotSize(mls_data.lot.size.toString());
+                    updatedFields.push('lot_size');
                 } else if (mls_data.lot?.squareFeet) {
                     const acres = mls_data.lot.squareFeet / 43560;
                     setLotSize(acres.toFixed(2));
+                    updatedFields.push('lot_size');
                 } else if (mls_data.lot?.acres) {
                     setLotSize(mls_data.lot.acres.toString());
+                    updatedFields.push('lot_size');
                 }
 
-                setDescription(mls_data.details?.description || "");
+                // 10. Description & Heading
+                if (mls_data.details?.description) {
+                    setDescription(mls_data.details.description);
+                    updatedFields.push('description');
+                }
 
                 if (!heading || heading.trim() === "") {
-                    const generatedHeading = `${mls_data.address?.streetNumber || ""} ${mls_data.address?.streetName || ""} ${mls_data.details?.style || "Property"}`;
-                    setHeading(generatedHeading.trim());
+                    const generatedHeading = `${mls_data.address?.streetNumber || ""} ${mls_data.address?.streetName || ""} ${mls_data.details?.style || "Property"}`.trim();
+                    if (generatedHeading) {
+                        setHeading(generatedHeading);
+                        updatedFields.push('heading');
+                    }
                 }
 
                 if (mls_data.address?.unitNumber) {
                     setSuite(mls_data.address.unitNumber);
+                    updatedFields.push('suite');
                 }
 
-                toast.success("MLS data fetched and populated successfully!");
+                setRecentlySyncedFields(updatedFields);
+                setTimeout(() => {
+                    setRecentlySyncedFields([]);
+                }, 6000);
+
+                toast.success(`MLS data downloaded: ${updatedFields.length} fields updated!`);
             } else {
-                toast.error("Failed to fetch MLS data or no data returned");
+                toast.error(mls_data?.message || "Failed to fetch MLS data or no data returned");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching MLS data:", error);
-            toast.error("Error fetching MLS data.");
+            toast.error(error?.message || "Error fetching MLS data.");
         } finally {
             setIsLoading(false);
         }
@@ -1162,8 +1253,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                     value={postalCode}
                                                                     onChange={(e) => setPostalCode(e.target.value)}
                                                                     placeholder={country === 'US' ? "e.g. 90210" : "e.g. T2P 2M2"}
-                                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                    style={{ backgroundColor: fieldBg }}
+                                                                    className={cn("h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('postal_code') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                    style={{ backgroundColor: recentlySyncedFields.includes('postal_code') ? undefined : fieldBg }}
                                                                     type="text"
                                                                 />
                                                                 {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
@@ -1171,7 +1262,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
                                                             <div className="col-span-1 sm:col-span-1">
                                                                 <label htmlFor="">Country <span className="text-red-500">*</span></label>
-                                                                <div className="mt-[12px]">
+                                                                <div className={cn("mt-[12px] rounded-[4px]", recentlySyncedFields.includes('country') && "ring-2 ring-emerald-500 bg-emerald-50/50 transition-all duration-700")}>
                                                                     <SearchableSelect
                                                                         options={sortedCountries}
                                                                         value={country}
@@ -1198,7 +1289,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             <Input
                                                                                 value={mls}
                                                                                 onChange={(e) => setMls(e.target.value)}
-                                                                                placeholder="e.g A2206608"
+                                                                                placeholder="e.g R3139162"
                                                                                 className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                                                 style={{ backgroundColor: fieldBg }}
                                                                                 type="text"
@@ -1212,24 +1303,28 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                         <div className="col-span-1 sm:col-span-1 flex items-end h-full mt-2 sm:mt-0">
                                                                             <button
                                                                                 onClick={handleMlsFetch}
-                                                                                className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
+                                                                                className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                                                                 style={{ backgroundColor: roleSettings.pageTabColor }}
                                                                             >
-                                                                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Download MLS Data"}
+                                                                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Download MLS Data"}
                                                                             </button>
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="">Listing Price (CAD)</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Listing Price (CAD)</label>
+                                                                                {recentlySyncedFields.includes('price') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced from MLS</span>
+                                                                                )}
+                                                                            </div>
                                                                             <div className="relative mt-[12px]">
                                                                                 <Input
                                                                                     value={listingPrice}
                                                                                     onChange={(e) => {
-                                                                                        const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                                                        setListingPrice(val);
+                                                                                        setListingPrice(formatPriceWithCommas(e.target.value));
                                                                                     }}
-                                                                                    placeholder="e.g 844,500"
-                                                                                    className="h-[42px] border-[1px] border-[#BBBBBB] pr-8"
-                                                                                    style={{ backgroundColor: fieldBg }}
+                                                                                    placeholder="e.g. 844,500"
+                                                                                    className={cn("h-[42px] border-[1px] border-[#BBBBBB] pr-8", recentlySyncedFields.includes('price') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                    style={{ backgroundColor: recentlySyncedFields.includes('price') ? undefined : fieldBg }}
                                                                                     type="text"
                                                                                 />
                                                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666] pointer-events-none">$</span>
@@ -1237,9 +1332,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                         </div>
 
                                                                         <div className="relative w-full col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="bedroom" className="block text-sm font-normal">
-                                                                                Bedrooms
-                                                                            </label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="bedroom" className="block text-sm font-normal">
+                                                                                    Bedrooms
+                                                                                </label>
+                                                                                {recentlySyncedFields.includes('bedrooms') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 id="bedroom"
                                                                                 type="number"
@@ -1259,8 +1359,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                         setBedrooms(numeric); // Only valid numbers >= 0
                                                                                     }
                                                                                 }}
-                                                                                className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none", recentlySyncedFields.includes('bedrooms') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('bedrooms') ? undefined : fieldBg }}
                                                                             />
 
                                                                             <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1269,9 +1369,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             </div>
                                                                         </div>
                                                                         <div className="relative w-full col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="bathroom" className="block text-sm font-normal">
-                                                                                Bathrooms
-                                                                            </label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="bathroom" className="block text-sm font-normal">
+                                                                                    Bathrooms
+                                                                                </label>
+                                                                                {recentlySyncedFields.includes('bathrooms') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 id="bathroom"
                                                                                 type="number"
@@ -1291,8 +1396,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                         setBathrooms(numeric); // Only valid numbers >= 0
                                                                                     }
                                                                                 }}
-                                                                                className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none", recentlySyncedFields.includes('bathrooms') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('bathrooms') ? undefined : fieldBg }}
                                                                             />
 
                                                                             <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1302,13 +1407,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                         </div>
 
                                                                         <div className="col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="">Lot Size (Acres)</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Lot Size (Acres)</label>
+                                                                                {recentlySyncedFields.includes('lot_size') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 value={lotSize}
                                                                                 onChange={(e) => setLotSize(e.target.value)}
                                                                                 placeholder="e.g 0-4,050 sq. ft."
-                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('lot_size') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('lot_size') ? undefined : fieldBg }}
                                                                                 type="text"
                                                                             />
                                                                             {fieldErrors.lot_size && (
@@ -1318,13 +1428,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             )}
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="">Year Contstructed</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Year Constructed</label>
+                                                                                {recentlySyncedFields.includes('year') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 value={yearConstructed}
                                                                                 onChange={(e) => setYearConstructed(e.target.value)}
                                                                                 placeholder="e.g 2020"
-                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('year') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('year') ? undefined : fieldBg }}
                                                                                 type="text"
                                                                             />
                                                                             {fieldErrors.year_constructed && (
@@ -1334,19 +1449,29 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             )}
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-1">
-                                                                            <label htmlFor="">Parking Spots</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Parking Spots</label>
+                                                                                {recentlySyncedFields.includes('parking') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 value={parkingSpots}
                                                                                 onChange={(e) => setParkingSpots(e.target.value)}
                                                                                 placeholder="e.g 3"
-                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('parking') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('parking') ? undefined : fieldBg }}
                                                                                 type="text"
                                                                             />
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-2">
-                                                                            <label htmlFor="">Property Type</label>
-                                                                            <div className="mt-[12px]">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Property Type</label>
+                                                                                {recentlySyncedFields.includes('property_type') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className={cn("mt-[12px] rounded-[4px]", recentlySyncedFields.includes('property_type') && "ring-2 ring-emerald-500 bg-emerald-50/50 transition-all duration-700")}>
                                                                                 <SearchableSelect
                                                                                     options={propertyTypeOptions}
                                                                                     value={propertyType}
@@ -1363,8 +1488,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             )}
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-2">
-                                                                            <label htmlFor="">Property Status</label>
-                                                                            <div className="mt-[12px]">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Property Status</label>
+                                                                                {recentlySyncedFields.includes('property_status') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className={cn("mt-[12px] rounded-[4px]", recentlySyncedFields.includes('property_status') && "ring-2 ring-emerald-500 bg-emerald-50/50 transition-all duration-700")}>
                                                                                 <SearchableSelect
                                                                                     options={propertyStatusOptions}
                                                                                     value={propertyStatus}
@@ -1381,13 +1511,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             )}
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-4">
-                                                                            <label htmlFor="">Heading</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Heading</label>
+                                                                                {recentlySyncedFields.includes('heading') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Input
                                                                                 value={heading}
                                                                                 onChange={(e) => setHeading(e.target.value)}
                                                                                 placeholder="e.g Single Family Detached Starter Home"
-                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('heading') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('heading') ? undefined : fieldBg }}
                                                                                 type="text"
                                                                             />
                                                                             {fieldErrors.heading && (
@@ -1397,13 +1532,17 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                             )}
                                                                         </div>
                                                                         <div className="col-span-1 sm:col-span-4">
-                                                                            <label htmlFor="">Description</label>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label htmlFor="">Description</label>
+                                                                                {recentlySyncedFields.includes('description') && (
+                                                                                    <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">Synced</span>
+                                                                                )}
+                                                                            </div>
                                                                             <Textarea
                                                                                 value={description}
                                                                                 onChange={(e) => setDescription(e.target.value)}
-                                                                                placeholder="write some description of your listing"
-                                                                                className="w-full resize-none h-[100px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                className={cn("w-full resize-none h-[100px] border-[1px] border-[#BBBBBB] mt-[12px]", recentlySyncedFields.includes('description') && "ring-2 ring-emerald-500 bg-emerald-50/50 border-emerald-500 transition-all duration-700")}
+                                                                                style={{ backgroundColor: recentlySyncedFields.includes('description') ? undefined : fieldBg }}
                                                                             />
                                                                             {fieldErrors.description && (
                                                                                 <p className="text-red-500 text-[10px]">

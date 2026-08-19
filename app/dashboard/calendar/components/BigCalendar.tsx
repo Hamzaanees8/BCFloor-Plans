@@ -5,7 +5,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Calendar, dayjsLocalizer, View, Views } from 'react-big-calendar';
 import dayjs from 'dayjs';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { ChevronLeft, ChevronRight, Coffee, Plane, Box, LayoutTemplate, Camera, Video, Home, Aperture, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coffee, Plane, Box, LayoutTemplate, Camera, Video, Home, Aperture, Layers, UserCheck, Clock, Trash2 } from 'lucide-react';
 import { Order } from '../../orders/page';
 import '../calendar.css'
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { DeleteVendorBreak } from '../calendar';
 import { Switch } from '@/components/ui/switch';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
+import VendorSwapReassignModal from './VendorSwapReassignModal';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -139,6 +140,9 @@ export type CalendarEvent = {
     vendor_name?: string
     service_name?: string
     resourceId?: string
+    custom_duration?: number;
+    custom_end_time?: string;
+    buffer_minutes?: number;
 };
 
 const customViews = {
@@ -219,6 +223,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [breakToDelete, setBreakToDelete] = useState<CalendarEvent | null>(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [showAgain, setShowAgain] = useState(true);
+    const [showSwapModal, setShowSwapModal] = useState(false);
+    const [swapTargetOrder, setSwapTargetOrder] = useState<Order | null>(null);
+    const [swapTargetService, setSwapTargetService] = useState<Services | null>(null);
 
     useEffect(() => {
         const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
@@ -348,15 +355,23 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         const lastSlot = currentGroup[currentGroup.length - 1];
                         const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
 
+                        let endDate = dayjs(`${lastSlot.date} ${lastSlot.custom_end_time || lastSlot.end_time}`).toDate();
+                        if (firstSlot.custom_duration) {
+                            endDate = dayjs(`${firstSlot.date} ${firstSlot.start_time}`).add(firstSlot.custom_duration, 'minute').toDate();
+                        }
+
                         groupedEvents.push({
                             title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                             start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
-                            end: dayjs(`${lastSlot.date} ${lastSlot.end_time}`).toDate(),
+                            end: endDate,
                             vendor_id: firstSlot.vendor?.uuid,
                             service_id: firstSlot.service_id,
                             order_id: order.uuid,
                             address: order.property_address || firstSlot.address,
                             service_name: serviceName,
+                            custom_duration: firstSlot.custom_duration ?? undefined,
+                            custom_end_time: firstSlot.custom_end_time ?? undefined,
+                            buffer_minutes: firstSlot.buffer_minutes ?? undefined,
                             // @ts-expect-error skip
                             color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
                             resourceId: firstSlot.vendor?.uuid
@@ -371,15 +386,23 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 const lastSlot = currentGroup[currentGroup.length - 1];
                 const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
 
+                let endDate = dayjs(`${lastSlot.date} ${lastSlot.custom_end_time || lastSlot.end_time}`).toDate();
+                if (firstSlot.custom_duration) {
+                    endDate = dayjs(`${firstSlot.date} ${firstSlot.start_time}`).add(firstSlot.custom_duration, 'minute').toDate();
+                }
+
                 groupedEvents.push({
                     title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                     start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
-                    end: dayjs(`${lastSlot.date} ${lastSlot.end_time}`).toDate(),
+                    end: endDate,
                     vendor_id: firstSlot.vendor?.uuid,
                     service_id: firstSlot.service_id,
                     order_id: order.uuid,
                     address: order.property_address || firstSlot.address,
                     service_name: serviceName,
+                    custom_duration: firstSlot.custom_duration ?? undefined,
+                    custom_end_time: firstSlot.custom_end_time ?? undefined,
+                    buffer_minutes: firstSlot.buffer_minutes ?? undefined,
                     // @ts-expect-error skip
                     color_id: firstSlot.vendor?.company?.vendor_id,
                     resourceId: firstSlot.vendor?.uuid
@@ -1123,13 +1146,21 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     : (selectedVendors.includes('ALL') || selectedVendors.includes(String(slot.vendor_id)));
 
                 if (matchService && matchVendor) {
+                    let endDate = dayjs(`${slot.date} ${slot.custom_end_time || slot.end_time}`).toDate();
+                    if (slot.custom_duration) {
+                        endDate = dayjs(`${slot.date} ${slot.start_time}`).add(slot.custom_duration, 'minute').toDate();
+                    }
+
                     monthlyEvents.push({
                         title: `${slot.vendor?.first_name ?? "Vendor"} ${slot.vendor?.last_name ?? ""}`.trim(),
                         start: dayjs(`${slot.date} ${slot.start_time}`).toDate(),
-                        end: dayjs(`${slot.date} ${slot.end_time}`).toDate(),
+                        end: endDate,
                         vendor_id: slot.vendor.uuid,
                         service_id: slot.service_id,
                         order_id: order.uuid,
+                        custom_duration: slot.custom_duration ?? undefined,
+                        custom_end_time: slot.custom_end_time ?? undefined,
+                        buffer_minutes: slot.buffer_minutes ?? undefined,
                         // @ts-expect-error skip
                         color_id: Number(slot.vendor?.company?.vendor_id ?? 0)
                     });
@@ -1256,15 +1287,102 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 dialogType="delete"
             />
 
-            {contextMenu && (
+            {contextMenu && userType === 'admin' && (
                 <div
-                    className="absolute z-50 bg-white border rounded shadow p-2"
+                    className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[220px] text-sm text-gray-700 animate-in fade-in zoom-in-95 duration-100"
                     style={{ top: contextMenu.mouseY, left: contextMenu.mouseX }}
-                    onClick={() => setContextMenu(null)}
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    <p>Double click event</p>
+                    <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50/80 rounded-t-lg">
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            {contextMenu.eventData?.order_id
+                                ? `Order #${orderData?.find(o => o.uuid === contextMenu.eventData?.order_id)?.id || 'Appointment'}`
+                                : (contextMenu.eventData?.title || 'Event Actions')}
+                        </p>
+                    </div>
 
+                    {contextMenu.eventData?.order_id ? (
+                        <>
+                            <button
+                                className="w-full text-left px-3 py-2 text-[13px] hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2.5 transition-colors"
+                                onClick={() => {
+                                    const targetOrd = orderData?.find(o => o.uuid === contextMenu.eventData?.order_id);
+                                    const targetSvc = serviceData?.find(s => s.id === Number(contextMenu.eventData?.service_id));
+                                    if (targetOrd && targetSvc) {
+                                        setSwapTargetOrder(targetOrd);
+                                        setSwapTargetService(targetSvc);
+                                        setShowSwapModal(true);
+                                    } else {
+                                        toast.error("Could not find order or service details for reassigning.");
+                                    }
+                                    setContextMenu(null);
+                                }}
+                            >
+                                <UserCheck className="w-4 h-4 text-blue-500" />
+                                <span>Quick Reassign / Swap</span>
+                            </button>
+
+                            <button
+                                className="w-full text-left px-3 py-2 text-[13px] hover:bg-amber-50 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
+                                onClick={() => {
+                                    setSelectedOrder(contextMenu.eventData || null);
+                                    setOpenDetails(true);
+                                    setContextMenu(null);
+                                }}
+                            >
+                                <Clock className="w-4 h-4 text-amber-500" />
+                                <span>Edit Time & Duration</span>
+                            </button>
+                        </>
+                    ) : null}
+
+                    <button
+                        className="w-full text-left px-3 py-2 text-[13px] hover:bg-purple-50 hover:text-purple-600 flex items-center gap-2.5 transition-colors"
+                        onClick={() => {
+                            setSelectedBreakEvent(null);
+                            setPopupType("break");
+                            setOpen(true);
+                            setContextMenu(null);
+                        }}
+                    >
+                        <Coffee className="w-4 h-4 text-purple-500" />
+                        <span>Add Break / Time Off</span>
+                    </button>
+
+                    <div className="my-1 border-t border-gray-100" />
+
+                    <button
+                        className="w-full text-left px-3 py-2 text-[13px] hover:bg-red-50 hover:text-red-600 flex items-center gap-2.5 transition-colors"
+                        onClick={() => {
+                            if (contextMenu.eventData?.order_id) {
+                                setSelectedOrder(contextMenu.eventData || null);
+                            } else {
+                                setBreakToDelete(contextMenu.eventData || null);
+                                setIsConfirmOpen(true);
+                            }
+                            setContextMenu(null);
+                        }}
+                    >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <span>Delete / Cancel</span>
+                    </button>
                 </div>
+            )}
+
+            {showSwapModal && swapTargetOrder && swapTargetService && (
+                <VendorSwapReassignModal
+                    open={showSwapModal}
+                    onClose={() => {
+                        setShowSwapModal(false);
+                        setSwapTargetOrder(null);
+                        setSwapTargetService(null);
+                    }}
+                    currentOrder={swapTargetOrder}
+                    currentService={swapTargetService}
+                    vendors={vendorData}
+                    allOrders={orderData}
+                    refreshOrders={refreshOrders}
+                />
             )}
 
             {selectedBreakEvent && (

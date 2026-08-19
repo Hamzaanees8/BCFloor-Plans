@@ -27,7 +27,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Compass,
 } from "lucide-react";
+import ThreeSixtyViewer from "./ThreeSixtyViewer";
 import { useOptionalFileManagerContext } from "../FileManagerContext";
 import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
 import {
@@ -531,14 +533,28 @@ const TourConfirm = ({
           s.service?.name?.toLowerCase().includes("3d tour"),
       ) && displayMatterportLinks.length > 0;
 
+  const panoramicFiles = React.useMemo(() => {
+    const sourcePhotos = isPublicView ? (publicTourPhotos || []) : (currentTourPhotos || []);
+    return (sourcePhotos || []).filter((f: any) => {
+      if (f.isPanorama === true || f.image_type === "panorama" || f.image_type === "360") return true;
+      const sName = (f.service?.name || "").toLowerCase();
+      const catName = (f.service?.category?.name || "").toLowerCase();
+      if (sName.includes("360") || sName.includes("panorama") || sName.includes("pano") || catName.includes("360") || catName.includes("panorama")) return true;
+      return false;
+    });
+  }, [isPublicView, publicTourPhotos, currentTourPhotos]);
+
+  const hasPanoramas = panoramicFiles.length > 0;
+
   const previewTabs = React.useMemo(() => {
     const tabs = ["Home", "Overview", "Contact"];
     if (hasPhotos) tabs.push("Photos");
     if (hasVideos) tabs.push("Videos");
     if (hasFloorPlans) tabs.push("Floorplan");
+    if (hasPanoramas) tabs.push("360° Panos");
     if (hasMatterport) tabs.push("Matterport");
     return tabs;
-  }, [hasPhotos, hasVideos, hasFloorPlans, hasMatterport]);
+  }, [hasPhotos, hasVideos, hasFloorPlans, hasPanoramas, hasMatterport]);
 
   useEffect(() => {
     if (!previewTabs.includes(activeTab)) {
@@ -824,6 +840,10 @@ const TourConfirm = ({
                           return (
                             <FileText size={14} className="inline mr-1.5" />
                           );
+                        case "360° Panos":
+                        case "360° Tour":
+                        case "Panos":
+                          return <Compass size={14} className="inline mr-1.5" />;
                         case "Matterport":
                         case "3D Tour":
                           return <Box size={14} className="inline mr-1.5" />;
@@ -1955,6 +1975,17 @@ const TourConfirm = ({
                       );
                     })()
                   )}
+                </div>
+              )}
+
+              {activeTab === "360° Panos" && (
+                <div className="w-full pt-[140px] md:pt-[165px] px-4 md:px-12 pb-10">
+                  <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
+                    <ThreeSixtyViewer
+                      files={panoramicFiles}
+                      isEmbedded={true}
+                    />
+                  </div>
                 </div>
               )}
 

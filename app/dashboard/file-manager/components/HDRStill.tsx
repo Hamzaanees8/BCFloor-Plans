@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
 import { naturalSortFiles } from '../utils/naturalSort';
-import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff, MinusCircle } from 'lucide-react';
+import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff, MinusCircle, Trash2 } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -398,6 +398,67 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             })
         );
     }, [currentService?.uuid, setSelectedFiles]);
+
+    const handledownloadFile = useCallback(async (fileUuid: string, fileName: string) => {
+        try {
+            const token = localStorage.getItem('token') ?? "";
+            const response = await DownloadFile(token, fileUuid);
+            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download error:', err);
+            toast.error('Download failed. Please try again.');
+        }
+    }, []);
+
+    const handleDeleteUploadedFile = useCallback(async (fileUuid: string) => {
+        if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this media item?")) return;
+        try {
+            await S3UploadService.deleteUploads({
+                uuids: [fileUuid],
+                type: "tour-file"
+            });
+
+            if (filesData) {
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        files: prev.files.filter(f => f.uuid !== fileUuid)
+                    };
+                });
+            }
+            toast.success("File deleted successfully");
+        } catch (err) {
+            console.error('Delete error:', err);
+            toast.error('Failed to delete file. Please try again.');
+        }
+    }, [filesData, setFilesData]);
+
+    const handleToggleComplimentary = useCallback(async (fileUuid: string, currentVal: boolean) => {
+        const newVal = !currentVal;
+        setFilesData(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                files: prev.files.map(f => f.uuid === fileUuid ? { ...f, is_complimentary: newVal } : f)
+            };
+        });
+        setChangedFileUuids(prevSet => {
+            const next = new Set(prevSet);
+            next.add(fileUuid);
+            return next;
+        });
+        toast.success(newVal ? "File marked as complimentary" : "Complimentary status removed");
+    }, [setFilesData, setChangedFileUuids]);
 
     const renderFileItem = useCallback((item: FileItem, isDragging?: boolean) => {
         const isLocal = item.status === 'local';
@@ -919,89 +980,74 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
                             </div>
                         ) : (
-                            (userType === 'agent' && !file.is_agent_approved && !file.is_complimentary) ? null :
-                                (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                {userType === 'admin' && (
+                                    <>
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleComplimentary(file.uuid, !!file.is_complimentary);
+                                            }}
+                                            className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                            title={file.is_complimentary ? "Complimentary: Click to remove" : "Click to mark as Complimentary"}
+                                        >
+                                            <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                                style={{ width: imagesPerRow >= 6 ? '13px' : '16px', height: imagesPerRow >= 6 ? '13px' : '16px' }}
+                                            >
+                                                {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 9 : 12} />}
+                                            </div>
+                                            {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '9px' : '11px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteUploadedFile(file.uuid);
+                                            }}
+                                            className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Delete Media Item"
+                                        >
+                                            <Trash2 size={imagesPerRow >= 6 ? 13 : 16} />
+                                        </button>
+                                    </>
+                                )}
+
+                                {userType === 'agent' && file.is_complimentary && (
+                                    <span className="text-[#6BAE41] font-semibold text-[10px] sm:text-[11px] bg-[#6BAE41]/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                        Complimentary
+                                    </span>
+                                )}
+
+                                {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
                                     <span
                                         onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
-                                        className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                        className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
+                                        title="Download Media"
                                     >
                                         <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                                     </span>
                                 ) : (
-                                    <span
-                                        title="service not paid yet"
-                                        className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
-                                    >
-                                        <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                    </span>
-                                )
+                                    userType === 'agent' && !file.is_agent_approved ? null : (
+                                        <span
+                                            title="service not paid yet"
+                                            className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
+                                        >
+                                            <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                        </span>
+                                    )
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds]);
-
-
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds, handledownloadFile, handleDeleteUploadedFile, handleToggleComplimentary]);
 
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);
-    };
-
-
-
-    const handledownloadFile = async (fileUuid: string, fileName: string) => {
-        try {
-            const token = localStorage.getItem('token') ?? "";
-
-            const response = await DownloadFile(token, fileUuid);
-
-            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-
-            // Convert the response directly to blob
-            const blob = await response.blob();
-
-            // Create a temporary URL and trigger download
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-        } catch (err) {
-            console.error('Download error:', err);
-            toast.error('Download failed. Please try again.');
-
-        }
-    };
-
-    const handleDeleteUploadedFile = async (fileUuid: string) => {
-        try {
-            await S3UploadService.deleteUploads({
-                uuids: [fileUuid],
-                type: "tour-file"
-            });
-
-            // Update local state by removing the file
-            if (filesData) {
-                setFilesData(prev => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        files: prev.files.filter(f => f.uuid !== fileUuid)
-                    };
-                });
-            }
-            toast.success("File deleted successfully");
-        } catch (err) {
-            console.error('Delete error:', err);
-            toast.error('Failed to delete file. Please try again.');
-        }
     };
 
 
@@ -1582,6 +1628,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             const currentAmount = parseFloat(String(bookingToUse?.option?.amount || '0'));
                             const nextAmount = nextOption ? parseFloat(String(nextOption.amount || '0')) : 0;
                             const diffAmount = nextAmount - currentAmount;
+                            const excess = Math.max(0, selectedCount - currentLimit);
+                            const unitPrice = currentLimit > 0 ? currentAmount / currentLimit : 0;
+                            const extraCharge = excess * unitPrice;
 
                             return (
                                 <>
@@ -1589,7 +1638,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <span className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
                                             {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
                                         </span>
-                                        <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                                        <span className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E] font-medium' : 'text-[#7D7D7D]'}`}>
+                                            {isOverLimit ? `Selected (+${excess} extra)` : 'Selected'}
+                                        </span>
                                     </div>
                                     <div className="flex flex-col items-center">
                                         <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
@@ -1601,15 +1652,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 md:mb-2 text-[11px] md:text-sm`}
+                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
                                         >
                                             Upgrade Plan
                                         </Button>
-                                        {isOverLimit && nextOption && (
-                                            <div className="text-right text-[11px] md:text-[12px] text-[#666666] leading-[1.4]">
-                                                <div>{nextOption.quantity} Photos</div>
-                                                <div>+{diffAmount.toFixed(2)}</div>
-                                                <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
+                                        {isOverLimit && (
+                                            <div className="text-right text-[10px] md:text-[11px] text-[#666666] leading-[1.3] mt-0.5">
+                                                <div>Extra cost: <span className="text-[#E06D5E] font-bold">+${extraCharge.toFixed(2)}</span> on invoice</div>
+                                                {nextOption && (
+                                                    <div className="text-gray-500">or upgrade to {nextOption.quantity} (+${diffAmount.toFixed(2)})</div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

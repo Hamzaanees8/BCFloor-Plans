@@ -13,7 +13,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar, { getDistanceColor } from './OneDayCalendar'
-import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightTime, TwilightResponse } from '../orders'
+import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightTime, fetchBackendTwilightWindow, TwilightResponse } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
@@ -220,13 +220,16 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
     useEffect(() => {
         async function loadTwilight() {
-            if (!addressString) return;
             const formattedDate = format(masterDate, 'yyyy-MM-dd');
-            const result = await fetchTwilightTime(addressString, formattedDate);
+            const propId = selectedCurrentListing?.uuid;
+            let result = await fetchBackendTwilightWindow(formattedDate, propId, addressString);
+            if (!result && addressString) {
+                result = await fetchTwilightTime(addressString, formattedDate);
+            }
             if (result) setTwilightData(result);
         }
         loadTwilight();
-    }, [addressString, masterDate]);
+    }, [addressString, masterDate, selectedCurrentListing]);
 
     useEffect(() => {
         async function loadAndCalculate() {
