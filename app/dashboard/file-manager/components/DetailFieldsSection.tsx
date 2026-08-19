@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { Plus, Trash, Move, RotateCcw } from "lucide-react";
 import { DetailField, TextStyle } from "../types/featureSheetTypes";
 import StyledInput from "./StyledInput";
@@ -18,15 +24,15 @@ interface DetailFieldsSectionProps {
   zoom?: number;
 }
 
-// Default layout coordinates (matching the initial 2-column aesthetic)
+// Single-column right-aligned vertical layout
 const DEFAULT_POSITIONS: Record<string, { x: number; y: number }> = {
   byLawRestrictions: { x: 0, y: 0 },
-  maintFees: { x: 0, y: 48 },
-  maintFeesInclude: { x: 0, y: 96 },
-  featuresIncluded: { x: 0, y: 144 },
-  siteInfluences: { x: 175, y: 22 },
-  amenities: { x: 175, y: 70 },
-  view: { x: 175, y: 118 },
+  maintenanceFees: { x: 0, y: 44 },
+  maintenanceFeesInclude: { x: 0, y: 88 },
+  featuresIncluded: { x: 0, y: 155 },
+  siteInfluences: { x: 0, y: 215 },
+  amenities: { x: 0, y: 275 },
+  view: { x: 0, y: 335 },
 };
 
 export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
@@ -53,8 +59,11 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
   const rafId = useRef<number | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Merge all fields into a single list for freeform canvas placement
-  const allFields = useMemo(() => [...leftFields, ...rightFields], [leftFields, rightFields]);
+  // Merge all fields into a single list
+  const allFields = useMemo(
+    () => [...leftFields, ...rightFields],
+    [leftFields, rightFields],
+  );
 
   // Helper to get position of a field
   const getFieldPos = useCallback(
@@ -65,19 +74,12 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       if (DEFAULT_POSITIONS[field.id]) {
         return DEFAULT_POSITIONS[field.id];
       }
-      // Fallback for new custom fields: arrange on left or right
-      const isRight = index >= leftFields.length;
-      const colX = isRight ? 175 : 0;
-      const rowY = Math.min(180, (index % 5) * 48);
-      return { x: colX, y: rowY };
+      return { x: 0, y: Math.min(350, index * 52) };
     },
-    [fieldPositions, leftFields.length]
+    [fieldPositions],
   );
 
-  const handleMouseDown = (
-    e: React.MouseEvent,
-    fieldId: string
-  ) => {
+  const handleMouseDown = (e: React.MouseEvent, fieldId: string) => {
     if (e.button !== 0 || e.altKey) return;
     const target = e.target as HTMLElement;
     if (
@@ -90,9 +92,10 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     e.stopPropagation();
 
     const fieldIndex = allFields.findIndex((f) => f.id === fieldId);
-    const currentPos = fieldIndex >= 0
-      ? getFieldPos(allFields[fieldIndex], fieldIndex)
-      : { x: 0, y: 0 };
+    const currentPos =
+      fieldIndex >= 0
+        ? getFieldPos(allFields[fieldIndex], fieldIndex)
+        : { x: 0, y: 0 };
 
     startMouseRef.current = { x: e.clientX, y: e.clientY };
     startPosRef.current = { x: currentPos.x, y: currentPos.y };
@@ -114,11 +117,11 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       const totalDx = (e.clientX - startMouseRef.current.x) / zoom;
       const totalDy = (e.clientY - startMouseRef.current.y) / zoom;
 
-      // Safezone container boundary bounds (container width ~350px, height ~245px)
-      const minX = 0;
-      const maxX = 190;
+      // Safezone container boundary bounds
+      const minX = -120;
+      const maxX = 120;
       const minY = 0;
-      const maxY = 185;
+      const maxY = 380;
 
       const rawX = startPosRef.current.x + totalDx;
       const rawY = startPosRef.current.y + totalDy;
@@ -140,7 +143,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
         onPositionChange(dragId, { x: nextX, y: nextY });
       });
     },
-    [zoom, onPositionChange]
+    [zoom, onPositionChange],
   );
 
   const handleMouseUp = useCallback(
@@ -164,7 +167,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
     },
-    [onPositionChange]
+    [onPositionChange],
   );
 
   useEffect(() => {
@@ -195,7 +198,10 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     };
     onLeftFieldsChange([...leftFields, newField]);
     if (onPositionChange) {
-      onPositionChange(newId, { x: 0, y: 175 });
+      onPositionChange(newId, {
+        x: 0,
+        y: Math.min(360, allFields.length * 52),
+      });
     }
   };
 
@@ -216,14 +222,15 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
     <div
       ref={containerRef}
       data-safezone-container="true"
-      className="relative z-10 w-full h-[245px] pb-1 text-white text-[12px] leading-relaxed pt-0 select-none"
+      className="relative z-10 w-full h-[400px] pb-1 text-white text-[12px] leading-relaxed pt-0 select-none text-right"
     >
       {allFields.map((field, index) => {
         const pos = getFieldPos(field, index);
         const isDragging = activeDragId === field.id;
         const isHovered = hoveredId === field.id || isDragging;
         const defaultPos = DEFAULT_POSITIONS[field.id];
-        const hasMoved = defaultPos && (pos.x !== defaultPos.x || pos.y !== defaultPos.y);
+        const hasMoved =
+          defaultPos && (pos.x !== defaultPos.x || pos.y !== defaultPos.y);
 
         return (
           <div
@@ -234,7 +241,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
             onMouseDown={(e) => handleMouseDown(e, field.id)}
             onMouseEnter={() => setHoveredId(field.id)}
             onMouseLeave={() => setHoveredId(null)}
-            className={`absolute w-[155px] p-1 rounded ${
+            className={`absolute right-0 w-[420px] p-1 rounded text-right ${
               isDragging
                 ? "z-40 cursor-grabbing shadow-2xl scale-[1.02] !transition-none select-none"
                 : "cursor-grab transition-shadow"
@@ -299,24 +306,24 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
               </div>
             )}
 
-            {/* Title & Input Row (Original Colors & Typography) */}
-            <div>
+            {/* Title & Value Row (White Typography for Blue Background) */}
+            <div className="w-full text-right">
               <StyledInput
                 value={field.title}
                 onChange={(e) => onTitleChange(field.id, e.target.value)}
                 onChangeStyle={(style) => onTitleStyleChange(field.id, style)}
                 inputStyle={field.titleStyle}
-                className="font-bold text-[#00B9F2] text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 uppercase"
+                className="font-bold text-white text-[11px] bg-transparent text-right w-full focus:outline-none border-none placeholder-white/80 uppercase tracking-wide"
                 placeholder="ENTER TITLE HERE"
               />
             </div>
-            <div>
+            <div className="w-full text-right">
               <StyledInput
                 value={field.value}
                 onChange={(e) => onValueChange(field.id, e.target.value)}
                 onChangeStyle={(style) => onValueStyleChange(field.id, style)}
                 inputStyle={field.style}
-                className="font-semibold text-[10px] text-white bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                className="font-normal text-[10.5px] text-white/90 bg-transparent text-right w-full focus:outline-none border-none placeholder-white/60 leading-tight"
                 placeholder="Enter details here"
               />
             </div>
@@ -329,7 +336,7 @@ export const DetailFieldsSection: React.FC<DetailFieldsSectionProps> = ({
         type="button"
         data-html2canvas-ignore="true"
         onClick={handleAddNewField}
-        className="absolute bottom-0 right-2 opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[8px] text-[#00B9F2] hover:text-white bg-black/30 hover:bg-black/50 px-2 py-0.5 rounded shadow z-20"
+        className="absolute bottom-0 right-2 opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[8px] text-white/80 hover:text-white bg-black/30 hover:bg-black/50 px-2 py-0.5 rounded shadow z-20"
         title="Add new draggable field"
       >
         <Plus size={9} />

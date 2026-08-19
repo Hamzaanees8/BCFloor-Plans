@@ -233,13 +233,18 @@ type FormData = {
   contactLabel?: string;
   phoneLabel?: string;
   emailLabel?: string;
+  realtorLabel?: string;
+  propertyLabel?: string;
+  priceLabel?: string;
   bedroomLabel?: string;
   bathroomLabel?: string;
   sqftLabel?: string;
   builtYearLabel?: string;
   roadLabelBefore?: string;
   roadLabelAfter?: string;
+  mlsLabel?: string;
   disclaimerText?: string;
+  printedByText?: string;
 };
 
 type FileManagerContextType = {

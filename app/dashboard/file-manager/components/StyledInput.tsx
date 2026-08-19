@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  createContext,
+  useContext,
+} from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -25,62 +32,213 @@ export interface CustomFontOption {
   css: string;
 }
 
-export const FONT_FOLDERS: Record<string, { name: string; fonts: CustomFontOption[] }> = {
-  "BcfpStandard4": {
+export const FONT_FOLDERS: Record<
+  string,
+  { name: string; fonts: CustomFontOption[] }
+> = {
+  BcfpStandard3: {
+    name: "BcfpStandard3",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp3, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp3, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp3, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard3: {
+    name: "BcfpStandard3",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp3, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp3, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp3, sans-serif",
+      },
+    ],
+  },
+  BcfpStandard4: {
     name: "BcfpStandard4",
     fonts: [
-      { label: "Caslon Pro Bold",    value: "font-caslon-bold",    css: "ACaslonProBold, serif" },
-      { label: "Caslon Pro Regular", value: "font-caslon-regular", css: "ACaslonProRegular, serif" },
-      { label: "Caslon Pro Italic",  value: "font-caslon-italic",  css: "ACaslonProItalic, serif" },
-      { label: "Bickham Script Bold", value: "font-bickham-bold",  css: "BickhamScriptBold, cursive" },
-      { label: "Bickham Script",     value: "font-bickham-regular", css: "BickhamScriptRegular, cursive" },
-      { label: "Arial Bold",         value: "font-arial-bold",     css: "ArialBoldBcfp4, sans-serif" },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBold, serif",
+      },
+      {
+        label: "Caslon Pro Regular",
+        value: "font-caslon-regular",
+        css: "ACaslonProRegular, serif",
+      },
+      {
+        label: "Caslon Pro Italic",
+        value: "font-caslon-italic",
+        css: "ACaslonProItalic, serif",
+      },
+      {
+        label: "Bickham Script Bold",
+        value: "font-bickham-bold",
+        css: "BickhamScriptBold, cursive",
+      },
+      {
+        label: "Bickham Script",
+        value: "font-bickham-regular",
+        css: "BickhamScriptRegular, cursive",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp4, sans-serif",
+      },
     ],
   },
-  "bcfpstandard4": {
+  bcfpstandard4: {
     name: "BcfpStandard4",
     fonts: [
-      { label: "Caslon Pro Bold",    value: "font-caslon-bold",    css: "ACaslonProBold, serif" },
-      { label: "Caslon Pro Regular", value: "font-caslon-regular", css: "ACaslonProRegular, serif" },
-      { label: "Caslon Pro Italic",  value: "font-caslon-italic",  css: "ACaslonProItalic, serif" },
-      { label: "Bickham Script Bold", value: "font-bickham-bold",  css: "BickhamScriptBold, cursive" },
-      { label: "Bickham Script",     value: "font-bickham-regular", css: "BickhamScriptRegular, cursive" },
-      { label: "Arial Bold",         value: "font-arial-bold",     css: "ArialBoldBcfp4, sans-serif" },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBold, serif",
+      },
+      {
+        label: "Caslon Pro Regular",
+        value: "font-caslon-regular",
+        css: "ACaslonProRegular, serif",
+      },
+      {
+        label: "Caslon Pro Italic",
+        value: "font-caslon-italic",
+        css: "ACaslonProItalic, serif",
+      },
+      {
+        label: "Bickham Script Bold",
+        value: "font-bickham-bold",
+        css: "BickhamScriptBold, cursive",
+      },
+      {
+        label: "Bickham Script",
+        value: "font-bickham-regular",
+        css: "BickhamScriptRegular, cursive",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp4, sans-serif",
+      },
     ],
   },
-  "BcfpStandard6": {
+  BcfpStandard6: {
     name: "BcfpStandard6",
     fonts: [
-      { label: "Caslon Pro Bold",  value: "font-caslon",        css: "ACaslonPro, serif" },
-      { label: "Bickham Script",   value: "font-bickham",       css: "BickhamScript, cursive" },
-      { label: "Gothic",           value: "font-gothic",        css: "GothicRegular, sans-serif" },
-      { label: "Gothic Bold",      value: "font-gothic-bold",   css: "GothicBold, sans-serif" },
-      { label: "Trajan Pro Bold",  value: "font-trajan-bold",   css: "TrajanPro, serif" },
-      { label: "Trajan Pro",       value: "font-trajan",        css: "TrajanProRegular, serif" },
-      { label: "Arial Bold",       value: "font-arial-bold",    css: "ArialBold, sans-serif" },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon",
+        css: "ACaslonPro, serif",
+      },
+      {
+        label: "Bickham Script",
+        value: "font-bickham",
+        css: "BickhamScript, cursive",
+      },
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegular, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBold, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
     ],
   },
-  "bcfpstandard6": {
+  bcfpstandard6: {
     name: "BcfpStandard6",
     fonts: [
-      { label: "Caslon Pro Bold",  value: "font-caslon",        css: "ACaslonPro, serif" },
-      { label: "Bickham Script",   value: "font-bickham",       css: "BickhamScript, cursive" },
-      { label: "Gothic",           value: "font-gothic",        css: "GothicRegular, sans-serif" },
-      { label: "Gothic Bold",      value: "font-gothic-bold",   css: "GothicBold, sans-serif" },
-      { label: "Trajan Pro Bold",  value: "font-trajan-bold",   css: "TrajanPro, serif" },
-      { label: "Trajan Pro",       value: "font-trajan",        css: "TrajanProRegular, serif" },
-      { label: "Arial Bold",       value: "font-arial-bold",    css: "ArialBold, sans-serif" },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon",
+        css: "ACaslonPro, serif",
+      },
+      {
+        label: "Bickham Script",
+        value: "font-bickham",
+        css: "BickhamScript, cursive",
+      },
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegular, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBold, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
     ],
   },
 };
 
 export const FontFolderContext = createContext<string | undefined>(undefined);
 
-export const FontFolderProvider: React.FC<{ value?: string; children: React.ReactNode }> = ({
-  value,
-  children,
-}) => {
-  return <FontFolderContext.Provider value={value}>{children}</FontFolderContext.Provider>;
+export const FontFolderProvider: React.FC<{
+  value?: string;
+  children: React.ReactNode;
+}> = ({ value, children }) => {
+  return (
+    <FontFolderContext.Provider value={value}>
+      {children}
+    </FontFolderContext.Provider>
+  );
 };
 
 type StyledInputProps = {
@@ -162,19 +320,51 @@ function fontFamilyToClass(ff?: string): string {
   if (f.includes("alexandria")) return "font-alexandria";
   if (f.includes("raleway")) return "font-raleway";
   // BcfpStandard4 fonts
-  if (f.includes("acaslonproitalic") || (f.includes("caslon") && f.includes("italic"))) return "font-caslon-italic";
-  if (f.includes("acaslonproregular") || (f.includes("caslon") && f.includes("regular"))) return "font-caslon-regular";
-  if (f.includes("acaslonprobold") || (f.includes("caslon") && f.includes("bold"))) return "font-caslon-bold";
-  if (f.includes("bickhamscriptregular") || (f.includes("bickham") && f.includes("regular"))) return "font-bickham-regular";
-  if (f.includes("bickhamscriptbold") || (f.includes("bickham") && f.includes("bold"))) return "font-bickham-bold";
+  if (
+    f.includes("acaslonproitalic") ||
+    (f.includes("caslon") && f.includes("italic"))
+  )
+    return "font-caslon-italic";
+  if (
+    f.includes("acaslonproregular") ||
+    (f.includes("caslon") && f.includes("regular"))
+  )
+    return "font-caslon-regular";
+  if (
+    f.includes("acaslonprobold") ||
+    (f.includes("caslon") && f.includes("bold"))
+  )
+    return "font-caslon-bold";
+  if (
+    f.includes("bickhamscriptregular") ||
+    (f.includes("bickham") && f.includes("regular"))
+  )
+    return "font-bickham-regular";
+  if (
+    f.includes("bickhamscriptbold") ||
+    (f.includes("bickham") && f.includes("bold"))
+  )
+    return "font-bickham-bold";
   // BcfpStandard6 fonts
   if (f.includes("acaslonpro") || f.includes("caslon")) return "font-caslon";
-  if (f.includes("bickhamscript") || f.includes("bickham")) return "font-bickham";
-  if (f.includes("gothicbold") || f.includes("gothic bold")) return "font-gothic-bold";
-  if (f.includes("gothicregular") || (f.includes("gothic") && !f.includes("bold"))) return "font-gothic";
-  if (f.includes("trajanproregular") || (f.includes("trajan") && f.includes("regular"))) return "font-trajan";
-  if (f.includes("trajanpro") || f.includes("trajan")) return "font-trajan-bold";
-  if (f.includes("arialbold") || f.includes("arial bold")) return "font-arial-bold";
+  if (f.includes("bickhamscript") || f.includes("bickham"))
+    return "font-bickham";
+  if (f.includes("gothicbold") || f.includes("gothic bold"))
+    return "font-gothic-bold";
+  if (
+    f.includes("gothicregular") ||
+    (f.includes("gothic") && !f.includes("bold"))
+  )
+    return "font-gothic";
+  if (
+    f.includes("trajanproregular") ||
+    (f.includes("trajan") && f.includes("regular"))
+  )
+    return "font-trajan";
+  if (f.includes("trajanpro") || f.includes("trajan"))
+    return "font-trajan-bold";
+  if (f.includes("arialbold") || f.includes("arial bold"))
+    return "font-arial-bold";
   return "font-sans";
 }
 
@@ -191,7 +381,10 @@ export default function StyledInput({
 }: StyledInputProps) {
   const contextFontFolder = useContext(FontFolderContext);
   const activeFontFolder = fontFolder || contextFontFolder;
-  const folderConfig = activeFontFolder ? (FONT_FOLDERS[activeFontFolder] || FONT_FOLDERS[activeFontFolder.toLowerCase()]) : undefined;
+  const folderConfig = activeFontFolder
+    ? FONT_FOLDERS[activeFontFolder] ||
+      FONT_FOLDERS[activeFontFolder.toLowerCase()]
+    : undefined;
   const customFonts = folderConfig?.fonts || [];
 
   const [fontWeight, setFontWeight] = useState("font-normal");
@@ -344,33 +537,51 @@ export default function StyledInput({
 
   const getFontFamilyStyle = () => {
     switch (fontFamily) {
-      case "font-alexandria":      return "Alexandria, sans-serif";
-      case "font-raleway":         return "Raleway, sans-serif";
+      case "font-alexandria":
+        return "Alexandria, sans-serif";
+      case "font-raleway":
+        return "Raleway, sans-serif";
       // BcfpStandard4
-      case "font-caslon-bold":     return "ACaslonProBold, serif";
-      case "font-caslon-regular":  return "ACaslonProRegular, serif";
-      case "font-caslon-italic":   return "ACaslonProItalic, serif";
-      case "font-bickham-bold":    return "BickhamScriptBold, cursive";
-      case "font-bickham-regular": return "BickhamScriptRegular, cursive";
+      case "font-caslon-bold":
+        return "ACaslonProBold, serif";
+      case "font-caslon-regular":
+        return "ACaslonProRegular, serif";
+      case "font-caslon-italic":
+        return "ACaslonProItalic, serif";
+      case "font-bickham-bold":
+        return "BickhamScriptBold, cursive";
+      case "font-bickham-regular":
+        return "BickhamScriptRegular, cursive";
       // BcfpStandard6
-      case "font-caslon":          return "ACaslonPro, serif";
-      case "font-bickham":         return "BickhamScript, cursive";
-      case "font-gothic":          return "GothicRegular, sans-serif";
-      case "font-gothic-bold":     return "GothicBold, sans-serif";
-      case "font-trajan-bold":     return "TrajanPro, serif";
-      case "font-trajan":          return "TrajanProRegular, serif";
-      case "font-arial-bold":      return "ArialBold, sans-serif";
+      case "font-caslon":
+        return "ACaslonPro, serif";
+      case "font-bickham":
+        return "BickhamScript, cursive";
+      case "font-gothic":
+        return "GothicRegular, sans-serif";
+      case "font-gothic-bold":
+        return "GothicBold, sans-serif";
+      case "font-trajan-bold":
+        return "TrajanPro, serif";
+      case "font-trajan":
+        return "TrajanProRegular, serif";
+      case "font-arial-bold":
+        return "ArialBold, sans-serif";
       case "font-sans":
-      default:                     return "sans-serif";
+      default:
+        return "sans-serif";
     }
   };
 
   const getAlignContentStyle = () => {
     switch (verticalAlign) {
-      case "top":     return "start";
-      case "bottom":  return "end";
+      case "top":
+        return "start";
+      case "bottom":
+        return "end";
       case "center":
-      default:        return "center";
+      default:
+        return "center";
     }
   };
 
@@ -413,31 +624,49 @@ export default function StyledInput({
 
       const ffCss = (() => {
         switch (ff) {
-          case "font-alexandria":      return "Alexandria, sans-serif";
-          case "font-raleway":         return "Raleway, sans-serif";
+          case "font-alexandria":
+            return "Alexandria, sans-serif";
+          case "font-raleway":
+            return "Raleway, sans-serif";
           // BcfpStandard4
-          case "font-caslon-bold":     return "ACaslonProBold, serif";
-          case "font-caslon-regular":  return "ACaslonProRegular, serif";
-          case "font-caslon-italic":   return "ACaslonProItalic, serif";
-          case "font-bickham-bold":    return "BickhamScriptBold, cursive";
-          case "font-bickham-regular": return "BickhamScriptRegular, cursive";
+          case "font-caslon-bold":
+            return "ACaslonProBold, serif";
+          case "font-caslon-regular":
+            return "ACaslonProRegular, serif";
+          case "font-caslon-italic":
+            return "ACaslonProItalic, serif";
+          case "font-bickham-bold":
+            return "BickhamScriptBold, cursive";
+          case "font-bickham-regular":
+            return "BickhamScriptRegular, cursive";
           // BcfpStandard6
-          case "font-caslon":          return "ACaslonPro, serif";
-          case "font-bickham":         return "BickhamScript, cursive";
-          case "font-gothic":          return "GothicRegular, sans-serif";
-          case "font-gothic-bold":     return "GothicBold, sans-serif";
-          case "font-trajan-bold":     return "TrajanPro, serif";
-          case "font-trajan":          return "TrajanProRegular, serif";
-          case "font-arial-bold":      return "ArialBold, sans-serif";
-          default:                     return "sans-serif";
+          case "font-caslon":
+            return "ACaslonPro, serif";
+          case "font-bickham":
+            return "BickhamScript, cursive";
+          case "font-gothic":
+            return "GothicRegular, sans-serif";
+          case "font-gothic-bold":
+            return "GothicBold, sans-serif";
+          case "font-trajan-bold":
+            return "TrajanPro, serif";
+          case "font-trajan":
+            return "TrajanProRegular, serif";
+          case "font-arial-bold":
+            return "ArialBold, sans-serif";
+          default:
+            return "sans-serif";
         }
       })();
 
       const alignContentStr = (() => {
         switch (va) {
-          case "top":     return "start";
-          case "bottom":  return "end";
-          default:        return "center";
+          case "top":
+            return "start";
+          case "bottom":
+            return "end";
+          default:
+            return "center";
         }
       })();
 
@@ -565,7 +794,10 @@ export default function StyledInput({
   return (
     <div
       ref={wrapperRef}
-      className={cn("relative inline-block w-full content-center", wrapperClassName)}
+      className={cn(
+        "relative inline-block w-full content-center",
+        wrapperClassName,
+      )}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => {
         hoverRef.current = false;
@@ -723,9 +955,12 @@ export default function StyledInput({
                     let allowedSizes = [8, 12, 14, 16, 18, 24, 28, 36, 40, 48];
 
                     const activeNum = parseInt(fontSize.replace("px", ""), 10);
-                    const targetSize = defaultFontSizeRef.current !== null
-                      ? defaultFontSizeRef.current
-                      : (!isNaN(activeNum) ? activeNum : 16);
+                    const targetSize =
+                      defaultFontSizeRef.current !== null
+                        ? defaultFontSizeRef.current
+                        : !isNaN(activeNum)
+                          ? activeNum
+                          : 16;
 
                     if (targetSize !== null && targetSize !== undefined) {
                       const sorted = Array.from(
@@ -768,23 +1003,25 @@ export default function StyledInput({
                 type="button"
                 className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100 max-w-[120px] truncate"
               >
-                {(({
-                  "font-sans":            "Sans Serif",
-                  "font-alexandria":      "Alexandria",
-                  "font-raleway":         "Raleway",
-                  "font-caslon-bold":     "Caslon Pro Bold",
-                  "font-caslon-regular":  "Caslon Pro Regular",
-                  "font-caslon-italic":   "Caslon Pro Italic",
-                  "font-bickham-bold":    "Bickham Script Bold",
-                  "font-bickham-regular": "Bickham Script",
-                  "font-caslon":          "Caslon Pro Bold",
-                  "font-bickham":         "Bickham Script",
-                  "font-gothic":          "Gothic",
-                  "font-gothic-bold":     "Gothic Bold",
-                  "font-trajan-bold":     "Trajan Pro Bold",
-                  "font-trajan":          "Trajan Pro",
-                  "font-arial-bold":      "Arial Bold",
-                } as Record<string, string>)[fontFamily] ?? "Sans Serif")}{" "}
+                {(
+                  {
+                    "font-sans": "Sans Serif",
+                    "font-alexandria": "Alexandria",
+                    "font-raleway": "Raleway",
+                    "font-caslon-bold": "Caslon Pro Bold",
+                    "font-caslon-regular": "Caslon Pro Regular",
+                    "font-caslon-italic": "Caslon Pro Italic",
+                    "font-bickham-bold": "Bickham Script Bold",
+                    "font-bickham-regular": "Bickham Script",
+                    "font-caslon": "Caslon Pro Bold",
+                    "font-bickham": "Bickham Script",
+                    "font-gothic": "Gothic",
+                    "font-gothic-bold": "Gothic Bold",
+                    "font-trajan-bold": "Trajan Pro Bold",
+                    "font-trajan": "Trajan Pro",
+                    "font-arial-bold": "Arial Bold",
+                  } as Record<string, string>
+                )[fontFamily] ?? "Sans Serif"}{" "}
                 <ChevronDown className="w-3 h-3 shrink-0" />
               </button>
 
@@ -824,9 +1061,21 @@ export default function StyledInput({
                   </p>
 
                   {[
-                    { label: "Sans Serif",  value: "font-sans",       css: "sans-serif" },
-                    { label: "Alexandria",  value: "font-alexandria",  css: "Alexandria, sans-serif" },
-                    { label: "Raleway",     value: "font-raleway",     css: "Raleway, sans-serif" },
+                    {
+                      label: "Sans Serif",
+                      value: "font-sans",
+                      css: "sans-serif",
+                    },
+                    {
+                      label: "Alexandria",
+                      value: "font-alexandria",
+                      css: "Alexandria, sans-serif",
+                    },
+                    {
+                      label: "Raleway",
+                      value: "font-raleway",
+                      css: "Raleway, sans-serif",
+                    },
                   ].map((ff) => (
                     <button
                       key={ff.value}
@@ -846,7 +1095,6 @@ export default function StyledInput({
                 </div>
               )}
             </div>
-
 
             {/* Alignment Options (Google Docs Style) */}
             <div className="flex gap-0.5 border rounded p-0.5 bg-gray-50 items-center">
@@ -953,7 +1201,9 @@ export default function StyledInput({
                   activeDropdown === "options" && "bg-gray-800 text-white",
                 )}
                 onClick={() =>
-                  setActiveDropdown(activeDropdown === "options" ? null : "options")
+                  setActiveDropdown(
+                    activeDropdown === "options" ? null : "options",
+                  )
                 }
               >
                 <MoreVertical className="h-4 w-4" />
@@ -970,7 +1220,8 @@ export default function StyledInput({
                       title="Align Top"
                       className={cn(
                         "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                        verticalAlign === "top" && "bg-gray-800 text-white hover:bg-gray-800",
+                        verticalAlign === "top" &&
+                          "bg-gray-800 text-white hover:bg-gray-800",
                       )}
                       onClick={() => {
                         applyStyle("verticalAlign", "top");
@@ -985,7 +1236,8 @@ export default function StyledInput({
                       title="Align Middle (Center)"
                       className={cn(
                         "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                        verticalAlign === "center" && "bg-gray-800 text-white hover:bg-gray-800",
+                        verticalAlign === "center" &&
+                          "bg-gray-800 text-white hover:bg-gray-800",
                       )}
                       onClick={() => {
                         applyStyle("verticalAlign", "center");
@@ -1000,7 +1252,8 @@ export default function StyledInput({
                       title="Align Bottom"
                       className={cn(
                         "p-1.5 rounded text-gray-700 hover:bg-gray-200 transition-colors",
-                        verticalAlign === "bottom" && "bg-gray-800 text-white hover:bg-gray-800",
+                        verticalAlign === "bottom" &&
+                          "bg-gray-800 text-white hover:bg-gray-800",
                       )}
                       onClick={() => {
                         applyStyle("verticalAlign", "bottom");
