@@ -244,6 +244,9 @@ const PublicTour = () => {
   );
 
   const floorPlanFiles = useMemo(() => {
+    const isPaid = orderData?.payment_status === "PAID" || isPreview;
+    if (!isPaid) return [];
+
     const filtered =
       orderData?.tours?.[0]?.files?.filter((file) => {
         const isFloorPlan =
@@ -277,7 +280,7 @@ const PublicTour = () => {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateA - dateB;
     });
-  }, [orderData]);
+  }, [orderData, isPreview]);
   const matterportLinks = useMemo(
     () => orderData?.tours?.[0]?.links || [],
     [orderData],

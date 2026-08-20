@@ -543,6 +543,20 @@ export async function DeleteTourSetting(uuid: string) {
   return data;
 }
 
+export async function UpdateGlobalSettingsSort(settings: { uuid: string; sort_order: number }[]) {
+  const response = await api.put(`/global-settings/sort`, { settings });
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    const error = new Error(data.message || "Failed to update sort order");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+
 export interface TourSettingPayload {
   uuid?: string;
   area: string;

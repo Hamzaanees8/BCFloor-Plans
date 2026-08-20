@@ -31,7 +31,7 @@ import DownloadModal from './DownloadModal';
 import { toast } from 'sonner';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
-import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
+import { OptimizedImagePreview, PdfPlaceholder, ImagePlaceholder } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { api } from '@/lib/api';
@@ -521,22 +521,37 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                 )}
                             </div>
+                        ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID' && !file.is_complimentary) ? (
+                            isPdf ? (
+                                <PdfPlaceholder
+                                    className="w-full h-full object-contain cursor-pointer"
+                                    isRestricted={true}
+                                    onClick={() => {
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <ImagePlaceholder
+                                    className="w-full h-full object-contain cursor-pointer"
+                                    isRestricted={true}
+                                    message="Floor Plan preview is disabled until the service is paid."
+                                    onClick={() => {
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                                        }
+                                    }}
+                                />
+                            )
                         ) : file.is_processing ? (
                             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
                             </div>
-                        ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID' && !file.is_complimentary) ? (
-                            <PdfPlaceholder
-                                className="w-full h-full object-contain cursor-pointer"
-                                isRestricted={true}
-                                onClick={() => {
-                                    if (isHidingMode && file.uuid) {
-                                        setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
-                                    } else if (!isHidingMode) {
-                                        onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
-                                    }
-                                }}
-                            />
                         ) : isPdf ? (
                             isVariantUrlsEmpty ? (
                                 <PdfPlaceholder

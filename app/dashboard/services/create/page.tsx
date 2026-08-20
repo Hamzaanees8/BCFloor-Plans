@@ -111,6 +111,10 @@ const ServicesFrom = () => {
   const [vendorMinPrice, setVendorMinPrice] = useState<number | string>("");
   const [vendorUnitRate, setVendorUnitRate] = useState<number | string>("");
   const [vendorHourlyRate, setVendorHourlyRate] = useState<number | string>("");
+  const [baseDurationMins, setBaseDurationMins] = useState<number | string>(60);
+  const [baseSqFt, setBaseSqFt] = useState<number | string>(2000);
+  const [incrementDurationMins, setIncrementDurationMins] = useState<number | string>(30);
+  const [incrementSqFt, setIncrementSqFt] = useState<number | string>(1000);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef1 = useRef<HTMLDivElement | null>(null);
@@ -523,6 +527,13 @@ const ServicesFrom = () => {
           setVendorMinPrice(data.vendor_min_price ?? "");
           setVendorUnitRate(data.vendor_unit_rate ?? "");
           setVendorHourlyRate(data.vendor_hourly_rate ?? "");
+          setBaseDurationMins(data.base_duration_mins !== undefined && data.base_duration_mins !== null ? data.base_duration_mins : 60);
+          setBaseSqFt(data.base_sq_ft !== undefined && data.base_sq_ft !== null ? data.base_sq_ft : 2000);
+          setIncrementDurationMins(data.increment_duration_mins !== undefined && data.increment_duration_mins !== null ? data.increment_duration_mins : 30);
+          setIncrementSqFt(data.increment_sq_ft !== undefined && data.increment_sq_ft !== null ? data.increment_sq_ft : 1000);
+          if (data.product_options && data.product_options.length > 0) {
+            setOptions([]);
+          }
           // Use setTimeout to ensure all state updates and DOM updates complete
           setTimeout(() => {
             isPopulatingData.current = false;
@@ -633,16 +644,49 @@ const ServicesFrom = () => {
       }
       // For Regular Service Category
       else {
-        const isOptionValid = (opt: any) => {
+        const isOptionEmpty = (opt: any) => {
+          const hasTitle = !!opt.title?.trim();
+          const hasAmount =
+            opt.amount !== undefined &&
+            opt.amount !== null &&
+            opt.amount !== "" &&
+            Number(opt.amount) > 0;
+          const hasMinPrice =
+            opt.min_price !== undefined &&
+            opt.min_price !== null &&
+            opt.min_price !== "" &&
+            Number(opt.min_price) > 0;
+          const hasQuantity =
+            opt.quantity !== undefined &&
+            opt.quantity !== null &&
+            opt.quantity !== "" &&
+            Number(opt.quantity) > 0;
+          const hasDuration =
+            opt.service_duration !== undefined &&
+            opt.service_duration !== null &&
+            opt.service_duration !== "" &&
+            Number(opt.service_duration) > 0;
+          const hasSqFtRange = !!(
+            opt.sq_ft_range && String(opt.sq_ft_range).trim() !== ""
+          );
+          const hasSqFtRate =
+            opt.sq_ft_rate !== undefined &&
+            opt.sq_ft_rate !== null &&
+            String(opt.sq_ft_rate).trim() !== "" &&
+            Number(opt.sq_ft_rate) > 0;
+
           return (
-            opt.title?.trim() !== "" ||
-            (opt.amount !== undefined && opt.amount !== null && opt.amount !== "") ||
-            !!opt.service_duration ||
-            !!opt.quantity ||
-            !!opt.sq_ft_rate ||
-            opt.sq_ft_range?.trim() !== ""
+            !hasTitle &&
+            !hasAmount &&
+            !hasMinPrice &&
+            !hasQuantity &&
+            !hasDuration &&
+            !hasSqFtRange &&
+            !hasSqFtRate
           );
         };
+
+        const isOptionValid = (opt: any) => !isOptionEmpty(opt);
 
         const combinedOptions = [
           ...(currentService?.product_options || []),
@@ -710,6 +754,10 @@ const ServicesFrom = () => {
           vendor_min_price: vendorMinPrice !== "" ? Number(vendorMinPrice) : undefined,
           vendor_unit_rate: vendorUnitRate !== "" ? Number(vendorUnitRate) : undefined,
           vendor_hourly_rate: vendorHourlyRate !== "" ? Number(vendorHourlyRate) : undefined,
+          base_duration_mins: baseDurationMins !== "" ? Number(baseDurationMins) : undefined,
+          base_sq_ft: baseSqFt !== "" ? Number(baseSqFt) : undefined,
+          increment_duration_mins: incrementDurationMins !== "" ? Number(incrementDurationMins) : undefined,
+          increment_sq_ft: incrementSqFt !== "" ? Number(incrementSqFt) : undefined,
         };
 
         if (ServiceId) {
@@ -1338,6 +1386,68 @@ const ServicesFrom = () => {
                                     </div>
                                   </div>
                                 )}
+                              </div>
+                            </div>
+
+                            <div className="col-span-2 pt-4 border-t border-[#BBBBBB] flex flex-col gap-3">
+                              <label
+                                className="text-sm font-semibold"
+                                style={{ color: roleSettings.pageText }}
+                              >
+                                Service Duration & Time Increment Rules
+                              </label>
+                              <p className="text-[12px] text-[#666666]">
+                                Configure base service duration and incremental time required for extra square footage (e.g. +30 mins for every 1,000 sq. ft. above 2,000 sq. ft.).
+                              </p>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1">
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700">Base Duration (Mins)</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 60"
+                                    value={baseDurationMins}
+                                    onChange={(e) => setBaseDurationMins(e.target.value)}
+                                    className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] mt-1"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700">Base Sq. Ft.</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 2000"
+                                    value={baseSqFt}
+                                    onChange={(e) => setBaseSqFt(e.target.value)}
+                                    className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] mt-1"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700">Time Increment (Mins)</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 30"
+                                    value={incrementDurationMins}
+                                    onChange={(e) => setIncrementDurationMins(e.target.value)}
+                                    className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] mt-1"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700">Sq. Ft. Increment Step</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 1000"
+                                    value={incrementSqFt}
+                                    onChange={(e) => setIncrementSqFt(e.target.value)}
+                                    className="h-[40px] bg-[#EEEEEE] border border-[#BBBBBB] mt-1"
+                                  />
+                                </div>
                               </div>
                             </div>
                           </>
@@ -1975,12 +2085,12 @@ Product Options{" "}
                                     if (!isNaN(parsed) && parsed >= 0) {
                                       updateOption(idx, {
                                         ...opt,
-                                        amount: parsed,
+                                          amount: parsed,
                                       });
                                     }
                                   }}
                                 />
-                                {options.length > 1 && !opt.uuid && (
+                                {!opt.uuid && (
                                   <DropdownActions
                                     options={[
                                       {
