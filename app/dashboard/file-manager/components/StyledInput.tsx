@@ -278,6 +278,12 @@ export const FONT_FOLDERS: Record<
   },
 };
 
+// Add uppercase and clean key aliases
+FONT_FOLDERS["BCFPStandard3"] = FONT_FOLDERS["BcfpStandard3"];
+FONT_FOLDERS["BCFPStandard4"] = FONT_FOLDERS["BcfpStandard4"];
+FONT_FOLDERS["BCFPStandard6"] = FONT_FOLDERS["BcfpStandard6"];
+FONT_FOLDERS["BCFPStandard7"] = FONT_FOLDERS["BcfpStandard7"];
+
 export const FontFolderContext = createContext<string | undefined>(undefined);
 
 export const FontFolderProvider: React.FC<{
@@ -369,6 +375,15 @@ function fontFamilyToClass(ff?: string): string {
   const f = ff.toLowerCase();
   if (f.includes("alexandria")) return "font-alexandria";
   if (f.includes("raleway")) return "font-raleway";
+  // BcfpStandard7 fonts
+  if (f.includes("acaslonproboldbcfp7")) return "font-caslon-bold";
+  if (f.includes("arialregularbcfp7")) return "font-arial-regular";
+  if (f.includes("arialboldbcfp7")) return "font-arial-bold";
+  if (f.includes("trajanproboldbcfp7")) return "font-trajan-bold";
+  // BcfpStandard3 fonts
+  if (f.includes("gothicregularbcfp3")) return "font-gothic";
+  if (f.includes("gothicboldbcfp3")) return "font-gothic-bold";
+  if (f.includes("arialboldbcfp3")) return "font-arial-bold";
   // BcfpStandard4 fonts
   if (
     f.includes("acaslonproitalic") ||
@@ -433,7 +448,10 @@ export default function StyledInput({
   const activeFontFolder = fontFolder || contextFontFolder;
   const folderConfig = activeFontFolder
     ? FONT_FOLDERS[activeFontFolder] ||
-      FONT_FOLDERS[activeFontFolder.toLowerCase()]
+      FONT_FOLDERS[activeFontFolder.toLowerCase()] ||
+      Object.values(FONT_FOLDERS).find(
+        (f) => f.name.toLowerCase() === activeFontFolder.toLowerCase(),
+      )
     : undefined;
   const customFonts = folderConfig?.fonts || [];
 
@@ -586,6 +604,8 @@ export default function StyledInput({
   };
 
   const getFontFamilyStyle = () => {
+    const matchCustom = customFonts.find((f) => f.value === fontFamily);
+    if (matchCustom) return matchCustom.css;
     switch (fontFamily) {
       case "font-alexandria":
         return "Alexandria, sans-serif";
@@ -673,6 +693,8 @@ export default function StyledInput({
       })();
 
       const ffCss = (() => {
+        const matchCustom = customFonts.find((f) => f.value === ff);
+        if (matchCustom) return matchCustom.css;
         switch (ff) {
           case "font-alexandria":
             return "Alexandria, sans-serif";
@@ -1053,8 +1075,10 @@ export default function StyledInput({
                 type="button"
                 className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100 max-w-[120px] truncate"
               >
-                {(
-                  {
+                {(() => {
+                  const custom = customFonts.find((f) => f.value === fontFamily);
+                  if (custom) return custom.label;
+                  const defaults: Record<string, string> = {
                     "font-sans": "Sans Serif",
                     "font-alexandria": "Alexandria",
                     "font-raleway": "Raleway",
@@ -1070,8 +1094,10 @@ export default function StyledInput({
                     "font-trajan-bold": "Trajan Pro Bold",
                     "font-trajan": "Trajan Pro",
                     "font-arial-bold": "Arial Bold",
-                  } as Record<string, string>
-                )[fontFamily] ?? "Sans Serif"}{" "}
+                    "font-arial-regular": "Arial",
+                  };
+                  return defaults[fontFamily] ?? "Sans Serif";
+                })()}{" "}
                 <ChevronDown className="w-3 h-3 shrink-0" />
               </button>
 
