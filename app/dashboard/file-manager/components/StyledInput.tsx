@@ -751,6 +751,7 @@ export default function StyledInput({
         alignContent: alignContentStr as any,
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign, verticalAlign],
   );
 
@@ -1076,7 +1077,9 @@ export default function StyledInput({
                 className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100 max-w-[120px] truncate"
               >
                 {(() => {
-                  const custom = customFonts.find((f) => f.value === fontFamily);
+                  const custom = customFonts.find(
+                    (f) => f.value === fontFamily,
+                  );
                   if (custom) return custom.label;
                   const defaults: Record<string, string> = {
                     "font-sans": "Sans Serif",
