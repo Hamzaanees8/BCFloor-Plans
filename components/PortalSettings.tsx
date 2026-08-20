@@ -4,14 +4,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import {
     GetTourSettings,
     SavePortalSettings,
     SaveTourSettings,
     UpdateTourSetting,
-    DeleteTourSetting
+    DeleteTourSetting,
+    UpdateGlobalSettingsSort
 } from "@/app/dashboard/global-settings/global-settings";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import AddAreaPopup, { AreaData } from "./AddAreaPopup";
@@ -162,7 +163,66 @@ const PortalSettings = React.forwardRef<
         }
     };
 
+    const handleMoveArea = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= areas.length) return;
+
+        const newAreas = [...areas];
+        const [movedItem] = newAreas.splice(index, 1);
+        newAreas.splice(targetIndex, 0, movedItem);
+        setAreas(newAreas);
+
+        try {
+            const payload = newAreas
+                .filter((item) => !!item.uuid)
+                .map((item, idx) => ({
+                    uuid: item.uuid as string,
+                    sort_order: idx + 1,
+                }));
+            await UpdateGlobalSettingsSort(payload);
+            toast.success("Area sort order updated successfully");
+        } catch (error) {
+            console.error("Failed to update sort order:", error);
+            toast.error("Failed to update sort order");
+            fetchSettings();
+        }
+    };
+
     const columns: ColumnDef<AreaData>[] = [
+        ...(userType === "admin"
+            ? [
+                {
+                    id: "sort",
+                    header: "SORT",
+                    cell: ({ row }: { row: Row<AreaData> }) => {
+                        const index = areas.findIndex((a) => a.uuid === row.original.uuid);
+                        const currIndex = index !== -1 ? index : row.index;
+                        return (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    disabled={currIndex === 0}
+                                    onClick={() => handleMoveArea(currIndex, "up")}
+                                    className="p-1 text-[#666666] hover:text-[#4290E9] disabled:opacity-30 disabled:hover:text-[#666666] transition-colors"
+                                    title="Move Up"
+                                >
+                                    <ChevronUp className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={currIndex === areas.length - 1}
+                                    onClick={() => handleMoveArea(currIndex, "down")}
+                                    className="p-1 text-[#666666] hover:text-[#4290E9] disabled:opacity-30 disabled:hover:text-[#666666] transition-colors"
+                                    title="Move Down"
+                                >
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                            </div>
+                        );
+                    },
+                },
+            ]
+            : []),
         {
             accessorKey: "area",
             header: "AREAS",

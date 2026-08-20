@@ -64,6 +64,10 @@ interface ServicePayload {
     vendor_min_price?: number;
     vendor_unit_rate?: number;
     vendor_hourly_rate?: number;
+    base_duration_mins?: number;
+    base_sq_ft?: number;
+    increment_duration_mins?: number;
+    increment_sq_ft?: number;
 }
 export interface PackagePayload {
     name: string;

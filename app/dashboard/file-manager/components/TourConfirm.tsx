@@ -1092,9 +1092,11 @@ const TourConfirm = ({
                       },
                       {
                         label: "SQ FT",
-                        value: orderData?.property.square_footage
-                          ? `${orderData?.property.square_footage} FT²`
-                          : null,
+                        value: (isPublicView && orderData?.payment_status !== 'PAID')
+                          ? null
+                          : orderData?.property.square_footage
+                            ? `${orderData?.property.square_footage} FT²`
+                            : null,
                         icon: <HomeIcon />,
                       },
                       {
