@@ -533,18 +533,47 @@ const TourConfirm = ({
           s.service?.name?.toLowerCase().includes("3d tour"),
       ) && displayMatterportLinks.length > 0;
 
+  const isPanoFile = React.useCallback((f: any) => {
+    if (!f) return false;
+    if (
+      f.isPanorama === true ||
+      f.is_panorama === true ||
+      f.image_type === "panorama" ||
+      f.image_type === "360" ||
+      f.type === "panorama" ||
+      f.type === "360"
+    ) return true;
+    const sName = (f.service?.name || "").toLowerCase();
+    const catName = (f.service?.category?.name || "").toLowerCase();
+    const fileName = (f.name || f.file_name || "").toLowerCase();
+    if (
+      sName.includes("360") ||
+      sName.includes("panorama") ||
+      sName.includes("pano") ||
+      catName.includes("360") ||
+      catName.includes("panorama") ||
+      catName.includes("pano") ||
+      fileName.includes("360") ||
+      fileName.includes("pano")
+    ) return true;
+    return false;
+  }, []);
+
   const panoramicFiles = React.useMemo(() => {
-    const sourcePhotos = isPublicView ? (publicTourPhotos || []) : (currentTourPhotos || []);
-    return (sourcePhotos || []).filter((f: any) => {
-      if (f.isPanorama === true || f.image_type === "panorama" || f.image_type === "360") return true;
-      const sName = (f.service?.name || "").toLowerCase();
-      const catName = (f.service?.category?.name || "").toLowerCase();
-      if (sName.includes("360") || sName.includes("panorama") || sName.includes("pano") || catName.includes("360") || catName.includes("panorama")) return true;
-      return false;
-    });
-  }, [isPublicView, publicTourPhotos, currentTourPhotos]);
+    const rawList = isPublicView
+      ? (publicTourPhotos || orderData?.tours?.[0]?.files || (orderData as any)?.files || [])
+      : (filesData?.files || currentTourPhotos || []);
+    return (rawList || []).filter(isPanoFile);
+  }, [isPublicView, publicTourPhotos, orderData, filesData?.files, currentTourPhotos, isPanoFile]);
 
   const hasPanoramas = panoramicFiles.length > 0;
+
+  const regularPhotosList = React.useMemo(() => {
+    const source = isPublicView ? (publicTourPhotos || []) : (currentTourPhotos || []);
+    if (!source || source.length === 0) return [];
+    if (!hasPanoramas) return source;
+    return source.filter((f: any) => !isPanoFile(f));
+  }, [isPublicView, publicTourPhotos, currentTourPhotos, hasPanoramas, isPanoFile]);
 
   const previewTabs = React.useMemo(() => {
     const tabs = ["Home", "Overview", "Contact"];
@@ -1480,7 +1509,7 @@ const TourConfirm = ({
                             uuid: `local-${img.file.name}-${idx}`,
                             name: img.file.name,
                           })),
-                          ...(currentTourPhotos || []).map((img: any) => ({
+                          ...(regularPhotosList || []).map((img: any) => ({
                             src:
                               img.variant_urls?.popup ||
                               img.variant_urls?.landing ||
@@ -1526,7 +1555,7 @@ const TourConfirm = ({
                                   </div>
                                 </div>
                               ))}
-                              {currentTourPhotos?.map((image, index) => {
+                              {regularPhotosList?.map((image, index) => {
                                 const globalIndex = uploadedImages.length + index;
                                 return (
                                   <div
@@ -1577,10 +1606,10 @@ const TourConfirm = ({
                               })}
                             </div>
 
-                            {/* Standard Interactive Pop-up Gallery Lightbox Modal (White Theme) */}
+                            {/* Standard Interactive Pop-up Gallery Lightbox Modal (Solid White Theme) */}
                             {isFullscreenSlideshowOpen && allLightboxPhotos.length > 0 && (
                               <div
-                                className="fixed inset-0 z-[99999] bg-white/98 backdrop-blur-md flex flex-col justify-between items-center select-none animate-in fade-in duration-200"
+                                className="fixed inset-0 z-[99999] bg-white opacity-100 flex flex-col justify-between items-center select-none animate-in fade-in duration-150"
                                 onClick={(e) => {
                                   if (e.target === e.currentTarget) {
                                     setIsFullscreenSlideshowOpen(false);
@@ -1589,7 +1618,7 @@ const TourConfirm = ({
                                 }}
                               >
                                 {/* Top Controls Bar */}
-                                <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-gradient-to-b from-white/95 via-white/70 to-transparent border-b border-gray-100/80">
+                                <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
                                   {/* Counter & Name */}
                                   <div className="flex items-center gap-3">
                                     <span className="text-[#1b365d] text-sm font-semibold tracking-wide bg-gray-100/90 px-3 py-1.5 rounded-full border border-gray-200/80 shadow-sm font-alexandria">
@@ -1758,7 +1787,7 @@ const TourConfirm = ({
                                 )}
 
                                 {/* Bottom Mini Tip */}
-                                <div className="w-full z-50 py-3 bg-gradient-to-t from-white/95 via-white/70 to-transparent flex items-center justify-center">
+                                <div className="w-full z-50 py-3 bg-white border-t border-gray-100 flex items-center justify-center">
                                   <span className="text-gray-500 text-xs tracking-wider font-alexandria">
                                     Use Left / Right arrow keys to navigate • Double-click or use zoom tools to magnify • Esc to close
                                   </span>

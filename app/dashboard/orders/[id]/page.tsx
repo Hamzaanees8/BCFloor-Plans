@@ -443,6 +443,7 @@ function Page() {
       toast.success("Order updated successfully");
     } catch (error) {
       console.error("Error updating order:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update order");
     } finally {
       setIsLoading(false);
     }
