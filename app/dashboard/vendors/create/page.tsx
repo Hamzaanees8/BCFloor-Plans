@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Accordion,
@@ -48,16 +48,10 @@ import {
 } from "../vendors";
 import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 
-import { Plus, X, Loader2, ArrowLeft, Wrench, ArrowRight } from "lucide-react";
-import { PaymentCard } from "@/components/GlobalSettings";
+import { Loader2, ArrowLeft, Wrench, ArrowRight } from "lucide-react";
 import TravelTable from "@/components/TravelTable";
 import VendorEarningsHistory from "@/components/VendorEarningsHistory";
 import { useAppContext } from "@/app/context/AppContext";
-import PaymentDialog from "@/components/PaymentDialog";
-import {
-  DeleteCard,
-  GetPaymentMethod,
-} from "../../global-settings/global-settings";
 import WorkAreaMap, { LatLng } from "@/components/WorkAreaMap";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
@@ -285,8 +279,6 @@ const VendorForm = () => {
   );
   const [vendorServices, setVendorServices] = useState<SelectedService[]>([]);
   const [servicesData, setServicesData] = useState<Services[]>([]);
-  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
-  const [cards, setCards] = useState<PaymentCard[]>([]);
   const [map_coordinates, setmap_coordinates] = useState<LatLng[]>([]);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   // const [isCalendarLoading, setIsCalendarLoading] = useState(false);
@@ -352,8 +344,6 @@ const VendorForm = () => {
       }
     }
   }, [companyCountry]);
-  const capitalizeFirst = (str: string) =>
-    str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   // useEffect(() => {
   //     setCountries(Country.getAllCountries());
   // }, []);
@@ -391,22 +381,7 @@ const VendorForm = () => {
     }
   }, [userId]);
 
-  const fetchPaymentMethods = useCallback(() => {
-    const token = localStorage.getItem("token");
 
-    if (!token) {
-      console.log("Token not found.");
-      return;
-    }
-
-    GetPaymentMethod()
-      .then((res) => setCards(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => console.log("Error fetching data:", err.message));
-  }, []);
-
-  useEffect(() => {
-    fetchPaymentMethods();
-  }, [fetchPaymentMethods]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -590,14 +565,17 @@ const VendorForm = () => {
               service_id: vs.service?.uuid || "",
               vendor_service_id: vs.uuid,
               options:
-                vs.options?.map((opt) => {
+                vs.options?.map((opt: any) => {
                   const productOption = serviceInfo?.product_options?.find(
                     (po) => po.id === opt.option_id
                   );
 
                   return {
                     option_uuid: productOption?.uuid || opt.product_option?.uuid || "",
+                    pay_type: opt.pay_type || (vs as any).pay_type || "flat",
                     vendor_price: Number(opt.vendor_price) || 0,
+                    sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? "",
+                    min_price: opt.min_price ?? (vs as any).min_price ?? "",
                     adjustment_time:
                       opt.vendor_adjustment_time || "no adjustment",
                   };
@@ -1109,26 +1087,7 @@ const VendorForm = () => {
     }
   };
 
-  const removeCard = (uuid: string) => {
-    setCards((prev) => prev.filter((card) => card.uuid !== uuid));
-  };
 
-  const handleDelete = async (uuid: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      await DeleteCard(uuid);
-      removeCard(uuid);
-      toast.success("Card removed Successfully");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Failed to delete card:", err.message);
-      } else {
-        console.error("Failed to delete card:", err);
-      }
-    }
-  };
 
   const handleConnectStripe = async (
     e: React.MouseEvent<HTMLButtonElement>
@@ -2414,74 +2373,8 @@ const VendorForm = () => {
                   <AccordionContent className="grid gap-4">
                     <div className="w-full flex flex-col items-center">
                       <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                        <div className="grid grid-cols-2 gap-[32px]">
-                          {userType !== "vendor" && (
-                            <>
-                              <div className="col-span-2">
-                                <div className="flex items-center justify-between">
-                                  <p className="font-bold text-sm text-[#666666]">
-                                    Cards
-                                  </p>
-                                  <div
-                                    className="flex items-center gap-x-[10px] cursor-pointer"
-                                    onClick={() => setOpenPaymentDialog(true)}
-                                  >
-                                    <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                                      Add
-                                    </p>
-                                    <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
-                                  </div>
-                                  <PaymentDialog
-                                    open={openPaymentDialog}
-                                    setOpen={setOpenPaymentDialog}
-                                    onSuccess={() => {
-                                      fetchPaymentMethods();
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="col-span-2">
-                                {cards.length > 0 ? (
-                                  cards.map((card) => (
-                                    <div
-                                      key={card.uuid}
-                                      className="flex flex-col gap-y-3 mt-2"
-                                    >
-                                      <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
-                                        <div className="basis-[60%] flex items-center justify-between w-full gap-x-2.5">
-                                          <p className="text-[#4290E9]">
-                                            {capitalizeFirst(card.type)}
-                                          </p>
-                                          <p>
-                                            {card.last_four.slice(0, 4)} **** ****
-                                            ****
-                                          </p>
-                                        </div>
-                                        <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
-                                          {card.is_primary && (
-                                            <span className="text-sm font-normal text-[#666666]">
-                                              Primary
-                                            </span>
-                                          )}
-                                          <X
-                                            onClick={() => handleDelete(card.uuid)}
-                                            className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
-                                          />
-                                        </div>
-                                      </div>
-                                      <hr />
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-[#666666] text-sm font-normal text-center py-4">
-                                    Click Add+ to add your payment info
-                                  </p>
-                                )}
-                              </div>
-                            </>
-                          )}
-
-                          <div className="w-full flex flex-col col-span-2 items-start gap-4 mt-5 margin-top-5 border-t pt-5">
+                        <div className="grid grid-cols-2 gap-[16px]">
+                          <div className="w-full flex flex-col col-span-2 items-start gap-4">
                             {userType === "admin" && (
                               <>
                                 <div className="w-full">
@@ -2512,7 +2405,7 @@ const VendorForm = () => {
                                 </div>
                               </>
                             )}
-                            {userId && (
+                            {(idToUse || currentUser?.uuid || userId) && (
                               <button
                                 onClick={(e) => {
                                   handleConnectStripe(e);
@@ -2557,50 +2450,6 @@ const VendorForm = () => {
                                 )}
                               </button>
                             )}
-
-                            {/* Calendar Button */}
-                            {/* <button
-
-                              onClick={(e) => {
-                                handleConnectCalendar(e);
-                              }}
-                              disabled={
-                                isStripeLoading ||
-                                !!currentUser?.google_access_token ||
-                                !!currentUser?.google_refresh_token
-                              }
-                              className={`px-6 py-3 w-auto ${(currentUser?.google_access_token || currentUser?.google_refresh_token) ? 'bg-[#6BAE41] hover:bg-[#6BAE41]/80' : 'bg-[#4290E9] hover:bg-[#4290E9]/80'} text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-                            >
-                              {isCalendarLoading ? (
-                                <>
-                                  <svg
-                                    className="animate-spin h-5 w-5 text-white"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <circle
-                                      className="opacity-25"
-                                      cx="12"
-                                      cy="12"
-                                      r="10"
-                                      stroke="currentColor"
-                                      strokeWidth="4"
-                                    ></circle>
-                                    <path
-                                      className="opacity-75"
-                                      fill="currentColor"
-                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    ></path>
-                                  </svg>
-                                  Connecting...
-                                </>
-                              ) : (currentUser?.google_access_token || currentUser?.google_refresh_token) ? (
-                                "Calendar Connected"
-                              ) : (
-                                "Connect with Calendar"
-                              )}
-                            </button> */}
                           </div>
                         </div>
                       </div>

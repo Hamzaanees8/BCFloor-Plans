@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Delete, Get, CancelOrder, PreviewCancelOrder } from './orders';
+import { Delete, Get, CancelOrder, PreviewCancelOrder, EditOrderStatus } from './orders';
 import { isPastBooking } from '@/lib/bookingUtils';
 import { Address } from '@/lib/types';
 import { useOrderContext } from './context/OrderContext';
@@ -123,6 +123,9 @@ export type Slot = {
     date: string; // Format: YYYY-MM-DD
     start_time: string; // Format: HH:MM:SS
     end_time: string;   // Format: HH:MM:SS
+    custom_duration?: number | null;
+    custom_end_time?: string | null;
+    buffer_minutes?: number | null;
     est_time: number | null;
     distance: number | null;
     km_price: number | null;
@@ -465,10 +468,21 @@ const Page = () => {
         }
     };
 
+    const handleQuickStatusChange = async (orderUuid: string, newStatus: string) => {
+        const token = localStorage.getItem("token") || "";
+        try {
+            await EditOrderStatus(orderUuid, { order_status: newStatus }, token);
+            setOrderData(prev => prev.map(o => o.uuid === orderUuid ? { ...o, order_status: newStatus } : o));
+            toast.success(`Order status updated to "${newStatus}"`);
+        } catch (err: any) {
+            console.error("Failed to update status:", err);
+            toast.error(err?.message || "Failed to update order status");
+        }
+    };
+
     const columns: ColumnDef<Order>[] = [
         {
             accessorKey: "id",
-
             header: ({ column }) => {
                 const isSorted = column.getIsSorted();
 
@@ -477,25 +491,22 @@ const Page = () => {
                         variant="ghost"
                         onClick={() => {
                             if (isSorted === "asc") {
-                                column.toggleSorting(true); // to desc
+                                column.toggleSorting(true); // Set to desc
                             } else if (isSorted === "desc") {
-                                column.clearSorting(); // clear
+                                column.clearSorting(); // Clear sorting
                             } else {
-                                column.toggleSorting(false); // to asc
+                                column.toggleSorting(false); // Set to asc
                             }
                         }}
                         className="p-0 hover:bg-transparent flex items-center gap-1 font-bold"
                     >
-                        ORDER
+                        ORDER ID
                         {isSorted === "asc" && <span><ChevronUp style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
                         {isSorted === "desc" && <span><ChevronDown style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
                         {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
                     </Button>
                 )
             },
-
-            enableSorting: true,
-
             cell: ({ row }: { row: Row<Order> }) => {
                 const id = row.original.id;
 
@@ -604,15 +615,69 @@ const Page = () => {
             enableSorting: true,
         },
         {
+            accessorKey: "order_status",
+            header: "ORDER STATUS",
+            cell: ({ row }: { row: Row<Order> }) => {
+                const status = row.original.order_status || "Processing";
+                const uuid = row.original.uuid;
+                const canEdit = userType === "admin" || (hasPermission(PERMISSIONS.EDIT_ORDERS));
+
+                const getStatusBadgeStyle = (s: string) => {
+                    switch (s?.toLowerCase()) {
+                        case "completed":
+                            return "bg-emerald-600 text-white border-emerald-600";
+                        case "processing":
+                            return "bg-blue-500 text-white border-blue-500";
+                        case "in progress":
+                            return "bg-indigo-600 text-white border-indigo-600";
+                        case "pending":
+                            return "bg-amber-500 text-white border-amber-500";
+                        case "on hold":
+                            return "bg-gray-500 text-white border-gray-500";
+                        case "cancelled":
+                            return "bg-rose-500 text-white border-rose-500";
+                        default:
+                            return "bg-gray-400 text-white border-gray-400";
+                    }
+                };
+
+                if (!canEdit) {
+                    return (
+                        <div
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold w-fit ${getStatusBadgeStyle(status)}`}
+                        >
+                            {status}
+                        </div>
+                    );
+                }
+
+                return (
+                    <select
+                        value={status}
+                        onChange={(e) => handleQuickStatusChange(uuid, e.target.value)}
+                        className={`text-[10px] font-semibold rounded-full px-2.5 py-0.5 cursor-pointer outline-none border transition-colors ${getStatusBadgeStyle(status)}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <option value="Processing" className="bg-white text-gray-800">Processing</option>
+                        <option value="In Progress" className="bg-white text-gray-800">In Progress</option>
+                        <option value="Pending" className="bg-white text-gray-800">Pending</option>
+                        <option value="Completed" className="bg-white text-gray-800">Completed</option>
+                        <option value="On Hold" className="bg-white text-gray-800">On Hold</option>
+                        <option value="Cancelled" className="bg-white text-gray-800">Cancelled</option>
+                    </select>
+                );
+            },
+        },
+        {
             accessorKey: "payment_status",
-            header: "STATUS",
+            header: "PAYMENT",
             cell: ({ row }: { row: Row<Order> }) => {
                 const status = row.original.payment_status;
                 const bgColor = status === "PAID" ? "#6BAE41" : "#E06D5E";
 
                 return (
                     <div
-                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit"
+                        className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-medium w-fit"
                         style={{ backgroundColor: bgColor }}
                     >
                         {status}

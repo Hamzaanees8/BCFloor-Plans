@@ -14,17 +14,7 @@ export interface FetchErrors {
 
 }
 
-interface ProductOption {
-    title?: string;
-    quantity?: number;
-    sq_ft_range?: string;
-    sq_ft_rate?: string;
-    service_duration?: number;
-    amount?: number;
-    id?: number
-}
-
-interface ProductOption {
+export interface ProductOption {
     title?: string;
     quantity?: number;
     sq_ft_range?: string;
@@ -34,8 +24,15 @@ interface ProductOption {
     isSqFtRange?: boolean;
     isSqFtRate?: boolean;
     uuid?: string;
-    min_price: number
-    id?: number
+    min_price: number;
+    sort_order?: number;
+    vendor_pay_type?: 'flat' | 'per_sq_ft' | 'per_unit' | 'hourly' | string;
+    vendor_price?: number;
+    vendor_sq_ft_rate?: number;
+    vendor_min_price?: number;
+    vendor_unit_rate?: number;
+    vendor_hourly_rate?: number;
+    id?: number;
 }
 interface AddOns {
     title?: string;
@@ -59,6 +56,14 @@ interface ServicePayload {
     updated_at?: string;
     add_ons?: AddOns[];
     is_travel_required?: boolean | number;
+    gst_enabled?: boolean | number;
+    pst_enabled?: boolean | number;
+    vendor_pay_type?: 'flat' | 'per_sq_ft' | 'per_unit' | 'hourly' | string;
+    vendor_price?: number;
+    vendor_sq_ft_rate?: number;
+    vendor_min_price?: number;
+    vendor_unit_rate?: number;
+    vendor_hourly_rate?: number;
 }
 export interface PackagePayload {
     name: string;
@@ -86,6 +91,8 @@ function payloadToFormData(payload: ServicePayload): FormData {
 
         if (value instanceof File) {
             formData.append(key, value);
+        } else if (typeof value === 'boolean') {
+            formData.append(key, value ? '1' : '0');
         } else if (Array.isArray(value)) {
             value.forEach((item, index) => {
                 if (typeof item === 'object' && item !== null) {
@@ -110,7 +117,7 @@ function payloadToFormData(payload: ServicePayload): FormData {
                 }
             });
         } else {
-            formData.append(key, value);
+            formData.append(key, value as string);
         }
     }
 
@@ -486,4 +493,17 @@ export async function BulkUpdateServiceSort(payload: { services: { uuid: string;
     }
 
     return response.data;
+}
+
+export async function BulkUpdateProductOptionSort(payload: { options: { uuid: string; sort_order: number }[] }, token: string) {
+    const response = await api.put(`/product-options/sort`, payload, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
 }

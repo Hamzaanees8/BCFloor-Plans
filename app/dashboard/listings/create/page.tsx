@@ -41,6 +41,21 @@ import AddAgentDialog from "../../orders/components/AddAgentDialog";
 import { cn } from "@/lib/utils";
 import { Info, Plus } from "lucide-react";
 
+const formatPriceWithCommas = (val: string | number | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const clean = val.toString().replace(/[^0-9.]/g, '');
+  const parts = clean.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.slice(0, 2).join('.');
+};
+
+const parsePriceToNumber = (val: string | number | undefined | null): number | null => {
+  if (val === undefined || val === null || val === '') return null;
+  const clean = val.toString().replace(/,/g, '').trim();
+  const num = Number(clean);
+  return isNaN(num) ? null : num;
+};
+
 const ListingsFrom = () => {
   const { userType } = useAppContext();
   const { organization } = useOrganization();
@@ -194,26 +209,18 @@ const ListingsFrom = () => {
       }, 500); // Longer delay to account for browser autofill
     }
   }, [listingId]);
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      console.log("Token not found.");
-      return;
-    }
-
-    if (listingId) {
+    if (listingId && typeof listingId === "string") {
       GetOneListing(listingId)
         .then((res) => {
           const data = res.data;
-
           if (data) {
             isPopulatingData.current = true;
             setCurrentListing(data);
-            const agentUuid = data.agent?.uuid || data.agent_id || "";
-            setConnectedAgent(agentUuid);
-            setInitialAgentId(agentUuid);
-            setListingPrice(data.listing_price?.toString() || "");
+            setConnectedAgent(data.agent?.uuid || data.agent_id || "");
+            setInitialAgentId(data.agent?.uuid || data.agent_id || "");
+            setListingPrice(formatPriceWithCommas(data.listing_price));
             setMls(data.mls_number || "");
             setBedrooms(data.bedrooms ?? "");
             setBathrooms(data.bathrooms ?? "");
@@ -228,7 +235,6 @@ const ListingsFrom = () => {
             setSuite(data.suite || "");
             setAddress(data.address || "");
             setCity(data.city || "");
-            // setProvince(data.province);
             setPostalCode(data.postal_code || "");
             setCountry(data.country || "CA");
             setTourActivated(!!data.tour_activated);
@@ -239,7 +245,6 @@ const ListingsFrom = () => {
             );
             setPropertyWebsite(data.property_website || "");
             setMlsProperty(data.mls_property || "");
-            //setOccupancy(data.occupancy || "");
             setMediaCreatorAccess(data.media_creator_access || "");
             setInstructions(data.instructions || "");
             setAnimalsOnProperty(!!data.animals_on_property);
@@ -247,8 +252,6 @@ const ListingsFrom = () => {
             setIsStaticmail(!!data.send_statistics_email);
             setEmailFrequency(data.statistics_email_frequency || "");
             setstaticEmail(data.statistics_email_recipients || []);
-            // Use setTimeout to ensure all state updates + cascading effects (e.g. country→states)
-            // complete before dirty tracking is enabled. 300ms covers the async chain.
             setTimeout(() => {
               isPopulatingData.current = false;
               hasInitiallyRendered.current = true;
@@ -258,8 +261,6 @@ const ListingsFrom = () => {
           }
         })
         .catch((err) => console.log(err.message));
-    } else {
-      console.log("Listing ID is undefined.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
@@ -290,8 +291,6 @@ const ListingsFrom = () => {
   useEffect(() => {
     if (country) {
       setStates(State.getStatesOfCountry(country));
-      // Only reset province when the user manually changes country,
-      // not when we are populating existing data from the API.
       if (!isPopulatingData.current) {
         setProvince("");
       }
@@ -301,10 +300,10 @@ const ListingsFrom = () => {
   const handleSubmit = async () => {
     const validationErrors: Record<string, string[]> = {};
 
-    // Validate required fields
+    const numericPrice = parsePriceToNumber(listingPrice);
     if (
       listingPrice !== "" &&
-      (isNaN(Number(listingPrice)) || Number(listingPrice) < 0)
+      (numericPrice === null || numericPrice < 0)
     )
       validationErrors.listing_price = [
         "Listing Price must be a positive number",
@@ -356,19 +355,6 @@ const ListingsFrom = () => {
     if (!city) validationErrors.city = ["City is required"];
     if (!province) validationErrors.province = ["Province is required"];
     if (!postalCode) validationErrors.postal_code = ["Postal Code is required"];
-    // if (!occupancy) validationErrors.occupancy = ["Occupancy is required"];
-
-    // const today = new Date();
-    // today.setHours(0, 0, 0, 0);
-
-    // if (!publishDate) {
-    //   validationErrors.publish_date = ["Publish Date is required"];
-    // } else {
-    //   const selectedDate = new Date(publishDate + "T00:00:00");
-    //   if (selectedDate < today) {
-    //     validationErrors.publish_date = ["Publish Date cannot be in the past"];
-    //   }
-    // }
 
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
@@ -381,7 +367,7 @@ const ListingsFrom = () => {
 
     try {
       const payload = {
-        listing_price: listingPrice ? Number(listingPrice) : null,
+        listing_price: numericPrice,
         mls_number: mls || null,
         bedrooms: bedrooms !== "" ? Number(bedrooms) : null,
         agent_id: userType === "agent" ? userInfo?.uuid : (connectedAgent || null),
@@ -404,7 +390,6 @@ const ListingsFrom = () => {
         publish_date: publishDate || null,
         property_website: propertyWebsite || null,
         mls_property: mlsProperty || null,
-        // occupancy: occupancy,
         media_creator_access: mediaCreatorAccess || null,
         instructions: instructions || null,
         animals_on_property: animalsOnProperty,
@@ -413,17 +398,13 @@ const ListingsFrom = () => {
         statistics_email_frequency: emailFrequency || null,
         statistics_email_recipients: staticEmail,
       };
-      // coAgents.forEach((email, index) => {
-      //     payload[`co_agents[${index}]`] = email;
-      // });
 
       if (listingId) {
-        const result = await EditListings(listingId, payload);
+        const result = await EditListings(listingId as string, payload);
         if (result.status) {
           toast.success("Listing updated successfully");
           setIsLoading(true);
           setIsDirty(false);
-          // router.push("/dashboard/listings");
         }
         setIsLoading(false);
       } else {
@@ -475,46 +456,59 @@ const ListingsFrom = () => {
     try {
       setIsLoading(true);
       const response = await fetchMlsData(mls);
-
       const mls_data = response.mls || response;
 
       if (mls_data && !mls_data.error) {
         isPopulatingData.current = true;
 
-        setListingPrice(mls_data.listPrice?.toString() || "");
-        setBedrooms(mls_data.details?.numBedrooms?.toString() || "");
-        setBathrooms(mls_data.details?.numBathrooms?.toString() || "");
-
-        const style = mls_data.details?.style || "";
-        if (style.includes("Single Family Residence")) {
-          setPropertyType("Detached Home");
-        } else if (style.includes("Townhouse") || style.includes("Townhome")) {
-          setPropertyType("Townhouse");
-        } else if (style.includes("Condo") || style.includes("Condominium")) {
-          setPropertyType("Condo");
-        } else if (style.includes("Apartment")) {
-          setPropertyType("Apartment");
-        } else if (style.includes("Commercial")) {
-          setPropertyType("Commercial");
+        if (mls_data.listPrice !== undefined && mls_data.listPrice !== null && mls_data.listPrice !== "") {
+          setListingPrice(formatPriceWithCommas(mls_data.listPrice));
+        }
+        if (mls_data.details?.numBedrooms !== undefined && mls_data.details?.numBedrooms !== null && mls_data.details?.numBedrooms !== "") {
+          setBedrooms(Number(mls_data.details.numBedrooms));
+        }
+        if (mls_data.details?.numBathrooms !== undefined && mls_data.details?.numBathrooms !== null && mls_data.details?.numBathrooms !== "") {
+          setBathrooms(Number(mls_data.details.numBathrooms));
         }
 
-        setSquareFootage(mls_data.details?.sqft?.toString() || "");
+        const style = mls_data.details?.style || "";
+        if (style) {
+          if (style.includes("Single Family Residence") || style.includes("Detached")) {
+            setPropertyType("Detached Home");
+          } else if (style.includes("Townhouse") || style.includes("Townhome")) {
+            setPropertyType("Townhouse");
+          } else if (style.includes("Condo") || style.includes("Condominium")) {
+            setPropertyType("Condo");
+          } else if (style.includes("Apartment")) {
+            setPropertyType("Apartment");
+          } else if (style.includes("Commercial")) {
+            setPropertyType("Commercial");
+          }
+        }
 
-        setYearConstructed(mls_data.details?.yearBuilt?.toString() || "");
+        if (mls_data.details?.sqft !== undefined && mls_data.details?.sqft !== null && mls_data.details?.sqft !== "") {
+          setSquareFootage(mls_data.details.sqft.toString());
+        }
+
+        if (mls_data.details?.yearBuilt !== undefined && mls_data.details?.yearBuilt !== null && mls_data.details?.yearBuilt !== "") {
+          setYearConstructed(mls_data.details.yearBuilt.toString());
+        }
 
         const parkingSpots =
-          mls_data.details?.numParkingSpaces ||
+          mls_data.details?.numParkingSpaces ??
           mls_data.details?.numDrivewaySpaces;
-        setParkingSpots(parkingSpots?.toString() || "");
+        if (parkingSpots !== undefined && parkingSpots !== null && parkingSpots !== "") {
+          setParkingSpots(parkingSpots.toString());
+        }
 
         const standardStatus = mls_data.standardStatus || "";
         if (standardStatus.includes("Active Under Contract")) {
           setPropertyStatus("Under contract");
-        } else if (mls_data.status === "A") {
+        } else if (mls_data.status === "A" || standardStatus.toLowerCase().includes("active")) {
           setPropertyStatus("Just listed");
-        } else if (mls_data.status === "S" || mls_data.status === "Sld") {
+        } else if (mls_data.status === "S" || mls_data.status === "Sld" || standardStatus.toLowerCase().includes("sold")) {
           setPropertyStatus("Sold");
-        } else if (mls_data.status === "P") {
+        } else if (mls_data.status === "P" || standardStatus.toLowerCase().includes("pending")) {
           setPropertyStatus("Pending");
         }
 
@@ -526,23 +520,35 @@ const ListingsFrom = () => {
         if (mls_data.address?.streetSuffix)
           addressParts.push(mls_data.address.streetSuffix);
 
-        const fullAddress = addressParts.join(" ");
-        setAddress(fullAddress.trim());
+        if (addressParts.length > 0) {
+          setAddress(addressParts.join(" ").trim());
+        }
 
-        setCity(mls_data.address?.city || "");
-        setPostalCode(mls_data.address?.zip || "");
+        if (mls_data.address?.city) {
+          setCity(mls_data.address.city);
+        }
+        if (mls_data.address?.zip || mls_data.address?.postalCode) {
+          setPostalCode(mls_data.address.zip || mls_data.address.postalCode);
+        }
 
-        if (mls_data.address?.state === "NC") {
-          setCountry("US");
-          setProvince("NC");
-        } else if (
-          mls_data.address?.country === "US" ||
-          mls_data.address?.state
-        ) {
-          setCountry("US");
-          if (mls_data.address?.state) {
-            setProvince(mls_data.address.state);
+        const stateOrProvince = (mls_data.address?.state || mls_data.address?.province || "").trim();
+        const countryVal = (mls_data.address?.country || "").trim().toUpperCase();
+
+        const canadianProvinces = [
+          "BC", "AB", "ON", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "YT", "NT", "NU",
+          "BRITISH COLUMBIA", "ALBERTA", "ONTARIO", "QUEBEC"
+        ];
+
+        if (canadianProvinces.includes(stateOrProvince.toUpperCase()) || countryVal === "CA" || countryVal === "CANADA") {
+          setCountry("CA");
+          if (stateOrProvince) {
+            setProvince(stateOrProvince.toUpperCase() === "BRITISH COLUMBIA" ? "BC" : stateOrProvince.toUpperCase());
           }
+        } else if (countryVal === "US" || countryVal === "USA" || countryVal === "UNITED STATES") {
+          setCountry("US");
+          if (stateOrProvince) setProvince(stateOrProvince);
+        } else if (stateOrProvince) {
+          setProvince(stateOrProvince);
         }
 
         if (mls_data.lot?.size) {
@@ -554,12 +560,16 @@ const ListingsFrom = () => {
           setLotSize(mls_data.lot.acres.toString());
         }
 
-        setDescription(mls_data.details?.description || "");
+        if (mls_data.details?.description) {
+          setDescription(mls_data.details.description);
+        }
 
         if (!heading || heading.trim() === "") {
           const generatedHeading = `${mls_data.address?.streetNumber || ""} ${mls_data.address?.streetName || ""
             } ${mls_data.details?.style || "Property"}`;
-          setHeading(generatedHeading.trim());
+          if (generatedHeading.trim()) {
+            setHeading(generatedHeading.trim());
+          }
         }
 
         if (mls_data.address?.unitNumber) {
@@ -586,10 +596,6 @@ const ListingsFrom = () => {
 
         setMlsProperty(`MLS#: ${mls_data.mlsNumber || mls}`);
 
-        // if (mls_data.occupancy) {
-        //   const occupancyLower = mls_data.occupancy.toLowerCase();
-        //   if (occupancyLower.includes("owner")) {
-        //     setOccupancy("Owner Occupied");
         //   } else if (occupancyLower.includes("tenant")) {
         //     setOccupancy("Tenant Occupied");
         //   } else if (occupancyLower.includes("vacant")) {
@@ -962,15 +968,14 @@ const ListingsFrom = () => {
                             <Input
                               value={listingPrice}
                               onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                setListingPrice(val);
+                                setListingPrice(formatPriceWithCommas(e.target.value));
                                 if (fieldErrors.listing_price) {
                                   const newErrors = { ...fieldErrors };
                                   delete newErrors.listing_price;
                                   setFieldErrors(newErrors);
                                 }
                               }}
-                              placeholder="e.g 844,500"
+                              placeholder="e.g. 844,500"
                               className={`h-[42px] bg-[#EEEEEE] border-[1px] pr-8 ${fieldErrors.listing_price
                                 ? "border-red-500"
                                 : "border-[#BBBBBB]"

@@ -87,12 +87,20 @@ export default function PendingItemsPage() {
             const serviceToOrderMap: Record<string, any> = {};
 
             pendingResponse.items.forEach(item => {
-                const serviceAmount = parseFloat(String(item.service.amount || 0));
+                const serviceAmount = item.vendor_pay_amount !== undefined ? Number(item.vendor_pay_amount) : parseFloat(String(item.service.amount || 0));
 
                 const svcObj = (item.service as any)?.service || {};
                 const svcName = svcObj.name || 'Service';
                 const optionTitle = (item.service as any)?.option?.title || (item.service as any)?.service_option?.title || '';
                 const fullSvcTitle = optionTitle ? `${svcName} - ${optionTitle}` : svcName;
+
+                let rateFormulaLabel = '';
+                if (item.pay_type === 'per_sq_ft') {
+                    const sqft = item.property_sq_ft || (item.service?.order?.property?.sq_ft ? Number(item.service.order.property.sq_ft) : 0);
+                    rateFormulaLabel = `rate: Per Sq. Ft. (${sqft.toLocaleString()} sq.ft @ $${Number(item.sq_ft_rate || 0).toFixed(3)}/sq.ft${item.min_price ? `, min: $${Number(item.min_price).toFixed(2)}` : ''})`;
+                } else if (item.pay_type === 'flat') {
+                    rateFormulaLabel = `rate: Flat ($${serviceAmount.toFixed(2)})`;
+                }
 
                 const orderIdVal = item.service?.order?.id;
                 const orderLabel = orderIdVal ? `order: #${orderIdVal}` : '';
@@ -106,7 +114,7 @@ export default function PendingItemsPage() {
                 const slotTimeStr = matchingSlot?.start_time ? `${matchingSlot.start_time}${matchingSlot.end_time ? ` - ${matchingSlot.end_time}` : ''}` : '';
                 const slotLabel = slotDateStr ? `slots: ${slotDateStr}${slotTimeStr ? ` @ ${slotTimeStr}` : ''}` : '';
 
-                const detailedDescription = [fullSvcTitle, addressLabel, orderLabel, slotLabel].filter(Boolean).join('\n');
+                const detailedDescription = [fullSvcTitle, rateFormulaLabel, addressLabel, orderLabel, slotLabel].filter(Boolean).join('\n');
 
                 mappedItems.push({
                     description: detailedDescription,

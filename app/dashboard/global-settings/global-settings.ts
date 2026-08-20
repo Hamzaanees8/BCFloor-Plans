@@ -626,6 +626,7 @@ export interface PortalSettingsPayload {
   disable_next_day_booking: boolean;
   booking_cutoff_time: string;
   allow_print_request: boolean;
+  allow_booking_through_lunch?: boolean;
 }
 
 export async function SavePortalSettings(payload: PortalSettingsPayload) {

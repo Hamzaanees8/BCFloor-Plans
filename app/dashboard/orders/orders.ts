@@ -96,22 +96,26 @@ function payloadToFormData(payload: OrderPayload): FormData {
         ) {
           Object.entries(item).forEach(([subKey, subVal]) => {
             if (subVal !== undefined && subVal !== null) {
-              formData.append(`${key}[${index}][${subKey}]`, String(subVal));
+              const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+              formData.append(`${key}[${index}][${subKey}]`, valStr);
             }
           });
         } else {
           // ✅ Handles notes and any other string array like notes[0], notes[1]
-          formData.append(`${key}[${index}]`, String(item));
+          const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
+          formData.append(`${key}[${index}]`, valStr);
         }
       });
     } else if (typeof value === "object") {
       Object.entries(value).forEach(([subKey, subVal]) => {
         if (subVal !== undefined && subVal !== null) {
-          formData.append(`${key}[${subKey}]`, String(subVal));
+          const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+          formData.append(`${key}[${subKey}]`, valStr);
         }
       });
     } else {
-      formData.append(key, String(value));
+      const valStr = typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+      formData.append(key, valStr);
     }
   });
 
@@ -136,22 +140,26 @@ function EditOrderPayloadToFormData(payload: EditOrderPayload): FormData {
         ) {
           Object.entries(item).forEach(([subKey, subVal]) => {
             if (subVal !== undefined && subVal !== null) {
-              formData.append(`${key}[${index}][${subKey}]`, String(subVal));
+              const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+              formData.append(`${key}[${index}][${subKey}]`, valStr);
             }
           });
         } else {
           // ✅ Handles notes and any other string array like notes[0], notes[1]
-          formData.append(`${key}[${index}]`, String(item));
+          const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
+          formData.append(`${key}[${index}]`, valStr);
         }
       });
     } else if (typeof value === "object") {
       Object.entries(value).forEach(([subKey, subVal]) => {
         if (subVal !== undefined && subVal !== null) {
-          formData.append(`${key}[${subKey}]`, String(subVal));
+          const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+          formData.append(`${key}[${subKey}]`, valStr);
         }
       });
     } else {
-      formData.append(key, String(value));
+      const valStr = typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+      formData.append(key, valStr);
     }
   });
 
@@ -197,11 +205,21 @@ export async function Edit(
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
+      Accept: "application/json",
     },
     body: formData,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  let data: any = {};
+  if (contentType.includes("application/json")) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(text || data.message || `Request failed (${response.status})`);
+    }
+  }
 
   if (!response.ok) {
     const error = new Error(data.message || "Request failed");
@@ -223,15 +241,35 @@ export async function EditOrderStatus(
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
+      Accept: "application/json",
     },
     body: formData,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  let data: any = {};
+  if (contentType.includes("application/json")) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(text || data.message || `Request failed (${response.status})`);
+    }
+  }
 
   if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
-    (error as FetchErrors).errors = data.errors;
+    let errorMsg = "Request failed";
+    if (data.errors) {
+      errorMsg = Object.values(data.errors).flat().join(", ");
+    } else if (data.message) {
+      if (typeof data.message === "object") {
+        errorMsg = Object.values(data.message).flat().join(", ");
+      } else {
+        errorMsg = String(data.message);
+      }
+    }
+    const error = new Error(errorMsg);
+    (error as FetchErrors).errors = data.errors || data.message;
     throw error;
   }
 
@@ -589,6 +627,51 @@ export interface TwilightResponse {
   civil_twilight_end: string;
   nautical_twilight_begin: string;
   nautical_twilight_end: string;
+  window_start?: string;
+  window_end?: string;
+  formatted_window?: string;
+  formatted_sunset?: string;
+}
+
+export async function fetchBackendTwilightWindow(
+  date: string,
+  propertyId?: string,
+  address?: string
+): Promise<TwilightResponse | null> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  try {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (propertyId) params.append('property_id', propertyId);
+    if (address) params.append('address', address);
+
+    const res = await fetch(`${API_URL}/twilight-window?${params.toString()}`);
+    const json = await res.json();
+    if (!json.success || !json.data) return null;
+
+    const data = json.data;
+    const dateStr = data.date || date;
+    const sunsetISO = `${dateStr}T${data.sunset}:00`;
+
+    return {
+      address: address || '',
+      coordinates: { latitude: 49.2827, longitude: -123.1207 },
+      date: dateStr,
+      sunrise: `${dateStr}T06:00:00Z`,
+      sunset: sunsetISO,
+      civil_twilight_begin: `${dateStr}T${data.window_start}:00Z`,
+      civil_twilight_end: `${dateStr}T${data.window_end}:00Z`,
+      nautical_twilight_begin: `${dateStr}T${data.window_start}:00Z`,
+      nautical_twilight_end: `${dateStr}T${data.window_end}:00Z`,
+      window_start: data.window_start,
+      window_end: data.window_end,
+      formatted_window: data.formatted_window,
+      formatted_sunset: data.formatted_sunset,
+    };
+  } catch (err) {
+    console.error('Failed to fetch backend twilight window:', err);
+    return null;
+  }
 }
 
 export async function fetchTwilightTime(address: string, date: string): Promise<TwilightResponse | null> {

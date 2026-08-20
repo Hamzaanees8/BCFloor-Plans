@@ -127,24 +127,6 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
 
     const isCalculated = areas.length > 0;
 
-    const grandTotal = useMemo(() => {
-        const calcTotal = (items: Area[]) =>
-            items.reduce((sum, a) => sum + (a.footage || 0), 0);
-
-        const getCategory = (area: Area): 'Finished' | 'Subtotal' | 'Other' =>
-            area.type as 'Finished' | 'Subtotal' | 'Other';
-
-        const finishedAreas = areas.filter(a => getCategory(a) === 'Finished');
-        const subtotalAreas = areas.filter(a => getCategory(a) === 'Subtotal');
-
-        const total = calcTotal(finishedAreas) + calcTotal(subtotalAreas);
-        if (total > 0) return total;
-        if (currentOrder?.property?.square_footage) {
-            return Number(currentOrder.property.square_footage) || 0;
-        }
-        return 0;
-    }, [areas, currentOrder?.property?.square_footage]);
-
     const isRestricted = useMemo(() => {
         if (userType !== 'agent') return false;
         
@@ -194,15 +176,15 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
             ) : isRestricted ? (
                 <div className="flex flex-col gap-4 p-2">
                     <div className="flex items-center justify-between p-4 bg-white rounded-md border border-gray-200 shadow-sm">
-                        <span className="font-semibold text-[15px] text-[#424242]">Grand Total:</span>
-                        <span className="font-bold text-[16px] text-[#222222]">
-                            {formatNumber(grandTotal)} sq. ft.
+                        <span className="font-semibold text-[15px] text-[#424242]">Square Footage:</span>
+                        <span className="font-bold text-[13px] text-amber-700 bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                            🔒 Protected until payment
                         </span>
                     </div>
-                    <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2.5 text-blue-800">
+                    <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-md flex items-start gap-2.5 text-amber-800">
                         <span className="text-[16px] shrink-0 mt-0.5">ℹ️</span>
                         <p className="text-[13px] font-medium leading-relaxed">
-                            Pay service to view full square footage detail
+                            Payment is required to view full square footage breakdown and floor plan measurements.
                         </p>
                     </div>
                 </div>

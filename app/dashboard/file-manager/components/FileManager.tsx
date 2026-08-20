@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { GetOneOrder } from "../../orders/orders";
+import { GetOneOrder, EditOrderStatus } from "../../orders/orders";
 import Service from "./2DFloor";
 import { Order, Slot } from "../../orders/page";
 import { GetServices } from "../../services/services";
@@ -196,9 +196,36 @@ const FileManager = () => {
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
+  const [currentOrderStatus, setCurrentOrderStatus] = useState<string>(orderData?.order_status || "");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
   const { startUpload } = useGlobalFileUpload();
+
+  useEffect(() => {
+    if (orderData?.order_status) {
+      setCurrentOrderStatus(orderData.order_status);
+    }
+  }, [orderData?.order_status]);
+
+  const handleUpdateOrderStatus = async (newStatus: string) => {
+    if (!orderId) return;
+    const token = localStorage.getItem("token") || "";
+    setIsUpdatingStatus(true);
+    try {
+      await EditOrderStatus(orderId as string, { order_status: newStatus }, token);
+      setCurrentOrderStatus(newStatus);
+      if (orderData) {
+        orderData.order_status = newStatus;
+      }
+      toast.success(`Order status updated to "${newStatus}"`);
+    } catch (err: any) {
+      console.error("Failed to update status:", err);
+      toast.error(err?.message || "Failed to update order status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   useEffect(() => {
     const header = headerRef.current;
@@ -452,16 +479,73 @@ const FileManager = () => {
   };
 
   // --- Agent media restriction ---
-  // Build a set of service IDs that have at least one file uploaded
+  // Build a set of service IDs that have at least one file or link uploaded
   const serviceIdsWithMedia = React.useMemo(() => {
     const set = new Set<number | string>();
     const files = filesData?.files ?? [];
     files.forEach((f) => {
-      if (f.service_id != null) set.add(f.service_id);
-      if (f.service?.id != null) set.add(f.service.id);
+      if (f.service_id != null) {
+        set.add(f.service_id);
+        set.add(String(f.service_id));
+      }
+      if (f.service?.id != null) {
+        set.add(f.service.id);
+        set.add(String(f.service.id));
+      }
+      if (f.service?.uuid) {
+        set.add(f.service.uuid);
+      }
     });
+
+    const links = filesData?.links ?? [];
+    links.forEach((l) => {
+      if (l.link && String(l.link).trim() !== "") {
+        if (l.service_id != null) {
+          set.add(l.service_id);
+          set.add(String(l.service_id));
+        }
+        if (l.service?.id != null) {
+          set.add(l.service.id);
+          set.add(String(l.service.id));
+        }
+        if (l.service?.uuid) {
+          set.add(l.service.uuid);
+        }
+      }
+    });
+
+    // If any 3D link exists in the tour, match any 3D/Matterport service in the order
+    const hasAny3DLink = links.some(
+      (l) => l.link && String(l.link).trim() !== "",
+    );
+    if (hasAny3DLink) {
+      services.forEach((s) => {
+        const sName = s.service?.name?.toLowerCase() || "";
+        const cName = (s.service as any)?.category?.name?.toLowerCase() || "";
+        if (
+          sName.includes("matterport") ||
+          sName.includes("3d tour") ||
+          sName.includes("3d floor") ||
+          cName.includes("3d") ||
+          cName.includes("matterport")
+        ) {
+          if (s.service_id != null) {
+            set.add(s.service_id);
+            set.add(String(s.service_id));
+          }
+          if (s.service?.id != null) {
+            set.add(s.service.id);
+            set.add(String(s.service.id));
+          }
+          if (s.service?.uuid) {
+            set.add(s.service.uuid);
+          }
+        }
+      });
+    }
+
     return set;
-  }, [filesData]);
+  }, [filesData, services]);
 
   // Returns array of services without media for a given invoice (or order-wide if no invoice provided)
   const getMissingServicesForInvoice = React.useCallback(
@@ -2353,6 +2437,49 @@ const FileManager = () => {
               >
                 Order details
               </SafeLink>
+              {currentOrderStatus && (
+                <div className="flex items-center gap-1.5 ml-1 shrink-0">
+                  <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase hidden sm:inline">Status:</span>
+                  {userType === "admin" ? (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={currentOrderStatus}
+                        disabled={isUpdatingStatus}
+                        onChange={(e) => handleUpdateOrderStatus(e.target.value)}
+                        className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 border cursor-pointer transition-colors shadow-sm outline-none ${
+                          currentOrderStatus === "Completed" ? "bg-emerald-600 text-white border-emerald-600" :
+                          currentOrderStatus === "Processing" ? "bg-blue-600 text-white border-blue-600" :
+                          currentOrderStatus === "In Progress" ? "bg-indigo-600 text-white border-indigo-600" :
+                          currentOrderStatus === "Pending" ? "bg-amber-500 text-white border-amber-500" :
+                          currentOrderStatus === "Cancelled" ? "bg-rose-500 text-white border-rose-500" :
+                          "bg-gray-500 text-white border-gray-500"
+                        } ${isUpdatingStatus ? "opacity-70 cursor-not-allowed" : ""}`}
+                      >
+                        <option value="Processing" className="bg-white text-gray-800">Processing</option>
+                        <option value="In Progress" className="bg-white text-gray-800">In Progress</option>
+                        <option value="Pending" className="bg-white text-gray-800">Pending</option>
+                        <option value="Completed" className="bg-white text-gray-800">Completed</option>
+                        <option value="On Hold" className="bg-white text-gray-800">On Hold</option>
+                        <option value="Cancelled" className="bg-white text-gray-800">Cancelled</option>
+                      </select>
+                      {isUpdatingStatus && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                      )}
+                    </div>
+                  ) : (
+                    <span className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 text-white ${
+                      currentOrderStatus === "Completed" ? "bg-emerald-600" :
+                      currentOrderStatus === "Processing" ? "bg-blue-600" :
+                      currentOrderStatus === "In Progress" ? "bg-indigo-600" :
+                      currentOrderStatus === "Pending" ? "bg-amber-500" :
+                      currentOrderStatus === "Cancelled" ? "bg-rose-500" :
+                      "bg-gray-500"
+                    }`}>
+                      {currentOrderStatus}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2801,6 +2928,7 @@ const FileManager = () => {
         selectedCount={pkgWarningConfig.selectedCount}
         packageLimit={pkgWarningConfig.packageLimit}
         mediaLabel={pkgWarningConfig.mediaLabel}
+        currentOption={pkgWarningConfig.currentOption}
         onConfirmProceed={() => {
           executeNavigation(
             pkgWarningConfig.targetTab,

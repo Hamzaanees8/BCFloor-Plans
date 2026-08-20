@@ -465,19 +465,64 @@ const Page = () => {
         try {
           const token = localStorage.getItem("token") || "";
           const filesData = await GetFilesData(token, billing.order_uuid);
-          // API returns { data: Tour[] } where each Tour has .files[]
+          // API returns { data: Tour[] } where each Tour has .files[] and .links[]
           const tours: any[] = Array.isArray(filesData?.data) ? filesData.data : [];
           const files: any[] = tours.flatMap((t: any) => Array.isArray(t.files) ? t.files : []);
+          const links: any[] = tours.flatMap((t: any) => Array.isArray(t.links) ? t.links : []);
           const serviceIdsWithMedia = new Set<number | string>();
           files.forEach((f: any) => {
             if (f.service_id != null) {
               serviceIdsWithMedia.add(f.service_id);
+              serviceIdsWithMedia.add(String(f.service_id));
             }
-            // Also check nested service object
             if (f.service?.id != null) {
               serviceIdsWithMedia.add(f.service.id);
+              serviceIdsWithMedia.add(String(f.service.id));
+            }
+            if (f.service?.uuid) {
+              serviceIdsWithMedia.add(f.service.uuid);
             }
           });
+          links.forEach((l: any) => {
+            if (l.link && String(l.link).trim() !== "") {
+              if (l.service_id != null) {
+                serviceIdsWithMedia.add(l.service_id);
+                serviceIdsWithMedia.add(String(l.service_id));
+              }
+              if (l.service?.id != null) {
+                serviceIdsWithMedia.add(l.service.id);
+                serviceIdsWithMedia.add(String(l.service.id));
+              }
+              if (l.service?.uuid) {
+                serviceIdsWithMedia.add(l.service.uuid);
+              }
+            }
+          });
+
+          // Match 3D/Matterport service if any 3D link exists in tour
+          const hasAny3DLink = links.some((l: any) => l.link && String(l.link).trim() !== "");
+          if (hasAny3DLink && Array.isArray(billing.services)) {
+            billing.services.forEach((s: any) => {
+              const sName = (s.service?.name || s.name || "").toLowerCase();
+              if (sName.includes("matterport") || sName.includes("3d tour") || sName.includes("3d floor")) {
+                if (s.service_id != null) {
+                  serviceIdsWithMedia.add(s.service_id);
+                  serviceIdsWithMedia.add(String(s.service_id));
+                }
+                if (s.service?.id != null) {
+                  serviceIdsWithMedia.add(s.service.id);
+                  serviceIdsWithMedia.add(String(s.service.id));
+                }
+                if (s.id != null) {
+                  serviceIdsWithMedia.add(s.id);
+                  serviceIdsWithMedia.add(String(s.id));
+                }
+                if (s.service?.uuid) {
+                  serviceIdsWithMedia.add(s.service.uuid);
+                }
+              }
+            });
+          }
           setRowServiceMedia((prev) => ({
             ...prev,
             [billing.order_uuid]: serviceIdsWithMedia,

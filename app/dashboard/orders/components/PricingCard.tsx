@@ -211,22 +211,24 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
 
     if (FilteredOptions.length === 0 && pricingOptions.length > 0) {
-      if (selectedOption !== "custom") {
-        setSelectedOptions(prev => ({
-          ...prev,
-          [service.uuid]: "custom",
-        }));
-      }
-      // Pre-fill the sqft input with the property's square footage so the
-      // calculated price is immediately correct and visible to the user.
-      if (squareFootage > 0) {
-        setCustomServiceNames(prev => {
-          // Only set if the user hasn't already typed a custom value
-          if (!prev[service.uuid]) {
-            return { ...prev, [service.uuid]: String(squareFootage) };
-          }
-          return prev;
-        });
+      if (userType === 'admin') {
+        if (selectedOption !== "custom") {
+          setSelectedOptions(prev => ({
+            ...prev,
+            [service.uuid]: "custom",
+          }));
+        }
+        // Pre-fill the sqft input with the property's square footage so the
+        // calculated price is immediately correct and visible to the user.
+        if (squareFootage > 0) {
+          setCustomServiceNames(prev => {
+            // Only set if the user hasn't already typed a custom value
+            if (!prev[service.uuid]) {
+              return { ...prev, [service.uuid]: String(squareFootage) };
+            }
+            return prev;
+          });
+        }
       }
     } else if (!isValid && FilteredOptions.length > 0 && selectedOption !== "custom") {
       const defaultVal = FilteredOptions[0].title ?? '';
@@ -451,7 +453,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   Pricing Options
                 </AccordionTrigger>
                 <AccordionContent className="text-[#666666] text-[11px] font-[400]">
-                  {noTierMatch && squareFootage > 0 && (
+                  {noTierMatch && squareFootage > 0 && userType === 'admin' && (
                     <div className="flex items-center gap-2 mb-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px]">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
                       <span>
@@ -532,95 +534,97 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       ))}
                     </div>
 
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <label htmlFor={`custom-${service.uuid}`} className="text-[11px] text-[#666666]">Custom Price</label>
-                        {isHybrid && (
-                          <select
-                            className="text-[9px] bg-gray-200 border border-gray-300 rounded p-0.5 px-1 outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
-                            value={currentCalcMode}
-                            disabled={isPaid || isBooked || hasPastSlots}
-                            onChange={(e) => {
-                              setActiveCalculationMode(e.target.value as 'area' | 'quantity');
-                            }}
-                          >
-                            <option value="area">SqFt Mode</option>
-                            <option value="quantity">Qty Mode</option>
-                          </select>
-                        )}
-                      </div>
-
-                      {currentCalcMode === 'area' && selectedOption === "custom" && customCalcResult && (
-                        <div className="text-[9px] text-gray-500 mb-1">
-                          {customCalcResult.method === 'explicit'
-                            ? `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft = $${customCalcResult.price.toFixed(2)}`
-                            : `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft (nearest tier) = $${customCalcResult.price.toFixed(2)}`
-                          }
+                    {userType === 'admin' && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <label htmlFor={`custom-${service.uuid}`} className="text-[11px] text-[#666666]">Custom Price</label>
+                          {isHybrid && (
+                            <select
+                              className="text-[9px] bg-gray-200 border border-gray-300 rounded p-0.5 px-1 outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
+                              value={currentCalcMode}
+                              disabled={isPaid || isBooked || hasPastSlots}
+                              onChange={(e) => {
+                                setActiveCalculationMode(e.target.value as 'area' | 'quantity');
+                              }}
+                            >
+                              <option value="area">SqFt Mode</option>
+                              <option value="quantity">Qty Mode</option>
+                            </select>
+                          )}
                         </div>
-                      )}
 
-                      <div className="grid grid-cols-8 gap-2 mt-1 items-center">
-                        <RadioGroupItem
-                          value="custom"
-                          id={`custom-${service.uuid}`}
-                          disabled={isPaid || isBooked || hasPastSlots}
-                          title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
-                          className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
-                            appearance-none
-                            after:hidden
-                            data-[state=checked]:bg-transparent
-                            data-[state=checked]:before:content-['']
-                            data-[state=checked]:before:absolute
-                            data-[state=checked]:before:inset-0
-                            data-[state=checked]:before:m-auto
-                            data-[state=checked]:before:w-[14px]
-                            data-[state=checked]:before:h-[14px]
-                            data-[state=checked]:before:bg-[var(--checked-bg)]
-                            data-[state=checked]:before:rounded-[2px]"
-                          style={{
-                            // @ts-expect-error: Custom CSS property for dynamic checked background
-                            '--checked-bg': roleSettings.pageTabColor
-                          }}
-                        />
-                        <Input
-                          placeholder={currentCalcMode === 'quantity' ? "Enter quantity" : "Enter sqft."}
-                          type="number"
-                          disabled={isPaid || isBooked || hasPastSlots}
-                          className="h-[30px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
-                          value={customServiceName}
-                          onChange={(e) => {
-                            if (isPaid || isBooked || hasPastSlots) return;
-                            setCustomServiceNames(prev => ({
-                              ...prev,
-                              [service.uuid]: e.target.value,
-                            }));
-                            setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
-                            handleSelectService("custom", undefined, e.target.value);
-                          }}
-                        />
-                        <div className="relative col-span-3 flex items-center h-[30px]">
-                          <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
+                        {currentCalcMode === 'area' && selectedOption === "custom" && customCalcResult && (
+                          <div className="text-[9px] text-gray-500 mb-1">
+                            {customCalcResult.method === 'explicit'
+                              ? `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft = $${customCalcResult.price.toFixed(2)}`
+                              : `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft (nearest tier) = $${customCalcResult.price.toFixed(2)}`
+                            }
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-8 gap-2 mt-1 items-center">
+                          <RadioGroupItem
+                            value="custom"
+                            id={`custom-${service.uuid}`}
+                            disabled={isPaid || isBooked || hasPastSlots}
+                            title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
+                            className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
+                              appearance-none
+                              after:hidden
+                              data-[state=checked]:bg-transparent
+                              data-[state=checked]:before:content-['']
+                              data-[state=checked]:before:absolute
+                              data-[state=checked]:before:inset-0
+                              data-[state=checked]:before:m-auto
+                              data-[state=checked]:before:w-[14px]
+                              data-[state=checked]:before:h-[14px]
+                              data-[state=checked]:before:bg-[var(--checked-bg)]
+                              data-[state=checked]:before:rounded-[2px]"
+                            style={{
+                              // @ts-expect-error: Custom CSS property for dynamic checked background
+                              '--checked-bg': roleSettings.pageTabColor
+                            }}
+                          />
                           <Input
+                            placeholder={currentCalcMode === 'quantity' ? "Enter quantity" : "Enter sqft."}
                             type="number"
-                            min={0}
-                            placeholder="__"
-                            disabled={isPaid || isBooked || hasPastSlots || userType !== 'admin'}
-                            className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
-                            value={displayPrice}
-                            onChange={e => {
-                              if (isPaid || isBooked || userType !== 'admin') return;
-                              setCustomPrices(prev => ({
+                            disabled={isPaid || isBooked || hasPastSlots}
+                            className="h-[30px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
+                            value={customServiceName}
+                            onChange={(e) => {
+                              if (isPaid || isBooked || hasPastSlots) return;
+                              setCustomServiceNames(prev => ({
                                 ...prev,
                                 [service.uuid]: e.target.value,
                               }));
-                              if (selectedOption === "custom") {
-                                handleSelectService("custom", e.target.value);
-                              }
+                              setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
+                              handleSelectService("custom", undefined, e.target.value);
                             }}
                           />
+                          <div className="relative col-span-3 flex items-center h-[30px]">
+                            <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="__"
+                              disabled={isPaid || isBooked || hasPastSlots}
+                              className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
+                              value={displayPrice}
+                              onChange={e => {
+                                if (isPaid || isBooked) return;
+                                setCustomPrices(prev => ({
+                                  ...prev,
+                                  [service.uuid]: e.target.value,
+                                }));
+                                if (selectedOption === "custom") {
+                                  handleSelectService("custom", e.target.value);
+                                }
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </RadioGroup>
                 </AccordionContent>
               </AccordionItem>

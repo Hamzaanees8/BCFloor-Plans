@@ -19,7 +19,7 @@ const InvoicePreviewPage = () => {
     const { uuid } = useParams()
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
-    const role = (userType as string) || 'admin'
+    const role = (userType as string)?.toLowerCase() || 'admin'
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin']
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`
 
@@ -51,13 +51,22 @@ const InvoicePreviewPage = () => {
         setLoading(true)
         GetInvoice(uuid as string)
             .then(res => {
-                setInvoice(res.data)
-                setEditData(JSON.parse(JSON.stringify(res.data)))
+                const inv = res.data;
+                setInvoice(inv)
+                const clone = JSON.parse(JSON.stringify(inv));
+                // Ensure items have proper flags
+                if (clone.items) {
+                    clone.items = clone.items.map((item: any) => ({
+                        ...item,
+                        gst_enabled: item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true,
+                        pst_enabled: item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false,
+                    }));
+                }
+                setEditData(clone)
             })
             .catch(() => toast.error('Failed to load invoice'))
             .finally(() => setLoading(false))
     }
-
 
     const handleDownload = async () => {
         if (!invoice) return;
@@ -65,6 +74,115 @@ const InvoicePreviewPage = () => {
         const fileName = `Invoice_${invoiceNumber}.pdf`;
         await DownloadInvoicePdf('invoice-pdf-content', fileName);
     }
+
+    const getProvince = () => {
+        return (invoice?.order?.property?.province || invoice?.order?.property?.state || invoice?.agent?.headquarter_province || 'BC').toUpperCase().trim();
+    }
+
+    const calculateTaxRates = (provinceStr: string) => {
+        const prov = (provinceStr || 'BC').toUpperCase().trim();
+        switch (prov) {
+            case 'ON':
+            case 'ONTARIO':
+                return { hstRate: 13, gstRate: 0, pstRate: 0, isHST: true, name: 'HST' };
+            case 'NB':
+            case 'NEW BRUNSWICK':
+            case 'NL':
+            case 'NEWFOUNDLAND':
+            case 'NS':
+            case 'NOVA SCOTIA':
+            case 'PE':
+            case 'PRINCE EDWARD ISLAND':
+                return { hstRate: 15, gstRate: 0, pstRate: 0, isHST: true, name: 'HST' };
+            case 'BC':
+            case 'BRITISH COLUMBIA':
+                return { hstRate: 0, gstRate: 5, pstRate: 7, isHST: false, name: 'GST + PST' };
+            case 'SK':
+            case 'SASKATCHEWAN':
+                return { hstRate: 0, gstRate: 5, pstRate: 6, isHST: false, name: 'GST + PST' };
+            case 'MB':
+            case 'MANITOBA':
+                return { hstRate: 0, gstRate: 5, pstRate: 7, isHST: false, name: 'GST + RST' };
+            case 'QC':
+            case 'QUEBEC':
+                return { hstRate: 0, gstRate: 5, pstRate: 9.975, isHST: false, name: 'GST + QST' };
+            default:
+                // AB, NT, NU, YT (5% GST only)
+                return { hstRate: 0, gstRate: 5, pstRate: 0, isHST: false, name: 'GST' };
+        }
+    };
+
+    const recalulateTotals = (items: any[]) => {
+        const province = getProvince();
+        const taxRule = calculateTaxRates(province);
+
+        let subtotal = 0;
+        let totalGstAmount = 0;
+        let totalPstAmount = 0;
+        let totalHstAmount = 0;
+
+        const updatedItems = items.map(item => {
+            const qty = parseFloat(item.quantity) || 0;
+            const price = parseFloat(item.unit_price) || 0;
+            const amount = Number((qty * price).toFixed(2));
+            const gstEnabled = item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true;
+            const pstEnabled = item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false;
+
+            let gstAmount = 0;
+            let pstAmount = 0;
+            let hstAmount = 0;
+
+            if (taxRule.isHST) {
+                if (gstEnabled) hstAmount = Number((amount * (taxRule.hstRate / 100)).toFixed(2));
+            } else {
+                if (gstEnabled) gstAmount = Number((amount * (taxRule.gstRate / 100)).toFixed(2));
+                if (pstEnabled) pstAmount = Number((amount * (taxRule.pstRate / 100)).toFixed(2));
+            }
+
+            const itemTax = Number((gstAmount + pstAmount + hstAmount).toFixed(2));
+
+            subtotal += amount;
+            totalGstAmount += gstAmount;
+            totalPstAmount += pstAmount;
+            totalHstAmount += hstAmount;
+
+            return {
+                ...item,
+                amount: amount.toFixed(2),
+                tax_amount: itemTax.toFixed(2),
+                gst_amount: gstAmount.toFixed(2),
+                pst_amount: pstAmount.toFixed(2),
+                gst_enabled: gstEnabled,
+                pst_enabled: pstEnabled,
+            };
+        });
+
+        const totalTax = Number((totalGstAmount + totalPstAmount + totalHstAmount).toFixed(2));
+        const grandTotal = Number((subtotal + totalTax).toFixed(2));
+        const effectiveTaxRate = subtotal > 0 ? Number(((totalTax / subtotal) * 100).toFixed(2)) : 0;
+        const paidAmount = parseFloat(editData?.paid_amount || invoice?.paid_amount || 0);
+        const balanceDue = Number(Math.max(0, grandTotal - paidAmount).toFixed(2));
+
+        const taxDetails: Record<string, { rate: number; amount: number }> = {};
+        if (totalHstAmount > 0) taxDetails['HST'] = { rate: taxRule.hstRate, amount: totalHstAmount };
+        if (totalGstAmount > 0) taxDetails['GST'] = { rate: taxRule.gstRate, amount: totalGstAmount };
+        if (totalPstAmount > 0) taxDetails['PST'] = { rate: taxRule.pstRate, amount: totalPstAmount };
+        if (Object.keys(taxDetails).length === 0 && totalTax > 0) {
+            taxDetails['Tax'] = { rate: effectiveTaxRate, amount: totalTax };
+        }
+
+        return {
+            items: updatedItems,
+            subtotal: subtotal.toFixed(2),
+            tax_rate: effectiveTaxRate.toString(),
+            tax_amount: totalTax.toFixed(2),
+            tax_details: taxDetails,
+            total: grandTotal.toFixed(2),
+            balance_due: balanceDue.toFixed(2),
+            gst_amount: totalGstAmount.toFixed(2),
+            pst_amount: totalPstAmount.toFixed(2),
+        };
+    };
 
     const handleSave = async () => {
         if (!editData) return
@@ -75,12 +193,16 @@ const InvoicePreviewPage = () => {
         try {
             const payload = {
                 notes: editData.notes,
-                tax_rate: editData.tax_rate,
+                tax_rate_override: editData.tax_rate ? parseFloat(editData.tax_rate) : undefined,
                 items: editData.items.map((item: any) => ({
+                    uuid: item.uuid || undefined,
                     description: item.description,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    order_service_id: item.order_service_id || item.order_service?.id || null
+                    quantity: parseFloat(item.quantity) || 1,
+                    unit_price: parseFloat(item.unit_price) || 0,
+                    gst_enabled: item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true,
+                    pst_enabled: item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false,
+                    order_service_id: item.order_service_id || item.order_service?.id || item.orderService?.id || null,
+                    order_service_uuid: item.order_service_uuid || item.order_service?.uuid || item.orderService?.uuid || null,
                 }))
             }
             await UpdateInvoice(invoice.uuid, payload)
@@ -89,7 +211,7 @@ const InvoicePreviewPage = () => {
             setIsEditing(false)
         } catch (err: any) {
             console.error('Save failed:', err)
-            toast.error(err.message || 'Connection error')
+            toast.error(err.response?.data?.message || err.message || 'Connection error')
         } finally {
             setSaving(false)
         }
@@ -142,25 +264,14 @@ const InvoicePreviewPage = () => {
         setIsRefundModalOpen(true)
     }
 
-    const recalulateTotals = (items: any[], taxRate: number) => {
-        const subtotal = items.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0), 0)
-        const taxAmount = subtotal * (taxRate / 100)
-        return {
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2)
-        }
-    }
-
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...editData.items]
         newItems[index] = { ...newItems[index], [field]: value }
 
-        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        const recalculation = recalulateTotals(newItems)
         setEditData({
             ...editData,
-            items: newItems,
-            ...totals
+            ...recalculation,
         })
     }
 
@@ -170,36 +281,46 @@ const InvoicePreviewPage = () => {
             quantity: 1,
             unit_price: 0,
             amount: 0,
+            gst_enabled: true,
+            pst_enabled: false,
             order_service_id: null
         }
-        const newItems = [...editData.items, newItem]
-        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        const newItems = [...(editData.items || []), newItem]
+        const recalculation = recalulateTotals(newItems)
         setEditData({
             ...editData,
-            items: newItems,
-            ...totals
+            ...recalculation,
         })
     }
 
     const removeItem = (index: number) => {
         const newItems = editData.items.filter((_: any, i: number) => i !== index)
-        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        const recalculation = recalulateTotals(newItems)
         setEditData({
             ...editData,
-            items: newItems,
-            ...totals
+            ...recalculation,
         })
     }
 
     const updateTaxRate = (val: string) => {
         const rate = parseFloat(val) || 0
-        const totals = recalulateTotals(editData.items, rate)
+        const subtotal = parseFloat(editData.subtotal || 0)
+        const taxAmount = (subtotal * (rate / 100))
+        const grandTotal = subtotal + taxAmount
+        const paidAmount = parseFloat(editData?.paid_amount || invoice?.paid_amount || 0)
+        const balanceDue = Math.max(0, grandTotal - paidAmount)
+
         setEditData({
             ...editData,
             tax_rate: val,
-            ...totals
+            tax_amount: taxAmount.toFixed(2),
+            total: grandTotal.toFixed(2),
+            balance_due: balanceDue.toFixed(2),
         })
     }
+
+    const isEditableStatus = invoice && !['paid', 'void', 'refunded'].includes((invoice.status || '').toLowerCase());
+    const canEdit = role === 'admin' && isEditableStatus;
 
     if (loading) {
         return (
@@ -227,7 +348,10 @@ const InvoicePreviewPage = () => {
                             <Button
                                 variant="outline"
                                 className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"
-                                onClick={() => setIsEditing(false)}
+                                onClick={() => {
+                                    setEditData(JSON.parse(JSON.stringify(invoice)))
+                                    setIsEditing(false)
+                                }}
                                 disabled={saving}
                             >
                                 <X className="mr-2 h-4 w-4" /> Cancel
@@ -258,7 +382,7 @@ const InvoicePreviewPage = () => {
                                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />} Refund
                                 </Button>
                             )}
-                            {role === 'admin' && invoice.status !== 'paid' && (
+                            {canEdit && (
                                 <Button
                                     variant="outline"
                                     className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"

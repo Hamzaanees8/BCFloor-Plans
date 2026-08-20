@@ -35,6 +35,9 @@ export type CalendarEvent = {
   service_id?: number;
   color_id?: number;
   order_id?: string | number;
+  custom_duration?: number;
+  custom_end_time?: string;
+  buffer_minutes?: number;
 };
 
 type QuickViewCardProps = {
@@ -299,6 +302,16 @@ export default function OrderQuickViewCard({
                 {dayjs(CurrentOrder?.created_at).format("MMMM, DD, YYYY")}
               </span>
               <span className="text-[#666666] ml-0">{`${dayjs(new Date(data.start)).format("hh:mm A")} - ${dayjs(new Date(data.end)).format("hh:mm A")}`}</span>
+              {data.custom_duration ? (
+                <span className="text-[12px] text-blue-600 font-semibold mt-0.5">
+                  Duration: {Math.floor(data.custom_duration / 60) > 0 ? `${Math.floor(data.custom_duration / 60)}h ` : ''}{data.custom_duration % 60}m (Overridden)
+                </span>
+              ) : null}
+              {data.buffer_minutes ? (
+                <span className="text-[12px] text-gray-500 font-medium">
+                  Buffer / Travel: {data.buffer_minutes}m
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center space-x-[18px]">

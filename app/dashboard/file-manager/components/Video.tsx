@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
 import { naturalSortFiles } from '../utils/naturalSort';
-import { Check, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Check, PlayCircle, Loader2, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
@@ -477,6 +477,67 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
         }
     };
 
+    const handledownloadFile = useCallback(async (fileUuid: string, fileName: string) => {
+        try {
+            const token = localStorage.getItem('token') ?? "";
+            const response = await DownloadFile(token, fileUuid);
+            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download error:', err);
+            toast.error('Download failed. Please try again.');
+        }
+    }, []);
+
+    const handleDeleteUploadedFile = useCallback(async (fileUuid: string) => {
+        if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this video?")) return;
+        try {
+            await S3UploadService.deleteUploads({
+                uuids: [fileUuid],
+                type: "tour-file"
+            });
+
+            if (filesData) {
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        files: prev.files.filter(f => f.uuid !== fileUuid)
+                    };
+                });
+            }
+            toast.success("File deleted successfully");
+        } catch (err) {
+            console.error('Delete error:', err);
+            toast.error('Failed to delete file. Please try again.');
+        }
+    }, [filesData, setFilesData]);
+
+    const handleToggleComplimentary = useCallback(async (fileUuid: string, currentVal: boolean) => {
+        const newVal = !currentVal;
+        setFilesData(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                files: prev.files.map(f => f.uuid === fileUuid ? { ...f, is_complimentary: newVal } : f)
+            };
+        });
+        setChangedFileUuids(prevSet => {
+            const next = new Set(prevSet);
+            next.add(fileUuid);
+            return next;
+        });
+        toast.success(newVal ? "File marked as complimentary" : "Complimentary status removed");
+    }, [setFilesData, setChangedFileUuids]);
+
     const renderFileItem = useCallback((item: FileItem, isDragging?: boolean) => {
         const isLocal = item.status === 'local';
         const file = item.originalData;
@@ -775,29 +836,92 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
                             )}
                         </p>
-                        {isLocal ? null : (
-                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
-                                <span
-                                    onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
-                                    className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                        {isLocal ? (
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedVideoFiles(prev => prev.map(f => {
+                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                            return { ...f, is_complimentary: !f.is_complimentary };
+                                        }
+                                        return f;
+                                    }));
+                                }}
+                                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                title="Mark as Complimentary"
+                            >
+                                <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                    style={{ width: imagesPerRow >= 6 ? '14px' : '18px', height: imagesPerRow >= 6 ? '14px' : '18px' }}
                                 >
-                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                </span>
-                            ) : (
-                                <span
-                                    title="service not paid yet"
-                                    className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
-                                >
-                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                </span>
-                            )
+                                    {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 10 : 14} />}
+                                </div>
+                                {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                {userType === 'admin' && (
+                                    <>
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleComplimentary(file.uuid, !!file.is_complimentary);
+                                            }}
+                                            className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                            title={file.is_complimentary ? "Complimentary: Click to remove" : "Click to mark as Complimentary"}
+                                        >
+                                            <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                                style={{ width: imagesPerRow >= 6 ? '13px' : '16px', height: imagesPerRow >= 6 ? '13px' : '16px' }}
+                                            >
+                                                {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 9 : 12} />}
+                                            </div>
+                                            {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '9px' : '11px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteUploadedFile(file.uuid);
+                                            }}
+                                            className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Delete Video Item"
+                                        >
+                                            <Trash2 size={imagesPerRow >= 6 ? 13 : 16} />
+                                        </button>
+                                    </>
+                                )}
+
+                                {userType === 'agent' && file.is_complimentary && (
+                                    <span className="text-[#6BAE41] font-semibold text-[10px] sm:text-[11px] bg-[#6BAE41]/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                        Complimentary
+                                    </span>
+                                )}
+
+                                {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
+                                        className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
+                                        title="Download Video"
+                                    >
+                                        <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                    </span>
+                                ) : (
+                                    userType === 'agent' && !file.is_agent_approved ? null : (
+                                        <span
+                                            title="service not paid yet"
+                                            className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
+                                        >
+                                            <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                        </span>
+                                    )
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide, uploadingThumbnailUuid, setUpdatingThumbnailUuid, localThumbnailPreviews]);
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide, uploadingThumbnailUuid, setUpdatingThumbnailUuid, localThumbnailPreviews, handledownloadFile, handleDeleteUploadedFile, handleToggleComplimentary]);
 
     const handleVideoClick = (url: string, file: SelectedFiles | Files) => {
         setSelectedVideoUrl(url);
@@ -823,58 +947,6 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);
-    };
-
-
-    const handledownloadFile = async (fileUuid: string, fileName: string) => {
-        try {
-            const token = localStorage.getItem('token') ?? "";
-
-            const response = await DownloadFile(token, fileUuid);
-
-            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-
-            // Convert the response directly to blob
-            const blob = await response.blob();
-
-            // Create a temporary URL and trigger download
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-        } catch (err) {
-            console.error('Download error:', err);
-            toast.error('Download failed. Please try again.');
-        }
-    };
-
-    const handleDeleteUploadedFile = async (fileUuid: string) => {
-        try {
-            await S3UploadService.deleteUploads({
-                uuids: [fileUuid],
-                type: "tour-file"
-            });
-
-            // Update local state by removing the file
-            if (filesData) {
-                setFilesData(prev => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        files: prev.files.filter(f => f.uuid !== fileUuid)
-                    };
-                });
-            }
-            toast.success("File deleted successfully");
-        } catch (err) {
-            console.error('Delete error:', err);
-            toast.error('Failed to delete file. Please try again.');
-        }
     };
     const handleHideSubmit = async () => {
         const token = localStorage.getItem('token');
