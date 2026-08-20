@@ -107,6 +107,21 @@ export type Order = {
             is_show: boolean;
             service: { id: number; uuid: string; name: string; category: { id: number; name: string } };
         }>;
+        links?: Array<{
+            id?: number;
+            uuid?: string;
+            tour_id?: number;
+            service_id?: number;
+            type?: string;
+            link?: string;
+            is_show?: boolean;
+            is_featured?: boolean;
+            sort_order?: number;
+            created_at?: string;
+            updated_at?: string;
+            service?: { id: number; uuid: string; name: string; category: { id: number; name: string } };
+        }>;
+        is_publish?: boolean;
         snapshots: Snapshoots[];
     }>;
 

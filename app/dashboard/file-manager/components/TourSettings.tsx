@@ -47,6 +47,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     const [tourActivated, setTourActivated] = useState<boolean>(false);
     const [propertyWebsite, setPropertyWebsite] = useState("");
     const [mlsProperty, setMlsProperty] = useState("");
+    const [matterportLink, setMatterportLink] = useState("");
     const [savingProperty, setSavingProperty] = useState(false);
     const [savingContact, setSavingContact] = useState(false);
     const CompanyLogofileInputRef = useRef(null)
@@ -96,6 +97,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
 
             setPropertyWebsite(orderData?.property?.property_website || tourUrl)
             setMlsProperty(orderData?.property?.mls_property ?? '')
+            const firstMatterport = orderData?.tours?.[0]?.links?.find((l: any) => l.link && (l.link.includes("matterport") || l.link.includes("3d") || l.type === "branded" || l.type === "unbranded"))?.link || (orderData?.property as any)?.matterport_link || "";
+            setMatterportLink(firstMatterport)
             setprice(Number(orderData?.property?.listing_price))
             setPropertySize(Number(orderData?.property?.square_footage))
             setBedrooms(Number(orderData?.property?.bedrooms))
@@ -175,6 +178,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                 body: JSON.stringify({
                     address,
                     mls_number: mlsProperty,
+                    mls_property: mlsProperty,
+                    matterport_link: matterportLink,
                     listing_price: price,
                     bedrooms,
                     bathrooms,
@@ -391,16 +396,20 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         value={propertyWebsite}
                                                         disabled
                                                         type="text"
-                                                        placeholder="company.bcfp.com/vendor/id=88392"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10"
+                                                        placeholder={userType === 'agent' ? '' : 'company.bcfp.com/vendor/id=88392'}
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 text-[#333333] font-medium disabled:opacity-100 disabled:cursor-not-allowed"
                                                     />
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            navigator.clipboard.writeText(propertyWebsite);
-                                                            toast.success("Link copied to clipboard");
+                                                            if (propertyWebsite) {
+                                                                navigator.clipboard.writeText(propertyWebsite);
+                                                                toast.success("Link copied to clipboard");
+                                                            } else {
+                                                                toast.error("No Property Website link to copy");
+                                                            }
                                                         }}
-                                                        className="absolute right-3 top-1/2 translate-y-[20%] text-[#8E8E8E] hover:text-[#424242] transition-colors"
+                                                        className="absolute right-3 top-1/2 translate-y-[20%] text-[#8E8E8E] hover:text-[#424242] transition-colors cursor-pointer"
                                                         title="Copy to clipboard"
                                                     >
                                                         <Copy size={18} />
@@ -409,26 +418,58 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             </div>
                                             <div className="col-span-2">
                                                 <Label>MLS Property</Label>
-                                                <div className="relative w-full ">
+                                                <div className="relative w-full">
                                                     <Input
                                                         value={mlsProperty}
                                                         onChange={(e) => setMlsProperty(e.target.value)}
+                                                        disabled={userType === 'agent'}
                                                         type="text"
-                                                        placeholder="company.bcfp.com/mls/id=88392"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                        placeholder={userType === 'agent' ? '' : 'company.bcfp.com/mls/id=88392'}
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 text-[#333333] font-medium disabled:opacity-100 disabled:cursor-not-allowed"
                                                     />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (mlsProperty) {
+                                                                navigator.clipboard.writeText(mlsProperty);
+                                                                toast.success("MLS Property copied to clipboard");
+                                                            } else {
+                                                                toast.error("No MLS Property to copy");
+                                                            }
+                                                        }}
+                                                        className="absolute right-3 top-1/2 translate-y-[20%] text-[#8E8E8E] hover:text-[#424242] transition-colors cursor-pointer"
+                                                        title="Copy to clipboard"
+                                                    >
+                                                        <Copy size={18} />
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div className="col-span-2">
                                                 <Label>Matterport</Label>
-                                                <div className="relative w-full ">
+                                                <div className="relative w-full">
                                                     <Input
-                                                        value={mlsProperty}
-                                                        // onChange={(e) => setMlsProperty(e.target.value)}
+                                                        value={matterportLink}
+                                                        onChange={(e) => setMatterportLink(e.target.value)}
+                                                        disabled={userType === 'agent'}
                                                         type="text"
-                                                        placeholder="company.bcfp.com/mls/id=88392"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                        placeholder={userType === 'agent' ? '' : 'https://my.matterport.com/show/?m=...'}
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 text-[#333333] font-medium disabled:opacity-100 disabled:cursor-not-allowed"
                                                     />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (matterportLink) {
+                                                                navigator.clipboard.writeText(matterportLink);
+                                                                toast.success("Matterport link copied to clipboard");
+                                                            } else {
+                                                                toast.error("No Matterport link to copy");
+                                                            }
+                                                        }}
+                                                        className="absolute right-3 top-1/2 translate-y-[20%] text-[#8E8E8E] hover:text-[#424242] transition-colors cursor-pointer"
+                                                        title="Copy to clipboard"
+                                                    >
+                                                        <Copy size={18} />
+                                                    </button>
                                                 </div>
                                             </div>
                                             {userType === 'admin' && (
