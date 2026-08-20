@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { HexColorPicker } from "react-colorful";
 import {
     Accordion,
     AccordionContent,
@@ -74,43 +73,6 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
 
     const [primaryColor, setPrimaryColor] = useState<string>("#6BAE41");
     const [secondaryColor, setSecondaryColor] = useState<string>("#DC9600");
-    const [openPrimaryPicker, setOpenPrimaryPicker] = useState<boolean>(false);
-    const [openSecondaryPicker, setOpenSecondaryPicker] = useState<boolean>(false);
-
-    const primaryWrapperRef = useRef<HTMLDivElement>(null);
-    const secondaryWrapperRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (
-                primaryWrapperRef.current &&
-                event.target instanceof Node &&
-                !primaryWrapperRef.current.contains(event.target)
-            ) {
-                setOpenPrimaryPicker(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (
-                secondaryWrapperRef.current &&
-                event.target instanceof Node &&
-                !secondaryWrapperRef.current.contains(event.target)
-            ) {
-                setOpenSecondaryPicker(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
 
     useEffect(() => {
         if (orderData) {
@@ -469,83 +431,35 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     />
                                                 </div>
                                             </div>
-                                            <div ref={primaryWrapperRef} className="relative">
-                                                <label htmlFor="primary-color">Primary Color</label>
-                                                <div className="flex items-center gap-3 mt-[12px]">
-                                                    <div
-                                                        onClick={() => setOpenPrimaryPicker(!openPrimaryPicker)}
-                                                        className="w-10 h-10 border border-[#BBBBBB] rounded cursor-pointer shrink-0"
-                                                        style={{
-                                                            backgroundColor: primaryColor,
-                                                        }}
-                                                    />
-                                                    <Input
-                                                        id="primary-color"
-                                                        value={primaryColor}
-                                                        onChange={(e) => setPrimaryColor(e.target.value)}
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] font-mono flex-1 text-black"
-                                                    />
-                                                </div>
-                                                {openPrimaryPicker && (
-                                                    <div className="absolute z-10 mt-2 rounded shadow-md border border-[#BBBBBB] bg-white p-3">
-                                                        <HexColorPicker
-                                                            color={primaryColor}
-                                                            onChange={setPrimaryColor}
-                                                        />
+                                            {userType === 'admin' && (
+                                                <>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Priority Hosted Expiry</label>
+                                                        <Select >
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                                <SelectValue placeholder="Select Priority Hosted Expiry" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="60 days" >
+                                                                    60 days starting on activation date
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div ref={secondaryWrapperRef} className="relative">
-                                                <label htmlFor="secondary-color">Secondary Color</label>
-                                                <div className="flex items-center gap-3 mt-[12px]">
-                                                    <div
-                                                        onClick={() => setOpenSecondaryPicker(!openSecondaryPicker)}
-                                                        className="w-10 h-10 border border-[#BBBBBB] rounded cursor-pointer shrink-0"
-                                                        style={{
-                                                            backgroundColor: secondaryColor,
-                                                        }}
-                                                    />
-                                                    <Input
-                                                        id="secondary-color"
-                                                        value={secondaryColor}
-                                                        onChange={(e) => setSecondaryColor(e.target.value)}
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] font-mono flex-1 text-black"
-                                                    />
-                                                </div>
-                                                {openSecondaryPicker && (
-                                                    <div className="absolute z-10 mt-2 rounded shadow-md border border-[#BBBBBB] bg-white p-3">
-                                                        <HexColorPicker
-                                                            color={secondaryColor}
-                                                            onChange={setSecondaryColor}
-                                                        />
+                                                    <div className="col-span-2">
+                                                        <RadioGroup defaultValue="yes" className="space-y-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <RadioGroupItem value="yes" id="yes" />
+                                                                <Label htmlFor="yes">Auto-renew if property not sold</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <RadioGroupItem value="no" id="no" />
+                                                                <Label htmlFor="no">Auto-bill on expiry if property not sold</Label>
+                                                            </div>
+                                                        </RadioGroup>
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label htmlFor="">Priority Hosted Expiry</label>
-                                                <Select >
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Priority Hosted Expiry" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="60 days" >
-                                                            60 days starting on activation date
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="col-span-2">
-                                                <RadioGroup defaultValue="yes" className="space-y-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <RadioGroupItem value="yes" id="yes" />
-                                                        <Label htmlFor="yes">Auto-renew if property not sold</Label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <RadioGroupItem value="no" id="no" />
-                                                        <Label htmlFor="no">Auto-bill on expiry if property not sold</Label>
-                                                    </div>
-                                                </RadioGroup>
-                                            </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

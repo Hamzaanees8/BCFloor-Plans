@@ -151,7 +151,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
                                 latitude: 49.2827,
                                 longitude: -123.1207,
                             },
-                            radius: 100000.0,
+                            radius: 50000.0,
                         },
                     },
                 }),

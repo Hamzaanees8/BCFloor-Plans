@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import TourConfirm from "../dashboard/file-manager/components/TourConfirm";
@@ -143,7 +143,29 @@ const PublicTour = () => {
     }
   }, [orderData, hasSetInitialAudioState]);
 
-  const isFileApprovedByAgent = (file: any) => {
+  const isFileApprovedByAgent = useCallback((file: any) => {
+    if (isPreview) return true;
+    const sName = (file?.service?.name || "").toLowerCase();
+    const catName = (file?.service?.category?.name || "").toLowerCase();
+    const fName = (file?.name || file?.file_name || "").toLowerCase();
+    const isPano =
+      file?.type === "panorama" ||
+      file?.type === "360" ||
+      file?.image_type === "panorama" ||
+      file?.image_type === "360" ||
+      file?.isPanorama === true ||
+      file?.is_panorama === true ||
+      sName.includes("360") ||
+      sName.includes("panorama") ||
+      sName.includes("pano") ||
+      catName.includes("360") ||
+      catName.includes("panorama") ||
+      catName.includes("pano") ||
+      fName.includes("360") ||
+      fName.includes("pano");
+
+    if (isPano) return true;
+
     return (
       file?.is_agent_approved === true ||
       file?.is_agent_approved === 1 ||
@@ -154,23 +176,34 @@ const PublicTour = () => {
       file?.is_complimentary === "1" ||
       file?.is_complimentary === "true"
     );
-  };
+  }, [isPreview]);
 
-  // Extract files from orderData.tours[0].files
+  // Extract files from orderData.tours[0].files or orderData.files
+  const rawTourFiles = useMemo(() => {
+    return orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+  }, [orderData]);
+
   const tourPhotos = useMemo(() => {
     const filtered =
-      orderData?.tours?.[0]?.files?.filter((file) => {
+      rawTourFiles.filter((file: any) => {
         const sName = (file.service?.name || "").toLowerCase();
         const catName = (file.service?.category?.name || "").toLowerCase();
+        const fName = (file.name || file.file_name || "").toLowerCase();
         const isPano =
           (file.type as string) === "panorama" ||
           (file.type as string) === "360" ||
           (file as any).image_type === "panorama" ||
           (file as any).image_type === "360" ||
+          (file as any).isPanorama === true ||
+          (file as any).is_panorama === true ||
           sName.includes("360") ||
           sName.includes("panorama") ||
+          sName.includes("pano") ||
           catName.includes("360") ||
-          catName.includes("panorama");
+          catName.includes("panorama") ||
+          catName.includes("pano") ||
+          fName.includes("360") ||
+          fName.includes("pano");
 
         const isPhotoOrPano =
           (file.type === "photo" || isPano) &&
@@ -184,18 +217,18 @@ const PublicTour = () => {
         return isPhotoOrPano;
       }) || [];
 
-    return filtered.sort((a, b) => {
+    return filtered.sort((a: any, b: any) => {
       const orderDiff =
         ((a as any).sort_order ?? 0) - ((b as any).sort_order ?? 0);
       if (orderDiff !== 0) return orderDiff;
       return ((a as any).service_id ?? 0) - ((b as any).service_id ?? 0);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderData, isPreview]);
+  }, [rawTourFiles, isPreview, isFileApprovedByAgent]);
 
   const videoFiles = useMemo(
     () =>
-      orderData?.tours?.[0]?.files?.filter((file) => {
+      rawTourFiles.filter((file: any) => {
         const categoryName = file?.service?.category?.name?.toLowerCase() || "";
         const serviceName = file?.service?.name?.toLowerCase() || "";
         const isVideo =
@@ -207,7 +240,7 @@ const PublicTour = () => {
 
         return isVideo;
       }) || [],
-    [orderData],
+    [rawTourFiles, isFileApprovedByAgent],
   );
 
   const floorPlanFiles = useMemo(() => {
@@ -381,7 +414,7 @@ const PublicTour = () => {
       // Find video UUID based on URL
       const normalizeUrl = (url: string) => url.split("?")[0]; // Simple normalization
       const matchedVideo = videoFiles.find(
-        (v) =>
+        (v: any) =>
           normalizeUrl(`${API_URL}/${v.file_path}`) === normalizeUrl(mainVideo),
       );
 

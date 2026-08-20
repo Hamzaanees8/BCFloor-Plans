@@ -96,22 +96,26 @@ function payloadToFormData(payload: OrderPayload): FormData {
         ) {
           Object.entries(item).forEach(([subKey, subVal]) => {
             if (subVal !== undefined && subVal !== null) {
-              formData.append(`${key}[${index}][${subKey}]`, String(subVal));
+              const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+              formData.append(`${key}[${index}][${subKey}]`, valStr);
             }
           });
         } else {
           // ✅ Handles notes and any other string array like notes[0], notes[1]
-          formData.append(`${key}[${index}]`, String(item));
+          const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
+          formData.append(`${key}[${index}]`, valStr);
         }
       });
     } else if (typeof value === "object") {
       Object.entries(value).forEach(([subKey, subVal]) => {
         if (subVal !== undefined && subVal !== null) {
-          formData.append(`${key}[${subKey}]`, String(subVal));
+          const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+          formData.append(`${key}[${subKey}]`, valStr);
         }
       });
     } else {
-      formData.append(key, String(value));
+      const valStr = typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+      formData.append(key, valStr);
     }
   });
 
@@ -136,22 +140,26 @@ function EditOrderPayloadToFormData(payload: EditOrderPayload): FormData {
         ) {
           Object.entries(item).forEach(([subKey, subVal]) => {
             if (subVal !== undefined && subVal !== null) {
-              formData.append(`${key}[${index}][${subKey}]`, String(subVal));
+              const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+              formData.append(`${key}[${index}][${subKey}]`, valStr);
             }
           });
         } else {
           // ✅ Handles notes and any other string array like notes[0], notes[1]
-          formData.append(`${key}[${index}]`, String(item));
+          const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
+          formData.append(`${key}[${index}]`, valStr);
         }
       });
     } else if (typeof value === "object") {
       Object.entries(value).forEach(([subKey, subVal]) => {
         if (subVal !== undefined && subVal !== null) {
-          formData.append(`${key}[${subKey}]`, String(subVal));
+          const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+          formData.append(`${key}[${subKey}]`, valStr);
         }
       });
     } else {
-      formData.append(key, String(value));
+      const valStr = typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+      formData.append(key, valStr);
     }
   });
 
@@ -250,8 +258,18 @@ export async function EditOrderStatus(
   }
 
   if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
-    (error as FetchErrors).errors = data.errors;
+    let errorMsg = "Request failed";
+    if (data.errors) {
+      errorMsg = Object.values(data.errors).flat().join(", ");
+    } else if (data.message) {
+      if (typeof data.message === "object") {
+        errorMsg = Object.values(data.message).flat().join(", ");
+      } else {
+        errorMsg = String(data.message);
+      }
+    }
+    const error = new Error(errorMsg);
+    (error as FetchErrors).errors = data.errors || data.message;
     throw error;
   }
 

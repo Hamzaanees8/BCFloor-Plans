@@ -197,6 +197,7 @@ const FileManager = () => {
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
   const [currentOrderStatus, setCurrentOrderStatus] = useState<string>(orderData?.order_status || "");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
   const { startUpload } = useGlobalFileUpload();
@@ -210,6 +211,7 @@ const FileManager = () => {
   const handleUpdateOrderStatus = async (newStatus: string) => {
     if (!orderId) return;
     const token = localStorage.getItem("token") || "";
+    setIsUpdatingStatus(true);
     try {
       await EditOrderStatus(orderId as string, { order_status: newStatus }, token);
       setCurrentOrderStatus(newStatus);
@@ -220,6 +222,8 @@ const FileManager = () => {
     } catch (err: any) {
       console.error("Failed to update status:", err);
       toast.error(err?.message || "Failed to update order status");
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -2437,25 +2441,31 @@ const FileManager = () => {
                 <div className="flex items-center gap-1.5 ml-1 shrink-0">
                   <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase hidden sm:inline">Status:</span>
                   {userType === "admin" ? (
-                    <select
-                      value={currentOrderStatus}
-                      onChange={(e) => handleUpdateOrderStatus(e.target.value)}
-                      className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 border cursor-pointer transition-colors shadow-sm outline-none ${
-                        currentOrderStatus === "Completed" ? "bg-emerald-600 text-white border-emerald-600" :
-                        currentOrderStatus === "Processing" ? "bg-blue-600 text-white border-blue-600" :
-                        currentOrderStatus === "In Progress" ? "bg-indigo-600 text-white border-indigo-600" :
-                        currentOrderStatus === "Pending" ? "bg-amber-500 text-white border-amber-500" :
-                        currentOrderStatus === "Cancelled" ? "bg-rose-500 text-white border-rose-500" :
-                        "bg-gray-500 text-white border-gray-500"
-                      }`}
-                    >
-                      <option value="Processing" className="bg-white text-gray-800">Processing</option>
-                      <option value="In Progress" className="bg-white text-gray-800">In Progress</option>
-                      <option value="Pending" className="bg-white text-gray-800">Pending</option>
-                      <option value="Completed" className="bg-white text-gray-800">Completed</option>
-                      <option value="On Hold" className="bg-white text-gray-800">On Hold</option>
-                      <option value="Cancelled" className="bg-white text-gray-800">Cancelled</option>
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={currentOrderStatus}
+                        disabled={isUpdatingStatus}
+                        onChange={(e) => handleUpdateOrderStatus(e.target.value)}
+                        className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 border cursor-pointer transition-colors shadow-sm outline-none ${
+                          currentOrderStatus === "Completed" ? "bg-emerald-600 text-white border-emerald-600" :
+                          currentOrderStatus === "Processing" ? "bg-blue-600 text-white border-blue-600" :
+                          currentOrderStatus === "In Progress" ? "bg-indigo-600 text-white border-indigo-600" :
+                          currentOrderStatus === "Pending" ? "bg-amber-500 text-white border-amber-500" :
+                          currentOrderStatus === "Cancelled" ? "bg-rose-500 text-white border-rose-500" :
+                          "bg-gray-500 text-white border-gray-500"
+                        } ${isUpdatingStatus ? "opacity-70 cursor-not-allowed" : ""}`}
+                      >
+                        <option value="Processing" className="bg-white text-gray-800">Processing</option>
+                        <option value="In Progress" className="bg-white text-gray-800">In Progress</option>
+                        <option value="Pending" className="bg-white text-gray-800">Pending</option>
+                        <option value="Completed" className="bg-white text-gray-800">Completed</option>
+                        <option value="On Hold" className="bg-white text-gray-800">On Hold</option>
+                        <option value="Cancelled" className="bg-white text-gray-800">Cancelled</option>
+                      </select>
+                      {isUpdatingStatus && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                      )}
+                    </div>
                   ) : (
                     <span className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 text-white ${
                       currentOrderStatus === "Completed" ? "bg-emerald-600" :
