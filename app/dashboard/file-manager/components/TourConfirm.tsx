@@ -83,6 +83,11 @@ import { getGlobalPhotoOrder } from "../utils/sortOrderUtils";
 import { Loader2 } from "lucide-react";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
 
+const DEFAULT_ROLE_SETTINGS = {
+  pageTabColor: "#4290E9",
+  activeColor: "#4290E9",
+};
+
 const TourConfirm = ({
   orderData,
   isPublicView,
@@ -108,13 +113,13 @@ const TourConfirm = ({
   const organization = orgContext?.organization;
 
   const role = (userType as string)?.toLowerCase() || "admin";
-  const roleSettings = appliedSettings?.[
-    role as keyof typeof appliedSettings
-  ] ||
-    appliedSettings?.["admin"] || {
-      pageTabColor: "#4290E9",
-      activeColor: "#4290E9",
-    };
+  const roleSettings = React.useMemo(() => {
+    return (
+      appliedSettings?.[role as keyof typeof appliedSettings] ||
+      appliedSettings?.["admin"] ||
+      DEFAULT_ROLE_SETTINGS
+    );
+  }, [appliedSettings, role]);
 
   const activeTabColor = React.useMemo(() => {
     // 1. Check organization branding primary color
@@ -260,10 +265,23 @@ const TourConfirm = ({
     return photos;
   }, [isPublicView, publicTourPhotos, filesData?.files, isMediaApprovedByAgent]);
 
+  const handleHomeSlideshowPlayChange = React.useCallback(
+    (playing: boolean) => {
+      setIsHomeSlideshowPlaying(playing);
+      if (isPublicView && setIsAudioPlaying) {
+        setIsAudioPlaying(playing);
+      }
+    },
+    [isPublicView, setIsAudioPlaying],
+  );
+
   useEffect(() => {
     if (activeTab === "Home") {
       setCurrentImageIndex(0);
       setIsHomeSlideshowPlaying(true);
+      if (setIsAudioPlaying) {
+        setIsAudioPlaying(true);
+      }
       if (hasUserClosedSideContact) {
         setIsSideContactOpen(false);
       } else {
@@ -1032,7 +1050,7 @@ const TourConfirm = ({
                           externalAudioControl={isPublicView ? true : undefined}
                           propIsPlaying={isHomeSlideshowPlaying}
                           propIsMuted={isAudioMuted}
-                          propSetIsPlaying={setIsHomeSlideshowPlaying}
+                          propSetIsPlaying={handleHomeSlideshowPlayChange}
                           propSetIsMuted={setIsAudioMuted}
                           watermarkUrl={actualWatermarkLogo}
                         />

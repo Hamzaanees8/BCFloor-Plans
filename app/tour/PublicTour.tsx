@@ -58,7 +58,7 @@ const PublicTour = () => {
   const [activeTab, setActiveTab] = useState("Home");
   const [mainVideo, setMainVideo] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | undefined>();
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(true);
   const [hasSetInitialAudioState, setHasSetInitialAudioState] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -127,18 +127,7 @@ const PublicTour = () => {
 
   useEffect(() => {
     if (orderData && !hasSetInitialAudioState) {
-      const slideShow = orderData.tours?.[0]?.slide_show as any;
-      if (slideShow && slideShow.auto_play !== undefined) {
-        // Parse boolean or string ("1", "true")
-        const isAutoPlay =
-          slideShow.auto_play === true ||
-          slideShow.auto_play === "1" ||
-          slideShow.auto_play === "true";
-        setIsAudioPlaying(isAutoPlay);
-      } else {
-        // Fallback to true if undefined
-        setIsAudioPlaying(true);
-      }
+      setIsAudioPlaying(true);
       setHasSetInitialAudioState(true);
     }
   }, [orderData, hasSetInitialAudioState]);
@@ -309,7 +298,6 @@ const PublicTour = () => {
 
   // Track audio
   const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
-  // Legacy logic for public audio tracks
   useEffect(() => {
     let active = true;
     let createdUrl: string | undefined;
@@ -320,24 +308,30 @@ const PublicTour = () => {
         return;
       }
 
-      if (audioFileName.startsWith("http")) {
+      if (audioFileName.startsWith("http://") || audioFileName.startsWith("https://")) {
         if (active) setAudioUrl(audioFileName);
         return;
       }
 
       try {
-        const response = await fetch(`/audio/${audioFileName}.mp3`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch audio: ${response.status}`);
+        const cleanName = audioFileName.replace(/\.mp3$/i, "");
+        const response = await fetch(`/audio/${cleanName}.mp3`);
+        if (response.ok) {
+          const blob = await response.blob();
+          if (!active) return;
+          createdUrl = URL.createObjectURL(blob);
+          setAudioUrl(createdUrl);
+          return;
         }
-        const blob = await response.blob();
-        if (!active) return;
+      } catch {
+        // Fallback to S3 / API URL if local audio fetch fails
+      }
 
-        createdUrl = URL.createObjectURL(blob);
-        setAudioUrl(createdUrl);
-      } catch (error) {
-        console.error("Error loading audio track:", error);
-        if (active) setAudioUrl(undefined);
+      if (active) {
+        const fallbackUrl = audioFileName.startsWith("/")
+          ? `${API_URL}${audioFileName}`
+          : `${API_URL}/${audioFileName}`;
+        setAudioUrl(fallbackUrl);
       }
     };
 
@@ -349,34 +343,36 @@ const PublicTour = () => {
         URL.revokeObjectURL(createdUrl);
       }
     };
-  }, [audioFileName]);
+  }, [audioFileName, API_URL]);
 
   // Handle audio side-effects and autoplay unlocking
   useEffect(() => {
     const audioEl = audioRef.current;
     if (!audioEl || !audioUrl) return;
 
+    const attemptPlay = () => {
+      if (!audioEl) return;
+      if (isAudioPlaying) {
+        audioEl.play().catch((err) => {
+          console.log("Autoplay blocked, waiting for user interaction:", err);
+        });
+      } else {
+        audioEl.pause();
+      }
+    };
+
+    attemptPlay();
+
     const handleUnlock = () => {
       if (!audioEl) return;
-      if (audioEl.paused && isAudioPlaying) {
+      if (isAudioPlaying && audioEl.paused) {
         audioEl.play().catch(() => {});
       }
-      window.removeEventListener("click", handleUnlock);
-      window.removeEventListener("touchstart", handleUnlock);
-      window.removeEventListener("keydown", handleUnlock);
     };
 
     window.addEventListener("click", handleUnlock);
     window.addEventListener("touchstart", handleUnlock);
     window.addEventListener("keydown", handleUnlock);
-
-    if (isAudioPlaying) {
-      audioEl.play().catch(() => {
-        console.log("Autoplay blocked, waiting for interaction");
-      });
-    } else {
-      audioEl.pause();
-    }
 
     return () => {
       window.removeEventListener("click", handleUnlock);
