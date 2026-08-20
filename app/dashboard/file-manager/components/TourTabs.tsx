@@ -214,7 +214,7 @@ export default function TourTabs({
                   : "h-[32px] w-auto min-w-[100px] md:w-[180px] text-[13px] px-4 py-2"
               } ${
                 activeTab === tab
-                  ? `${userType}-bg text-white font-[500]`
+                  ? `${userType ? `${userType}-bg` : "bg-[#4290E9]"} text-white font-[500]`
                   : "text-[#666666] hover:text-[#666666] font-[700]"
               }`}
             >

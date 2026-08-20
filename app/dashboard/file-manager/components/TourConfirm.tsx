@@ -116,6 +116,24 @@ const TourConfirm = ({
       activeColor: "#4290E9",
     };
 
+  const activeTabColor = React.useMemo(() => {
+    // 1. Check organization branding primary color
+    if (organization?.branding?.primary_color) {
+      const pColor = organization.branding.primary_color;
+      const colorVal = typeof pColor === "object" ? pColor.value : pColor;
+      if (colorVal) return colorVal;
+    }
+    // 2. Check white label roleSettings or pageTabColor / activeColor
+    if (roleSettings?.pageTabColor) {
+      return roleSettings.pageTabColor;
+    }
+    if (roleSettings?.activeColor) {
+      return roleSettings.activeColor;
+    }
+    // 3. Fallback to default tab background color (#4290E9)
+    return "#4290E9";
+  }, [organization, roleSettings]);
+
   const fileManagerContext = useOptionalFileManagerContext();
   const selectedFiles = fileManagerContext?.selectedFiles || [];
   const rawDelay =
@@ -897,9 +915,18 @@ const TourConfirm = ({
                         }}
                         className={`text-xs md:text-[13px] w-auto min-w-[80px] md:w-[160px] font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md uppercase shrink-0 transition-all flex items-center justify-center ${
                           activeTab === tab
-                            ? `${userType}-bg text-white shadow-md`
+                            ? `${userType ? `${userType}-bg` : "bg-[#4290E9]"} text-white shadow-md`
                             : "bg-gray-200 text-[#666666] hover:bg-gray-300"
                         }`}
+                        style={
+                          activeTab === tab
+                            ? {
+                                backgroundColor: userType
+                                  ? undefined
+                                  : activeTabColor,
+                              }
+                            : undefined
+                        }
                       >
                         {getTabIcon(tab)}
                         <span>{tab}</span>

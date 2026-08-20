@@ -181,6 +181,13 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     thumbnail_url?: string;
     variant_urls?: any;
   } | null>(null);
+  const draggedFileRef = useRef<{
+    file?: File;
+    file_path?: string;
+    url?: string;
+    thumbnail_url?: string;
+    variant_urls?: any;
+  } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
     if ((filteredFloorFiles?.length ?? 0) > 0) {
@@ -380,16 +387,18 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!draggedFile || !imgRef.current || !selectedImageId) return;
+    const activeFile = draggedFileRef.current || draggedFile;
+    if (!activeFile || !selectedImageId) return;
 
-    const img = imgRef.current;
-    const imgRect = img.getBoundingClientRect();
+    const container = imgRef.current || imageContainerRef.current;
+    if (!container) return;
+    const imgRect = container.getBoundingClientRect();
 
     const relX = e.clientX - imgRect.left;
     const relY = e.clientY - imgRect.top;
 
-    const xPercent = (relX / imgRect.width) * 100;
-    const yPercent = (relY / imgRect.height) * 100;
+    const xPercent = Math.max(0, Math.min(100, (relX / imgRect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, (relY / imgRect.height) * 100));
 
     const newMarker: DroppedMarker = {
       x: xPercent,
@@ -399,22 +408,23 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       description: "",
     };
 
-    if (draggedFile.file) {
-      newMarker.file = draggedFile.file;
+    if (activeFile.file) {
+      newMarker.file = activeFile.file;
     } else if (
-      draggedFile.file_path ||
-      draggedFile.url ||
-      draggedFile.thumbnail_url
+      activeFile.file_path ||
+      activeFile.url ||
+      activeFile.thumbnail_url
     ) {
-      newMarker.file_path = draggedFile.file_path;
-      newMarker.url = draggedFile.url;
-      newMarker.thumbnail_url = draggedFile.thumbnail_url;
-      newMarker.variant_urls = (draggedFile as any).variant_urls;
+      newMarker.file_path = activeFile.file_path;
+      newMarker.url = activeFile.url;
+      newMarker.thumbnail_url = activeFile.thumbnail_url;
+      newMarker.variant_urls = (activeFile as any).variant_urls;
       newMarker.isApi = true;
     }
 
     const updatedDroppedMarkers = [...droppedMarkers, newMarker];
     setDraggedFile(null);
+    draggedFileRef.current = null;
 
     const activeSnapshots = [
       ...(filesData?.snapshots || [])
@@ -450,8 +460,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         const found = freshSnapshots.find(
           (s: any) =>
             normalizeName(s.file_name) === normalizeName(selectedImageId) &&
-            Math.abs(Number(s.x_axis) - newMarker.x) < 0.1 &&
-            Math.abs(Number(s.y_axis) - newMarker.y) < 0.1,
+            Math.abs(Number(s.x_axis) - newMarker.x) < 2 &&
+            Math.abs(Number(s.y_axis) - newMarker.y) < 2,
         );
 
         if (found) {
@@ -522,14 +532,15 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleSnapshotImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!draggedFile) return;
+    const activeFile = draggedFileRef.current || draggedFile;
+    if (!activeFile) return;
 
-    if (draggedFile.file) {
-      setSnapshotFile(draggedFile.file);
+    if (activeFile.file) {
+      setSnapshotFile(activeFile.file);
       if (previewMarker) {
         setPreviewMarker({
           ...previewMarker,
-          file: draggedFile.file,
+          file: activeFile.file,
           isApi: false,
           url: undefined,
           file_path: undefined,
@@ -542,14 +553,15 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           ...previewMarker,
           file: undefined,
           isApi: true,
-          file_path: draggedFile.file_path,
-          url: draggedFile.url,
-          thumbnail_url: draggedFile.thumbnail_url,
-          variant_urls: draggedFile.variant_urls,
+          file_path: activeFile.file_path,
+          url: activeFile.url,
+          thumbnail_url: activeFile.thumbnail_url,
+          variant_urls: activeFile.variant_urls,
         });
       }
     }
     setDraggedFile(null);
+    draggedFileRef.current = null;
     toast.info("Snapshot image updated");
   };
 
@@ -934,7 +946,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             <div
               ref={imageContainerRef}
               onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }}
               className={`relative w-full md:w-[70%] border border-gray-200 h-[300px] sm:h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
             >
               {selectedFile &&
@@ -1367,9 +1382,54 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                   {currentTourPhotos?.map((file, idx) => {
                     const isEditing =
                       activeMarkerIndex !== null || !!activeApiSnapshotUuid;
+
+                    const handleDragStart = (e: React.DragEvent) => {
+                      const fileObj = !("uuid" in file)
+                        ? {
+                            file: (file as any).file,
+                            thumbnail_url: URL.createObjectURL((file as any).file),
+                            url: URL.createObjectURL((file as any).file),
+                          }
+                        : {
+                            file_path:
+                              file.file_path ||
+                              (file as any).variants?.thumb ||
+                              (file as any).variants?.landing ||
+                              (file as any).variants?.popup,
+                            url:
+                              file.url ||
+                              file.variant_urls?.landing ||
+                              file.variant_urls?.popup ||
+                              file.variant_urls?.thumb,
+                            thumbnail_url:
+                              file.variant_urls?.popup ||
+                              file.variant_urls?.thumb ||
+                              file.thumbnail_url ||
+                              file.url,
+                            variant_urls: file.variant_urls,
+                          };
+
+                      e.dataTransfer.setData(
+                        "text/plain",
+                        !("uuid" in file) ? (file as any).file.name : file.uuid,
+                      );
+                      e.dataTransfer.effectAllowed = "copy";
+                      draggedFileRef.current = fileObj;
+                      setDraggedFile(fileObj);
+
+                      setTimeout(() => {
+                        imageContainerRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      }, 50);
+                    };
+
                     return (
                       <div
                         key={idx}
+                        draggable
+                        onDragStart={handleDragStart}
                         className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${
                           isEditing
                             ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100"
@@ -1377,59 +1437,15 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                         }`}
                         onClick={() => handlePhotoClick(file)}
                       >
-                        <div className="relative w-full h-[160px]">
+                        <div className="relative w-full h-[160px] pointer-events-none">
                           {!("uuid" in file) ? (
                             <OptimizedImagePreview
                               file={(file as any).file}
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData(
-                                  "text/plain",
-                                  (file as any).file.name,
-                                );
-                                setDraggedFile({
-                                  file: (file as any).file,
-                                  thumbnail_url: URL.createObjectURL(
-                                    (file as any).file,
-                                  ),
-                                  url: URL.createObjectURL((file as any).file),
-                                });
-                                imageContainerRef.current?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                });
-                              }}
                               className="w-full h-full object-cover"
                             />
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData("text/plain", file.uuid);
-                                setDraggedFile({
-                                  file_path:
-                                    file.file_path ||
-                                    (file as any).variants?.thumb ||
-                                    (file as any).variants?.landing ||
-                                    (file as any).variants?.popup,
-                                  url:
-                                    file.url ||
-                                    file.variant_urls?.landing ||
-                                    file.variant_urls?.popup ||
-                                    file.variant_urls?.thumb,
-                                  thumbnail_url:
-                                    file.variant_urls?.popup ||
-                                    file.variant_urls?.thumb ||
-                                    file.thumbnail_url ||
-                                    file.url,
-                                  variant_urls: file.variant_urls,
-                                });
-                                imageContainerRef.current?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                });
-                              }}
                               src={
                                 file.variant_urls?.thumb ||
                                 file.url ||
@@ -1443,7 +1459,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           )}
 
                           {isEditing && (
-                            <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+                            <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
                               <span className="text-white text-[12px] font-bold bg-[#4290E9] px-3 py-1 rounded shadow-lg">
                                 CLICK TO USE
                               </span>

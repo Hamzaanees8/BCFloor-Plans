@@ -25,6 +25,7 @@ import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 import { MediaDateBoundary } from './FileManager';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { api } from '@/lib/api';
 const VideoThumbnailDisplay = ({
     thumbUrl,
@@ -87,6 +88,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [fileToDeleteUuid, setFileToDeleteUuid] = useState<string | null>(null);
     const [imagePopupOpen, setImagePopupOpen] = useState(false);
     const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
@@ -497,8 +499,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
         }
     }, []);
 
-    const handleDeleteUploadedFile = useCallback(async (fileUuid: string) => {
-        if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this video?")) return;
+    const handleDeleteUploadedFile = useCallback((fileUuid: string) => {
+        setFileToDeleteUuid(fileUuid);
+    }, []);
+
+    const executeDeleteUploadedFile = useCallback(async (fileUuid: string) => {
         try {
             await S3UploadService.deleteUploads({
                 uuids: [fileUuid],
@@ -825,98 +830,100 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     )}
                 </div>
                 <div
-                    className='grid grid-cols-4 gap-1 justify-between items-center px-1 py-1'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: '14px' }}
+                    className="w-full flex items-center justify-between gap-1.5 px-2 py-1.5 min-h-[36px] overflow-hidden"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                 >
-                    {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" title={isLocal ? file.file.name : file.name}>{isLocal ? file.file.name : file.name}</p> */}
-                    <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
-                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}>
-                            <CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})
-                            {file.is_hidden && (
-                                <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
-                            )}
-                        </p>
-                        {isLocal ? (
-                            <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedVideoFiles(prev => prev.map(f => {
-                                        if (f.file === file.file && f.service_id === file.service_id) {
-                                            return { ...f, is_complimentary: !f.is_complimentary };
-                                        }
-                                        return f;
-                                    }));
-                                }}
-                                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
-                                title="Mark as Complimentary"
+                    <div className='flex items-center gap-1 min-w-0 flex-1 overflow-hidden text-[#8E8E8E] text-[11px] md:text-[13px]'>
+                        <span className="truncate font-medium">
+                            <CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} />
+                        </span>
+                        <span className="shrink-0 text-[10px] md:text-[11px] opacity-80">
+                            ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})
+                        </span>
+                        {file.is_hidden && (
+                            <span className="shrink-0 ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                        )}
+                    </div>
+                    {isLocal ? (
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVideoFiles(prev => prev.map(f => {
+                                    if (f.file === file.file && f.service_id === file.service_id) {
+                                        return { ...f, is_complimentary: !f.is_complimentary };
+                                    }
+                                    return f;
+                                }));
+                            }}
+                            className={`flex items-center gap-1 cursor-pointer transition-colors shrink-0 ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                            title="Mark as Complimentary"
+                        >
+                            <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                style={{ width: imagesPerRow >= 6 ? '14px' : '18px', height: imagesPerRow >= 6 ? '14px' : '18px' }}
                             >
-                                <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
-                                    style={{ width: imagesPerRow >= 6 ? '14px' : '18px', height: imagesPerRow >= 6 ? '14px' : '18px' }}
-                                >
-                                    {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 10 : 14} />}
-                                </div>
-                                {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
+                                {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 10 : 14} />}
                             </div>
-                        ) : (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                {userType === 'admin' && (
-                                    <>
-                                        <div
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleComplimentary(file.uuid, !!file.is_complimentary);
-                                            }}
-                                            className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
-                                            title={file.is_complimentary ? "Complimentary: Click to remove" : "Click to mark as Complimentary"}
+                            {imagesPerRow < 6 && <span className="text-[10px] md:text-[11px] font-medium whitespace-nowrap">Complimentary</span>}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                            {userType === 'admin' && (
+                                <>
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleComplimentary(file.uuid, !!file.is_complimentary);
+                                        }}
+                                        className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                        title={file.is_complimentary ? "Complimentary: Click to remove" : "Click to mark as Complimentary"}
+                                    >
+                                        <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                            style={{ width: imagesPerRow >= 6 ? '13px' : '16px', height: imagesPerRow >= 6 ? '13px' : '16px' }}
                                         >
-                                            <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
-                                                style={{ width: imagesPerRow >= 6 ? '13px' : '16px', height: imagesPerRow >= 6 ? '13px' : '16px' }}
-                                            >
-                                                {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 9 : 12} />}
-                                            </div>
-                                            {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '9px' : '11px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
+                                            {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 9 : 12} />}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteUploadedFile(file.uuid);
-                                            }}
-                                            className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded cursor-pointer"
-                                            title="Delete Video Item"
-                                        >
-                                            <Trash2 size={imagesPerRow >= 6 ? 13 : 16} />
-                                        </button>
-                                    </>
-                                )}
+                                        {imagesPerRow < 6 && <span className="text-[9px] md:text-[11px] font-medium whitespace-nowrap">Complimentary</span>}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteUploadedFile(file.uuid);
+                                        }}
+                                        className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded cursor-pointer shrink-0"
+                                        title="Delete Video Item"
+                                    >
+                                        <Trash2 size={imagesPerRow >= 6 ? 13 : 16} />
+                                    </button>
+                                </>
+                            )}
 
-                                {userType === 'agent' && file.is_complimentary && (
-                                    <span className="text-[#6BAE41] font-semibold text-[10px] sm:text-[11px] bg-[#6BAE41]/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                        Complimentary
-                                    </span>
-                                )}
+                            {userType === 'agent' && file.is_complimentary && (
+                                <span className="text-[#6BAE41] font-semibold text-[10px] sm:text-[11px] bg-[#6BAE41]/10 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
+                                    Complimentary
+                                </span>
+                            )}
 
-                                {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
+                            {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
+                                <span
+                                    onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
+                                    className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
+                                    title="Download Video"
+                                >
+                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                </span>
+                            ) : (
+                                userType === 'agent' && !file.is_agent_approved ? null : (
                                     <span
-                                        onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
-                                        className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
-                                        title="Download Video"
+                                        title="service not paid yet"
+                                        className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
                                     >
                                         <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                                     </span>
-                                ) : (
-                                    userType === 'agent' && !file.is_agent_approved ? null : (
-                                        <span
-                                            title="service not paid yet"
-                                            className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
-                                        >
-                                            <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                                        </span>
-                                    )
-                                )}
-                            </div>
-                        )}
-                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -1351,6 +1358,23 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 onClose={() => setShowDownloadModal(false)}
                 localFiles={filesForService}
                 apiFiles={currentServiceFiles || []}
+            />
+            <ConfirmationDialog
+                open={!!fileToDeleteUuid}
+                setOpen={(open) => {
+                    if (!open) setFileToDeleteUuid(null);
+                }}
+                onConfirm={() => {
+                    if (fileToDeleteUuid) {
+                        executeDeleteUploadedFile(fileToDeleteUuid);
+                        setFileToDeleteUuid(null);
+                    }
+                }}
+                showAgain={false}
+                toggleShowAgain={() => { }}
+                title="Delete Video Item"
+                dialogType="delete"
+                description="Are you sure you want to delete this video? This action cannot be undone."
             />
         </div>
     );
