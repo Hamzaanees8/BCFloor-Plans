@@ -300,6 +300,9 @@ export async function UpdateOrderService(
     if (service.uuid) {
       formData.append(`services[${index}][uuid]`, service.uuid);
     }
+    if (service.custom) {
+      formData.append(`services[${index}][custom]`, service.custom);
+    }
   });
 
   const response = await fetch(`${API_URL}/orders/${orderUuid}`, {

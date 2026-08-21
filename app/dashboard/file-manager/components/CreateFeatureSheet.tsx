@@ -77,6 +77,8 @@ import CopyStylePopup from "./CopyStylePopup";
 import PrintRequestModal from "./PrintRequestModal";
 import { Printer } from "lucide-react";
 import InvoicePaymentDialog from "./invoicePaymentDialog";
+import UpgradeServicePopup from "./UpgradeServicePopup";
+import { GetServices } from "../../orders/orders";
 import { usePortalSettings } from "@/app/hooks/usePortalSettings";
 import DeletedFieldsPanel from "./DeletedFieldsPanel";
 
@@ -168,6 +170,109 @@ const CreateFeatureSheet = forwardRef<
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showAgain, setShowAgain] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  const [printedSheetUuids, setPrintedSheetUuids] = useState<string[]>(() => {
+    if (typeof window !== "undefined" && orderData?.uuid) {
+      try {
+        const saved = localStorage.getItem(`printed_sheets_${orderData.uuid}`);
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const handlePrintRequestSuccess = (sheetUuid: string) => {
+    if (!sheetUuid) return;
+    setPrintedSheetUuids((prev) => {
+      if (prev.includes(sheetUuid)) return prev;
+      const updated = [...prev, sheetUuid];
+      if (typeof window !== "undefined" && orderData?.uuid) {
+        localStorage.setItem(`printed_sheets_${orderData.uuid}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const currentSheet = useMemo(() => {
+    if (!selectedSheetUuid) return null;
+    return featureSheets.find((s) => s.uuid === selectedSheetUuid) || null;
+  }, [selectedSheetUuid, featureSheets]);
+
+  const isCurrentSheetPrinted = useMemo(() => {
+    if (!selectedSheetUuid && !selectedTemplate) return false;
+
+    // Check backend feature sheet object flags
+    if (currentSheet) {
+      const s = currentSheet as any;
+      if (s.print_request || s.is_print_requested || (Array.isArray(s.print_requests) && s.print_requests.length > 0)) {
+        return true;
+      }
+    }
+
+    // Check if this sheet UUID was recorded in printedSheetUuids
+    if (selectedSheetUuid && printedSheetUuids.includes(selectedSheetUuid)) {
+      return true;
+    }
+
+    // Check if orderData.services has a service item whose custom label matches this sheet's template label/key/uuid
+    if (orderData?.services && orderData.services.length > 0) {
+      const label = getTemplateLabel(selectedTemplate);
+      const matchesCustom = orderData.services.some((os: any) => {
+        const isFS = os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
+                     os.service?.category?.name?.toLowerCase() === "feature sheets" ||
+                     os.service?.name?.toLowerCase() === "feature sheets";
+        if (!isFS) return false;
+        const customStr = (os.custom || "").toLowerCase();
+        if (!customStr) return false;
+        if (selectedSheetUuid && customStr.includes(selectedSheetUuid.toLowerCase())) return true;
+        if (label && customStr.includes(label.toLowerCase())) return true;
+        if (selectedTemplate && customStr.includes(selectedTemplate.toLowerCase())) return true;
+        return false;
+      });
+      if (matchesCustom) return true;
+    }
+
+    return false;
+  }, [currentSheet, selectedSheetUuid, selectedTemplate, printedSheetUuids, orderData?.services]);
+
+  const bookedFeatureSheetsService = useMemo(() => {
+    if (!orderData?.services || !isCurrentSheetPrinted) return null;
+    return orderData.services.find(
+      (os: any) =>
+        os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
+        os.service?.category?.name?.toLowerCase() === "feature sheets" ||
+        os.service?.name?.toLowerCase() === "feature sheets"
+    ) || null;
+  }, [orderData?.services, isCurrentSheetPrinted]);
+
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [featureSheetsFullService, setFeatureSheetsFullService] = useState<any | null>(null);
+
+  const handleOpenUpgradeModal = async () => {
+    if (!featureSheetsFullService) {
+      try {
+        const token = localStorage.getItem("token") || "";
+        const response = await GetServices(token);
+        const servicesList = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : [];
+        const fsService = servicesList.find(
+          (s: any) =>
+            s.category?.name?.toLowerCase() === "feature_sheets" ||
+            s.category?.name?.toLowerCase() === "feature sheets" ||
+            s.name?.toLowerCase() === "feature sheets"
+        );
+        setFeatureSheetsFullService(fsService || bookedFeatureSheetsService?.service || null);
+      } catch (e) {
+        console.error("Failed to fetch full service options for upgrade:", e);
+      }
+    }
+    setIsUpgradeModalOpen(true);
+  };
 
   const STORAGE_KEY_DELETE = "confirmation_dialog_delete_show_again";
 
@@ -1029,7 +1134,8 @@ const CreateFeatureSheet = forwardRef<
               {allowPrintRequest &&
                 (userType === "agent" || userType === "admin") &&
                 selectedTemplate &&
-                selectedSheetUuid && (
+                selectedSheetUuid &&
+                !isCurrentSheetPrinted && (
                   <button
                     type="button"
                     onClick={() => setIsPrintModalOpen(true)}
@@ -1338,19 +1444,38 @@ const CreateFeatureSheet = forwardRef<
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4 !overflow-visible">
                     <div className="w-full flex flex-col items-center px-[16px]">
-                      <div className="flex w-full gap-3 mt-4 justify-end">
-                        <div className="text-center">
-                          <div className="text-[24px] font-alexandria font-normal leading-[18px] text-[#7D7D7D]">
-                            25 Copies
+                      {bookedFeatureSheetsService && (
+                        <div className="flex w-full gap-3 mt-4 justify-end items-center">
+                          <div className="text-center">
+                            <div className="text-[20px] md:text-[24px] font-alexandria font-semibold leading-tight text-[#424242]">
+                              {bookedFeatureSheetsService.option?.title || `${bookedFeatureSheetsService.option?.quantity || 25} Copies`}
+                            </div>
+                            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                              <span className="text-[11px] md:text-[12px] font-alexandria text-[#7D7D7D]">
+                                Printed
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                  bookedFeatureSheetsService.payment_status === "PAID"
+                                    ? "bg-green-100 text-green-700 border border-green-300"
+                                    : "bg-gray-100 text-gray-700 border border-gray-300"
+                                }`}
+                              >
+                                {bookedFeatureSheetsService.payment_status === "PAID" ? "PAID" : "UNPAID"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-[12px] font-alexandria font-normal text-[#7D7D7D]">
-                            Printed
-                          </div>
+                          {userType !== "vendor" && (
+                            <button
+                              type="button"
+                              onClick={handleOpenUpgradeModal}
+                              className={`text-center px-4 py-2 text-[13px] h-[32px] transition-colors ${userType}-bg hover:brightness-90 text-white rounded-[6px] font-[500] border-none shadow-sm cursor-pointer`}
+                            >
+                              Upgrade Plan
+                            </button>
+                          )}
                         </div>
-                        <button className="text-center px-4 py-2 text-[13px] w-[133px] h-[32px] transition-colors bg-[#8E8E8E] hover:brightness-90 text-white leading-3 rounded-[6px] font-[500]">
-                          Upgrade Plan
-                        </button>
-                      </div>
+                      )}
                       <div className="grid-cols-1 md:grid-cols-3 gap-6 !hidden">
                         <div className="">
                           <div ref={wrapperRef} className="relative w-full">
@@ -2471,6 +2596,7 @@ const CreateFeatureSheet = forwardRef<
         open={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         featureSheetUuid={selectedSheetUuid}
+        templateKey={selectedTemplate}
         agentId={
           orderData?.agent?.uuid ||
           (userType === "agent" ? userInfo?.uuid : undefined)
@@ -2480,6 +2606,8 @@ const CreateFeatureSheet = forwardRef<
         orderUuid={orderData?.uuid}
         orderData={orderData}
         onTourCreated={setFilesData}
+        onSaveSheet={handleSaveFeatureSheet}
+        onRequestSuccess={handlePrintRequestSuccess}
       />
 
       {isPaymentModalOpen && (
@@ -2491,6 +2619,21 @@ const CreateFeatureSheet = forwardRef<
           activeTab="feature_sheets"
           userType={userType}
           url={typeof window !== "undefined" ? window.location.href : ""}
+        />
+      )}
+
+      {isUpgradeModalOpen && (
+        <UpgradeServicePopup
+          open={isUpgradeModalOpen}
+          setOpen={setIsUpgradeModalOpen}
+          currentService={featureSheetsFullService || bookedFeatureSheetsService?.service}
+          currentOption={bookedFeatureSheetsService?.option}
+          orderData={orderData}
+          currentBookedService={bookedFeatureSheetsService || undefined}
+          onSuccess={() => {
+            toast.success("Print plan upgraded successfully!");
+            window.location.reload();
+          }}
         />
       )}
     </>

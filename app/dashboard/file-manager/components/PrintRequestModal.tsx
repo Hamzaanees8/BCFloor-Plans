@@ -14,34 +14,41 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { X, Printer, Loader2 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
-import { featureSheetService, CreateTour } from "../file-manager";
+import { featureSheetService, CreateTour, createPayment } from "../file-manager";
 import { toast } from "sonner";
 import { Order } from "../../orders/page";
 import { GetServices, UpdateOrderService, OrderServiceItem } from "../../orders/orders";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getTemplateLabel } from "../types/featureSheetTypes";
 
 interface PrintRequestModalProps {
   open: boolean;
   onClose: () => void;
   featureSheetUuid: string | null;
+  templateKey?: string;
   agentId?: string;
   propertyId?: string;
   tourId?: string;
   orderUuid?: string;
   orderData?: Order | null;
   onTourCreated?: (tourData: any) => void;
+  onSaveSheet?: () => Promise<void>;
+  onRequestSuccess?: (sheetUuid: string) => void;
 }
 
 export default function PrintRequestModal({
   open,
   onClose,
   featureSheetUuid,
+  templateKey,
   agentId,
   propertyId,
   tourId,
   orderUuid,
   orderData,
-  onTourCreated
+  onTourCreated,
+  onSaveSheet,
+  onRequestSuccess
 }: PrintRequestModalProps) {
   const { userType } = useAppContext();
   const [copies, setCopies] = useState<number>(25);
@@ -62,27 +69,28 @@ export default function PrintRequestModal({
           const response = await GetServices(token);
           const servicesList = Array.isArray(response.data) ? response.data : (Array.isArray(response) ? response : []);
 
-          // Find service with name "Feature Sheets" or category name "Feature Sheets"
+          // Find service with category name "feature_sheets" (or fallback to service name "Feature Sheets")
           const fsService = servicesList.find(
-            (s: any) => s.name?.toLowerCase() === "feature sheets" ||
-                        s.category?.name?.toLowerCase() === "feature sheets"
+            (s: any) => s.category?.name?.toLowerCase() === "feature_sheets" ||
+                        s.category?.name?.toLowerCase() === "feature sheets" ||
+                        s.name?.toLowerCase() === "feature sheets"
           );
           setFeatureSheetsService(fsService || null);
 
           if (fsService && fsService.product_options && fsService.product_options.length > 0) {
             // Find if order already has an option for this service and pre-select it, or fallback to first option
             const existingBilledService = orderData?.services?.find(
-              (os: any) => os.service?.name?.toLowerCase() === "feature sheets" ||
-                           (os.service as any)?.category?.name?.toLowerCase() === "feature sheets"
+              (os: any) => (os.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
+                           (os.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
+                           os.service?.name?.toLowerCase() === "feature sheets"
             );
             
             const initialOption = fsService.product_options.find((opt: any) => opt.uuid === existingBilledService?.option?.uuid) || fsService.product_options[0];
             
             setSelectedOptionUuid(initialOption.uuid);
             
-            // Extract copies count from title
-            const match = initialOption.title.match(/\d+/);
-            const copiesCount = match ? parseInt(match[0], 10) : 25;
+            // Extract copies count from quantity property or title
+            const copiesCount = initialOption.quantity || (initialOption.title ? parseInt(initialOption.title.match(/\d+/)?.[0] || "25", 10) : 25);
             setCopies(copiesCount);
           }
         } catch (err) {
@@ -100,8 +108,7 @@ export default function PrintRequestModal({
     setSelectedOptionUuid(optionUuid);
     const opt = featureSheetsService?.product_options?.find((o: any) => o.uuid === optionUuid);
     if (opt) {
-      const match = opt.title.match(/\d+/);
-      const copiesCount = match ? parseInt(match[0], 10) : 25;
+      const copiesCount = opt.quantity || (opt.title ? parseInt(opt.title.match(/\d+/)?.[0] || "25", 10) : 25);
       setCopies(copiesCount);
     }
   };
@@ -128,6 +135,12 @@ export default function PrintRequestModal({
 
     setIsSubmitting(true);
     try {
+      // 0. Auto-save any latest feature sheet edits before purchasing/booking
+      if (onSaveSheet) {
+        toast.info("Saving latest sheet changes...");
+        await onSaveSheet();
+      }
+
       let activeTourId = tourId;
 
       if (!activeTourId) {
@@ -150,7 +163,7 @@ export default function PrintRequestModal({
         }
       }
 
-      // 1. Send print request
+      // 1. Send print request first
       await featureSheetService.requestPrint(featureSheetUuid, {
         copies,
         with_bleed: withBleed,
@@ -160,50 +173,74 @@ export default function PrintRequestModal({
         tour_id: activeTourId,
       });
 
-      // 2. Add/update the service in the order
-      if (orderData) {
-        const token = localStorage.getItem("token") || "";
-        const selectedOption = featureSheetsService.product_options.find((o: any) => o.uuid === selectedOptionUuid);
+      // 2. Add/update the Feature Sheets service in the order
+      let updatedOrder = orderData;
+      const token = localStorage.getItem("token") || "";
+      const selectedOption = featureSheetsService.product_options.find((o: any) => o.uuid === selectedOptionUuid);
+      const sheetLabel = getTemplateLabel(templateKey || "") || templateKey || "Feature Sheet";
+      const sheetCustomName = `Feature Sheet (${sheetLabel})`;
 
-        // Map all existing services from the order, replacing/updating if it matches
-        const allServices: OrderServiceItem[] = (orderData.services || []).map(orderService => {
-          const isFS = orderService.service?.name?.toLowerCase() === "feature sheets" ||
-                       (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets";
-          if (isFS) {
-            return {
-              service_id: featureSheetsService.uuid,
-              option_id: selectedOptionUuid,
-              amount: Number(selectedOption?.amount ?? 0),
-              uuid: orderService.uuid
-            };
-          }
-          return {
-            service_id: orderService.service.uuid,
-            option_id: orderService.option.uuid,
-            amount: Number(orderService.amount),
-            uuid: orderService.uuid
-          };
+      if (orderData) {
+        // Build all existing services list from the order
+        const allServices: OrderServiceItem[] = (orderData.services || []).map(orderService => ({
+          service_id: orderService.service.uuid,
+          option_id: orderService.option.uuid,
+          amount: Number(orderService.amount),
+          uuid: orderService.uuid,
+          custom: (orderService as any).custom
+        }));
+
+        // Find an existing UNPAID feature sheet service on the order that can be updated
+        const existingUnpaidIndex = (orderData.services || []).findIndex(orderService => {
+          const isFS = (orderService.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
+                       (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
+                       orderService.service?.name?.toLowerCase() === "feature sheets";
+          return isFS && orderService.payment_status !== "PAID";
         });
 
-        const hasFS = orderData.services?.some(
-          orderService => orderService.service?.name?.toLowerCase() === "feature sheets" ||
-                           (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets"
-        );
-
-        if (!hasFS) {
+        if (existingUnpaidIndex !== -1) {
+          // Update the existing unpaid print service item with new option & amount
+          allServices[existingUnpaidIndex] = {
+            service_id: featureSheetsService.uuid,
+            option_id: selectedOptionUuid,
+            amount: Number(selectedOption?.amount ?? 0),
+            uuid: orderData.services[existingUnpaidIndex].uuid,
+            custom: sheetCustomName
+          };
+        } else {
+          // Append a NEW service line item to the order for this print request
           allServices.push({
             service_id: featureSheetsService.uuid,
             option_id: selectedOptionUuid,
-            amount: Number(selectedOption?.amount ?? 0)
+            amount: Number(selectedOption?.amount ?? 0),
+            custom: sheetCustomName
           });
         }
 
-        await UpdateOrderService(orderData.uuid, allServices, token);
+        const updateRes = await UpdateOrderService(orderData.uuid, allServices, token);
+        if (updateRes && updateRes.data) {
+          updatedOrder = updateRes.data;
+        }
       }
 
-      toast.success("Print request sent successfully!");
+      toast.success("Print request sent & service booked successfully!");
+      if (featureSheetUuid && onRequestSuccess) {
+        onRequestSuccess(featureSheetUuid);
+      }
       onClose();
-      window.location.reload();
+
+      // 3. Automatically initiate invoice generation and payment checkout
+      if (updatedOrder && token) {
+        toast.info("Opening payment checkout...");
+        await createPayment(updatedOrder, token, window.location.href, {
+          serviceId: featureSheetsService.uuid,
+          paymentType: "service",
+          serviceName: `${sheetCustomName} - ${selectedOption?.title || `${copies} Copies`}`,
+          amount: Number(selectedOption?.amount ?? 0),
+        });
+      } else {
+        window.location.reload();
+      }
     } catch (error) {
       console.error("Print request failed:", error);
       toast.error(error instanceof Error ? error.message : "Failed to send print request");

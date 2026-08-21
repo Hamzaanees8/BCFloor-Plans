@@ -2599,29 +2599,44 @@ const FileManager = () => {
                 >
                   Tour
                 </div>
-                {userType !== "vendor" && (
-                  <div
-                    key="CreateFeatureSheet"
-                    onClick={() => handleTabChange("CreateFeatureSheet")}
-                    className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
-                      isScrolled
-                        ? "h-[32px] md:h-[36px]"
-                        : "h-[45px] md:h-[60px]"
-                    } ${
-                      activeTab === "CreateFeatureSheet"
-                        ? `${userType}-bg text-white ${userType}-border`
-                        : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                    }`}
-                    style={{
-                      backgroundColor:
+                {userType !== "vendor" && (() => {
+                  const featureSheetBooking = orderData?.services?.find(
+                    (os: any) =>
+                      os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
+                      os.service?.category?.name?.toLowerCase() === "feature sheets" ||
+                      os.service?.name?.toLowerCase() === "feature sheets"
+                  );
+                  const isPaid = featureSheetBooking?.payment_status === "PAID";
+                  const isBooked = !!featureSheetBooking;
+
+                  return (
+                    <div
+                      key="CreateFeatureSheet"
+                      onClick={() => handleTabChange("CreateFeatureSheet")}
+                      className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                        isScrolled
+                          ? "h-[32px] md:h-[36px]"
+                          : "h-[45px] md:h-[60px]"
+                      } ${
                         activeTab === "CreateFeatureSheet"
-                          ? undefined
-                          : `var(--${userType}-page-bg, #F2F2F2)`,
-                    }}
-                  >
-                    Create Feature Sheet
-                  </div>
-                )}
+                          ? `${userType}-bg text-white ${userType}-border`
+                          : isPaid
+                          ? "bg-[#6BAE41] text-white border-[#6BAE41] font-semibold"
+                          : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                      }`}
+                      style={{
+                        backgroundColor:
+                          activeTab === "CreateFeatureSheet"
+                            ? undefined
+                            : isPaid
+                            ? "#6BAE41"
+                            : `var(--${userType}-page-bg, #F2F2F2)`,
+                      }}
+                    >
+                      {isBooked ? "Feature Sheets" : "Create Feature Sheet"}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             {/* {userType !== 'vendor' && (

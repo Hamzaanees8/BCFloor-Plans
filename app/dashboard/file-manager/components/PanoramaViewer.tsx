@@ -12,7 +12,8 @@ interface PanoramaViewerProps {
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
-function getImageUrl(file: Files | SelectedFiles, apiUrl: string | undefined): string {
+function getImageUrl(file: Files | SelectedFiles | undefined | null, apiUrl: string | undefined): string {
+  if (!file || typeof file !== 'object') return '';
   if ('file' in file && file.file instanceof File) {
     return URL.createObjectURL(file.file);
   }
@@ -229,7 +230,7 @@ export function PanoramaViewer({ files, initialIndex, onClose }: PanoramaViewerP
   const [viewerMode, setViewerMode] = useState<'360' | 'flat'>('360');
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-  const currentFile = files[currentIndex];
+  const currentFile = (files && files.length > 0) ? (files[currentIndex] || files[0]) : undefined;
 
   // Memoize URL to avoid creating new blob URLs on every render
   const imageUrl = useMemo(() => getImageUrl(currentFile, API_URL), [currentFile, API_URL]);
@@ -237,11 +238,11 @@ export function PanoramaViewer({ files, initialIndex, onClose }: PanoramaViewerP
   // Cleanup blob URLs
   useEffect(() => {
     return () => {
-      if (imageUrl.startsWith('blob:')) URL.revokeObjectURL(imageUrl);
+      if (imageUrl && imageUrl.startsWith('blob:')) URL.revokeObjectURL(imageUrl);
     };
   }, [imageUrl]);
 
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || !files || files.length === 0) return null;
 
   if (viewerMode === '360') {
     return createPortal(
