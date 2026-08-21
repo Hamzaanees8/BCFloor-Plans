@@ -225,6 +225,7 @@ type FormData = {
   featuredImage3FileName: string;
   fieldStyles?: { [key: string]: any };
   fieldPositions?: { [key: string]: { x: number; y: number } };
+  imageSettings?: { [key: string]: any };
   detailFields?: DetailField[];
   leftDetailFields?: DetailField[];
   rightDetailFields?: DetailField[];

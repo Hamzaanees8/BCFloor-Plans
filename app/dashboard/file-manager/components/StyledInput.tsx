@@ -276,6 +276,66 @@ export const FONT_FOLDERS: Record<
       },
     ],
   },
+  BcfpStandard8: {
+    name: "BcfpStandard8",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp8, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp8, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp8, serif",
+      },
+      {
+        label: "Trajan Pro Regular",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp8, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp8, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard8: {
+    name: "BcfpStandard8",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp8, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp8, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp8, serif",
+      },
+      {
+        label: "Trajan Pro Regular",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp8, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp8, sans-serif",
+      },
+    ],
+  },
 };
 
 // Add uppercase and clean key aliases
@@ -283,6 +343,7 @@ FONT_FOLDERS["BCFPStandard3"] = FONT_FOLDERS["BcfpStandard3"];
 FONT_FOLDERS["BCFPStandard4"] = FONT_FOLDERS["BcfpStandard4"];
 FONT_FOLDERS["BCFPStandard6"] = FONT_FOLDERS["BcfpStandard6"];
 FONT_FOLDERS["BCFPStandard7"] = FONT_FOLDERS["BcfpStandard7"];
+FONT_FOLDERS["BCFPStandard8"] = FONT_FOLDERS["BcfpStandard8"];
 
 export const FontFolderContext = createContext<string | undefined>(undefined);
 
@@ -380,6 +441,12 @@ function fontFamilyToClass(ff?: string): string {
   if (f.includes("arialregularbcfp7")) return "font-arial-regular";
   if (f.includes("arialboldbcfp7")) return "font-arial-bold";
   if (f.includes("trajanproboldbcfp7")) return "font-trajan-bold";
+  // BcfpStandard8 fonts
+  if (f.includes("gothicregularbcfp8")) return "font-gothic";
+  if (f.includes("gothicboldbcfp8")) return "font-gothic-bold";
+  if (f.includes("trajanproboldbcfp8")) return "font-trajan-bold";
+  if (f.includes("trajanproregularbcfp8")) return "font-trajan-regular";
+  if (f.includes("arialboldbcfp8")) return "font-arial-bold";
   // BcfpStandard3 fonts
   if (f.includes("gothicregularbcfp3")) return "font-gothic";
   if (f.includes("gothicboldbcfp3")) return "font-gothic-bold";
@@ -606,6 +673,9 @@ export default function StyledInput({
   const getFontFamilyStyle = () => {
     const matchCustom = customFonts.find((f) => f.value === fontFamily);
     if (matchCustom) return matchCustom.css;
+    if (customFonts.length > 0 && fontFamily === "font-sans") {
+      return customFonts[0].css;
+    }
     switch (fontFamily) {
       case "font-alexandria":
         return "Alexandria, sans-serif";
@@ -695,6 +765,9 @@ export default function StyledInput({
       const ffCss = (() => {
         const matchCustom = customFonts.find((f) => f.value === ff);
         if (matchCustom) return matchCustom.css;
+        if (customFonts.length > 0 && ff === "font-sans") {
+          return customFonts[0].css;
+        }
         switch (ff) {
           case "font-alexandria":
             return "Alexandria, sans-serif";

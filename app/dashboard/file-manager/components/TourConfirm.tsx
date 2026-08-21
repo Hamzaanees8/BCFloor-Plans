@@ -21,6 +21,7 @@ import {
   Play,
   Pause,
   Maximize,
+  Minimize,
   X,
   Volume2,
   VolumeX,
@@ -185,6 +186,23 @@ const TourConfirm = ({
     x: number;
     y: number;
   }>({ x: 0, y: 0 });
+  const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
+
+  useEffect(() => {
+    if (isFullscreenPreview) {
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setIsFullscreenPreview(false);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isFullscreenPreview]);
 
   const heroVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const [isHeroVideoPlaying, setIsHeroVideoPlaying] = useState(true);
@@ -791,45 +809,77 @@ const TourConfirm = ({
           </div>
         </div>
       )}
-      <Accordion type="single" defaultValue="Preview" className="w-full">
-        <AccordionItem
-          value="Preview"
-          className={hideAccordion ? "border-none" : ""}
-        >
-          {!hideAccordion && (
-            <AccordionTrigger
-              className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-semibold uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2"
-              style={{
-                color: roleSettings.pageTabColor,
-                backgroundColor: `var(--${role}-page-bg, #E4E4E4)`,
-              }}
+      <div
+        className={
+          isFullscreenPreview
+            ? "fixed inset-0 z-[99999] bg-white overflow-y-auto w-full h-full font-alexandria"
+            : "w-full isolate relative"
+        }
+      >
+        {isFullscreenPreview && (
+          <div className="fixed top-4 right-4 z-[100000] flex items-center gap-2 pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => setIsFullscreenPreview(false)}
+              className="bg-black/80 hover:bg-black text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium shadow-2xl transition-all cursor-pointer border border-white/20 backdrop-blur-xs"
+              title="Exit Full Screen (Esc)"
             >
-              <div className="flex items-center gap-4">
-                <span>Preview</span>
-                <select
-                  className="bg-white border border-[#BBBBBB] text-[#333] text-sm rounded-md px-2 py-1 outline-none font-normal"
-                  value={previewTourType}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) =>
-                    setPreviewTourType(
-                      e.target.value as "branded" | "unbranded",
-                    )
-                  }
-                >
-                  <option value="branded">Branded Tour</option>
-                  <option value="unbranded">Unbranded Tour</option>
-                </select>
-              </div>
-            </AccordionTrigger>
-          )}
-          <AccordionContent
-            className={`${hideAccordion ? "border-none" : ""} ${activeTab === "Home" ? "!pb-0 !pt-0" : ""}`}
+              <Minimize className="w-4 h-4" />
+              <span>Exit Full Screen</span>
+            </button>
+          </div>
+        )}
+        <Accordion type="single" defaultValue="Preview" className="w-full">
+          <AccordionItem
+            value="Preview"
+            className={hideAccordion || isFullscreenPreview ? "border-none" : ""}
           >
-            <div
-              className={`w-full flex flex-col ${activeTab === "Home" ? "gap-0 !pb-0 !mb-0 overflow-hidden" : "gap-6 pb-6"} px-0 relative ${hideAccordion ? "pt-0" : ""}`}
+            {!hideAccordion && !isFullscreenPreview && (
+              <AccordionTrigger
+                className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-semibold uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2"
+                style={{
+                  color: roleSettings.pageTabColor,
+                  backgroundColor: `var(--${role}-page-bg, #E4E4E4)`,
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <span>Preview</span>
+                  <select
+                    className="bg-white border border-[#BBBBBB] text-[#333] text-sm rounded-md px-2 py-1 outline-none font-normal"
+                    value={previewTourType}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setPreviewTourType(
+                        e.target.value as "branded" | "unbranded",
+                      )
+                    }
+                  >
+                    <option value="branded">Branded Tour</option>
+                    <option value="unbranded">Unbranded Tour</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsFullscreenPreview(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#BBBBBB] hover:bg-gray-100 text-[#333] text-sm rounded-md transition-colors shadow-xs normal-case font-normal cursor-pointer"
+                    title="Full Screen Preview"
+                  >
+                    <Maximize className="w-4 h-4 text-gray-700" />
+                    <span>Full Screen</span>
+                  </button>
+                </div>
+              </AccordionTrigger>
+            )}
+            <AccordionContent
+              className={`${hideAccordion || isFullscreenPreview ? "border-none" : ""} ${activeTab === "Home" ? "!pb-0 !pt-0" : ""}`}
             >
+              <div
+                className={`w-full flex flex-col ${activeTab === "Home" ? "gap-0 !pb-0 !mb-0 overflow-hidden" : "gap-6 pb-6"} px-0 relative ${hideAccordion || isFullscreenPreview ? "pt-0" : ""}`}
+              >
               {/* Top Header: Address & Tabs */}
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 max-w-[95%] md:max-w-none w-full md:w-auto pointer-events-auto">
+              <div className={`absolute top-3 left-1/2 -translate-x-1/2 ${isPublicView || isFullscreenPreview ? "z-40" : "z-10"} flex flex-col items-center gap-2.5 max-w-[95%] md:max-w-none w-full md:w-auto pointer-events-auto`}>
                 {/* Top Center Address (rendered in both preview and public tour) */}
                 <div className="flex flex-col items-center text-center bg-transparent px-2 py-1">
                   <span
@@ -958,7 +1008,7 @@ const TourConfirm = ({
                 <div className="pt-[0px]">
                   {heroType === "video" && activeHeroVideoUrl ? (
                     <div
-                      className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
+                      className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
                     >
                       <video
                         ref={heroVideoRef}
@@ -1012,7 +1062,7 @@ const TourConfirm = ({
 
                       return (
                         <div
-                          className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
+                          className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[45vh] sm:h-[636px]"} bg-black flex items-center justify-center`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -1027,7 +1077,7 @@ const TourConfirm = ({
                     (uploadedImages.length > 0 ||
                       (currentTourPhotos?.length ?? 0) > 0) && (
                       <div
-                        className={`relative w-full overflow-hidden ${isPublicView ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
+                        className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
                       >
                         <CustomSlideshow
                           images={uploadedImages}
@@ -2247,6 +2297,7 @@ const TourConfirm = ({
           )}
         </div>
       )}
+      </div>
 
       <TourActivityDialog
         open={open}

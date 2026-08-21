@@ -1,7 +1,8 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { CameraIcon } from "@/components/Icons";
-import { FileText, X, ZoomIn, ZoomOut } from "lucide-react";
+import { FileText, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { Snapshoots } from "../PublicTour";
 
 export interface FloorPlanFile {
@@ -213,6 +214,70 @@ function PublicTourFloorPlans({
 
     const filteredSnapshots = getFilteredSnapshots();
     const currentLocalSnapshots = localMarkers.filter(m => normalizeName(m.floorImageUrl) === normalizeName(selectedImageId || ""));
+    const allSnapshots = React.useMemo(() => [...filteredSnapshots, ...currentLocalSnapshots], [filteredSnapshots, currentLocalSnapshots]);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const [fullscreenSnapshot, setFullscreenSnapshot] = useState<any | null>(null);
+    const [fullscreenSnapshotIndex, setFullscreenSnapshotIndex] = useState<number>(0);
+    const [lightboxZoom, setLightboxZoom] = useState<number>(1);
+    const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const [isLightboxDragging, setIsLightboxDragging] = useState<boolean>(false);
+    const [lightboxDragStart, setLightboxDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+    const openFullscreenSnapshot = (snap: any, index?: number) => {
+        if (!snap) return;
+        const foundIdx = index !== undefined && index >= 0
+            ? index
+            : allSnapshots.findIndex(s => s === snap || (s.file_path && s.file_path === snap.file_path));
+        setFullscreenSnapshot(snap);
+        setFullscreenSnapshotIndex(foundIdx >= 0 ? foundIdx : 0);
+        setLightboxZoom(1);
+        setLightboxPan({ x: 0, y: 0 });
+    };
+
+    const closeFullscreenSnapshot = () => {
+        setFullscreenSnapshot(null);
+        setLightboxZoom(1);
+        setLightboxPan({ x: 0, y: 0 });
+    };
+
+    const handleNextSnapshot = () => {
+        if (allSnapshots.length === 0) return;
+        const nextIdx = (fullscreenSnapshotIndex + 1) % allSnapshots.length;
+        setFullscreenSnapshotIndex(nextIdx);
+        setFullscreenSnapshot(allSnapshots[nextIdx]);
+        setLightboxZoom(1);
+        setLightboxPan({ x: 0, y: 0 });
+    };
+
+    const handlePrevSnapshot = () => {
+        if (allSnapshots.length === 0) return;
+        const prevIdx = (fullscreenSnapshotIndex - 1 + allSnapshots.length) % allSnapshots.length;
+        setFullscreenSnapshotIndex(prevIdx);
+        setFullscreenSnapshot(allSnapshots[prevIdx]);
+        setLightboxZoom(1);
+        setLightboxPan({ x: 0, y: 0 });
+    };
+
+    React.useEffect(() => {
+        if (fullscreenSnapshot) {
+            document.body.style.overflow = "hidden";
+            const handleKeyDown = (e: KeyboardEvent) => {
+                if (e.key === "Escape") closeFullscreenSnapshot();
+                else if (e.key === "ArrowRight") handleNextSnapshot();
+                else if (e.key === "ArrowLeft") handlePrevSnapshot();
+            };
+            window.addEventListener("keydown", handleKeyDown);
+            return () => {
+                document.body.style.overflow = "";
+                window.removeEventListener("keydown", handleKeyDown);
+            };
+        }
+    }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots]);
 
     const selectedFile = filteredFloorPlanFiles?.find((f) => f.name === selectedImageId);
     const isSelectedFilePDF = selectedFile ? isPDF(selectedFile.file_path) : false;
@@ -320,7 +385,7 @@ function PublicTourFloorPlans({
                                             onMouseLeave={handleMarkerMouseLeave}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleMarkerMouseEnter(snapshot);
+                                                openFullscreenSnapshot(snapshot, idx);
                                             }}
                                         >
                                             <CameraIcon width={24} height={24} />
@@ -331,7 +396,11 @@ function PublicTourFloorPlans({
                                         <div
                                             onMouseEnter={handlePopupMouseEnter}
                                             onMouseLeave={handlePopupMouseLeave}
-                                            className="bg-[#242424] text-white font-alexandria shadow-2xl w-fit max-w-[90vw] sm:max-w-[420px] h-auto flex flex-col rounded-none border border-white/20 transition-all duration-200 animate-in fade-in"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openFullscreenSnapshot(previewMarker);
+                                            }}
+                                            className="bg-[#242424] text-white font-alexandria shadow-2xl w-fit max-w-[90vw] sm:max-w-[420px] h-auto flex flex-col rounded-none border border-white/20 transition-all duration-200 animate-in fade-in cursor-pointer"
                                             style={
                                                 isMobile
                                                     ? {
@@ -439,6 +508,152 @@ function PublicTourFloorPlans({
                         })}
                     </div>
                 </div>
+            )}
+            {/* Fullscreen Snapshot Lightbox Modal via Portal */}
+            {fullscreenSnapshot && isMounted && createPortal(
+                <div
+                    className="fixed inset-0 z-[99999] bg-white opacity-100 flex flex-col justify-between items-center select-none animate-in fade-in duration-150 font-alexandria"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closeFullscreenSnapshot();
+                    }}
+                >
+                    {/* Top Controls Bar */}
+                    <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
+                        {/* Counter & Name */}
+                        <div className="flex items-center gap-3">
+                            {allSnapshots.length > 0 && (
+                                <span className="text-[#1b365d] text-sm font-semibold tracking-wide bg-gray-100/90 px-3 py-1.5 rounded-full border border-gray-200/80 shadow-sm font-alexandria">
+                                    {fullscreenSnapshotIndex + 1} / {allSnapshots.length}
+                                </span>
+                            )}
+                            {(fullscreenSnapshot.name || previewMarker?.name) && (
+                                <span className="text-gray-800 text-sm sm:text-base font-bold uppercase truncate max-w-md font-alexandria">
+                                    {fullscreenSnapshot.name || previewMarker?.name}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Zoom & Action Controls */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 bg-gray-100/90 backdrop-blur-md px-2 py-1 rounded-full border border-gray-200/80 shadow-sm">
+                                {lightboxZoom > 1 && (
+                                    <button
+                                        onClick={() => { setLightboxZoom(1); setLightboxPan({ x: 0, y: 0 }); }}
+                                        className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all cursor-pointer mr-0.5"
+                                        title="Reset Zoom (100%)"
+                                    >
+                                        <RotateCcw size={15} />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setLightboxZoom(prev => Math.max(1, +(prev - 0.25).toFixed(2)))}
+                                    disabled={lightboxZoom <= 1}
+                                    className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                    title="Zoom Out"
+                                >
+                                    <ZoomOut size={18} />
+                                </button>
+                                <span className="text-[#1b365d] text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
+                                    {Math.round(lightboxZoom * 100)}%
+                                </span>
+                                <button
+                                    onClick={() => setLightboxZoom(prev => Math.min(3, +(prev + 0.25).toFixed(2)))}
+                                    disabled={lightboxZoom >= 3}
+                                    className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                    title="Zoom In"
+                                >
+                                    <ZoomIn size={18} />
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={closeFullscreenSnapshot}
+                                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-[#1b365d] flex items-center justify-center border border-gray-200 transition-all cursor-pointer ml-2 shadow-sm"
+                                title="Close (Esc)"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Center Image Display Area */}
+                    <div
+                        className="relative w-full flex-1 flex items-center justify-center overflow-hidden px-4 py-2"
+                        onMouseDown={(e) => {
+                            if (lightboxZoom > 1) {
+                                setIsLightboxDragging(true);
+                                setLightboxDragStart({
+                                    x: e.clientX - lightboxPan.x,
+                                    y: e.clientY - lightboxPan.y,
+                                });
+                            }
+                        }}
+                        onMouseMove={(e) => {
+                            if (isLightboxDragging && lightboxZoom > 1) {
+                                setLightboxPan({
+                                    x: e.clientX - lightboxDragStart.x,
+                                    y: e.clientY - lightboxDragStart.y,
+                                });
+                            }
+                        }}
+                        onMouseUp={() => setIsLightboxDragging(false)}
+                        onMouseLeave={() => setIsLightboxDragging(false)}
+                    >
+                        {/* Left Navigation Arrow */}
+                        {allSnapshots.length > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handlePrevSnapshot(); }}
+                                className="absolute left-4 sm:left-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
+                                title="Previous Snapshot"
+                            >
+                                <ChevronLeft size={22} />
+                            </button>
+                        )}
+
+                        {/* Main Image */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={
+                                fullscreenSnapshot.variant_urls?.popup ||
+                                fullscreenSnapshot.variant_urls?.landing ||
+                                fullscreenSnapshot.url ||
+                                (fullscreenSnapshot.file_path
+                                    ? (fullscreenSnapshot.file_path.startsWith("http") ? fullscreenSnapshot.file_path : `${API_URL}/${fullscreenSnapshot.file_path}`)
+                                    : "")
+                            }
+                            alt={fullscreenSnapshot.name || "Snapshot"}
+                            className={`max-h-[72vh] max-w-[90vw] object-contain transition-transform select-none ${lightboxZoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                            style={{
+                                transform: `scale(${lightboxZoom}) translate(${lightboxPan.x / lightboxZoom}px, ${lightboxPan.y / lightboxZoom}px)`,
+                                transition: isLightboxDragging ? "none" : "transform 0.15s ease-out",
+                            }}
+                        />
+
+                        {/* Right Navigation Arrow */}
+                        {allSnapshots.length > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleNextSnapshot(); }}
+                                className="absolute right-4 sm:right-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
+                                title="Next Snapshot"
+                            >
+                                <ChevronRight size={22} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Bottom Info Bar: Title & Description */}
+                    <div className="w-full bg-white border-t border-gray-200 py-3.5 px-6 flex flex-col items-center justify-center text-center max-w-4xl mx-auto z-50">
+                        <h3 className="text-base sm:text-lg font-bold text-[#1b365d] uppercase tracking-wide font-alexandria">
+                            {fullscreenSnapshot.name || "Snapshot"}
+                        </h3>
+                        {fullscreenSnapshot.description && (
+                            <p className="text-xs sm:text-sm text-gray-600 font-alexandria leading-relaxed mt-1 max-w-2xl">
+                                {fullscreenSnapshot.description}
+                            </p>
+                        )}
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
