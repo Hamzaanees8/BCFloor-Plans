@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { CameraIcon } from "@/components/Icons";
 import { FileText, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
@@ -239,29 +239,29 @@ function PublicTourFloorPlans({
         setLightboxPan({ x: 0, y: 0 });
     };
 
-    const closeFullscreenSnapshot = () => {
+    const closeFullscreenSnapshot = useCallback(() => {
         setFullscreenSnapshot(null);
         setLightboxZoom(1);
         setLightboxPan({ x: 0, y: 0 });
-    };
+    }, []);
 
-    const handleNextSnapshot = () => {
+    const handleNextSnapshot = useCallback(() => {
         if (allSnapshots.length === 0) return;
         const nextIdx = (fullscreenSnapshotIndex + 1) % allSnapshots.length;
         setFullscreenSnapshotIndex(nextIdx);
         setFullscreenSnapshot(allSnapshots[nextIdx]);
         setLightboxZoom(1);
         setLightboxPan({ x: 0, y: 0 });
-    };
+    }, [allSnapshots, fullscreenSnapshotIndex]);
 
-    const handlePrevSnapshot = () => {
+    const handlePrevSnapshot = useCallback(() => {
         if (allSnapshots.length === 0) return;
         const prevIdx = (fullscreenSnapshotIndex - 1 + allSnapshots.length) % allSnapshots.length;
         setFullscreenSnapshotIndex(prevIdx);
         setFullscreenSnapshot(allSnapshots[prevIdx]);
         setLightboxZoom(1);
         setLightboxPan({ x: 0, y: 0 });
-    };
+    }, [allSnapshots, fullscreenSnapshotIndex]);
 
     React.useEffect(() => {
         if (fullscreenSnapshot) {
@@ -277,7 +277,7 @@ function PublicTourFloorPlans({
                 window.removeEventListener("keydown", handleKeyDown);
             };
         }
-    }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots, handleNextSnapshot, handlePrevSnapshot]);
+    }, [fullscreenSnapshot, closeFullscreenSnapshot, handleNextSnapshot, handlePrevSnapshot]);
 
     const selectedFile = filteredFloorPlanFiles?.find((f) => f.name === selectedImageId);
     const isSelectedFilePDF = selectedFile ? isPDF(selectedFile.file_path) : false;
