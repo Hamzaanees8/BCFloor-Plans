@@ -289,6 +289,7 @@ export interface FeatureSheetState {
     imagePositions: { [key: string]: ImagePosition };
     imageRotations: { [key: string]: number };
     fieldStyles?: Record<string, any>;
+    fieldPositions?: Record<string, { x: number; y: number }>;
     detailFields?: DetailField[];
 }
 

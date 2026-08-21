@@ -401,7 +401,7 @@ export function getVendorValidStartSlots(
       }
     }
 
-    if (workingCount === requiredSlotsCount) {
+    if (collected.length > 0) {
       const startISO = candidate.start.toISOString();
       const endISO = candidate.end.toISOString();
       validStartSlots.push({
@@ -412,7 +412,9 @@ export function getVendorValidStartSlots(
         className: 'slot-available',
         vendor_id: vendorId,
       });
-      proposedSlotsMap.set(startISO, collected);
+      if (workingCount === requiredSlotsCount) {
+        proposedSlotsMap.set(startISO, collected);
+      }
     }
   }
 
@@ -680,7 +682,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     );
 
     const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
-    const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
     const squareFootageForSlots = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
     const productOptionForSlots = currentServiceDataForSlots?.product_options?.find(
       (option) => (service.option_id && option.uuid === service.option_id) || (service.option_id && String(option.id) === String(service.option_id))
@@ -706,9 +707,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         ? vendorHasNextBookingFlag
         : true;
 
-      const useFullDay = isNoTravelRequired
-        ? !vendorHasNextBookingFlag
-        : (scheduleOverride === 1) && !(isSpecialService && vendorHasNextBookingFlag);
+      const useFullDay = (scheduleOverride === 1) && !(isSpecialService && vendorHasNextBookingFlag);
 
       if (useFullDay) {
         const fullDayWorkHours: WorkHours = {
@@ -732,8 +731,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           fullDayWorkHours,
           AllBookedSlots,
           otherServiceSlots,
-          [],
-          [],
+          vendor.additional_breaks || [],
+          vendor.calendar_events || [],
           requiredSlotsCountForService,
           allowBookingThroughLunch,
           shouldEnforceForVendor,
@@ -999,7 +998,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         );
 
         const serviceDataForSearch = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
-        const isNoTravelSearch = serviceDataForSearch?.is_travel_required === false;
         const isFloorPlanSearch = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
         const isMatterportSearch = isMatterportService(service.title, service.uuid, service.id, servicesData);
         const isSpecialServiceSearch = isFloorPlanSearch || isMatterportSearch;
@@ -1039,9 +1037,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           filteredVendors.forEach((vendor) => {
             const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
             const shouldEnforceForVendor = isSpecialServiceSearch ? vendorHasNextBookingFlag : true;
-            const useFullDaySearch = isNoTravelSearch
-              ? !vendorHasNextBookingFlag
-              : (scheduleOverride === 1) && !(isSpecialServiceSearch && vendorHasNextBookingFlag);
+            const useFullDaySearch = (scheduleOverride === 1) && !(isSpecialServiceSearch && vendorHasNextBookingFlag);
 
             if (useFullDaySearch) {
               const fullDayWorkHours: WorkHours = {
@@ -1063,8 +1059,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
                 fullDayWorkHours,
                 AllBookedSlots,
                 otherServiceSlots.filter(s => s.date === testDate),
-                [],
-                [],
+                vendor.additional_breaks || [],
+                vendor.calendar_events || [],
                 requiredSlotsCountForSearch,
                 allowBookingThroughLunch,
                 shouldEnforceForVendor,
@@ -1403,8 +1399,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
     const effectiveCurrentServiceSlots = isSwitchingVendor ? [] : currentServiceSlots;
 
-    const currentServiceDataForClick = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
-    const isNoTravelClick = currentServiceDataForClick?.is_travel_required === false;
     const isFloorPlanClick = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
     const isMatterportClick = isMatterportService(service.title, service.uuid, service.id, servicesData);
     const isSpecialServiceClick = isFloorPlanClick || isMatterportClick;
@@ -1419,9 +1413,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
         const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
         const shouldEnforceForVendor = isSpecialServiceClick ? vendorHasNextBookingFlag : true;
-        const useFullDayClick = isNoTravelClick
-          ? !vendorHasNextBookingFlag
-          : (scheduleOverride === 1) && !(isSpecialServiceClick && vendorHasNextBookingFlag);
+        const useFullDayClick = (scheduleOverride === 1) && !(isSpecialServiceClick && vendorHasNextBookingFlag);
 
         const otherSlotsForDate = selectedSlots.filter((s: Slot) => s.service_id !== service.uuid && s.date === selectedDate);
 
@@ -1445,8 +1437,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
             fullDayWorkHours,
             AllBookedSlots,
             otherSlotsForDate,
-            [],
-            [],
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
             requiredSlots,
             allowBookingThroughLunch,
             shouldEnforceForVendor,

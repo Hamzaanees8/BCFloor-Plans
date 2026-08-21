@@ -953,7 +953,7 @@ export default function StyledInput({
         }
       }}
     >
-      <div className="relative grid">
+      <div className="relative grid h-full w-full flex-1 min-h-0">
         <div
           ref={editableRef}
           contentEditable
@@ -972,7 +972,9 @@ export default function StyledInput({
             margin: 0,
             padding: 0,
             boxSizing: "border-box",
-            display: "block",
+            display: "flex",
+            alignItems: inputStyle?.verticalAlign === "top" ? "flex-start" : inputStyle?.verticalAlign === "bottom" ? "flex-end" : "center",
+            justifyContent: (textAlign || inputStyle?.textAlign) === "left" ? "flex-start" : (textAlign || inputStyle?.textAlign) === "right" ? "flex-end" : "center",
             outline: "none",
             alignContent: getAlignContentStyle(),
           }}

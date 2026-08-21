@@ -446,7 +446,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots]);
+  }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots, handleNextSnapshot, handlePrevSnapshot]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
 

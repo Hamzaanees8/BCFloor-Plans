@@ -167,6 +167,7 @@ type FormData = {
   linkedin: string;
   propertyName: string;
   description: string;
+  headline?: string;
   amount: string;
   mlsNumber: string;
   siteInfluences: string;
@@ -374,6 +375,7 @@ export const initialFormData: FormData = {
   linkedin: "",
   propertyName: "",
   description: "",
+  headline: "",
   amount: "",
   mlsNumber: "",
   siteInfluences: "",

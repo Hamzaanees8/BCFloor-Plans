@@ -1623,6 +1623,7 @@ export class FeatureSheetService {
     logoFile?: File | string | null;
     realtorImageFile?: File | string | null;
     fieldStyles?: Record<string, any>;
+    fieldPositions?: Record<string, { x: number; y: number }>;
   }): Promise<FeatureSheetPayload> {
     // Use a local guaranteed-typed content object to avoid TS errors on payload.content?
     const content: FeatureSheetContent = {};
@@ -1639,6 +1640,7 @@ export class FeatureSheetService {
       content,
       images: [],
       fieldStyles: params.fieldStyles,
+      fieldPositions: params.fieldPositions,
     };
 
     // Build content section — resolveTextField uses provided style when available,
@@ -2533,6 +2535,7 @@ export class FeatureSheetService {
         return acc;
       })(),
       fieldStyles: payload.fieldStyles,
+      fieldPositions: payload.fieldPositions,
     };
   }
 }

@@ -1,91 +1,36 @@
-import { Pencil, Trash, ZoomIn, ZoomOut, House, RotateCw } from "lucide-react";
-
+import {
+  House,
+  Pencil,
+  Trash,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Lock,
+  Unlock,
+} from "lucide-react";
+import ImageEditor from "./ImageEditor";
 import React, {
   forwardRef,
-  useEffect,
   useImperativeHandle,
   useRef,
   useState,
+  useEffect,
+  useCallback,
 } from "react";
 import { Order } from "../../orders/page";
-import "../../../globals.css";
-import StyledInput from "./StyledInput";
-import ImageSourceModal from "./ImageSourceModal";
-import FileManagerGallery from "./fileManagerGallery";
 import { featureSheetService } from "../file-manager";
 import {
-  FeatureSheetPayload,
   FeatureSheetResponse,
+  FeatureSheetPayload,
+  TextStyle,
 } from "../types/featureSheetTypes";
+import "../../../globals.css";
+import StyledInput from "./StyledInput";
+import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
-import Image from "next/image";
-
-const ImageEditor = ({
-  src,
-  scale,
-  position,
-  className = "",
-}: {
-  src: string;
-  scale: number;
-  position: { x: number; y: number };
-  className?: string;
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [baseScale, setBaseScale] = useState(1);
-
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    if (!containerRef.current) return;
-    const { naturalWidth, naturalHeight } = e.currentTarget;
-    const { clientWidth, clientHeight } = containerRef.current;
-
-    if (
-      naturalWidth === 0 ||
-      naturalHeight === 0 ||
-      clientWidth === 0 ||
-      clientHeight === 0
-    )
-      return;
-
-    const containerAR = clientWidth / clientHeight;
-    const imageAR = naturalWidth / naturalHeight;
-
-    let drawnWidth, drawnHeight;
-    if (imageAR > containerAR) {
-      drawnWidth = clientWidth;
-      drawnHeight = clientWidth / imageAR;
-    } else {
-      drawnHeight = clientHeight;
-      drawnWidth = clientHeight * imageAR;
-    }
-
-    const requiredScale = Math.max(
-      clientWidth / drawnWidth,
-      clientHeight / drawnHeight,
-    );
-    setBaseScale(requiredScale);
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      className={`w-full h-full relative flex items-center justify-center ${className}`}
-    >
-      <Image
-        src={src}
-        onLoad={handleLoad}
-        alt="uploaded"
-        fill
-        unoptimized
-        className="object-contain pointer-events-none"
-        style={{
-          transform: `translate(${position.x}px, ${position.y}px) scale(${scale * baseScale})`,
-          transition: "transform 0.1s ease-out",
-        }}
-      />
-    </div>
-  );
-};
+import SafeZoneWrapper from "./SafeZoneWrapper";
+import DraggableBox from "./DraggableBox";
+import { DeletedDetailFieldItem } from "./DeletedFieldsPanel";
 
 export interface BcfpStandard13Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -94,10 +39,126 @@ export interface BcfpStandard13Ref {
 
 interface BcfpStandard13Props {
   orderData: Order | null;
+  showBleed?: boolean;
+  showGuide?: boolean;
 }
 
+// ─── BoxIndicator ─────────────────────────────────────────────────────────────
+interface BoxIndicatorProps {
+  isVisible: boolean;
+}
+
+const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div
+      data-html2canvas-ignore="true"
+      className="absolute inset-0 border-[3.5px] border-[#8B3DFF] pointer-events-none z-30 transition-all duration-100"
+      style={{
+        boxShadow:
+          "0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 8px rgba(139, 61, 255, 0.4)",
+      }}
+    />
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
 const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
-  ({ orderData }, ref) => {
+  ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
+    const {
+      formData,
+      updateFormData,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    } = useFileManagerContext();
+
+    // ── 1. Deletion & Restoration State ──────────────────────────────────────
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
+      formData?.deletedDetailFields || [],
+    );
+    const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
+      string[]
+    >(formData?.deletedStandardFieldIds || []);
+
+    const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
+
+    const removeStandardField = (
+      id: string,
+      title: string,
+      value: string,
+      section: string,
+      style?: TextStyle,
+    ) => {
+      setDeletedStandardFieldIds((prevStandard) => {
+        if (prevStandard.includes(id)) return prevStandard;
+        const newDeletedStandard = [...prevStandard, id];
+        const deletedItem: DeletedDetailFieldItem = {
+          id,
+          title,
+          value: value || "",
+          section,
+          style,
+          deletedAt: Date.now(),
+        };
+        setDeletedDetailFields((prevDetail) => {
+          const newDeletedDetail = [
+            ...prevDetail.filter((f) => f.id !== id),
+            deletedItem,
+          ];
+          updateFormData({
+            deletedStandardFieldIds: newDeletedStandard,
+            deletedDetailFields: newDeletedDetail,
+          });
+          return newDeletedDetail;
+        });
+        return newDeletedStandard;
+      });
+    };
+
+    const restoreDetailField = useCallback(
+      (id: string) => {
+        setDeletedStandardFieldIds((prevStandard) => {
+          const updatedStandard = prevStandard.filter((fId) => fId !== id);
+          setDeletedDetailFields((prevDetail) => {
+            const updatedDeleted = prevDetail.filter((f) => f.id !== id);
+            updateFormData({
+              deletedStandardFieldIds: updatedStandard,
+              deletedDetailFields: updatedDeleted,
+            });
+            return updatedDeleted;
+          });
+          return updatedStandard;
+        });
+      },
+      [updateFormData],
+    );
+
+    const restoreAllDetailFields = useCallback(() => {
+      setDeletedStandardFieldIds([]);
+      setDeletedDetailFields([]);
+      updateFormData({ deletedStandardFieldIds: [], deletedDetailFields: [] });
+    }, [updateFormData]);
+
+    // Register restoration handlers with context
+    useEffect(() => {
+      if (setRestoreDetailFieldHandler)
+        setRestoreDetailFieldHandler(() => restoreDetailField);
+      if (setRestoreAllDetailFieldsHandler)
+        setRestoreAllDetailFieldsHandler(() => restoreAllDetailFields);
+      return () => {
+        if (setRestoreDetailFieldHandler) setRestoreDetailFieldHandler(null);
+        if (setRestoreAllDetailFieldsHandler)
+          setRestoreAllDetailFieldsHandler(null);
+      };
+    }, [
+      restoreDetailField,
+      restoreAllDetailFields,
+      setRestoreDetailFieldHandler,
+      setRestoreAllDetailFieldsHandler,
+    ]);
+
+    // ── 2. Text Fields & Editable Labels ──────────────────────────────────────
     const [byLawRestrictions, setByLawRestrictions] = useState("");
     const [maintFees, setMaintFees] = useState("");
     const [maintFeesInclude, setMaintFeesInclude] = useState("");
@@ -105,6 +166,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const [siteInfluences, setSiteInfluences] = useState("");
     const [amenities, setAmenities] = useState("");
     const [view, setView] = useState("");
+    const [headline, setHeadline] = useState(
+      "ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.",
+    );
     const [description, setDescription] = useState("");
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
@@ -114,14 +178,74 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
-    // const [mlsNumber, setMlsNumber] = useState("");
     const [bedroom, setBedroom] = useState("");
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
     const [builtYear, setBuiltYear] = useState("");
-    const [image7Rotation, setImage7Rotation] = useState(0);
 
-    // --- images States ---
+    // Editable Labels
+    const [byLawLabel, setByLawLabel] = useState("BY-LAW RESTRICTIONS:");
+    const [maintFeesLabel, setMaintFeesLabel] = useState("MAINT. FEES:");
+    const [maintFeesIncludeLabel, setMaintFeesIncludeLabel] = useState(
+      "MAINT. FEES INCLUDE:",
+    );
+    const [featuresIncludedLabel, setFeaturesIncludedLabel] =
+      useState("FEATURES INCLUDED:");
+    const [siteInfluencesLabel, setSiteInfluencesLabel] =
+      useState("SITE INFLUENCES:");
+    const [amenitiesLabel, setAmenitiesLabel] = useState("AMENITIES:");
+    const [viewLabel, setViewLabel] = useState("VIEW:");
+    const [contactLabel, setContactLabel] = useState("CONTACT:");
+    const [phoneLabel, setPhoneLabel] = useState("PHONE:");
+    const [emailLabel, setEmailLabel] = useState("EMAIL:");
+    const [bedroomLabel, setBedroomLabel] = useState("BEDROOM |");
+    const [bathroomLabel, setBathroomLabel] = useState("BATHROOM |");
+    const [sqftLabel, setSqftLabel] = useState("SQ FT |");
+    const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("Number");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("Road");
+    const [disclaimerText, setDisclaimerText] = useState(
+      "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
+    );
+
+    // ── 3. Bleed & Guide ──────────────────────────────────────────────────────
+    const [showBleedState] = useState(true);
+    const [showGuideState] = useState(true);
+    const showBleed =
+      propShowBleed !== undefined ? propShowBleed : showBleedState;
+    const showGuide =
+      propShowGuide !== undefined ? propShowGuide : showGuideState;
+
+    // ── 4. Styles, Positions & Locks ──────────────────────────────────────────
+    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
+      {},
+    );
+    const updateFieldStyle = (field: string, style: TextStyle) =>
+      setFieldStyles((prev) => ({ ...prev, [field]: style }));
+
+    const [fieldPositions, setFieldPositions] = useState<
+      Record<string, { x: number; y: number }>
+    >({});
+    const updateFieldPosition = (id: string, pos: { x: number; y: number }) => {
+      setFieldPositions((prev) => ({ ...prev, [id]: pos }));
+    };
+
+    const [lockedSections, setLockedSections] = useState<
+      Record<string, boolean>
+    >({
+      headerAddress: false,
+      headerAddressPage2: false,
+      price: false,
+      specs: false,
+      details: false,
+      contact: false,
+      headlineDesc: false,
+    });
+    const toggleSectionLock = (section: string) => {
+      setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    // ── 5. Image States ───────────────────────────────────────────────────────
     const [images, setImages] = useState({
       image1: null as string | null,
       image2: null as string | null,
@@ -130,12 +254,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image5: null as string | null,
       image6: null as string | null,
       image7: null as string | null,
-      image8: null as string | null,
-      image9: null as string | null,
-      image10: null as string | null,
-      image11: null as string | null,
-      image12: null as string | null,
-      image13: null as string | null,
     });
 
     const [scale, setScale] = useState({
@@ -146,12 +264,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image5: 1,
       image6: 1,
       image7: 1,
-      image8: 1,
-      image9: 1,
-      image10: 1,
-      image11: 1,
-      image12: 1,
-      image13: 1,
     });
 
     const [position, setPosition] = useState({
@@ -162,12 +274,16 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image5: { x: 0, y: 0 },
       image6: { x: 0, y: 0 },
       image7: { x: 0, y: 0 },
-      image8: { x: 0, y: 0 },
-      image9: { x: 0, y: 0 },
-      image10: { x: 0, y: 0 },
-      image11: { x: 0, y: 0 },
-      image12: { x: 0, y: 0 },
-      image13: { x: 0, y: 0 },
+    });
+
+    const [rotation, setRotation] = useState({
+      image1: 0,
+      image2: 0,
+      image3: 0,
+      image4: 0,
+      image5: 0,
+      image6: 0,
+      image7: 0,
     });
 
     const [dragging, setDragging] = useState({
@@ -178,22 +294,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image5: false,
       image6: false,
       image7: false,
-      image8: false,
-      image9: false,
-      image10: false,
-      image11: false,
-      image12: false,
-      image13: false,
     });
-
-    const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
-
-    const updateFieldStyle = (fieldName: string, style: any) => {
-      setFieldStyles((prev) => ({
-        ...prev,
-        [fieldName]: style,
-      }));
-    };
 
     const lastPosition = useRef({
       image1: { x: 0, y: 0 },
@@ -203,19 +304,35 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       image5: { x: 0, y: 0 },
       image6: { x: 0, y: 0 },
       image7: { x: 0, y: 0 },
-      image8: { x: 0, y: 0 },
-      image9: { x: 0, y: 0 },
-      image10: { x: 0, y: 0 },
-      image11: { x: 0, y: 0 },
-      image12: { x: 0, y: 0 },
-      image13: { x: 0, y: 0 },
     });
-    const [showImageSourceModal, setShowImageSourceModal] = useState(false);
+
+    // ── 6. Modal & Slot States ────────────────────────────────────────────────
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
     const [showGallery, setShowGallery] = useState(false);
-    // --- Refs ---
+
+    const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+    const [activeSlot, setActiveSlot] = useState<string | null>(null);
+
+    const isSlotActive = (key: string) =>
+      hoveredSlot === key ||
+      activeSlot === key ||
+      Boolean(dragging[key as keyof typeof dragging]);
+
+    // Click-outside clears activeSlot
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-image-slot="true"]')) {
+          setActiveSlot(null);
+        }
+      };
+      window.addEventListener("mousedown", handleClickOutside);
+      return () => window.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Refs for file inputs
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
     const fileInputRef2 = useRef<HTMLInputElement | null>(null);
     const fileInputRef3 = useRef<HTMLInputElement | null>(null);
@@ -223,122 +340,104 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const fileInputRef5 = useRef<HTMLInputElement | null>(null);
     const fileInputRef6 = useRef<HTMLInputElement | null>(null);
     const fileInputRef7 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef8 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef9 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef10 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef11 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef12 = useRef<HTMLInputElement | null>(null);
-    const fileInputRef13 = useRef<HTMLInputElement | null>(null);
 
-    // Expose methods via ref
-    useImperativeHandle(ref, () => ({
-      exportToPayload: async () => {
-        const payload = await featureSheetService.buildPayload({
-          orderUuid: orderData?.uuid || "",
-          templateKey: "BCFPStandard13",
-          uploadedBy: "admin",
-          type: "template",
-          primaryColor: "#3A8D3D",
-          offeredAtPrice: amount,
-          realtorName: fullName,
-          emailLink: email,
-          companyName: propertyName,
-          propertyNotesTitle: roadName,
-          propertyNotesDescription: description,
-          expandedDetail1Title: "By-law Restrictions",
-          expandedDetail1Description: byLawRestrictions,
-          expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: maintFees,
-          expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: maintFeesInclude,
-          expandedDetail4Title: "Features Included",
-          expandedDetail4Description: featuresIncluded,
-          keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences
-            ? siteInfluences.split("\n").filter(Boolean)
-            : [],
-          otherDetails: {
-            amenities,
-            view,
-            bedroom,
-            bathroom,
-            sqft,
-            builtYear,
-            number,
-            addressCode,
-            cityLine,
-          },
-          images,
-          imageScales: scale,
-          imagePositions: position,
-          fieldStyles,
-        });
-        return payload;
-      },
-      importFromPayload: (payload: FeatureSheetResponse) => {
-        const state = featureSheetService.parsePayloadToState(payload);
-        if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
-        if (state.realtorName) setFullName(state.realtorName as string);
-        if (state.emailLink) setEmail(state.emailLink as string);
-        if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle)
-          setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription)
-          setDescription(state.propertyNotesDescription as string);
+    // ── 7. Image Handlers ─────────────────────────────────────────────────────
+    const handleImageChange = (
+      key: keyof typeof images,
+      e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        setImages((prev) => ({ ...prev, [key]: url }));
+      }
+    };
 
-        if (state.expandedDetail1Description)
-          setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description)
-          setMaintFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description)
-          setMaintFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description)
-          setFeaturesIncluded(state.expandedDetail4Description as string);
+    const handleDelete = (
+      key: keyof typeof images,
+      ref: React.RefObject<HTMLInputElement | null>,
+    ) => {
+      setImages((prev) => ({ ...prev, [key]: null }));
+      setScale((prev) => ({ ...prev, [key]: 1 }));
+      setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+      setRotation((prev) => ({ ...prev, [key]: 0 }));
+      if (ref.current) ref.current.value = "";
+    };
 
-        if (state.keyHighlights)
-          setSiteInfluences(state.keyHighlights.join("\n"));
+    const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
+      setScale((prev) => {
+        const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
+        const bounded = Math.min(Math.max(newScale, 0.1), 5);
+        return { ...prev, [key]: bounded };
+      });
+    };
 
-        if (state.otherDetails) {
-          const details = state.otherDetails as Record<string, unknown>;
-          if (details.amenities) setAmenities(details.amenities as string);
-          if (details.view) setView(details.view as string);
-          if (details.bedroom) setBedroom(details.bedroom as string);
-          if (details.bathroom) setBathroom(details.bathroom as string);
-          if (details.sqft) setSqft(details.sqft as string);
-          if (details.builtYear) setBuiltYear(details.builtYear as string);
-          if (details.number) setNumber(details.number as string);
-          if (details.addressCode)
-            setAddressCode(details.addressCode as string);
-          if (details.cityLine) setCityLine(details.cityLine as string);
+    const handleRotate = (key: keyof typeof images) => {
+      setRotation((prev) => ({
+        ...prev,
+        [key]: (prev[key] + 90) % 360,
+      }));
+    };
+
+    const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
+      setDragging((prev) => ({ ...prev, [key]: true }));
+      lastPosition.current[key] = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
+      if (!dragging[key]) return;
+      // Mouse drag delta divided by 0.85 (letter preview zoom)
+      let dx = (e.clientX - lastPosition.current[key].x) / 0.85;
+      let dy = (e.clientY - lastPosition.current[key].y) / 0.85;
+
+      const currentRot = rotation[key] || 0;
+      if (currentRot % 360 !== 0) {
+        const angle = ((currentRot % 360) + 360) % 360;
+        if (angle === 90) {
+          const temp = dx;
+          dx = dy;
+          dy = -temp;
+        } else if (angle === 180) {
+          dx = -dx;
+          dy = -dy;
+        } else if (angle === 270) {
+          const temp = dx;
+          dx = -dy;
+          dy = temp;
         }
+      }
 
-        if (state.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as unknown as typeof images),
-          }));
-        if (state.imageScales)
-          setScale((prev) => ({
-            ...prev,
-            ...(state.imageScales as unknown as typeof scale),
-          }));
-        if (state.imagePositions)
-          setPosition((prev) => ({
-            ...prev,
-            ...(state.imagePositions as unknown as typeof position),
-          }));
-        if (state.fieldStyles)
-          setFieldStyles(state.fieldStyles as Record<string, any>);
-      },
-    }));
+      setPosition((prev) => ({
+        ...prev,
+        [key]: { x: prev[key].x + dx, y: prev[key].y + dy },
+      }));
 
-    console.log("orderData", orderData);
+      lastPosition.current[key] = { x: e.clientX, y: e.clientY };
+    };
 
-    const { formData, updateFormData } = useFileManagerContext();
+    const handleMouseUp = (key: keyof typeof images) => {
+      setDragging((prev) => ({ ...prev, [key]: false }));
+    };
 
-    // Initial sync from context on mount
+    const handleMouseLeave = (key: keyof typeof images) => {
+      setDragging((prev) => ({ ...prev, [key]: false }));
+    };
+
+    const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
+      if (e?.altKey) return;
+      setCurrentImageSlot(imageSlot);
+      setShowGallery(true);
+    };
+
+    const handleGalleryImageSelect = (imageUrl: string) => {
+      if (!currentImageSlot) return;
+      setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
+      setShowGallery(false);
+      setCurrentImageSlot(null);
+    };
+
+    // ── 8. Context Sync & Mounting Effects ────────────────────────────────────
     useEffect(() => {
-      // 1. Auto-populate data on initial sheet creation
       if (orderData) {
         if (orderData.property) {
           if (orderData.property.listing_price)
@@ -381,7 +480,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         }
       }
 
-      // 2. Allow existing formData to override if it has truthy values
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
@@ -393,6 +491,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
+        if (formData.headline) setHeadline(formData.headline);
         if (formData.description) setDescription(formData.description);
         if (formData.fullName) setFullName(formData.fullName);
         if (formData.email) setEmail(formData.email);
@@ -425,13 +524,32 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             ...(formData.imagePositions as typeof position),
           }));
         }
+        if (formData.imageRotations) {
+          setRotation((prev) => ({
+            ...prev,
+            ...(formData.imageRotations as typeof rotation),
+          }));
+        }
+        if (formData.fieldPositions) {
+          setFieldPositions(formData.fieldPositions);
+        }
+        if (formData.fieldStyles) {
+          setFieldStyles(formData.fieldStyles);
+        }
+        if (formData.deletedDetailFields) {
+          setDeletedDetailFields(formData.deletedDetailFields);
+        }
+        if (formData.deletedStandardFieldIds) {
+          setDeletedStandardFieldIds(formData.deletedStandardFieldIds);
+        }
       }
-      // Only run on mount
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [orderData]);
 
     useEffect(() => {
       updateFormData({
+        deletedStandardFieldIds,
+        deletedDetailFields,
         byLawRestrictions,
         maintenanceFees: maintFees,
         maintenanceFeesInclude: maintFeesInclude,
@@ -439,6 +557,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         siteInfluences,
         amenities,
         view,
+        headline,
         description,
         fullName,
         email,
@@ -452,8 +571,16 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         bathroom,
         sqft,
         builtYear,
+        images,
+        imageScales: scale,
+        imagePositions: position,
+        imageRotations: rotation,
+        fieldPositions,
+        fieldStyles,
       });
     }, [
+      deletedStandardFieldIds,
+      deletedDetailFields,
       byLawRestrictions,
       maintFees,
       maintFeesInclude,
@@ -461,6 +588,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       siteInfluences,
       amenities,
       view,
+      headline,
       description,
       fullName,
       email,
@@ -474,197 +602,207 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       bathroom,
       sqft,
       builtYear,
+      images,
+      scale,
+      position,
+      rotation,
+      fieldPositions,
+      fieldStyles,
       updateFormData,
     ]);
 
-    // --- Handlers ---
-    const handleImageChange = (
-      key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-      if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        const url = URL.createObjectURL(file);
-        setImages((prev) => ({ ...prev, [key]: url }));
-      }
-    };
+    // ── 9. Payload Export & Import Handlers ────────────────────────────────────
+    useImperativeHandle(ref, () => ({
+      exportToPayload: async (): Promise<FeatureSheetPayload> => {
+        const payload = await featureSheetService.buildPayload({
+          orderUuid: orderData?.uuid || "",
+          templateKey: "BCFPStandard13",
+          uploadedBy: "admin",
+          type: "template",
+          primaryColor: "#3A8D3D",
+          offeredAtPrice: {
+            value: amount,
+            style: {
+              ...fieldStyles.amount,
+              fontSize: fieldStyles.amount?.fontSize || "28px",
+            },
+          },
+          realtorName: {
+            value: fullName,
+            style: {
+              ...fieldStyles.fullName,
+              fontSize: fieldStyles.fullName?.fontSize || "16px",
+            },
+          },
+          emailLink: {
+            value: email,
+            style: {
+              ...fieldStyles.email,
+              fontSize: fieldStyles.email?.fontSize || "11px",
+            },
+          },
+          companyName: {
+            value: propertyName,
+            style: {
+              ...fieldStyles.propertyName,
+              fontSize: fieldStyles.propertyName?.fontSize || "12px",
+            },
+          },
+          propertyNotesTitle: {
+            value: roadName,
+            style: {
+              ...fieldStyles.roadName,
+              fontSize: fieldStyles.roadName?.fontSize || "13px",
+            },
+          },
+          propertyNotesDescription: {
+            value: description,
+            style: {
+              ...fieldStyles.description,
+              fontSize: fieldStyles.description?.fontSize || "12px",
+            },
+          },
+          expandedDetail1Title: "By-law Restrictions",
+          expandedDetail1Description: byLawRestrictions,
+          expandedDetail2Title: "Maint. Fees",
+          expandedDetail2Description: maintFees,
+          expandedDetail3Title: "Maint. Fees Include",
+          expandedDetail3Description: maintFeesInclude,
+          expandedDetail4Title: "Features Included",
+          expandedDetail4Description: featuresIncluded,
+          keyHighlightLabel: "Site Influences",
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
+          otherDetails: {
+            headline,
+            amenities,
+            view,
+            bedroom,
+            bathroom,
+            sqft,
+            builtYear,
+            number,
+            addressCode,
+            cityLine,
+            fieldPositions,
+            _deletedDetailFields: deletedDetailFields,
+            _deletedStandardFieldIds: deletedStandardFieldIds,
+          },
+          images,
+          imageScales: scale,
+          imagePositions: position,
+          imageRotations: rotation,
+          fieldPositions,
+          fieldStyles,
+        });
+        payload.fieldPositions = fieldPositions;
+        payload.fieldStyles = fieldStyles;
+        return payload;
+      },
+      importFromPayload: (payload: FeatureSheetResponse) => {
+        const state = featureSheetService.parsePayloadToState(payload);
+        if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
+        if (state.realtorName) setFullName(state.realtorName as string);
+        if (state.emailLink) setEmail(state.emailLink as string);
+        if (state.companyName) setPropertyName(state.companyName as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-    const handleDelete = (
-      key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>,
-    ) => {
-      setImages((prev) => ({ ...prev, [key]: null }));
-      setScale((prev) => ({ ...prev, [key]: 1 }));
-      setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
-      if (ref.current) ref.current.value = "";
-    };
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-    const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
-      setScale((prev) => {
-        const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        const bounded = Math.min(Math.max(newScale, 0.1), 5);
-        return { ...prev, [key]: bounded };
-      });
-    };
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
-    const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
-      setDragging((prev) => ({ ...prev, [key]: true }));
-      lastPosition.current[key] = { x: e.clientX, y: e.clientY };
-    };
+        const rawOtherDetails =
+          (payload.content?.otherDetails as Record<string, any>) || {};
 
-    const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
-      if (!dragging[key]) return;
-      let dx = e.clientX - lastPosition.current[key].x;
-      let dy = e.clientY - lastPosition.current[key].y;
-
-      if (key === "image7") {
-        const angle = ((image7Rotation % 360) + 360) % 360;
-        if (angle === 90) {
-          const temp = dx;
-          dx = dy;
-          dy = -temp;
-        } else if (angle === 180) {
-          dx = -dx;
-          dy = -dy;
-        } else if (angle === 270) {
-          const temp = dx;
-          dx = -dy;
-          dy = temp;
+        if (
+          rawOtherDetails._deletedDetailFields &&
+          Array.isArray(rawOtherDetails._deletedDetailFields)
+        ) {
+          setDeletedDetailFields(
+            rawOtherDetails._deletedDetailFields as DeletedDetailFieldItem[],
+          );
         }
-      }
 
-      setPosition((prev) => ({
-        ...prev,
-        [key]: { x: prev[key].x + dx, y: prev[key].y + dy },
-      }));
-
-      lastPosition.current[key] = { x: e.clientX, y: e.clientY };
-    };
-
-    const handleMouseUp = (key: keyof typeof images) => {
-      setDragging((prev) => ({ ...prev, [key]: false }));
-    };
-
-    const handleMouseLeave = (key: keyof typeof images) => {
-      setDragging((prev) => ({ ...prev, [key]: false }));
-    };
-
-    const handleImageSourceSelect = (source: "local" | "gallery") => {
-      setShowImageSourceModal(false);
-
-      if (source === "local") {
-        switch (currentImageSlot) {
-          case "image1":
-            fileInputRef1.current?.click();
-            break;
-          case "image2":
-            fileInputRef2.current?.click();
-            break;
-          case "image3":
-            fileInputRef3.current?.click();
-            break;
-          case "image4":
-            fileInputRef4.current?.click();
-            break;
-          case "image5":
-            fileInputRef5.current?.click();
-            break;
-          case "image6":
-            fileInputRef6.current?.click();
-            break;
-          case "image7":
-            fileInputRef7.current?.click();
-            break;
-          case "image8":
-            fileInputRef8.current?.click();
-            break;
-          case "image9":
-            fileInputRef9.current?.click();
-            break;
-          case "image10":
-            fileInputRef10.current?.click();
-            break;
-          case "image11":
-            fileInputRef11.current?.click();
-            break;
-          case "image12":
-            fileInputRef12.current?.click();
-            break;
-          case "image13":
-            fileInputRef13.current?.click();
-            break;
-          default:
-            break;
+        if (
+          rawOtherDetails._deletedStandardFieldIds &&
+          Array.isArray(rawOtherDetails._deletedStandardFieldIds)
+        ) {
+          setDeletedStandardFieldIds(
+            rawOtherDetails._deletedStandardFieldIds as string[],
+          );
         }
-      } else if (source === "gallery") {
-        setShowGallery(true);
-      }
-    };
 
-    const handleGalleryImageSelect = (imageUrl: string) => {
-      if (!currentImageSlot) return;
+        if (state.otherDetails) {
+          const details = state.otherDetails as Record<string, unknown>;
+          if (details.headline) setHeadline(details.headline as string);
+          if (details.amenities) setAmenities(details.amenities as string);
+          if (details.view) setView(details.view as string);
+          if (details.bedroom) setBedroom(details.bedroom as string);
+          if (details.bathroom) setBathroom(details.bathroom as string);
+          if (details.sqft) setSqft(details.sqft as string);
+          if (details.builtYear) setBuiltYear(details.builtYear as string);
+          if (details.number) setNumber(details.number as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
+          if (details.cityLine) setCityLine(details.cityLine as string);
+        }
 
-      switch (currentImageSlot) {
-        case "image1":
-          setImages((prev) => ({ ...prev, image1: imageUrl }));
-          break;
-        case "image2":
-          setImages((prev) => ({ ...prev, image2: imageUrl }));
-          break;
-        case "image3":
-          setImages((prev) => ({ ...prev, image3: imageUrl }));
-          break;
-        case "image4":
-          setImages((prev) => ({ ...prev, image4: imageUrl }));
-          break;
-        case "image5":
-          setImages((prev) => ({ ...prev, image5: imageUrl }));
-          break;
-        case "image6":
-          setImages((prev) => ({ ...prev, image6: imageUrl }));
-          break;
-        case "image7":
-          setImages((prev) => ({ ...prev, image7: imageUrl }));
-          break;
-        case "image8":
-          setImages((prev) => ({ ...prev, image8: imageUrl }));
-          break;
-        case "image9":
-          setImages((prev) => ({ ...prev, image9: imageUrl }));
-          break;
-        case "image10":
-          setImages((prev) => ({ ...prev, image10: imageUrl }));
-          break;
-        case "image11":
-          setImages((prev) => ({ ...prev, image11: imageUrl }));
-          break;
-        case "image12":
-          setImages((prev) => ({ ...prev, image12: imageUrl }));
-          break;
-        case "image13":
-          setImages((prev) => ({ ...prev, image13: imageUrl }));
-          break;
-        default:
-          break;
-      }
-      setShowGallery(false);
-      setCurrentImageSlot(null);
-    };
+        if (state.images)
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof images),
+          }));
+        if (state.imageScales)
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof scale),
+          }));
+        if (state.imagePositions)
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof position),
+          }));
+        if (state.imageRotations)
+          setRotation((prev) => ({
+            ...prev,
+            ...(state.imageRotations as unknown as typeof rotation),
+          }));
 
-    const openImageSourceModal = (imageSlot: string) => {
-      setCurrentImageSlot(imageSlot);
-      setShowGallery(true);
-    };
+        if (rawOtherDetails.fieldPositions) {
+          setFieldPositions(
+            rawOtherDetails.fieldPositions as Record<
+              string,
+              { x: number; y: number }
+            >,
+          );
+        } else if (state.fieldPositions || payload.fieldPositions) {
+          setFieldPositions(
+            (state.fieldPositions || payload.fieldPositions) as Record<
+              string,
+              { x: number; y: number }
+            >,
+          );
+        }
+
+        if (state.fieldStyles)
+          setFieldStyles(state.fieldStyles as Record<string, TextStyle>);
+      },
+    }));
 
     return (
       <>
-        {showImageSourceModal && (
-          <ImageSourceModal
-            onClose={() => setShowImageSourceModal(false)}
-            onSelectSource={handleImageSourceSelect}
-          />
-        )}
-
         {showGallery && (
           <FileManagerGallery
             isOpen={showGallery}
@@ -685,90 +823,2244 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           <div className="h-[1px] bg-gray-300 flex-1"></div>
         </div>
 
-        <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
-          <div
-            className="w-full flex-1 h-full flex flex-col justify-start gap-3 font-alexandria relative"
-            style={{
-              background:
-                "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-            }}
-          >
-            <div className="relative">
-              <div
-                className="w-full h-[450px] place-self-center border-[#fff] relative overflow-hidden flex items-center justify-center group"
-                onMouseDown={(e) => handleMouseDown("image1", e)}
-                onMouseMove={(e) => handleMouseMove("image1", e)}
-                onMouseUp={() => handleMouseUp("image1")}
-                onMouseLeave={() => handleMouseLeave("image1")}
-                style={{ cursor: dragging.image1 ? "grabbing" : "grab" }}
-              >
-                {images.image1 ? (
-                  <>
-                    <ImageEditor
-                      src={images.image1}
-                      scale={scale.image1}
-                      position={position.image1}
-                    />
+        {/* CONTAINER 1: Outer Page / Bleed Wrapper */}
+        <div
+          className="pdf-page shadow-xl relative overflow-hidden flex flex-col"
+          style={{
+            width: showBleed ? "8.75in" : "8.5in",
+            height: showBleed ? "11.25in" : "11.0in",
+            zoom: 0.85,
+            background:
+              "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+          }}
+        >
+          {/* CONTAINER 2: SafeZoneWrapper */}
+          <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
+            {/* CONTAINER 3: Inner Content Container */}
+            <div className="w-full h-full flex flex-col justify-start gap-1 font-alexandria relative">
+              {/* IMAGE 1 SLOT (Top Photo) & OVERLAY CARDS */}
+              <div className="relative">
+                {/* Image 1 Three-Layer Slot Container */}
+                <div
+                  data-image-slot="true"
+                  className="relative overflow-hidden group cursor-pointer"
+                  style={{
+                    marginTop: showBleed ? "-0.375in" : "-0.25in",
+                    marginLeft: showBleed ? "-0.375in" : "-0.25in",
+                    marginRight: showBleed ? "-0.375in" : "-0.25in",
+                    width: showBleed
+                      ? "calc(100% + 0.75in)"
+                      : "calc(100% + 0.5in)",
+                    height: showBleed
+                      ? "calc(450px + 0.375in)"
+                      : "calc(450px + 0.25in)",
+                  }}
+                  onMouseEnter={() => setHoveredSlot("image1")}
+                  onMouseLeave={() => setHoveredSlot(null)}
+                  onClick={(e) => {
+                    if (e.altKey) return;
+                    e.stopPropagation();
+                    setActiveSlot("image1");
+                  }}
+                >
+                  <BoxIndicator isVisible={isSlotActive("image1")} />
 
-                    {/* Zoom Controls */}
-                    <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image1", "in")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleZoom("image1", "out")}
-                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-gray-700" />
-                      </button>
-                    </div>
-
-                    {/* Edit Button */}
-                    <button
-                      type="button"
-                      onClick={() => openImageSourceModal("image1")}
-                      className="absolute top-[10px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Edit image"
-                    >
-                      <Pencil className="w-4 h-4 text-gray-700" />
-                    </button>
-
-                    {/* Delete Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete("image1", fileInputRef1)}
-                      className="absolute top-[10px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                      title="Delete image"
-                    >
-                      <Trash className="w-4 h-4 text-red-500" />
-                    </button>
-                  </>
-                ) : (
                   <div
-                    onClick={() => openImageSourceModal("image1")}
-                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                    onMouseMove={(e) => handleMouseMove("image1", e)}
+                    onMouseUp={() => handleMouseUp("image1")}
+                    onMouseLeave={() => handleMouseLeave("image1")}
                   >
-                    Select Image
-                  </div>
-                )}
+                    {images.image1 ? (
+                      <>
+                        <div
+                          className="w-full h-full cursor-grab active:cursor-grabbing"
+                          onMouseDown={(e) => handleMouseDown("image1", e)}
+                        >
+                          <ImageEditor
+                            src={images.image1}
+                            scale={scale.image1}
+                            position={position.image1}
+                            rotation={rotation.image1}
+                          />
+                        </div>
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef1}
-                  onChange={(e) => handleImageChange("image1", e)}
-                  className="hidden"
-                />
+                        {/* Zoom Controls */}
+                        <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleZoom("image1", "in")}
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Zoom In"
+                          >
+                            <ZoomIn className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleZoom("image1", "out")}
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            title="Zoom Out"
+                          >
+                            <ZoomOut className="w-4 h-4 text-gray-700" />
+                          </button>
+                        </div>
+
+                        {/* Rotate Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRotate("image1")}
+                          className="absolute top-[45px] right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                          title="Rotate image"
+                        >
+                          <RotateCw className="w-4 h-4 text-gray-700" />
+                        </button>
+
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => openImageSourceModal("image1", e)}
+                          className="absolute top-[45px] right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                          title="Edit image"
+                        >
+                          <Pencil className="w-4 h-4 text-gray-700" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete("image1", fileInputRef1)}
+                          className="absolute top-[45px] right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                          title="Delete image"
+                        >
+                          <Trash className="w-4 h-4 text-red-500" />
+                        </button>
+                      </>
+                    ) : (
+                      <div
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => openImageSourceModal("image1", e)}
+                        className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 font-medium text-sm hover:bg-gray-300 transition-colors"
+                      >
+                        Select Image
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef1}
+                      onChange={(e) => handleImageChange("image1", e)}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Specs Bar Overlay (Bottom Right of Image 1) */}
+                <div className="flex gap-2 absolute bottom-[100px] right-[0px] z-20">
+                  <div
+                    className="opacity-[25%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                  <div
+                    className="opacity-[50%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+                  <div
+                    className="opacity-[75%] w-[35px]"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  ></div>
+
+                  {/* Section Container for Specs Bar */}
+                  <div
+                    data-safezone-container="true"
+                    className={`flex items-center px-5 pr-[64px] py-1 relative border-[3.5px] border-solid border-transparent rounded-none transition-all duration-150 group/sec ${
+                      lockedSections.specs
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                    style={{
+                      background:
+                        "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                    }}
+                  >
+                    {/* Section Lock Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("specs");
+                      }}
+                      className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.specs
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.specs
+                          ? "Unlock Specs Section"
+                          : "Lock Specs Section"
+                      }
+                    >
+                      {lockedSections.specs ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <DraggableBox
+                      id="specsBar"
+                      position={fieldPositions.specsBar}
+                      onPositionChange={updateFieldPosition}
+                      label="Property Specs Bar"
+                      zoom={0.85}
+                      disabled={lockedSections.specs}
+                    >
+                      <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-nowrap gap-2 whitespace-nowrap">
+                        {!isFieldDeleted("specBedroom") && (
+                          <DraggableBox
+                            id="specBedroom"
+                            position={fieldPositions.specBedroom}
+                            onPositionChange={updateFieldPosition}
+                            label="Bedroom"
+                            zoom={0.85}
+                            disabled={lockedSections.specs}
+                            onDelete={() =>
+                              removeStandardField(
+                                "specBedroom",
+                                "Bedroom",
+                                bedroom,
+                                "Specs",
+                                fieldStyles.bedroom,
+                              )
+                            }
+                            deleteTitle="Remove Bedrooms"
+                          >
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <StyledInput
+                                value={bedroom}
+                                onChange={(e) => setBedroom(e.target.value)}
+                                inputStyle={fieldStyles["bedroom"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("bedroom", style)
+                                }
+                                className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="0"
+                              />
+                              <StyledInput
+                                value={bedroomLabel}
+                                onChange={(e) =>
+                                  setBedroomLabel(e.target.value)
+                                }
+                                inputStyle={fieldStyles["bedroomLabel"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("bedroomLabel", style)
+                                }
+                                className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                                placeholder="BEDROOM |"
+                                wrapperClassName="w-auto whitespace-nowrap"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("specBathroom") && (
+                          <DraggableBox
+                            id="specBathroom"
+                            position={fieldPositions.specBathroom}
+                            onPositionChange={updateFieldPosition}
+                            label="Bathroom"
+                            zoom={0.85}
+                            disabled={lockedSections.specs}
+                            onDelete={() =>
+                              removeStandardField(
+                                "specBathroom",
+                                "Bathroom",
+                                bathroom,
+                                "Specs",
+                                fieldStyles.bathroom,
+                              )
+                            }
+                            deleteTitle="Remove Bathrooms"
+                          >
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <StyledInput
+                                value={bathroom}
+                                onChange={(e) => setBathroom(e.target.value)}
+                                inputStyle={fieldStyles["bathroom"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("bathroom", style)
+                                }
+                                className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="0"
+                              />
+                              <StyledInput
+                                value={bathroomLabel}
+                                onChange={(e) =>
+                                  setBathroomLabel(e.target.value)
+                                }
+                                inputStyle={fieldStyles["bathroomLabel"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("bathroomLabel", style)
+                                }
+                                className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                                placeholder="BATHROOM |"
+                                wrapperClassName="w-auto whitespace-nowrap"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("specSqft") && (
+                          <DraggableBox
+                            id="specSqft"
+                            position={fieldPositions.specSqft}
+                            onPositionChange={updateFieldPosition}
+                            label="Square Feet"
+                            zoom={0.85}
+                            disabled={lockedSections.specs}
+                            onDelete={() =>
+                              removeStandardField(
+                                "specSqft",
+                                "Square Feet",
+                                sqft,
+                                "Specs",
+                                fieldStyles.sqft,
+                              )
+                            }
+                            deleteTitle="Remove SqFt"
+                          >
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <StyledInput
+                                value={sqft}
+                                onChange={(e) => setSqft(e.target.value)}
+                                inputStyle={fieldStyles["sqft"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("sqft", style)
+                                }
+                                className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="000"
+                              />
+                              <StyledInput
+                                value={sqftLabel}
+                                onChange={(e) => setSqftLabel(e.target.value)}
+                                inputStyle={fieldStyles["sqftLabel"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("sqftLabel", style)
+                                }
+                                className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                                placeholder="SQ FT |"
+                                wrapperClassName="w-auto whitespace-nowrap"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("specBuiltYear") && (
+                          <DraggableBox
+                            id="specBuiltYear"
+                            position={fieldPositions.specBuiltYear}
+                            onPositionChange={updateFieldPosition}
+                            label="Built Year"
+                            zoom={0.85}
+                            disabled={lockedSections.specs}
+                            onDelete={() =>
+                              removeStandardField(
+                                "specBuiltYear",
+                                "Built Year",
+                                builtYear,
+                                "Specs",
+                                fieldStyles.builtYear,
+                              )
+                            }
+                            deleteTitle="Remove Built Year"
+                          >
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <StyledInput
+                                value={builtYearLabel}
+                                onChange={(e) =>
+                                  setBuiltYearLabel(e.target.value)
+                                }
+                                inputStyle={fieldStyles["builtYearLabel"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("builtYearLabel", style)
+                                }
+                                className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                                placeholder="BUILT IN"
+                                wrapperClassName="w-auto whitespace-nowrap"
+                              />
+                              <StyledInput
+                                value={builtYear}
+                                onChange={(e) => setBuiltYear(e.target.value)}
+                                inputStyle={fieldStyles["builtYear"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("builtYear", style)
+                                }
+                                className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                                placeholder="0000"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+                      </div>
+                    </DraggableBox>
+                  </div>
+                </div>
+
+                {/* Floating Address & Price Card (Absolute Top Left over Image 1) */}
+                <div
+                  data-safezone-container="true"
+                  className={`flex flex-col gap-1 absolute top-[30px] left-[50px] w-[160px] z-20 border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                    lockedSections.headerAddress
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
+                  {/* Section Lock Toggle */}
+                  <button
+                    type="button"
+                    data-html2canvas-ignore="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSectionLock("headerAddress");
+                    }}
+                    className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                      lockedSections.headerAddress
+                        ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                        : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                    }`}
+                    title={
+                      lockedSections.headerAddress
+                        ? "Unlock Header Address Section"
+                        : "Lock Header Address Section"
+                    }
+                  >
+                    {lockedSections.headerAddress ? (
+                      <>
+                        <Lock className="w-3 h-3" />
+                        <span>Locked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="w-3 h-3" />
+                        <span>Lock</span>
+                      </>
+                    )}
+                  </button>
+
+                  <DraggableBox
+                    id="headerAddress"
+                    position={fieldPositions.headerAddress}
+                    onPositionChange={updateFieldPosition}
+                    label="Address & Price Card"
+                    zoom={0.85}
+                    disabled={lockedSections.headerAddress}
+                  >
+                    <div className="flex flex-col gap-1 w-full">
+                      <div
+                        className="p-3 shadow-md rounded-sm"
+                        style={{
+                          background:
+                            "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                        }}
+                      >
+                        {!isFieldDeleted("addressCode") && (
+                          <DraggableBox
+                            id="addressCode"
+                            position={fieldPositions.addressCode}
+                            onPositionChange={updateFieldPosition}
+                            label="Unit Number"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddress}
+                            onDelete={() =>
+                              removeStandardField(
+                                "addressCode",
+                                "Unit Number",
+                                addressCode,
+                                "Header Address",
+                                fieldStyles.addressCode,
+                              )
+                            }
+                            deleteTitle="Remove Unit Number"
+                          >
+                            <div className="tracking-wide text-white mt-0 flex items-center">
+                              <span className="mr-0.5">#</span>
+                              <StyledInput
+                                value={addressCode}
+                                onChange={(e) => setAddressCode(e.target.value)}
+                                inputStyle={fieldStyles["addressCode"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("addressCode", style)
+                                }
+                                className="font-light text-[18px] h-[24px] w-[120px] flex-1 leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
+                                placeholder="0000-0000"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("roadName") && (
+                          <DraggableBox
+                            id="roadName"
+                            position={fieldPositions.roadName}
+                            onPositionChange={updateFieldPosition}
+                            label="Street / Road"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddress}
+                            onDelete={() =>
+                              removeStandardField(
+                                "roadName",
+                                "Street / Road",
+                                roadName,
+                                "Header Address",
+                                fieldStyles.roadName,
+                              )
+                            }
+                            deleteTitle="Remove Street / Road"
+                          >
+                            <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                              <StyledInput
+                                value={roadLabelBefore}
+                                onChange={(e) =>
+                                  setRoadLabelBefore(e.target.value)
+                                }
+                                inputStyle={fieldStyles["roadLabelBefore"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("roadLabelBefore", style)
+                                }
+                                className="font-bold text-[13px] bg-transparent text-white focus:outline-none border-none"
+                                placeholder="Number"
+                                wrapperClassName="w-auto"
+                              />
+                              <StyledInput
+                                value={roadName}
+                                onChange={(e) => setRoadName(e.target.value)}
+                                inputStyle={fieldStyles["roadName"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("roadName", style)
+                                }
+                                className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                                placeholder="0"
+                              />
+                              <StyledInput
+                                value={roadLabelAfter}
+                                onChange={(e) =>
+                                  setRoadLabelAfter(e.target.value)
+                                }
+                                inputStyle={fieldStyles["roadLabelAfter"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("roadLabelAfter", style)
+                                }
+                                className="font-bold text-[13px] bg-transparent text-white focus:outline-none border-none"
+                                placeholder="Road"
+                                wrapperClassName="w-auto"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+
+                        <hr className="border-t-2 border-dotted border-white w-full" />
+
+                        {!isFieldDeleted("cityLine") && (
+                          <DraggableBox
+                            id="cityLine"
+                            position={fieldPositions.cityLine}
+                            onPositionChange={updateFieldPosition}
+                            label="City Line"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddress}
+                            onDelete={() =>
+                              removeStandardField(
+                                "cityLine",
+                                "City Line",
+                                cityLine,
+                                "Header Address",
+                                fieldStyles.cityLine,
+                              )
+                            }
+                            deleteTitle="Remove City Line"
+                          >
+                            <div className="uppercase mt-2 flex justify-center">
+                              <StyledInput
+                                value={cityLine}
+                                rows={2}
+                                onChange={(e) => setCityLine(e.target.value)}
+                                inputStyle={fieldStyles["cityLine"]}
+                                onChangeStyle={(style) =>
+                                  updateFieldStyle("cityLine", style)
+                                }
+                                className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
+                                placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                              />
+                            </div>
+                          </DraggableBox>
+                        )}
+                      </div>
+
+                      {!isFieldDeleted("priceAmount") && (
+                        <DraggableBox
+                          id="priceAmount"
+                          position={fieldPositions.priceAmount}
+                          onPositionChange={updateFieldPosition}
+                          label="Listing Price"
+                          zoom={0.85}
+                          disabled={lockedSections.headerAddress}
+                          onDelete={() =>
+                            removeStandardField(
+                              "priceAmount",
+                              "Listing Price",
+                              amount,
+                              "Header Address",
+                              fieldStyles.amount,
+                            )
+                          }
+                          deleteTitle="Remove Price"
+                        >
+                          <div
+                            className="h-[40px] rounded-sm shadow-md flex items-center"
+                            style={{
+                              background:
+                                "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                              opacity: 0.95,
+                            }}
+                          >
+                            <StyledInput
+                              value={amount}
+                              onChange={(e) => setAmount(e.target.value)}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("amount", style)
+                              }
+                              inputStyle={fieldStyles["amount"]}
+                              placeholder="$000,000"
+                              className="text-center text-[#ffffff] text-[28px] w-full bg-transparent border-none focus:outline-none outline-none placeholder-[#ffffff] placeholder:font-[500] px-2"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </DraggableBox>
+                </div>
               </div>
 
-              <div className="flex gap-2 absolute bottom-[64px] right-[20px]">
+              {/* BOTTOM SECTION: Left Details Column (25%) + Right Image Grid & Desc (75%) */}
+              <div className="flex gap-4 px-[20px] pb-[5px] flex-1 min-h-0">
+                {/* LEFT COLUMN (25%): Property Details + Agent Contact */}
+                <div className="w-[30%] flex flex-col gap-2">
+                  {/* Property Details Section Container */}
+                  <div
+                    data-safezone-container="true"
+                    className={`flex flex-col flex-1 space-y-2 relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                      lockedSections.details
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Section Lock Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("details");
+                      }}
+                      className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.details
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.details
+                          ? "Unlock Property Details Section"
+                          : "Lock Property Details Section"
+                      }
+                    >
+                      {lockedSections.details ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="space-y-1.5 text-[8px] text-left">
+                      {!isFieldDeleted("byLawRestrictions") && (
+                        <DraggableBox
+                          id="byLawRestrictions"
+                          position={fieldPositions.byLawRestrictions}
+                          onPositionChange={updateFieldPosition}
+                          label="By-law Restrictions"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "byLawRestrictions",
+                              "By-law Restrictions",
+                              byLawRestrictions,
+                              "Details",
+                              fieldStyles.byLawRestrictions,
+                            )
+                          }
+                          deleteTitle="Remove By-law Restrictions"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={byLawLabel}
+                              onChange={(e) => setByLawLabel(e.target.value)}
+                              inputStyle={fieldStyles["byLawLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("byLawLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="BY-LAW RESTRICTIONS:"
+                            />
+                            <StyledInput
+                              value={byLawRestrictions}
+                              onChange={(e) =>
+                                setByLawRestrictions(e.target.value)
+                              }
+                              inputStyle={fieldStyles["byLawRestrictions"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("byLawRestrictions", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("maintFees") && (
+                        <DraggableBox
+                          id="maintFees"
+                          position={fieldPositions.maintFees}
+                          onPositionChange={updateFieldPosition}
+                          label="Maint. Fees"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "maintFees",
+                              "Maint. Fees",
+                              maintFees,
+                              "Details",
+                              fieldStyles.maintFees,
+                            )
+                          }
+                          deleteTitle="Remove Maintenance Fees"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={maintFeesLabel}
+                              onChange={(e) =>
+                                setMaintFeesLabel(e.target.value)
+                              }
+                              inputStyle={fieldStyles["maintFeesLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("maintFeesLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="MAINT. FEES:"
+                            />
+                            <StyledInput
+                              value={maintFees}
+                              onChange={(e) => setMaintFees(e.target.value)}
+                              inputStyle={fieldStyles["maintFees"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("maintFees", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="$000.00"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("maintFeesInclude") && (
+                        <DraggableBox
+                          id="maintFeesInclude"
+                          position={fieldPositions.maintFeesInclude}
+                          onPositionChange={updateFieldPosition}
+                          label="Maint. Fees Include"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "maintFeesInclude",
+                              "Maint. Fees Include",
+                              maintFeesInclude,
+                              "Details",
+                              fieldStyles.maintFeesInclude,
+                            )
+                          }
+                          deleteTitle="Remove Maintenance Fees Include"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={maintFeesIncludeLabel}
+                              onChange={(e) =>
+                                setMaintFeesIncludeLabel(e.target.value)
+                              }
+                              inputStyle={fieldStyles["maintFeesIncludeLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("maintFeesIncludeLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="MAINT. FEES INCLUDE:"
+                            />
+                            <StyledInput
+                              value={maintFeesInclude}
+                              onChange={(e) =>
+                                setMaintFeesInclude(e.target.value)
+                              }
+                              inputStyle={fieldStyles["maintFeesInclude"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("maintFeesInclude", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("featuresIncluded") && (
+                        <DraggableBox
+                          id="featuresIncluded"
+                          position={fieldPositions.featuresIncluded}
+                          onPositionChange={updateFieldPosition}
+                          label="Features Included"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "featuresIncluded",
+                              "Features Included",
+                              featuresIncluded,
+                              "Details",
+                              fieldStyles.featuresIncluded,
+                            )
+                          }
+                          deleteTitle="Remove Features Included"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={featuresIncludedLabel}
+                              onChange={(e) =>
+                                setFeaturesIncludedLabel(e.target.value)
+                              }
+                              inputStyle={fieldStyles["featuresIncludedLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("featuresIncludedLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="FEATURES INCLUDED:"
+                            />
+                            <StyledInput
+                              value={featuresIncluded}
+                              onChange={(e) =>
+                                setFeaturesIncluded(e.target.value)
+                              }
+                              inputStyle={fieldStyles["featuresIncluded"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("featuresIncluded", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("siteInfluences") && (
+                        <DraggableBox
+                          id="siteInfluences"
+                          position={fieldPositions.siteInfluences}
+                          onPositionChange={updateFieldPosition}
+                          label="Site Influences"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "siteInfluences",
+                              "Site Influences",
+                              siteInfluences,
+                              "Details",
+                              fieldStyles.siteInfluences,
+                            )
+                          }
+                          deleteTitle="Remove Site Influences"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={siteInfluencesLabel}
+                              onChange={(e) =>
+                                setSiteInfluencesLabel(e.target.value)
+                              }
+                              inputStyle={fieldStyles["siteInfluencesLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("siteInfluencesLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="SITE INFLUENCES:"
+                            />
+                            <StyledInput
+                              value={siteInfluences}
+                              onChange={(e) =>
+                                setSiteInfluences(e.target.value)
+                              }
+                              inputStyle={fieldStyles["siteInfluences"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("siteInfluences", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("amenities") && (
+                        <DraggableBox
+                          id="amenities"
+                          position={fieldPositions.amenities}
+                          onPositionChange={updateFieldPosition}
+                          label="Amenities"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "amenities",
+                              "Amenities",
+                              amenities,
+                              "Details",
+                              fieldStyles.amenities,
+                            )
+                          }
+                          deleteTitle="Remove Amenities"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={amenitiesLabel}
+                              onChange={(e) =>
+                                setAmenitiesLabel(e.target.value)
+                              }
+                              inputStyle={fieldStyles["amenitiesLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("amenitiesLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="AMENITIES:"
+                            />
+                            <StyledInput
+                              value={amenities}
+                              onChange={(e) => setAmenities(e.target.value)}
+                              inputStyle={fieldStyles["amenities"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("amenities", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("view") && (
+                        <DraggableBox
+                          id="view"
+                          position={fieldPositions.view}
+                          onPositionChange={updateFieldPosition}
+                          label="View"
+                          zoom={0.85}
+                          disabled={lockedSections.details}
+                          onDelete={() =>
+                            removeStandardField(
+                              "view",
+                              "View",
+                              view,
+                              "Details",
+                              fieldStyles.view,
+                            )
+                          }
+                          deleteTitle="Remove View"
+                        >
+                          <div className="text-left">
+                            <StyledInput
+                              value={viewLabel}
+                              onChange={(e) => setViewLabel(e.target.value)}
+                              inputStyle={fieldStyles["viewLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("viewLabel", style)
+                              }
+                              className="font-bold text-[#B3B394] text-[12px] bg-transparent border-none focus:outline-none uppercase text-left"
+                              placeholder="VIEW:"
+                            />
+                            <StyledInput
+                              value={view}
+                              onChange={(e) => setView(e.target.value)}
+                              inputStyle={fieldStyles["view"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("view", style)
+                              }
+                              className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                              placeholder="South & SW - Van Isl."
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Agent Contact Box Container */}
+                  <div
+                    data-safezone-container="true"
+                    className={`flex flex-col relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                      lockedSections.contact
+                        ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                        : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                    }`}
+                  >
+                    {/* Section Lock Button */}
+                    <button
+                      type="button"
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSectionLock("contact");
+                      }}
+                      className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                        lockedSections.contact
+                          ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                          : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                      }`}
+                      title={
+                        lockedSections.contact
+                          ? "Unlock Contact Section"
+                          : "Lock Contact Section"
+                      }
+                    >
+                      {lockedSections.contact ? (
+                        <>
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3" />
+                          <span>Lock</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-[#B3B394]">
+                      {!isFieldDeleted("contactName") && (
+                        <DraggableBox
+                          id="contactName"
+                          position={fieldPositions.contactName}
+                          onPositionChange={updateFieldPosition}
+                          label="Agent Name"
+                          zoom={0.85}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactName",
+                              "Agent Name",
+                              fullName,
+                              "Contact",
+                              fieldStyles.fullName,
+                            )
+                          }
+                          deleteTitle="Remove Agent Name"
+                        >
+                          <div className="font-bold text-[14px] flex flex-col gap-0">
+                            <StyledInput
+                              value={contactLabel}
+                              onChange={(e) => setContactLabel(e.target.value)}
+                              inputStyle={fieldStyles["contactLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("contactLabel", style)
+                              }
+                              className="font-normal text-[12px] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+                              placeholder="CONTACT:"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              rows={1}
+                              inputStyle={fieldStyles["fullName"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("fullName", style)
+                              }
+                              className="text-[16px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
+                              placeholder="FIRSTNAME LASTNAME"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("contactBrokerage") && (
+                        <DraggableBox
+                          id="contactBrokerage"
+                          position={fieldPositions.contactBrokerage}
+                          onPositionChange={updateFieldPosition}
+                          label="Brokerage"
+                          zoom={0.85}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactBrokerage",
+                              "Brokerage",
+                              propertyName,
+                              "Contact",
+                              fieldStyles.propertyName,
+                            )
+                          }
+                          deleteTitle="Remove Brokerage"
+                        >
+                          <StyledInput
+                            value={propertyName}
+                            rows={1}
+                            onChange={(e) => setPropertyName(e.target.value)}
+                            inputStyle={fieldStyles["propertyName"]}
+                            onChangeStyle={(style) =>
+                              updateFieldStyle("propertyName", style)
+                            }
+                            className="text-[12px] font-thin h-[18px] bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                            placeholder="MACDONALD Realty"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("contactPhone") && (
+                        <DraggableBox
+                          id="contactPhone"
+                          position={fieldPositions.contactPhone}
+                          onPositionChange={updateFieldPosition}
+                          label="Phone"
+                          zoom={0.85}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactPhone",
+                              "Phone",
+                              number,
+                              "Contact",
+                              fieldStyles.number,
+                            )
+                          }
+                          deleteTitle="Remove Phone"
+                        >
+                          <div className="flex gap-2 text-white text-[12px] items-center">
+                            <StyledInput
+                              value={phoneLabel}
+                              onChange={(e) => setPhoneLabel(e.target.value)}
+                              inputStyle={fieldStyles["phoneLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("phoneLabel", style)
+                              }
+                              className="font-bold text-[12px] text-white bg-transparent focus:outline-none border-none"
+                              placeholder="PHONE:"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={number}
+                              onChange={(e) => setNumber(e.target.value)}
+                              rows={1}
+                              inputStyle={fieldStyles["number"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("number", style)
+                              }
+                              className="font-thin inline text-[12px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                              placeholder="604.000.0000"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("contactEmail") && (
+                        <DraggableBox
+                          id="contactEmail"
+                          position={fieldPositions.contactEmail}
+                          onPositionChange={updateFieldPosition}
+                          label="Email"
+                          zoom={0.85}
+                          disabled={lockedSections.contact}
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactEmail",
+                              "Email",
+                              email,
+                              "Contact",
+                              fieldStyles.email,
+                            )
+                          }
+                          deleteTitle="Remove Email"
+                        >
+                          <div className="flex gap-2 text-white text-[11px] items-center">
+                            <StyledInput
+                              value={emailLabel}
+                              onChange={(e) => setEmailLabel(e.target.value)}
+                              inputStyle={fieldStyles["emailLabel"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("emailLabel", style)
+                              }
+                              className="font-bold text-[11px] text-white bg-transparent focus:outline-none border-none"
+                              placeholder="EMAIL:"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              rows={1}
+                              inputStyle={fieldStyles["email"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("email", style)
+                              }
+                              className="font-thin inline text-[11px] h-[22px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                              placeholder="FIRST@LAST.COM"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN (75%): Image Grid (2,3,4,5 + center overlap 6) & Headline / Desc */}
+                <div className="w-[70%] flex flex-col flex-1 min-h-0 justify-between">
+                  <div className="relative -mt-[60px] flex flex-col flex-1 min-h-0 h-full">
+                    <div className="flex flex-col relative justify-center items-center flex-1 min-h-0 h-full w-full">
+                      {/* 2x2 Image Grid (Images 2, 3, 4, 5) */}
+                      <div className="grid grid-cols-2 gap-3 w-full">
+                        {/* Image 2 Slot */}
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-[160px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)] place-self-center relative overflow-hidden flex items-center justify-center group cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image2")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image2");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image2")} />
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image2", e)}
+                            onMouseUp={() => handleMouseUp("image2")}
+                            onMouseLeave={() => handleMouseLeave("image2")}
+                          >
+                            {images.image2 ? (
+                              <>
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image2", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image2}
+                                    scale={scale.image2}
+                                    position={position.image2}
+                                    rotation={rotation.image2}
+                                  />
+                                </div>
+                                <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image2", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image2", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image2")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image2", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image2", fileInputRef2)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image2", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef2}
+                              onChange={(e) => handleImageChange("image2", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Image 3 Slot */}
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-[160px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)] place-self-center relative overflow-hidden flex items-center justify-center group cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image3")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image3");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image3")} />
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image3", e)}
+                            onMouseUp={() => handleMouseUp("image3")}
+                            onMouseLeave={() => handleMouseLeave("image3")}
+                          >
+                            {images.image3 ? (
+                              <>
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image3", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image3}
+                                    scale={scale.image3}
+                                    position={position.image3}
+                                    rotation={rotation.image3}
+                                  />
+                                </div>
+                                <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image3", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image3", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image3")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image3", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image3", fileInputRef3)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image3", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef3}
+                              onChange={(e) => handleImageChange("image3", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Image 4 Slot */}
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-[160px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)] place-self-center relative overflow-hidden flex items-center justify-center group cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image4")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image4");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image4")} />
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image4", e)}
+                            onMouseUp={() => handleMouseUp("image4")}
+                            onMouseLeave={() => handleMouseLeave("image4")}
+                          >
+                            {images.image4 ? (
+                              <>
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image4", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image4}
+                                    scale={scale.image4}
+                                    position={position.image4}
+                                    rotation={rotation.image4}
+                                  />
+                                </div>
+                                <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image4", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image4", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image4")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image4", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image4", fileInputRef4)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image4", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef4}
+                              onChange={(e) => handleImageChange("image4", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Image 5 Slot */}
+                        <div
+                          data-image-slot="true"
+                          className="w-full h-[160px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)] place-self-center relative overflow-hidden flex items-center justify-center group cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image5")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image5");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image5")} />
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image5", e)}
+                            onMouseUp={() => handleMouseUp("image5")}
+                            onMouseLeave={() => handleMouseLeave("image5")}
+                          >
+                            {images.image5 ? (
+                              <>
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image5", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image5}
+                                    scale={scale.image5}
+                                    position={position.image5}
+                                    rotation={rotation.image5}
+                                  />
+                                </div>
+                                <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image5", "in")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image5", "out")}
+                                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image5")}
+                                  className="absolute top-4 right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image5", e)
+                                  }
+                                  className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image5", fileInputRef5)
+                                  }
+                                  className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image5", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef5}
+                              onChange={(e) => handleImageChange("image5", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Center Inset Overlapping Image 6 Slot */}
+                      <div className="absolute z-10">
+                        <div
+                          data-image-slot="true"
+                          className="w-[150px] h-[100px] relative bg-white border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.85)] overflow-hidden group cursor-pointer"
+                          onMouseEnter={() => setHoveredSlot("image6")}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          onClick={(e) => {
+                            if (e.altKey) return;
+                            e.stopPropagation();
+                            setActiveSlot("image6");
+                          }}
+                        >
+                          <BoxIndicator isVisible={isSlotActive("image6")} />
+                          <div
+                            className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                            onMouseMove={(e) => handleMouseMove("image6", e)}
+                            onMouseUp={() => handleMouseUp("image6")}
+                            onMouseLeave={() => handleMouseLeave("image6")}
+                          >
+                            {images.image6 ? (
+                              <>
+                                <div
+                                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                                  onMouseDown={(e) =>
+                                    handleMouseDown("image6", e)
+                                  }
+                                >
+                                  <ImageEditor
+                                    src={images.image6}
+                                    scale={scale.image6}
+                                    position={position.image6}
+                                    rotation={rotation.image6}
+                                  />
+                                </div>
+                                <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image6", "in")}
+                                    className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom In"
+                                  >
+                                    <ZoomIn className="w-3 h-3 text-gray-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleZoom("image6", "out")}
+                                    className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                                    title="Zoom Out"
+                                  >
+                                    <ZoomOut className="w-3 h-3 text-gray-700" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotate("image6")}
+                                  className="absolute top-2 right-[60px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                  title="Rotate image"
+                                >
+                                  <RotateCw className="w-3 h-3 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) =>
+                                    openImageSourceModal("image6", e)
+                                  }
+                                  className="absolute top-2 right-8 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Edit image"
+                                >
+                                  <Pencil className="w-4 h-4 text-gray-700" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDelete("image6", fileInputRef6)
+                                  }
+                                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                  title="Delete image"
+                                >
+                                  <Trash className="w-4 h-4 text-red-500" />
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                data-html2canvas-ignore="true"
+                                onClick={(e) =>
+                                  openImageSourceModal("image6", e)
+                                }
+                                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 text-xs"
+                              >
+                                Select Image
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef6}
+                              onChange={(e) => handleImageChange("image6", e)}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Headline & Description Section Container */}
+                    <div
+                      data-safezone-container="true"
+                      className={`flex flex-col flex-1 min-h-0 h-full relative justify-self-center mt-[20px] w-[100%] border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                        lockedSections.headlineDesc
+                          ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                          : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                      }`}
+                    >
+                      {/* Section Lock Button */}
+                      <button
+                        type="button"
+                        data-html2canvas-ignore="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionLock("headlineDesc");
+                        }}
+                        className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                          lockedSections.headlineDesc
+                            ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                            : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                        }`}
+                        title={
+                          lockedSections.headlineDesc
+                            ? "Unlock Headline & Description Section"
+                            : "Lock Headline & Description Section"
+                        }
+                      >
+                        {lockedSections.headlineDesc ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Lock</span>
+                          </>
+                        )}
+                      </button>
+                      {!isFieldDeleted("headline") && (
+                        <DraggableBox
+                          id="headline"
+                          position={fieldPositions.headline}
+                          onPositionChange={updateFieldPosition}
+                          label="Headline"
+                          zoom={0.85}
+                          disabled={lockedSections.headlineDesc}
+                          containerClassName="shrink-0 mt-[20px]"
+                          onDelete={() =>
+                            removeStandardField(
+                              "headline",
+                              "Headline",
+                              headline,
+                              "Description Section",
+                              fieldStyles.headline,
+                            )
+                          }
+                          deleteTitle="Remove Headline"
+                        >
+                          <StyledInput
+                            value={headline}
+                            rows={2}
+                            onChange={(e) => setHeadline(e.target.value)}
+                            inputStyle={fieldStyles["headline"]}
+                            onChangeStyle={(style) =>
+                              updateFieldStyle("headline", style)
+                            }
+                            className="text-[16px] leading-relaxed px-5 text-center tracking-[-0.5px] mb-[15px] font-bold text-[#B3B394] bg-transparent border-none focus:outline-none uppercase"
+                            placeholder="ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING."
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("propertyDescription") && (
+                        <DraggableBox
+                          id="propertyDescription"
+                          position={fieldPositions.propertyDescription}
+                          onPositionChange={updateFieldPosition}
+                          label="Property Description"
+                          zoom={0.85}
+                          disabled={lockedSections.headlineDesc}
+                          containerClassName="flex-1 flex flex-col min-h-0 h-full w-full"
+                          className="flex-1 flex flex-col min-h-0 h-full w-full"
+                          onDelete={() =>
+                            removeStandardField(
+                              "propertyDescription",
+                              "Property Description",
+                              description,
+                              "Description Section",
+                              fieldStyles.description,
+                            )
+                          }
+                          deleteTitle="Remove Description"
+                        >
+                          <StyledInput
+                            value={description}
+                            rows={7}
+                            onChange={(e) => setDescription(e.target.value)}
+                            inputStyle={fieldStyles["description"]}
+                            onChangeStyle={(style) =>
+                              updateFieldStyle("description", style)
+                            }
+                            wrapperClassName="flex-1 flex flex-col min-h-0 h-full w-full"
+                            className="font-normal text-[12px] h-full flex-1 min-h-0 w-full overflow-hidden z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500] resize-none"
+                            placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible..."
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {/* Equal Housing / Realtor Logos & Disclaimer */}
+                      {!isFieldDeleted("contactDisclaimer") && (
+                        <DraggableBox
+                          id="contactDisclaimer"
+                          position={fieldPositions.contactDisclaimer}
+                          onPositionChange={updateFieldPosition}
+                          label="Disclaimer & Logos"
+                          zoom={0.85}
+                          disabled={lockedSections.headlineDesc}
+                          containerClassName="shrink-0 mt-auto"
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactDisclaimer",
+                              "Disclaimer & Logos",
+                              disclaimerText,
+                              "Description Section",
+                              fieldStyles.disclaimerText,
+                            )
+                          }
+                          deleteTitle="Remove Disclaimer"
+                        >
+                          <div className="relative px-2 py-0  z-2 w-full gap-2 flex text-[#B3B394]">
+                            <span className="flex flex-col mt-1 shrink-0">
+                              <House className="w-4 h-4 text-[#B3B394]" />
+                            </span>
+                            <StyledInput
+                              value={disclaimerText}
+                              rows={3}
+                              onChange={(e) =>
+                                setDisclaimerText(e.target.value)
+                              }
+                              inputStyle={fieldStyles["disclaimerText"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("disclaimerText", style)
+                              }
+                              className="text-[10px] leading-tight text-[#B3B394] bg-transparent border-none focus:outline-none"
+                              placeholder="All information deemed reliable but not guaranteed..."
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SafeZoneWrapper>
+        </div>
+
+        {/* Page 2 Divider */}
+        <div className="w-[8.5in] mt-1 flex items-center justify-center pb-6 pt-10 print:hidden select-none">
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
+            PAGE 2
+          </span>
+          <div className="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+
+        {/* CONTAINER 1: Outer Page / Bleed Wrapper (Page 2) */}
+        <div
+          className="pdf-page bg-white shadow-xl relative overflow-hidden flex flex-col"
+          style={{
+            width: showBleed ? "8.75in" : "8.5in",
+            height: showBleed ? "11.25in" : "11.0in",
+            zoom: 0.85,
+            backgroundColor: "#ffffff",
+          }}
+        >
+          {/* CONTAINER 2: SafeZoneWrapper (Page 2) */}
+          <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
+            {/* CONTAINER 3: Inner Content Container (Page 2) */}
+            <div className="w-full h-full flex flex-col justify-center font-alexandria relative">
+              {/* IMAGE 7 SLOT (Page 2 Full Photo / Floorplan) */}
+              <div
+                data-image-slot="true"
+                className="relative overflow-hidden flex items-center justify-center group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                style={{
+                  marginTop: showBleed ? "-0.375in" : "-0.25in",
+                  marginBottom: showBleed ? "-0.375in" : "-0.25in",
+                  marginLeft: showBleed ? "-0.375in" : "-0.25in",
+                  marginRight: showBleed ? "-0.375in" : "-0.25in",
+                  width: showBleed
+                    ? "calc(100% + 0.75in)"
+                    : "calc(100% + 0.5in)",
+                  height: showBleed
+                    ? "calc(100% + 0.75in)"
+                    : "calc(100% + 0.5in)",
+                }}
+                onMouseEnter={() => setHoveredSlot("image7")}
+                onMouseLeave={() => setHoveredSlot(null)}
+                onClick={(e) => {
+                  if (e.altKey) return;
+                  e.stopPropagation();
+                  setActiveSlot("image7");
+                }}
+              >
+                <BoxIndicator isVisible={isSlotActive("image7")} />
+
+                <div
+                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                  onMouseMove={(e) => handleMouseMove("image7", e)}
+                  onMouseUp={() => handleMouseUp("image7")}
+                  onMouseLeave={() => handleMouseLeave("image7")}
+                >
+                  {images.image7 ? (
+                    <>
+                      <div
+                        className="w-full h-full cursor-grab active:cursor-grabbing"
+                        onMouseDown={(e) => handleMouseDown("image7", e)}
+                      >
+                        <ImageEditor
+                          src={images.image7}
+                          scale={scale.image7}
+                          position={position.image7}
+                          rotation={rotation.image7}
+                        />
+                      </div>
+
+                      {/* Zoom Controls */}
+                      <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleZoom("image7", "in")}
+                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="w-4 h-4 text-gray-700" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleZoom("image7", "out")}
+                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="w-4 h-4 text-gray-700" />
+                        </button>
+                      </div>
+
+                      {/* Rotate Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRotate("image7")}
+                        className="absolute top-[45px] right-[72px] z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                        title="Rotate image"
+                      >
+                        <RotateCw className="w-4 h-4 text-gray-700" />
+                      </button>
+
+                      {/* Edit Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => openImageSourceModal("image7", e)}
+                        className="absolute top-[45px] right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                        title="Edit image"
+                      >
+                        <Pencil className="w-4 h-4 text-gray-700" />
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete("image7", fileInputRef7)}
+                        className="absolute top-[45px] right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                        title="Delete image"
+                      >
+                        <Trash className="w-4 h-4 text-red-500" />
+                      </button>
+                    </>
+                  ) : (
+                    <div
+                      data-html2canvas-ignore="true"
+                      onClick={(e) => openImageSourceModal("image7", e)}
+                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 font-medium text-sm hover:bg-gray-300 transition-colors"
+                    >
+                      Select Image
+                    </div>
+                  )}
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef7}
+                    onChange={(e) => handleImageChange("image7", e)}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Floating Address Card Header (Page 2) */}
+              <div className="absolute top-[-40px] left-[50px] w-[160px] z-20">
+                <div
+                  data-safezone-container="true"
+                  className={`flex flex-col gap-1 relative border-[3.5px] border-solid border-transparent rounded-lg transition-all duration-150 group/sec ${
+                    lockedSections.headerAddressPage2
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
+                  {/* Section Lock Button */}
+                  <button
+                    type="button"
+                    data-html2canvas-ignore="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSectionLock("headerAddressPage2");
+                    }}
+                    className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                      lockedSections.headerAddressPage2
+                        ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                        : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                    }`}
+                    title={
+                      lockedSections.headerAddressPage2
+                        ? "Unlock Header Address Section (Page 2)"
+                        : "Lock Header Address Section (Page 2)"
+                    }
+                  >
+                    {lockedSections.headerAddressPage2 ? (
+                      <>
+                        <Lock className="w-3 h-3" />
+                        <span>Locked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="w-3 h-3" />
+                        <span>Lock</span>
+                      </>
+                    )}
+                  </button>
+
+                  <DraggableBox
+                    id="headerAddressCardPage2"
+                    position={fieldPositions.headerAddressCardPage2}
+                    onPositionChange={updateFieldPosition}
+                    label="Header Address Card (Page 2)"
+                    zoom={0.85}
+                    disabled={lockedSections.headerAddressPage2}
+                  >
+                    <div
+                      className="p-3 pt-[80px] shadow-md rounded-b-sm"
+                      style={{
+                        background:
+                          "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
+                      }}
+                    >
+                      {!isFieldDeleted("addressCodePage2") && (
+                        <DraggableBox
+                          id="addressCodePage2"
+                          position={fieldPositions.addressCodePage2}
+                          onPositionChange={updateFieldPosition}
+                          label="Unit Number"
+                          zoom={0.85}
+                          disabled={lockedSections.headerAddressPage2}
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressCodePage2",
+                              "Unit Number",
+                              addressCode,
+                              "Header Address (Page 2)",
+                              fieldStyles.addressCode,
+                            )
+                          }
+                          deleteTitle="Remove Unit Number"
+                        >
+                          <div className="tracking-wide text-white mt-0 mb-2 flex items-center">
+                            <span className="mr-0.5">#</span>
+                            <StyledInput
+                              value={addressCode}
+                              onChange={(e) => setAddressCode(e.target.value)}
+                              inputStyle={fieldStyles["addressCode"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("addressCode", style)
+                              }
+                              className="font-light text-[21px] h-[42px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                              placeholder="0000-0000"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("roadNamePage2") && (
+                        <DraggableBox
+                          id="roadNamePage2"
+                          position={fieldPositions.roadNamePage2}
+                          onPositionChange={updateFieldPosition}
+                          label="Street / Road"
+                          zoom={0.85}
+                          disabled={lockedSections.headerAddressPage2}
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadNamePage2",
+                              "Street / Road",
+                              roadName,
+                              "Header Address (Page 2)",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Street / Road"
+                        >
+                          <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full mb-3">
+                            <StyledInput
+                              value={roadLabelBefore}
+                              onChange={(e) =>
+                                setRoadLabelBefore(e.target.value)
+                              }
+                              inputStyle={fieldStyles["roadLabelBefore"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("roadLabelBefore", style)
+                              }
+                              className="font-bold text-[13px] bg-transparent text-white focus:outline-none border-none"
+                              placeholder="Number"
+                              wrapperClassName="w-auto"
+                            />
+                            <StyledInput
+                              value={roadName}
+                              onChange={(e) => setRoadName(e.target.value)}
+                              inputStyle={fieldStyles["roadName"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("roadName", style)
+                              }
+                              className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                              placeholder="0"
+                            />
+                            <StyledInput
+                              value={roadLabelAfter}
+                              onChange={(e) =>
+                                setRoadLabelAfter(e.target.value)
+                              }
+                              inputStyle={fieldStyles["roadLabelAfter"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("roadLabelAfter", style)
+                              }
+                              className="font-bold text-[13px] bg-transparent text-white focus:outline-none border-none"
+                              placeholder="Road"
+                              wrapperClassName="w-auto"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      <hr className="border-t-2 border-dotted border-white w-full" />
+
+                      {!isFieldDeleted("cityLinePage2") && (
+                        <DraggableBox
+                          id="cityLinePage2"
+                          position={fieldPositions.cityLinePage2}
+                          onPositionChange={updateFieldPosition}
+                          label="City Line"
+                          zoom={0.85}
+                          disabled={lockedSections.headerAddressPage2}
+                          onDelete={() =>
+                            removeStandardField(
+                              "cityLinePage2",
+                              "City Line",
+                              cityLine,
+                              "Header Address (Page 2)",
+                              fieldStyles.cityLine,
+                            )
+                          }
+                          deleteTitle="Remove City Line"
+                        >
+                          <div className="uppercase mt-2 flex justify-center">
+                            <StyledInput
+                              value={cityLine}
+                              rows={2}
+                              onChange={(e) => setCityLine(e.target.value)}
+                              inputStyle={fieldStyles["cityLine"]}
+                              onChangeStyle={(style) =>
+                                updateFieldStyle("cityLine", style)
+                              }
+                              className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
+                              placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+                    </div>
+                  </DraggableBox>
+                </div>
+              </div>
+
+              {/* Bottom Gradient Bar (Page 2) */}
+              <div className="flex gap-2 absolute bottom-[60px] right-0 h-[30px] z-20">
                 <div
                   className="opacity-[25%] w-[35px]"
                   style={{
@@ -791,980 +3083,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   }}
                 ></div>
                 <div
-                  className="flex px-5 pr-[64px] py-1"
+                  className="flex w-[500px]"
                   style={{
                     background:
                       "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                   }}
-                >
-                  <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-wrap gap-2">
-                    <div className="inline">
-                      <StyledInput
-                        value={bedroom}
-                        onChange={(e) => setBedroom(e.target.value)}
-                        inputStyle={fieldStyles["bedroom"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("bedroom", style)
-                        }
-                        className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                        placeholder="0"
-                      />
-                    </div>
-                    BEDROOM |
-                    <div className="inline">
-                      <StyledInput
-                        value={bathroom}
-                        onChange={(e) => setBathroom(e.target.value)}
-                        inputStyle={fieldStyles["bathroom"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("bathroom", style)
-                        }
-                        className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                        placeholder="0"
-                      />
-                    </div>
-                    BATHROOM |
-                    <div className="inline">
-                      <StyledInput
-                        value={sqft}
-                        onChange={(e) => setSqft(e.target.value)}
-                        inputStyle={fieldStyles["sqft"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("sqft", style)
-                        }
-                        className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                        placeholder="000"
-                      />
-                    </div>
-                    SQ FT | BUILT IN
-                    <div className="inline">
-                      <StyledInput
-                        value={builtYear}
-                        onChange={(e) => setBuiltYear(e.target.value)}
-                        inputStyle={fieldStyles["builtYear"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("builtYear", style)
-                        }
-                        className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                        placeholder="0000"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 absolute top-[40px] left-[50px] w-[160px]">
-                <div
-                  className="p-3"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                  }}
-                >
-                  <div className="tracking-wide text-white mt-0 flex">
-                    #
-                    <StyledInput
-                      value={addressCode}
-                      onChange={(e) => setAddressCode(e.target.value)}
-                      inputStyle={fieldStyles["addressCode"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("addressCode", style)
-                      }
-                      className="font-light text-[18px] h-[24px] w-[120px] flex-1 leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
-                      placeholder="0000-0000"
-                    />
-                  </div>
-                  <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
-                    <span>Number</span>
-                    <StyledInput
-                      value={roadName}
-                      onChange={(e) => setRoadName(e.target.value)}
-                      inputStyle={fieldStyles["roadName"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("roadName", style)
-                      }
-                      className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                      placeholder="0"
-                    />
-                    <span>Road</span>
-                  </div>
-                  <hr className="border-t-2 border-dotted border-white w-full" />
-                  <div className="uppercase mt-2 flex justify-center">
-                    <StyledInput
-                      value={cityLine}
-                      rows={2}
-                      onChange={(e) => setCityLine(e.target.value)}
-                      inputStyle={fieldStyles["cityLine"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("cityLine", style)
-                      }
-                      className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
-                      placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                    />
-                  </div>
-                </div>
-                <div
-                  className="h-[40px]"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                    opacity: 0.7,
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="$000,000"
-                    className="
-      text-center
-      text-[#ffffff]
-      text-[28px]
-      h-full
-      w-full
-      bg-transparent
-      border-none
-      focus:outline-none
-      outline-none
-      placeholder-[#ffffff]
-      placeholder:font-[500]
-      px-2
-    "
-                  />
-                </div>
+                ></div>
               </div>
             </div>
-            <div className="flex gap-4 px-[40px] pb-[5px]">
-              <div className="w-[25%]">
-                <div className="space-y-0 text-[8px]">
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      BY-LAW RESTRICTIONS:
-                    </span>
-                    <StyledInput
-                      value={byLawRestrictions}
-                      onChange={(e) => setByLawRestrictions(e.target.value)}
-                      inputStyle={fieldStyles["byLawRestrictions"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("byLawRestrictions", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                    />
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      MAINT. FEES:
-                    </span>
-                    <StyledInput
-                      value={maintFees}
-                      onChange={(e) => setMaintFees(e.target.value)}
-                      inputStyle={fieldStyles["maintFees"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("maintFees", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="$000.00"
-                    />
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      MAINT. FEES INCLUDE:
-                    </span>
-                    <StyledInput
-                      value={maintFeesInclude}
-                      onChange={(e) => setMaintFeesInclude(e.target.value)}
-                      inputStyle={fieldStyles["maintFeesInclude"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("maintFeesInclude", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                    />
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      FEATURES INCLUDED:
-                    </span>
-                    <StyledInput
-                      value={featuresIncluded}
-                      onChange={(e) => setFeaturesIncluded(e.target.value)}
-                      inputStyle={fieldStyles["featuresIncluded"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("featuresIncluded", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-0 text-[8px]">
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      SITE INFLUENCES:
-                    </span>
-                    <StyledInput
-                      value={siteInfluences}
-                      onChange={(e) => setSiteInfluences(e.target.value)}
-                      inputStyle={fieldStyles["siteInfluences"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("siteInfluences", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
-                    />
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      AMENITIES:
-                    </span>
-                    <StyledInput
-                      value={amenities}
-                      onChange={(e) => setAmenities(e.target.value)}
-                      inputStyle={fieldStyles["amenities"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("amenities", style)
-                      }
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
-                    />
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#B3B394] text-[12px]">
-                      VIEW:
-                    </span>
-                    <StyledInput
-                      value={view}
-                      onChange={(e) => setView(e.target.value)}
-                      inputStyle={fieldStyles["view"]}
-                      onChangeStyle={(style) => updateFieldStyle("view", style)}
-                      className="font-normal text-[12px] text-[#FFFFFF] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                      placeholder="South & SW - Van Isl."
-                    />
-                  </div>
-                </div>
-                <div className="text-[#B3B394] ">
-                  <div className="font-bold text-[14px] flex flex-col gap-0">
-                    <span className="font-normal">CONTACT:</span>
-                    <StyledInput
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      rows={1}
-                      inputStyle={fieldStyles["fullName"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("fullName", style)
-                      }
-                      className=" text-[16px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
-                      placeholder="FIRSTNAME LASTNAME"
-                    />
-                  </div>
-                  <StyledInput
-                    value={propertyName}
-                    rows={1}
-                    onChange={(e) => setPropertyName(e.target.value)}
-                    inputStyle={fieldStyles["propertyName"]}
-                    onChangeStyle={(style) =>
-                      updateFieldStyle("propertyName", style)
-                    }
-                    className=" text-[12px] font-thin h-[18px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
-                    placeholder="MACDONALD  Realty"
-                  />
-                  <div className="">
-                    <div className="flex gap-2 text-white text-[12px]">
-                      PHONE:
-                      <StyledInput
-                        value={number}
-                        onChange={(e) => setNumber(e.target.value)}
-                        rows={1}
-                        inputStyle={fieldStyles["number"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("number", style)
-                        }
-                        className="font-thin inline text-[12px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                        placeholder="604.000.0000"
-                      />
-                    </div>
-                    <div className="flex gap-2 text-white text-[11px]">
-                      EMAIL:
-                      <StyledInput
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        rows={1}
-                        inputStyle={fieldStyles["email"]}
-                        onChangeStyle={(style) =>
-                          updateFieldStyle("email", style)
-                        }
-                        className="font-thin inline text-[11px] h-[22px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                        placeholder="FIRST@LAST.COM"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="w-[75%]">
-                <div className="relative -mt-[60px]">
-                  <div className="flex flex-col relative justify-center items-center">
-                    <div className="grid grid-cols-2 gap-3 w-[80%]">
-                      {/* Image 2 */}
-                      <div
-                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
-                        onMouseDown={(e) => handleMouseDown("image2", e)}
-                        onMouseMove={(e) => handleMouseMove("image2", e)}
-                        onMouseUp={() => handleMouseUp("image2")}
-                        onMouseLeave={() => handleMouseLeave("image2")}
-                        style={{
-                          cursor: dragging.image2 ? "grabbing" : "grab",
-                        }}
-                      >
-                        {images.image2 ? (
-                          <>
-                            <ImageEditor
-                              src={images.image2}
-                              scale={scale.image2}
-                              position={position.image2}
-                            />
-
-                            {/* Zoom Buttons */}
-                            <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image2", "in")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom In"
-                              >
-                                <ZoomIn className="w-4 h-4 text-gray-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image2", "out")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom Out"
-                              >
-                                <ZoomOut className="w-4 h-4 text-gray-700" />
-                              </button>
-                            </div>
-
-                            {/* Edit/Delete */}
-                            <button
-                              type="button"
-                              onClick={() => openImageSourceModal("image2")}
-                              className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Edit image"
-                            >
-                              <Pencil className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete("image2", fileInputRef2)
-                              }
-                              className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Delete image"
-                            >
-                              <Trash className="w-4 h-4 text-red-500" />
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            onClick={() => openImageSourceModal("image2")}
-                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                          >
-                            Select Image
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={fileInputRef2}
-                          onChange={(e) => handleImageChange("image2", e)}
-                          className="hidden"
-                        />
-                      </div>
-
-                      {/* Image 3 */}
-                      <div
-                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
-                        onMouseDown={(e) => handleMouseDown("image3", e)}
-                        onMouseMove={(e) => handleMouseMove("image3", e)}
-                        onMouseUp={() => handleMouseUp("image3")}
-                        onMouseLeave={() => handleMouseLeave("image3")}
-                        style={{
-                          cursor: dragging.image3 ? "grabbing" : "grab",
-                        }}
-                      >
-                        {images.image3 ? (
-                          <>
-                            <ImageEditor
-                              src={images.image3}
-                              scale={scale.image3}
-                              position={position.image3}
-                            />
-
-                            {/* Zoom Buttons */}
-                            <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image3", "in")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom In"
-                              >
-                                <ZoomIn className="w-4 h-4 text-gray-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image3", "out")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom Out"
-                              >
-                                <ZoomOut className="w-4 h-4 text-gray-700" />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => openImageSourceModal("image3")}
-                              className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Edit image"
-                            >
-                              <Pencil className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete("image3", fileInputRef3)
-                              }
-                              className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Delete image"
-                            >
-                              <Trash className="w-4 h-4 text-red-500" />
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            onClick={() => openImageSourceModal("image3")}
-                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                          >
-                            Select Image
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={fileInputRef3}
-                          onChange={(e) => handleImageChange("image3", e)}
-                          className="hidden"
-                        />
-                      </div>
-
-                      {/* Image 4 */}
-                      <div
-                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
-                        onMouseDown={(e) => handleMouseDown("image4", e)}
-                        onMouseMove={(e) => handleMouseMove("image4", e)}
-                        onMouseUp={() => handleMouseUp("image4")}
-                        onMouseLeave={() => handleMouseLeave("image4")}
-                        style={{
-                          cursor: dragging.image4 ? "grabbing" : "grab",
-                        }}
-                      >
-                        {images.image4 ? (
-                          <>
-                            <ImageEditor
-                              src={images.image4}
-                              scale={scale.image4}
-                              position={position.image4}
-                            />
-
-                            {/* Zoom Buttons */}
-                            <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image4", "in")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom In"
-                              >
-                                <ZoomIn className="w-4 h-4 text-gray-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image4", "out")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom Out"
-                              >
-                                <ZoomOut className="w-4 h-4 text-gray-700" />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => openImageSourceModal("image4")}
-                              className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Edit image"
-                            >
-                              <Pencil className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete("image4", fileInputRef4)
-                              }
-                              className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Delete image"
-                            >
-                              <Trash className="w-4 h-4 text-red-500" />
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            onClick={() => openImageSourceModal("image4")}
-                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                          >
-                            Select Image
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={fileInputRef4}
-                          onChange={(e) => handleImageChange("image4", e)}
-                          className="hidden"
-                        />
-                      </div>
-
-                      {/* Image 5 */}
-                      <div
-                        className="w-full h-[140px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
-                        onMouseDown={(e) => handleMouseDown("image5", e)}
-                        onMouseMove={(e) => handleMouseMove("image5", e)}
-                        onMouseUp={() => handleMouseUp("image5")}
-                        onMouseLeave={() => handleMouseLeave("image5")}
-                        style={{
-                          cursor: dragging.image5 ? "grabbing" : "grab",
-                        }}
-                      >
-                        {images.image5 ? (
-                          <>
-                            <ImageEditor
-                              src={images.image5}
-                              scale={scale.image5}
-                              position={position.image5}
-                            />
-
-                            {/* Zoom Buttons */}
-                            <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image5", "in")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom In"
-                              >
-                                <ZoomIn className="w-4 h-4 text-gray-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image5", "out")}
-                                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom Out"
-                              >
-                                <ZoomOut className="w-4 h-4 text-gray-700" />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => openImageSourceModal("image5")}
-                              className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Edit image"
-                            >
-                              <Pencil className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete("image5", fileInputRef5)
-                              }
-                              className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Delete image"
-                            >
-                              <Trash className="w-4 h-4 text-red-500" />
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            onClick={() => openImageSourceModal("image5")}
-                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                          >
-                            Select Image
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={fileInputRef5}
-                          onChange={(e) => handleImageChange("image5", e)}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                    <div className="absolute  group z-10">
-                      <div
-                        className="w-[150px] h-[100px] relative bg-white shadow-md overflow-hidden group"
-                        onMouseDown={(e) => handleMouseDown("image6", e)}
-                        onMouseMove={(e) => handleMouseMove("image6", e)}
-                        onMouseUp={() => handleMouseUp("image6")}
-                        onMouseLeave={() => handleMouseLeave("image6")}
-                        style={{
-                          cursor: dragging.image6 ? "grabbing" : "grab",
-                        }}
-                      >
-                        {images.image6 ? (
-                          <>
-                            <ImageEditor
-                              src={images.image6}
-                              scale={scale.image6}
-                              position={position.image6}
-                            />
-
-                            {/* Zoom Controls */}
-                            <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image6", "in")}
-                                className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom In"
-                              >
-                                <ZoomIn className="w-3 h-3 text-gray-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleZoom("image6", "out")}
-                                className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
-                                title="Zoom Out"
-                              >
-                                <ZoomOut className="w-3 h-3 text-gray-700" />
-                              </button>
-                            </div>
-
-                            {/* Edit Button */}
-                            <button
-                              type="button"
-                              onClick={() => openImageSourceModal("image6")}
-                              className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Edit image"
-                            >
-                              <Pencil className="w-4 h-4 text-gray-700" />
-                            </button>
-
-                            {/* Delete Button */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete("image6", fileInputRef6)
-                              }
-                              className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                              title="Delete image"
-                            >
-                              <Trash className="w-4 h-4 text-red-500" />
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            onClick={() => openImageSourceModal("image6")}
-                            className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                          >
-                            Select Image
-                          </div>
-                        )}
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={fileInputRef6}
-                          onChange={(e) => handleImageChange("image6", e)}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-[10px] justify-self-center mt-4 w-[90%] font-normal text-[#ffffff] italic relative z-10 leading-[1.6]">
-                    <h2 className="text-[16px] leading-relaxed px-5 text-center tracking-[-1px] mb-[15px] font-bold text-[#B3B394] line-clamp-2">
-                      ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL
-                      APPOINTED CENTRO BUILDING.
-                    </h2>
-                    <StyledInput
-                      value={description}
-                      rows={7}
-                      onChange={(e) => setDescription(e.target.value)}
-                      inputStyle={fieldStyles["description"]}
-                      onChangeStyle={(style) =>
-                        updateFieldStyle("description", style)
-                      }
-                      className="font-normal text-[12px] max-h-[300px] z-20 text-[#ffffff] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
-                      placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS
-                  overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect
-                  floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances,
-                  Gas range and a large open ‘den/nook’ area perfect for the home office. Huge private balcony, great
-                  building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground.
-                  With parking, and storage locker and balance of the the 5-10 warranty, this home provides nothing
-                  but exceptional value. Call today to set up your viewing. MLS # 000000"
-                    />
-                  </div>
-                  <div className="relative px-6 py-2 mt-[10px] z-2 w-[90%]  gap-2 flex justify-self-center text-[#B3B394]">
-                    <span className="flex flex-col mt-1">
-                      <House className="w-4 h-4" />
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 8 8"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                          fill="#B3B394"
-                        />
-                        <path
-                          d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                          fill="#B3B394"
-                        />
-                      </svg>
-                    </span>
-                    <p className="text-[10px] leading-tight">
-                      All information deemed reliable but not guaranteed and
-                      should be independently verified. All properties are
-                      subject to prior sale, change or withdrawal. Neither
-                      listing broker(s) nor BC Floor Plans shall be responsible
-                      for any typographical errors, misinformation, misprints
-                      and shall be held totally harmless.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Page 2 Divider */}
-        <div className="w-[8.5in] mt-1 flex items-center justify-center pb-6 pt-10 print:hidden select-none">
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
-          <span className="text-gray-400 font-medium tracking-widest text-sm px-4">
-            PAGE 2
-          </span>
-          <div className="h-[1px] bg-gray-300 flex-1"></div>
-        </div>
-
-        <div className="pdf-page w-[8.5in] h-[11in] relative bg-white overflow-hidden flex flex-col">
-          <div
-            className="w-full h-full flex flex-col justify-center font-alexandria relative"
-            style={{
-              background:
-                "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-            }}
-          >
-            <div
-              className="w-full flex-1 place-self-center relative overflow-hidden flex items-center justify-center group"
-              onMouseDown={(e) => handleMouseDown("image7", e)}
-              onMouseMove={(e) => handleMouseMove("image7", e)}
-              onMouseUp={() => handleMouseUp("image7")}
-              onMouseLeave={() => handleMouseLeave("image7")}
-              style={{ cursor: dragging.image7 ? "grabbing" : "grab" }}
-            >
-              {images.image7 ? (
-                <>
-                  <div
-                    className="absolute"
-                    style={{
-                      width: image7Rotation % 180 !== 0 ? "11in" : "100%",
-                      height: image7Rotation % 180 !== 0 ? "8.5in" : "100%",
-                      top: "50%",
-                      left: "50%",
-                      transform: `translate(-50%, -50%) rotate(${image7Rotation}deg)`,
-                    }}
-                  >
-                    <ImageEditor
-                      src={images.image7}
-                      scale={scale.image7}
-                      position={position.image7}
-                    />
-                  </div>
-
-                  {/* Zoom Controls */}
-                  <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleZoom("image7", "in")}
-                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleZoom("image7", "out")}
-                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="w-4 h-4 text-gray-700" />
-                    </button>
-                  </div>
-
-                  {/* Rotate Button */}
-                  <button
-                    type="button"
-                    onClick={() => setImage7Rotation((r) => (r + 90) % 360)}
-                    className="absolute top-2 right-[72px] bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                    title="Rotate image"
-                  >
-                    <RotateCw className="w-4 h-4 text-gray-700" />
-                  </button>
-
-                  {/* Edit Button */}
-                  <button
-                    type="button"
-                    onClick={() => openImageSourceModal("image7")}
-                    className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Edit image"
-                  >
-                    <Pencil className="w-4 h-4 text-gray-700" />
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleDelete("image7", fileInputRef7)}
-                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Delete image"
-                  >
-                    <Trash className="w-4 h-4 text-red-500" />
-                  </button>
-                </>
-              ) : (
-                <div
-                  onClick={() => openImageSourceModal("image7")}
-                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                >
-                  Select Image
-                </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef7}
-                onChange={(e) => handleImageChange("image7", e)}
-                className="hidden"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1 absolute top-0 left-[50px] w-[160px]">
-              <div
-                className="p-3 pt-[80px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                }}
-              >
-                <div className="tracking-wide text-white mt-0 mb-2 flex">
-                  #
-                  <StyledInput
-                    value={addressCode}
-                    onChange={(e) => setAddressCode(e.target.value)}
-                    inputStyle={fieldStyles["addressCode"]}
-                    onChangeStyle={(style) =>
-                      updateFieldStyle("addressCode", style)
-                    }
-                    className="font-light text-[21px] h-[42px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                    placeholder="0000-0000"
-                  />
-                </div>
-                <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full mb-3">
-                  <span>Number</span>
-                  <StyledInput
-                    value={roadName}
-                    onChange={(e) => setRoadName(e.target.value)}
-                    inputStyle={fieldStyles["roadName"]}
-                    onChangeStyle={(style) =>
-                      updateFieldStyle("roadName", style)
-                    }
-                    className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                    placeholder="0"
-                  />
-                  <span>Road</span>
-                </div>
-                <hr className="border-t-2 border-dotted border-white w-full" />
-                <div className="uppercase mt-2 flex justify-center">
-                  <StyledInput
-                    value={cityLine}
-                    rows={2}
-                    onChange={(e) => setCityLine(e.target.value)}
-                    inputStyle={fieldStyles["cityLine"]}
-                    onChangeStyle={(style) =>
-                      updateFieldStyle("cityLine", style)
-                    }
-                    className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
-                    placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 absolute bottom-[60px] right-0 h-[30px]">
-              <div
-                className="opacity-[25%] w-[35px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                }}
-              ></div>
-              <div
-                className="opacity-[50%] w-[35px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                }}
-              ></div>
-              <div
-                className="opacity-[75%] w-[35px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                }}
-              ></div>
-              <div
-                className="flex w-[500px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
-                }}
-              ></div>
-            </div>
-          </div>
+          </SafeZoneWrapper>
         </div>
       </>
     );

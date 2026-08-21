@@ -277,7 +277,7 @@ function PublicTourFloorPlans({
                 window.removeEventListener("keydown", handleKeyDown);
             };
         }
-    }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots]);
+    }, [fullscreenSnapshot, fullscreenSnapshotIndex, allSnapshots, handleNextSnapshot, handlePrevSnapshot]);
 
     const selectedFile = filteredFloorPlanFiles?.find((f) => f.name === selectedImageId);
     const isSelectedFilePDF = selectedFile ? isPDF(selectedFile.file_path) : false;
