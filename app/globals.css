@@ -1122,3 +1122,85 @@ textarea::placeholder {
   font-style: normal;
   font-display: swap;
 }
+
+/* ==========================================================================
+   BcfpStandard15 Custom Fonts
+   Font files live in /public/fonts/BcfpStandard15/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'GothicRegularBcfp15';
+  src: url('/fonts/BcfpStandard15/GOTHIC.TTF') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicBoldBcfp15';
+  src: url('/fonts/BcfpStandard15/GOTHICB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProBoldBcfp15';
+  src: url('/fonts/BcfpStandard15/TrajanPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProRegularBcfp15';
+  src: url('/fonts/BcfpStandard15/TrajanPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBoldBcfp15';
+  src: url('/fonts/BcfpStandard15/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   BcfpStandard17 Custom Fonts
+   Font files live in /public/fonts/BcfpStandard17/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'ACaslonProBoldBcfp17';
+  src: url('/fonts/BcfpStandard17/ACaslonPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProBoldBcfp17';
+  src: url('/fonts/BcfpStandard17/TrajanPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialRegularBcfp17';
+  src: url('/fonts/BcfpStandard17/arial.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBoldBcfp17';
+  src: url('/fonts/BcfpStandard17/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

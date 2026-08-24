@@ -48,6 +48,21 @@ Every Tabloid Sheet is constructed with a nested **Three-Container Architecture*
 | **Negative Bleed Offset** | `marginLeft/Right: -0.375in`, `width: calc(... + 0.375in)` | `marginLeft/Right: -0.25in`, `width: calc(... + 0.25in)` |
 | **Mouse Drag Zoom Divisor** | `0.55` | `0.55` |
 
+### Parent Page Registration Rule (`CreateFeatureSheet.tsx`)
+When mounting any modernized tabloid component inside `CreateFeatureSheet.tsx`, you MUST pass `showBleed={showBleed}` and `showGuide={showGuide}` as props:
+```tsx
+{selectedTemplate === "BCFPStandard6" && (
+  <BcfpStandard6
+    key={selectedSheetUuid || "new-BCFPStandard6"}
+    ref={activeStandardRef}
+    orderData={orderData || null}
+    showBleed={showBleed}
+    showGuide={showGuide}
+  />
+)}
+```
+> **CRITICAL:** If `showBleed` and `showGuide` are omitted in `CreateFeatureSheet.tsx`, clicking the toolbar Bleed and Guidelines toggle buttons will fail to update the sheet preview.
+
 ---
 
 ## 2. REQUIRED IMPORTS & TYPES
@@ -529,6 +544,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 > - Outer container MUST have `data-image-slot="true"`, `onMouseEnter/Leave` (sets `hoveredSlot`), and `onClick` (checks `e.altKey` before setting `activeSlot`).
 > - **Image Shadows:** Image container shadows must be applied ONLY to the right and bottom sides of the images (using `shadow-[4px_4px_6px_rgba(0,0,0,0.85)]` or similar offset box-shadows), never all sides (avoid generic classes like `shadow-lg` on image containers).
 > - `BoxIndicator` uses `isSlotActive("imageN")` helper — NOT `hoveredImage`.
+> - **CRITICAL IMAGE ASPECT FIT RULE (`objectFit="contain"`)**: Always pass `objectFit="contain"` to `<ImageEditor>` in all image slots. Without `objectFit="contain"`, `ImageEditor` defaults to `objectFit="cover"`, which crops the uploaded photo to force-fit the container aspect ratio. Passing `objectFit="contain"` fits the complete, uncropped photo inside the slot.
 > - Rotate, Edit, Delete are **3 separate `absolute` buttons** — NOT in a shared flex wrapper.
 > - Zoom controls div has **NO** `data-html2canvas-ignore`.
 > - Each individual control button (Rotate, Edit, Delete) does NOT need `data-html2canvas-ignore` either — they use CSS `opacity-0 group-hover:opacity-100` to hide.
@@ -569,6 +585,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
             scale={scale.image1}
             position={position.image1}
             rotation={rotation.image1}
+            objectFit="contain"
           />
         </div>
 
@@ -813,9 +830,9 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   onChange={(e) => setContactLabel(e.target.value)}
   onChangeStyle={(s) => updateFieldStyle("contactLabel", s)}
   inputStyle={fieldStyles.contactLabel}
-  className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300"
+  className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
   placeholder="Contact:"
-  wrapperClassName="w-auto"
+  wrapperClassName="w-auto shrink-0"
 />
 
 {/* Editable Property Spec Label */}
@@ -824,10 +841,16 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   onChange={(e) => setBedroomLabel(e.target.value)}
   onChangeStyle={(s) => updateFieldStyle("bedroomLabel", s)}
   inputStyle={fieldStyles.bedroomLabel}
-  className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+  className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase whitespace-nowrap"
   placeholder="BEDROOM •"
+  wrapperClassName="w-auto shrink-0"
 />
 ```
+
+### 7.5 Single-Line & Title Label Text Wrapping Prevention Rule (`whitespace-nowrap`)
+- Single-line title labels (`BEDROOM •`, `BATHROOM •`, `SQ FT •`, `BUILT IN`, `CONTACT:`, `PHONE:`, `EMAIL:`, `MLS #:`, `BY-LAW RESTRICTIONS:`, etc.) and single-line field inputs MUST NOT wrap onto a 2nd line when typing text, adding dots, or adding spaces (e.g. typing `BEDROOM •` must remain strictly on 1 line instead of wrapping `•` onto line 2).
+- **Engine Level Rule**: `StyledInput.tsx` automatically defaults single-line fields (`!props.rows` or `props.rows === 1`) to `whitespace-nowrap` instead of `whitespace-pre-wrap break-words`. Multiline textareas (where `props.rows > 1`, such as property descriptions) use `whitespace-pre-wrap break-words`.
+- **JSX Layout Rule**: Pass `className="... whitespace-nowrap"` and `wrapperClassName="w-auto shrink-0"` on title/label `StyledInput` instances, and wrap inline field-label pairs in `<div className="flex items-center gap-1 whitespace-nowrap flex-nowrap shrink-0">`.
 
 ---
 
@@ -1031,12 +1054,44 @@ return (
 
 ---
 
-## 12. TABLOID VERIFICATION CHECKLIST (95%+ PASS RATE)
+---
+
+## 13. COLUMN-ANCHORED FULL-BLEED BACKGROUNDS & CONDITIONAL LOGO SLOTS
+
+### 13.1 Column-Anchored Full-Bleed Background Alignment Rule
+- Background colors or split column layers MUST be anchored directly inside their respective column containers using `right: 0` or `left: 0` so the background division line aligns 100% precisely with the column split line.
+- Expand background colors outward into the bleed area using negative offsets (`left/right/top/bottom: showBleed ? "-0.375in" : "-0.25in"`).
+- **CRITICAL:** Do NOT place split background layers directly at Container 1 level if Container 3 is inset by `SafeZoneWrapper` padding (`0.375in`), as full page width split positions differ from safe zone inset split positions.
+
+### 13.2 Conditional Agent Logo Slot Background Rule
+- Agent Logo Slots (`data-slot-type="logo"`) MUST conditionally style based on image presence:
+  ```tsx
+  className={`... ${images.image2 ? "bg-transparent" : "border-[2px] border-white shadow-md bg-white"}`}
+  ```
+- When no image is loaded (`images.image2` is null), render the white container box (`bg-white border-2 border-white shadow-md`) with the `Select Image` placeholder button.
+- As soon as an image is loaded, automatically switch to `bg-transparent` with NO white box, border, or drop shadow behind the logo, allowing transparent PNG logos to render cleanly over colored backgrounds.
+
+---
+
+## 14. INDIVIDUAL FIELD DRAGGABLEBOX WRAPPING RULE
+
+### 14.1 Wrap Every Field Individually
+- EVERY individual text field and its label MUST be wrapped in its OWN `<DraggableBox>` component.
+- **NEVER** wrap an entire section list or grid (e.g. `specsBar`, `detailsList`, `contactCard`) in a single `<DraggableBox>` wrapper. Doing so locks all fields into a single group box and prevents users from dragging individual fields independently.
+
+### 14.2 Section Lock Control
+- Pass `disabled={lockedSections.section}` to each individual `<DraggableBox>` within that section so clicking "Lock" on a section lock button disables or enables dragging for all individual fields within that section simultaneously.
+
+---
+
+## 15. TABLOID VERIFICATION CHECKLIST (95%+ PASS RATE)
 
 Before considering any Tabloid Sheet upgrade complete, verify every item:
 
 - [ ] Outer page style has `width: showBleed ? "17.25in" : "17.0in"`, `height: showBleed ? "11.25in" : "11.0in"`, and `zoom: 0.55`.
 - [ ] `SafeZoneWrapper` wraps Container 3 content with `showBleed` and `showGuide` forwarded.
+- [ ] Column background colors are column-anchored inside Container 3 with negative bleed offsets (`top/bottom/left/right: -0.375in`) so the background split line aligns 100% precisely with the content column split.
+- [ ] Agent Logo Slot (`image2`) renders a white box placeholder when empty and switches to `bg-transparent` (no border, no shadow) when an image is loaded.
 - [ ] All image mouse movements divide by `0.55` (`(clientX - lastX) / 0.55`).
 - [ ] `BoxIndicator` uses `isSlotActive("imageN")` — NOT `hoveredImage`.
 - [ ] Every image slot outer div has `data-image-slot="true"`, `onMouseEnter` (sets `hoveredSlot`), `onMouseLeave`, and `onClick` (sets `activeSlot` with `e.stopPropagation()`).
@@ -1047,6 +1102,7 @@ Before considering any Tabloid Sheet upgrade complete, verify every item:
 - [ ] `openImageSourceModal` sets `showGallery(true)` — NOT `showImageSourceModal(true)`.
 - [ ] Section containers use `group/sec` class and color-switching hover border (`#8B3DFF` purple / `amber-400` amber).
 - [ ] Lock button is inside the section container, `opacity-0 group-hover/sec:opacity-100`, with `e.stopPropagation()` and `data-html2canvas-ignore="true"`.
+- [ ] Every individual text field (Address lines, Specs, Detail items, Contact lines, Price) is wrapped in its OWN `<DraggableBox>` component (never wrapped as a group box).
 - [ ] When locked: lock button is `bg-amber-500 text-white hover:bg-amber-600`. When unlocked: `bg-white/90 text-gray-700 border border-gray-200`.
 - [ ] Lock button label: **"Lock"** (unlocked state), **"Locked"** (locked state). NOT "Unlocked".
 - [ ] `DraggableBox` props use `position=` (not `initialPosition=`), `disabled=` (not `isLocked=`), `onPositionChange={updateFieldPosition}` (direct ref), `zoom={0.55}`, `label=`, `onDelete=`, `deleteTitle=`.
@@ -1056,3 +1112,4 @@ Before considering any Tabloid Sheet upgrade complete, verify every item:
 - [ ] Export uses `featureSheetService.buildPayload()` with explicit template design fallback font sizes for all fields (e.g. `fontSize: fieldStyles.fullName?.fontSize || "11px"`) to prevent backend defaults (`20px`/`36px`/`28px`) from inflating unedited fields on first save.
 - [ ] Deleting a standard or detail field registers in `DeletedFieldsPanel` and can be restored individually or via "Restore All".
 - [ ] PDF export does not contain any border indicators, guides, or hover buttons.
+

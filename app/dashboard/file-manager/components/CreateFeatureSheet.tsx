@@ -2476,6 +2476,8 @@ const CreateFeatureSheet = forwardRef<
                               key={selectedSheetUuid || "new-BCFPStandard15"}
                               ref={activeStandardRef}
                               orderData={orderData || null}
+                              showBleed={showBleed}
+                              showGuide={showGuide}
                             />
                           )}
                           {selectedTemplate === "BCFPStandard16" && (
@@ -2490,6 +2492,8 @@ const CreateFeatureSheet = forwardRef<
                               key={selectedSheetUuid || "new-BCFPStandard17"}
                               ref={activeStandardRef}
                               orderData={orderData || null}
+                              showBleed={showBleed}
+                              showGuide={showGuide}
                             />
                           )}
                           {selectedTemplate === "BCFPStandard18" && (

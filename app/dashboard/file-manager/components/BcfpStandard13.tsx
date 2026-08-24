@@ -882,6 +882,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             scale={scale.image1}
                             position={position.image1}
                             rotation={rotation.image1}
+                            objectFit="contain"
                           />
                         </div>
 
@@ -2086,6 +2087,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     scale={scale.image2}
                                     position={position.image2}
                                     rotation={rotation.image2}
+                                    objectFit="contain"
                                   />
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2188,6 +2190,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     scale={scale.image3}
                                     position={position.image3}
                                     rotation={rotation.image3}
+                                    objectFit="contain"
                                   />
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2290,6 +2293,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     scale={scale.image4}
                                     position={position.image4}
                                     rotation={rotation.image4}
+                                    objectFit="contain"
                                   />
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2392,6 +2396,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     scale={scale.image5}
                                     position={position.image5}
                                     rotation={rotation.image5}
+                                    objectFit="contain"
                                   />
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2496,6 +2501,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     scale={scale.image6}
                                     position={position.image6}
                                     rotation={rotation.image6}
+                                    objectFit="contain"
                                   />
                                 </div>
                                 <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">

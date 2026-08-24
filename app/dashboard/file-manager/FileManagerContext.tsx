@@ -242,6 +242,13 @@ type FormData = {
   bathroomLabel?: string;
   sqftLabel?: string;
   builtYearLabel?: string;
+  byLawLabel?: string;
+  maintFeesLabel?: string;
+  maintFeesIncludeLabel?: string;
+  featuresIncludedLabel?: string;
+  siteInfluencesLabel?: string;
+  amenitiesLabel?: string;
+  viewLabel?: string;
   roadLabelBefore?: string;
   roadLabelAfter?: string;
   mlsLabel?: string;

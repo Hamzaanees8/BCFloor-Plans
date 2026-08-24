@@ -234,9 +234,12 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     onPositionChange(id, { x: 0, y: 0 });
   };
 
-  // Show toolbar & indicators whenever hovered (or toolbar hovered or dragging) and not suppressed by active typing
-  const showIndicator =
-    ((isHovered && !isFocused) || isToolbarHovered || isDragging) && !disabled;
+  // Show cyan border whenever hovered, focused/active, or dragging
+  const showBorder = (isHovered || isFocused || isDragging) && !disabled;
+
+  // Show drag toolbar badge ONLY when hovered or dragging, but HIDE while actively focused/typing so it never covers input text
+  const showToolbar =
+    (isHovered || isToolbarHovered || isDragging) && !isFocused && !disabled;
 
   return (
     <div
@@ -262,19 +265,19 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       }}
     >
       {/* Canva-style Bound/Border Indicator (Cyan #00B9F2 to distinguish from #8B3DFF Section Border) */}
-      {showIndicator && (
+      {showBorder && (
         <div
           data-html2canvas-ignore="true"
-          className="absolute -inset-[3px] rounded border-2 border-[#00B9F2] pointer-events-none z-30 transition-all duration-75 select-none"
+          className="absolute inset-0 rounded border-2 border-[#00B9F2] pointer-events-none z-30 transition-all duration-75 select-none"
           style={{
             boxShadow:
-              "0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 8px rgba(0, 185, 242, 0.45)",
+              "inset 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 8px rgba(0, 185, 242, 0.6)",
           }}
         />
       )}
 
-      {/* Canva-style Drag Handle & Tooling Bar (visible on hover when not focused/active) */}
-      {showIndicator && (
+      {/* Canva-style Drag Handle & Tooling Bar (HIDDEN while focused/typing so it never blocks text input) */}
+      {showToolbar && (
         <div
           data-html2canvas-ignore="true"
           onMouseEnter={() => {
@@ -282,19 +285,16 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
             setIsToolbarHovered(true);
           }}
           onMouseLeave={() => setIsToolbarHovered(false)}
-          className="absolute -top-[24px] left-0 right-0 h-[26px] flex items-center justify-between pointer-events-auto z-40 select-none px-0.5"
+          className="absolute -top-[22px] left-0 right-0 h-[22px] flex items-center justify-between pointer-events-auto z-40 select-none px-0.5"
         >
-          {/* Move Handle Badge */}
+          {/* Move Handle Badge (Icon only - no text title overlaying the field) */}
           <div
             data-drag-handle="true"
             onMouseDown={handleDragHandleMouseDown}
-            className="flex items-center gap-1 bg-[#00B9F2] text-white px-1.5 py-0.5 rounded shadow text-[8.5px] font-semibold cursor-grab active:cursor-grabbing hover:bg-[#0096c7] transition-colors"
-            title="Drag to reposition within safezone"
+            className="flex items-center justify-center bg-[#00B9F2] text-white p-1 rounded shadow cursor-grab active:cursor-grabbing hover:bg-[#0096c7] transition-colors shrink-0"
+            title={`Drag to reposition ${label || "field"}`}
           >
-            <Move size={9} strokeWidth={2.5} />
-            <span className="text-[8px] uppercase tracking-wider">
-              {label || "Move"}
-            </span>
+            <Move size={10} strokeWidth={2.5} />
           </div>
 
           {/* Right-side Action Buttons (Reset position + Delete field) */}

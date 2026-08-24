@@ -336,6 +336,116 @@ export const FONT_FOLDERS: Record<
       },
     ],
   },
+  BcfpStandard15: {
+    name: "BcfpStandard15",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp15, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp15, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp15, serif",
+      },
+      {
+        label: "Trajan Pro Regular",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp15, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp15, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard15: {
+    name: "BcfpStandard15",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegularBcfp15, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBoldBcfp15, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp15, serif",
+      },
+      {
+        label: "Trajan Pro Regular",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp15, serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp15, sans-serif",
+      },
+    ],
+  },
+  BcfpStandard17: {
+    name: "BcfpStandard17",
+    fonts: [
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp17, sans-serif",
+      },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBoldBcfp17, serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp17, serif",
+      },
+      {
+        label: "Arial Regular",
+        value: "font-arial-regular",
+        css: "ArialRegularBcfp17, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard17: {
+    name: "BcfpStandard17",
+    fonts: [
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBoldBcfp17, sans-serif",
+      },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBoldBcfp17, serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanProBoldBcfp17, serif",
+      },
+      {
+        label: "Arial Regular",
+        value: "font-arial-regular",
+        css: "ArialRegularBcfp17, sans-serif",
+      },
+    ],
+  },
 };
 
 // Add uppercase and clean key aliases
@@ -344,6 +454,8 @@ FONT_FOLDERS["BCFPStandard4"] = FONT_FOLDERS["BcfpStandard4"];
 FONT_FOLDERS["BCFPStandard6"] = FONT_FOLDERS["BcfpStandard6"];
 FONT_FOLDERS["BCFPStandard7"] = FONT_FOLDERS["BcfpStandard7"];
 FONT_FOLDERS["BCFPStandard8"] = FONT_FOLDERS["BcfpStandard8"];
+FONT_FOLDERS["BCFPStandard15"] = FONT_FOLDERS["BcfpStandard15"];
+FONT_FOLDERS["BCFPStandard17"] = FONT_FOLDERS["BcfpStandard17"];
 
 export const FontFolderContext = createContext<string | undefined>(undefined);
 
@@ -447,6 +559,17 @@ function fontFamilyToClass(ff?: string): string {
   if (f.includes("trajanproboldbcfp8")) return "font-trajan-bold";
   if (f.includes("trajanproregularbcfp8")) return "font-trajan-regular";
   if (f.includes("arialboldbcfp8")) return "font-arial-bold";
+  // BcfpStandard15 fonts
+  if (f.includes("gothicregularbcfp15")) return "font-gothic";
+  if (f.includes("gothicboldbcfp15")) return "font-gothic-bold";
+  if (f.includes("trajanproboldbcfp15")) return "font-trajan-bold";
+  if (f.includes("trajanproregularbcfp15")) return "font-trajan-regular";
+  if (f.includes("arialboldbcfp15")) return "font-arial-bold";
+  // BcfpStandard17 fonts
+  if (f.includes("acaslonproboldbcfp17")) return "font-caslon-bold";
+  if (f.includes("trajanproboldbcfp17")) return "font-trajan-bold";
+  if (f.includes("arialregularbcfp17")) return "font-arial-regular";
+  if (f.includes("arialboldbcfp17")) return "font-arial-bold";
   // BcfpStandard3 fonts
   if (f.includes("gothicregularbcfp3")) return "font-gothic";
   if (f.includes("gothicboldbcfp3")) return "font-gothic-bold";
@@ -973,8 +1096,18 @@ export default function StyledInput({
             padding: 0,
             boxSizing: "border-box",
             display: "flex",
-            alignItems: inputStyle?.verticalAlign === "top" ? "flex-start" : inputStyle?.verticalAlign === "bottom" ? "flex-end" : "center",
-            justifyContent: (textAlign || inputStyle?.textAlign) === "left" ? "flex-start" : (textAlign || inputStyle?.textAlign) === "right" ? "flex-end" : "center",
+            alignItems:
+              inputStyle?.verticalAlign === "top"
+                ? "flex-start"
+                : inputStyle?.verticalAlign === "bottom"
+                  ? "flex-end"
+                  : "center",
+            justifyContent:
+              (textAlign || inputStyle?.textAlign) === "left"
+                ? "flex-start"
+                : (textAlign || inputStyle?.textAlign) === "right"
+                  ? "flex-end"
+                  : "center",
             outline: "none",
             alignContent: getAlignContentStyle(),
           }}

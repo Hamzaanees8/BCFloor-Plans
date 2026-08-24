@@ -48,6 +48,21 @@ Every Listing Flyer is structured using the nested **Three-Container Architectur
 | **Negative Bleed Offset** | `marginLeft/Right: -0.375in`, `width: calc(... + 0.375in)` | `marginLeft/Right: -0.25in`, `width: calc(... + 0.25in)` |
 | **Mouse Drag Zoom Divisor** | `0.85` (matches preview zoom) | `0.85` (or `1.0`) |
 
+### Parent Page Registration Rule (`CreateFeatureSheet.tsx`)
+When mounting any modernized flyer component inside `CreateFeatureSheet.tsx`, you MUST pass `showBleed={showBleed}` and `showGuide={showGuide}` as props:
+```tsx
+{selectedTemplate === "BCFPStandard15" && (
+  <BcfpStandard15
+    key={selectedSheetUuid || "new-BCFPStandard15"}
+    ref={activeStandardRef}
+    orderData={orderData || null}
+    showBleed={showBleed}
+    showGuide={showGuide}
+  />
+)}
+```
+> **CRITICAL:** If `showBleed` and `showGuide` are omitted in `CreateFeatureSheet.tsx`, clicking the toolbar Bleed and Guidelines toggle buttons will fail to update the sheet preview.
+
 ---
 
 ## 2. REQUIRED IMPORTS & TYPES
@@ -383,6 +398,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 > - Outer container MUST have `data-image-slot="true"`, `onMouseEnter/Leave` (sets `hoveredSlot`), and `onClick` (checks `e.altKey` before setting `activeSlot`).
 > - **Image Shadows:** Image container shadows must be applied ONLY to the right and bottom sides of the images (using `shadow-[4px_4px_6px_rgba(0,0,0,0.85)]` or similar offset box-shadows), never all sides (avoid generic classes like `shadow-lg` on image containers).
 > - `BoxIndicator` uses `isSlotActive("imageN")` helper — NOT `hoveredImage`.
+> - **CRITICAL IMAGE ASPECT FIT RULE (`objectFit="contain"`)**: Always pass `objectFit="contain"` to `<ImageEditor>` in all image slots. Without `objectFit="contain"`, `ImageEditor` defaults to `objectFit="cover"`, which crops the uploaded photo to force-fit the container aspect ratio. Passing `objectFit="contain"` fits the complete, uncropped photo inside the slot.
 > - Rotate, Edit, Delete are **3 separate `absolute` buttons** — NOT in a shared flex wrapper.
 > - Zoom controls div has **NO** `data-html2canvas-ignore`.
 > - Empty state placeholder div MUST have `data-html2canvas-ignore="true"` and pass `(e) => openImageSourceModal("imageN", e)`.
@@ -422,6 +438,7 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
             scale={scale.image1}
             position={position.image1}
             rotation={rotation.image1}
+            objectFit="contain"
           />
         </div>
 
@@ -680,9 +697,9 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   onChange={(e) => setContactLabel(e.target.value)}
   onChangeStyle={(s) => updateFieldStyle("contactLabel", s)}
   inputStyle={fieldStyles.contactLabel}
-  className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300"
+  className="text-[20px] font-[300] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
   placeholder="Contact:"
-  wrapperClassName="w-auto"
+  wrapperClassName="w-auto shrink-0"
 />
 
 {/* Editable Property Spec Label */}
@@ -691,10 +708,16 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
   onChange={(e) => setBedroomLabel(e.target.value)}
   onChangeStyle={(s) => updateFieldStyle("bedroomLabel", s)}
   inputStyle={fieldStyles.bedroomLabel}
-  className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase"
+  className="font-bold text-[18px] text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 uppercase whitespace-nowrap"
   placeholder="BEDROOM •"
+  wrapperClassName="w-auto shrink-0"
 />
 ```
+
+### 7.5 Single-Line & Title Label Text Wrapping Prevention Rule (`whitespace-nowrap`)
+- Single-line title labels (`BEDROOM •`, `BATHROOM •`, `SQ FT •`, `BUILT IN`, `CONTACT:`, `PHONE:`, `EMAIL:`, `MLS #:`, `BY-LAW RESTRICTIONS:`, etc.) and single-line field inputs MUST NOT wrap onto a 2nd line when typing text, adding dots, or adding spaces (e.g. typing `BEDROOM •` must remain strictly on 1 line instead of wrapping `•` onto line 2).
+- **Engine Level Rule**: `StyledInput.tsx` automatically defaults single-line fields (`!props.rows` or `props.rows === 1`) to `whitespace-nowrap` instead of `whitespace-pre-wrap break-words`. Multiline textareas (where `props.rows > 1`, such as property descriptions) use `whitespace-pre-wrap break-words`.
+- **JSX Layout Rule**: Pass `className="... whitespace-nowrap"` and `wrapperClassName="w-auto shrink-0"` on title/label `StyledInput` instances, and wrap inline field-label pairs in `<div className="flex items-center gap-1 whitespace-nowrap flex-nowrap shrink-0">`.
 
 ---
 
@@ -857,12 +880,52 @@ return (
 
 ---
 
-## 11. LISTING FLYER VERIFICATION CHECKLIST (95%+ PASS RATE)
+## 12. COLUMN-ANCHORED FULL-BLEED BACKGROUNDS & CONDITIONAL LOGO SLOTS
+
+### 12.1 Column-Anchored Full-Bleed Background Alignment Rule
+- Background colors or split column layers (e.g., a 70%/30% left/right split layout) MUST be anchored directly inside their respective column containers using `right: 0` or `left: 0` so the background division line aligns 100% precisely with the column split line.
+- Expand the background colors outward into the bleed area using negative offsets:
+  - **Left Column**: `left: showBleed ? "-0.375in" : "-0.25in"`, `right: 0`, `top: showBleed ? "-0.375in" : "-0.25in"`, `bottom: showBleed ? "-0.375in" : "-0.25in"`.
+  - **Right Column**: `left: 0`, `right: showBleed ? "-0.375in" : "-0.25in"`, `top: showBleed ? "-0.375in" : "-0.25in"`, `bottom: showBleed ? "-0.375in" : "-0.25in"`.
+  - **Page 2 Top Header**: `left: showBleed ? "-0.375in" : "-0.25in"`, `right: showBleed ? "-0.375in" : "-0.25in"`, `top: showBleed ? "-0.375in" : "-0.25in"`, `bottom: 0`.
+- **CRITICAL:** Do NOT place `grid-cols-[70%_30%]` background layers directly at Container 1 level (`8.75in` width) if Container 3 (`8.0in` width) is inset by `SafeZoneWrapper` padding (`0.375in`), because 70% of `8.75in` (`6.125in`) will be horizontally misaligned with 70% of `8.0in` (`5.975in`).
+
+### 12.2 Conditional Agent Logo Slot Background Rule
+- Agent Logo Slots (`data-slot-type="logo"`) MUST conditionally style based on image presence:
+  ```tsx
+  className={`w-full min-w-0 h-[110px] relative z-10 group select-none overflow-hidden shrink-0 mt-[12px] cursor-pointer ${
+    images.image2
+      ? "bg-transparent"
+      : "border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] bg-white"
+  }`}
+  ```
+- When no image is loaded (`images.image2` is null), render the solid white container box (`bg-white border-2 border-white shadow-md`) with the `Select Image` placeholder button.
+- As soon as an image is loaded, automatically switch to `bg-transparent` with NO white box, border, or drop shadow behind the logo, allowing transparent PNG logos to render cleanly over colored column backgrounds.
+
+---
+
+## 13. INDIVIDUAL FIELD DRAGGABLEBOX WRAPPING RULE
+
+### 13.1 Wrap Every Field Individually
+- EVERY individual text field and its label MUST be wrapped in its OWN `<DraggableBox>` component (e.g. `addressCode`, `roadName`, `cityLine`, `specBedroom`, `specBathroom`, `specSqft`, `specBuiltYear`, `byLawRestrictions`, `maintFees`, `maintFeesInclude`, `featuresIncluded`, `siteInfluences`, `amenities`, `view`, `contactName`, `contactBrokerage`, `contactPhone`, `contactEmail`, `contactMls`, `priceAmount`).
+- **NEVER** wrap an entire section list or grid (e.g. `specsBar`, `detailsList`, `contactCard`) in a single `<DraggableBox>` wrapper. Doing so locks all fields into a single group box and prevents users from dragging individual fields independently.
+
+### 13.2 Section Lock Control
+- Pass `disabled={lockedSections.section}` to each individual `<DraggableBox>` within that section so clicking "Lock" on a section lock button disables or enables dragging for all individual fields within that section simultaneously.
+
+### 13.3 Deletion Integration
+- Pass `onDelete={() => removeStandardField(id, title, value, section, style)}` on each individual `<DraggableBox>` to support field deletion and integration with `DeletedFieldsPanel`.
+
+---
+
+## 14. LISTING FLYER VERIFICATION CHECKLIST (95%+ PASS RATE)
 
 Before considering any Listing Flyer upgrade complete, verify every item:
 
 - [ ] Outer page style has `width: showBleed ? "8.75in" : "8.5in"`, `height: showBleed ? "11.25in" : "11.0in"`, and `zoom: 0.85`.
 - [ ] `SafeZoneWrapper` wraps Container 3 content with `showBleed` and `showGuide` forwarded.
+- [ ] Column background colors (`#229AD6`, `#72C3EC`) are column-anchored inside Container 3 with negative bleed offsets (`top/bottom/left/right: -0.375in`) so the background split line aligns 100% precisely with the content column split.
+- [ ] Agent Logo Slot (`image2`) renders a white box placeholder when empty and switches to `bg-transparent` (no border, no shadow) when an image is loaded.
 - [ ] Image drag mouse movements divide by `0.85` (`(clientX - lastX) / 0.85`).
 - [ ] `BoxIndicator` uses `isSlotActive("imageN")` — NOT `hoveredImage`.
 - [ ] Every image slot outer div has `data-image-slot="true"`, `onMouseEnter` (sets `hoveredSlot`), `onMouseLeave`, and `onClick` (sets `activeSlot` with `e.stopPropagation()`).
@@ -873,6 +936,7 @@ Before considering any Listing Flyer upgrade complete, verify every item:
 - [ ] `openImageSourceModal` sets `showGallery(true)` — NOT `showImageSourceModal(true)`.
 - [ ] Section containers use `group/sec` class and color-switching hover border (`#8B3DFF` purple / `amber-400` amber).
 - [ ] Lock button is inside the section container, `opacity-0 group-hover/sec:opacity-100`, with `e.stopPropagation()` and `data-html2canvas-ignore="true"`.
+- [ ] Every individual text field (Address lines, Specs, Detail items, Contact lines, Price) is wrapped in its OWN `<DraggableBox>` component (never wrapped as a group box).
 - [ ] When locked: lock button is `bg-amber-500 text-white hover:bg-amber-600`. When unlocked: `bg-white/90 text-gray-700 border border-gray-200`.
 - [ ] Lock button label: **"Lock"** (unlocked state), **"Locked"** (locked state). NOT "Unlocked".
 - [ ] `DraggableBox` props use `position=` (not `initialPosition=`), `disabled=` (not `isLocked=`), `onPositionChange={updateFieldPosition}` (direct ref), `zoom={0.85}`, `label=`, `onDelete=`, `deleteTitle=`.
