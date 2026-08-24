@@ -16,7 +16,7 @@ const ImageEditor = ({
   position,
   rotation = 0,
   className = "",
-  objectFit = "cover",
+  objectFit = "contain",
 }: ImageEditorProps) => {
   return (
     <div
