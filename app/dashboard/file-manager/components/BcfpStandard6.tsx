@@ -78,13 +78,31 @@ function getFontFamilyCss(ff?: string): string | undefined {
   const f = ff.toLowerCase();
   if (f.includes("alexandria")) return "Alexandria, sans-serif";
   if (f.includes("raleway")) return "Raleway, sans-serif";
-  if (f.includes("acaslonpro") || f.includes("caslon")) return "ACaslonPro, serif";
-  if (f.includes("bickhamscript") || f.includes("bickham")) return "BickhamScript, cursive";
-  if (f.includes("gothicbold") || f.includes("gothic bold") || f.includes("gothic-bold")) return "GothicBold, sans-serif";
-  if (f.includes("gothicregular") || f.includes("gothic")) return "GothicRegular, sans-serif";
-  if (f.includes("trajanproregular") || (f.includes("trajan") && f.includes("regular"))) return "TrajanProRegular, serif";
-  if (f.includes("trajanpro") || f.includes("trajan")) return "TrajanPro, serif";
-  if (f.includes("arialbold") || f.includes("arial bold") || f.includes("arial")) return "ArialBold, sans-serif";
+  if (f.includes("acaslonpro") || f.includes("caslon"))
+    return "ACaslonPro, serif";
+  if (f.includes("bickhamscript") || f.includes("bickham"))
+    return "BickhamScript, cursive";
+  if (
+    f.includes("gothicbold") ||
+    f.includes("gothic bold") ||
+    f.includes("gothic-bold")
+  )
+    return "GothicBold, sans-serif";
+  if (f.includes("gothicregular") || f.includes("gothic"))
+    return "GothicRegular, sans-serif";
+  if (
+    f.includes("trajanproregular") ||
+    (f.includes("trajan") && f.includes("regular"))
+  )
+    return "TrajanProRegular, serif";
+  if (f.includes("trajanpro") || f.includes("trajan"))
+    return "TrajanPro, serif";
+  if (
+    f.includes("arialbold") ||
+    f.includes("arial bold") ||
+    f.includes("arial")
+  )
+    return "ArialBold, sans-serif";
   return ff;
 }
 
@@ -110,7 +128,8 @@ const DetailFieldRow: React.FC<DetailFieldRowProps> = ({
   onValueChange,
   onStyleChange,
 }) => {
-  const sharedFontFamily = field.style?.fontFamily || field.titleStyle?.fontFamily;
+  const sharedFontFamily =
+    field.style?.fontFamily || field.titleStyle?.fontFamily;
 
   const effectiveTitleStyle: TextStyle = {
     fontSize: field.titleStyle?.fontSize || "8px",
@@ -788,10 +807,14 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
         if (formData.bedroomLabel) setBedroomLabel(s(formData.bedroomLabel));
         if (formData.bathroomLabel) setBathroomLabel(s(formData.bathroomLabel));
         if (formData.sqftLabel) setSqftLabel(s(formData.sqftLabel));
-        if (formData.builtYearLabel) setBuiltYearLabel(s(formData.builtYearLabel));
-        if (formData.roadLabelBefore) setRoadLabelBefore(s(formData.roadLabelBefore));
-        if (formData.roadLabelAfter) setRoadLabelAfter(s(formData.roadLabelAfter));
-        if (formData.disclaimerText) setDisclaimerText(s(formData.disclaimerText));
+        if (formData.builtYearLabel)
+          setBuiltYearLabel(s(formData.builtYearLabel));
+        if (formData.roadLabelBefore)
+          setRoadLabelBefore(s(formData.roadLabelBefore));
+        if (formData.roadLabelAfter)
+          setRoadLabelAfter(s(formData.roadLabelAfter));
+        if (formData.disclaimerText)
+          setDisclaimerText(s(formData.disclaimerText));
 
         if (formData.images) {
           const loadedImages = formData.images as typeof images;
@@ -1551,10 +1574,14 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           if (details.bedroomLabel) setBedroomLabel(s(details.bedroomLabel));
           if (details.bathroomLabel) setBathroomLabel(s(details.bathroomLabel));
           if (details.sqftLabel) setSqftLabel(s(details.sqftLabel));
-          if (details.builtYearLabel) setBuiltYearLabel(s(details.builtYearLabel));
-          if (details.roadLabelBefore) setRoadLabelBefore(s(details.roadLabelBefore));
-          if (details.roadLabelAfter) setRoadLabelAfter(s(details.roadLabelAfter));
-          if (details.disclaimerText) setDisclaimerText(s(details.disclaimerText));
+          if (details.builtYearLabel)
+            setBuiltYearLabel(s(details.builtYearLabel));
+          if (details.roadLabelBefore)
+            setRoadLabelBefore(s(details.roadLabelBefore));
+          if (details.roadLabelAfter)
+            setRoadLabelAfter(s(details.roadLabelAfter));
+          if (details.disclaimerText)
+            setDisclaimerText(s(details.disclaimerText));
         }
 
         const styles: Record<string, TextStyle> = {};
@@ -1585,10 +1612,14 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
           if (st(od.bedroomLabel)) styles.bedroomLabel = st(od.bedroomLabel);
           if (st(od.bathroomLabel)) styles.bathroomLabel = st(od.bathroomLabel);
           if (st(od.sqftLabel)) styles.sqftLabel = st(od.sqftLabel);
-          if (st(od.builtYearLabel)) styles.builtYearLabel = st(od.builtYearLabel);
-          if (st(od.roadLabelBefore)) styles.roadLabelBefore = st(od.roadLabelBefore);
-          if (st(od.roadLabelAfter)) styles.roadLabelAfter = st(od.roadLabelAfter);
-          if (st(od.disclaimerText)) styles.disclaimerText = st(od.disclaimerText);
+          if (st(od.builtYearLabel))
+            styles.builtYearLabel = st(od.builtYearLabel);
+          if (st(od.roadLabelBefore))
+            styles.roadLabelBefore = st(od.roadLabelBefore);
+          if (st(od.roadLabelAfter))
+            styles.roadLabelAfter = st(od.roadLabelAfter);
+          if (st(od.disclaimerText))
+            styles.disclaimerText = st(od.disclaimerText);
         }
 
         setFieldStyles(styles);
@@ -1930,7 +1961,9 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               <span className="text-[#226292] flex items-center gap-1">
                                 <StyledInput
                                   value={roadLabelBefore}
-                                  onChange={(e) => setRoadLabelBefore(e.target.value)}
+                                  onChange={(e) =>
+                                    setRoadLabelBefore(e.target.value)
+                                  }
                                   onChangeStyle={(s) =>
                                     updateFieldStyle("roadLabelBefore", s)
                                   }
@@ -1950,7 +1983,9 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 />
                                 <StyledInput
                                   value={roadLabelAfter}
-                                  onChange={(e) => setRoadLabelAfter(e.target.value)}
+                                  onChange={(e) =>
+                                    setRoadLabelAfter(e.target.value)
+                                  }
                                   onChangeStyle={(s) =>
                                     updateFieldStyle("roadLabelAfter", s)
                                   }
@@ -2003,7 +2038,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                         {...(!images.image7
                           ? { "data-html2canvas-ignore": "true" }
                           : {})}
-                        className="absolute bottom-[-145px] left-[50px] group z-10 cursor-pointer"
+                        className="absolute bottom-[-110px] left-[50px] group z-10 cursor-pointer"
                         onMouseEnter={() => setHoveredSlot("image7")}
                         onMouseLeave={() => setHoveredSlot(null)}
                         onClick={(e) => {
@@ -2011,7 +2046,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           setActiveSlot("image7");
                         }}
                       >
-                        <div className="w-[160px] h-[80px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                        <div className="w-[160px] h-[90px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
                           <BoxIndicator isVisible={isSlotActive("image7")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
@@ -2703,7 +2738,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                     {...(!images.image16
                       ? { "data-html2canvas-ignore": "true" }
                       : {})}
-                    className="absolute left-[44%] -translate-x-1/2 -top-[25px] z-30 group cursor-pointer"
+                    className="absolute left-[44%] -translate-x-1/2 top-[-40px] z-30 group cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image16")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -2711,7 +2746,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       setActiveSlot("image16");
                     }}
                   >
-                    <div className="w-[160px] h-[80px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                    <div className="w-[160px] h-[90px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
                       <BoxIndicator isVisible={isSlotActive("image16")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
@@ -3061,11 +3096,21 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           <div className="text-start font-light flex w-[80%] items-start gap-1">
                             <div
                               style={{
-                                fontSize: fieldStyles.disclaimerText?.fontSize || "8px",
-                                fontWeight: fieldStyles.disclaimerText?.fontWeight || "300",
-                                fontFamily: getFontFamilyCss(fieldStyles.disclaimerText?.fontFamily) || "inherit",
-                                color: fieldStyles.disclaimerText?.color || "inherit",
-                                textAlign: (fieldStyles.disclaimerText?.textAlign as any) || "left",
+                                fontSize:
+                                  fieldStyles.disclaimerText?.fontSize || "8px",
+                                fontWeight:
+                                  fieldStyles.disclaimerText?.fontWeight ||
+                                  "300",
+                                fontFamily:
+                                  getFontFamilyCss(
+                                    fieldStyles.disclaimerText?.fontFamily,
+                                  ) || "inherit",
+                                color:
+                                  fieldStyles.disclaimerText?.color ||
+                                  "inherit",
+                                textAlign:
+                                  (fieldStyles.disclaimerText
+                                    ?.textAlign as any) || "left",
                                 lineHeight: 1.2,
                               }}
                               className="text-[8px] font-light bg-transparent text-left w-full border-none select-none"
@@ -4617,7 +4662,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               position={fieldPositions[field.id]}
                               onPositionChange={updateFieldPosition}
                               label={
-                                field.title.replace(/[:]/g, "").slice(0, 15) ||
+                                (field.title || "").replace(/[:]/g, "").slice(0, 15) ||
                                 "Field"
                               }
                               zoom={0.55}
@@ -4653,7 +4698,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                               position={fieldPositions[field.id]}
                               onPositionChange={updateFieldPosition}
                               label={
-                                field.title.replace(/[:]/g, "").slice(0, 15) ||
+                                (field.title || "").replace(/[:]/g, "").slice(0, 15) ||
                                 "Field"
                               }
                               zoom={0.55}

@@ -680,25 +680,31 @@ export default function StyledInput({
   const updatePosition = useCallback(() => {
     if (showMenu && wrapperRef.current) {
       const rect = wrapperRef.current.getBoundingClientRect();
-      let top = rect.bottom + window.scrollY + 4;
-      let left = rect.left + window.scrollX + rect.width / 2;
-      let transform = "translateX(-50%)";
+      const isAbove = rect.bottom + 150 > window.innerHeight;
 
-      // If it would go off the bottom of the viewport
-      if (rect.bottom + 150 > window.innerHeight) {
-        top = rect.top + window.scrollY - 50; // Pop up above the input
-      }
+      const top = isAbove
+        ? rect.top + window.scrollY - 10
+        : rect.bottom + window.scrollY + 10;
+
+      let left = rect.left + window.scrollX + rect.width / 2;
+      let transformX = "translateX(-50%)";
 
       // If it would go off the left side
       if (rect.left < 150) {
         left = rect.left + window.scrollX;
-        transform = "none";
+        transformX = "none";
       }
       // If it would go off the right side
       else if (rect.right + 150 > window.innerWidth) {
         left = rect.right + window.scrollX;
-        transform = "translateX(-100%)";
+        transformX = "translateX(-100%)";
       }
+
+      const transformY = isAbove ? "translateY(-100%)" : "";
+      const transform =
+        transformX === "none"
+          ? transformY || "none"
+          : `${transformX} ${transformY}`.trim();
 
       setMenuCoords({ top, left, transform });
     }

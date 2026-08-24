@@ -5383,7 +5383,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                             position={fieldPositions[field.id]}
                             onPositionChange={updateFieldPosition}
                             label={
-                              field.title.replace(/[:]/g, "").slice(0, 15) ||
+                              (field.title || "").replace(/[:]/g, "").slice(0, 15) ||
                               "Field"
                             }
                             zoom={0.55}
@@ -5420,7 +5420,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                             position={fieldPositions[field.id]}
                             onPositionChange={updateFieldPosition}
                             label={
-                              field.title.replace(/[:]/g, "").slice(0, 15) ||
+                              (field.title || "").replace(/[:]/g, "").slice(0, 15) ||
                               "Field"
                             }
                             zoom={0.55}
