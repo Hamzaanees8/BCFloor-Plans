@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/app/context/AppContext';
 import { X } from 'lucide-react';
+import { GetMediaSettings } from '@/app/dashboard/global-settings/global-settings';
 
 export type DownloadSize = 'small' | 'large' | 'mls' | 'original';
 
@@ -26,12 +27,45 @@ const BulkDownloadSizeModal: React.FC<BulkDownloadSizeModalProps> = ({
     title = "Select Download Size"
 }) => {
     const { userType } = useAppContext();
+    const [dimensions, setDimensions] = useState<{
+        mls?: { width: number; height: number };
+        large?: { width: number; height: number };
+        small?: { width: number; height: number };
+    }>({});
 
-    const sizes: { label: string; value: DownloadSize }[] = [
-        { label: 'Original Quality', value: 'original' },
-        { label: 'Small', value: 'small' },
-        { label: 'Large', value: 'large' },
-        { label: 'MLS', value: 'mls' },
+    useEffect(() => {
+        if (isOpen) {
+            GetMediaSettings().then((res) => {
+                if (res?.value?.photos) {
+                    setDimensions(res.value.photos);
+                }
+            }).catch((err) => {
+                console.error("Failed to load media settings:", err);
+            });
+        }
+    }, [isOpen]);
+
+    const sizes: { label: string; subLabel: string; value: DownloadSize }[] = [
+        {
+            label: 'Original Quality',
+            subLabel: 'Original Upload Resolution & Format',
+            value: 'original'
+        },
+        {
+            label: 'MLS',
+            subLabel: `${dimensions.mls?.width || 2048} × ${dimensions.mls?.height || 1536} px (Standard JPEG)`,
+            value: 'mls'
+        },
+        {
+            label: 'Large',
+            subLabel: `${dimensions.large?.width || 1920} × ${dimensions.large?.height || 1280} px`,
+            value: 'large'
+        },
+        {
+            label: 'Small',
+            subLabel: `${dimensions.small?.width || 800} × ${dimensions.small?.height || 533} px`,
+            value: 'small'
+        },
     ];
 
     return (
@@ -51,8 +85,8 @@ const BulkDownloadSizeModal: React.FC<BulkDownloadSizeModalProps> = ({
                         </Button>
                     </div>
                 </DialogHeader>
-                <div className="grid grid-cols-1 gap-4 py-6">
-                    <p className="text-[15px] text-[#666666] mb-2 font-medium">
+                <div className="grid grid-cols-1 gap-3 py-4">
+                    <p className="text-[14px] text-[#666666] mb-1 font-medium">
                         Choose the quality/size for your download. This selection will apply to all files in this batch.
                     </p>
                     {sizes.map((size) => (
@@ -62,19 +96,20 @@ const BulkDownloadSizeModal: React.FC<BulkDownloadSizeModalProps> = ({
                                 onSelectSize(size.value);
                                 onClose();
                             }}
-                            className={`w-full h-12 border-[1px] ${userType}-border ${userType}-text bg-white hover:text-white hover-${userType}-bg ${userType}-button rounded-[6px] font-semibold text-[16px] transition-all shadow-sm`}
-                            style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}
+                            className={`w-full h-auto py-2.5 px-4 flex flex-col items-start justify-center border-[1px] ${userType}-border ${userType}-text bg-white hover:text-white hover-${userType}-bg ${userType}-button rounded-[6px] transition-all shadow-xs`}
+                            style={{ backgroundColor: `var(--${userType}-page-bg, #F8F8F8)` }}
                         >
-                            {size.label}
+                            <span className="font-semibold text-[15px]">{size.label}</span>
+                            <span className="text-[12px] opacity-75 font-normal">{size.subLabel}</span>
                         </Button>
                     ))}
                 </div>
-                <DialogFooter className="sm:justify-end border-t border-[#E4E4E4] pt-4">
+                <DialogFooter className="sm:justify-end border-t border-[#E4E4E4] pt-3">
                     <Button
                         type="button"
                         variant="ghost"
                         onClick={onClose}
-                        className="text-[#7D7D7D] hover:text-[#424242] font-semibold text-[16px] transition-colors"
+                        className="text-[#7D7D7D] hover:text-[#424242] font-semibold text-[15px] transition-colors"
                     >
                         Cancel
                     </Button>

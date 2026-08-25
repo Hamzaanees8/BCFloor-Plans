@@ -27,6 +27,7 @@ export interface SelectedService {
     optionName?: string;
     payment_status?: string;
     is_completed?: boolean | number;
+    addOns?: { uuid?: string; title: string; amount: number }[];
 }
 
 
@@ -546,23 +547,35 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                 <span className="text-[#888] text-[10px] font-[700]">Services</span>
                             </div>
                             {displayedServices.map((service, idx) => (
-                                <div key={idx} className="flex justify-between">
-                                    <div className="flex items-center gap-x-3">
-                                        <div className="flex flex-col">
-                                            <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>
-                                                {service.title} - <span className='text-xs'>{service.optionName}</span>
-                                            </span>
-                                            {service.quantity && service.quantity > 0 && (
-                                                <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
+                                <div key={idx} className="flex flex-col gap-y-1">
+                                    <div className="flex justify-between">
+                                        <div className="flex items-center gap-x-3">
+                                            <div className="flex flex-col">
+                                                <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>
+                                                    {service.title} - <span className='text-xs'>{service.optionName}</span>
+                                                </span>
+                                                {service.quantity && service.quantity > 0 && (
+                                                    <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
+                                                )}
+                                            </div>
+                                            {(isEdit || isAddFlow) && service.payment_status && service.service_uuid && (
+                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${service.payment_status.toUpperCase() === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {service.payment_status}
+                                                </span>
                                             )}
                                         </div>
-                                        {(isEdit || isAddFlow) && service.payment_status && service.service_uuid && (
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${service.payment_status.toUpperCase() === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {service.payment_status}
-                                            </span>
-                                        )}
+                                        <span>$ {Number(service.price).toFixed(2)}</span>
                                     </div>
-                                    <span>$ {Number(service.price).toFixed(2)}</span>
+                                    {service.addOns && service.addOns.length > 0 && (
+                                        <div className="flex flex-col gap-y-0.5 pl-3 border-l border-gray-200 ml-1 mt-0.5">
+                                            {service.addOns.map((addon, aIdx) => (
+                                                <div key={aIdx} className="flex justify-between text-xs text-gray-500">
+                                                    <span className="truncate max-w-[190px]" title={addon.title}>↳ + {addon.title}</span>
+                                                    <span>+${Number(addon.amount).toFixed(2)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 

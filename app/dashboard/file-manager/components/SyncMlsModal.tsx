@@ -78,8 +78,19 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     setMlsStatus(isValid ? 'valid' : 'invalid');
   }, []);
 
+  const isPano = (f: any) => {
+    if (!f) return false;
+    if (f.isPanorama === true || f.is_panorama === true || f.image_type === 'panorama' || f.image_type === 'wide_panorama' || f.image_type === '360') return true;
+    const name = (f.name || '').toLowerCase();
+    const serviceName = (f.service?.name || '').toLowerCase();
+    const catName = (f.service?.category?.name || '').toLowerCase();
+    return name.includes('360') || name.includes('panorama') || name.includes('pano') ||
+           serviceName.includes('360') || serviceName.includes('panorama') || serviceName.includes('pano') ||
+           catName.includes('360') || catName.includes('panorama') || catName.includes('pano');
+  };
+
   const validApiFiles = useMemo(() => {
-    return apiFiles.filter(f => f.variant_urls && Object.keys(f.variant_urls).length > 0);
+    return apiFiles.filter(f => f.variant_urls && Object.keys(f.variant_urls).length > 0 && !isPano(f));
   }, [apiFiles]);
 
   // Initialization
@@ -95,8 +106,8 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
       setSelectedFiles([]);
 
-      // Initialize fileItems
-      const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');
+      // Initialize fileItems - only non-panoramic photos
+      const photoApiFiles = validApiFiles.filter(f => f.type === 'photo' && !isPano(f));
 
       const sortedPhotos = [...photoApiFiles].sort((a, b) => {
         const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);

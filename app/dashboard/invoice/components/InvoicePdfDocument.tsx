@@ -237,8 +237,8 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                     })()}
 
                     <div className="flex justify-between items-center p-4 text-white rounded mt-4" style={{ backgroundColor: settings.pageTabColor }}>
-                        <span className="font-bold uppercase tracking-widest">Total</span>
-                        <span className="text-xl font-bold">${parseFloat(invoice.total || invoice.total_amount || '0').toFixed(2)}</span>
+                        <span className="font-bold uppercase tracking-widest">Total ({invoice.currency || 'CAD'})</span>
+                        <span className="text-xl font-bold">${parseFloat(invoice.total || invoice.total_amount || '0').toFixed(2)} {invoice.currency || 'CAD'}</span>
                     </div>
 
                     {/* Partial payments */}

@@ -40,12 +40,12 @@ export default function ImagePopup({ imageUrl, open, onClose }: ImagePopupProps)
         </button>
 
         {/* Image Container - Takes remaining space */}
-        <div className="flex-1 w-full relative">
+        <div className="flex-1 w-full relative rounded-lg bg-[repeating-conic-gradient(#f3f4f6_0%_25%,#ffffff_0%_50%)] bg-[length:16px_16px] overflow-hidden">
           <Image
             src={imageUrl}
             alt="Image Preview"
             fill
-            className="object-cover"
+            className="object-contain"
             unoptimized
           />
         </div>

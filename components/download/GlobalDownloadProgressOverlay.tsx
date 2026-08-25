@@ -171,7 +171,10 @@ function DownloadJobItem({
             )}
 
             {isComplete && completedFiles.length > 0 && (
-                <div className="mt-2 space-y-1.5">
+                <div className="mt-2 space-y-2">
+                    <p className="text-[11px] text-gray-500 leading-relaxed bg-white/70 p-2 rounded border border-gray-100">
+                        The download will start automatically in a few seconds. If it doesn&apos;t start, click <span className="font-semibold text-gray-700">Download</span> below to start it manually.
+                    </p>
                     {completedFiles.map((file, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 bg-white rounded border border-gray-100 hover:border-gray-200 transition-colors gap-2">
                             <div className="flex flex-col min-w-0 flex-1">

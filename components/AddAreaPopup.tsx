@@ -32,6 +32,7 @@ interface AddAreaPopupProps {
   onAdd: (area: Omit<AreaData, 'id' | 'uuid'>) => Promise<void> | void;
   onEdit?: (area: AreaData) => Promise<void> | void;
   editingArea?: AreaData | null;
+  defaultType?: string;
 }
 
 export default function AddAreaPopup({
@@ -39,11 +40,12 @@ export default function AddAreaPopup({
   setOpen,
   onAdd,
   onEdit,
-  editingArea
+  editingArea,
+  defaultType = "Finished Area"
 }: AddAreaPopupProps) {
   const { userType } = useAppContext();
   const [customTitle, setCustomTitle] = useState("");
-  const [type, setType] = useState("Finished Area");
+  const [type, setType] = useState(defaultType);
   const [charge, setCharge] = useState<number | "">("");
   const [discount, setDiscount] = useState<number | "">("");
   const [status, setStatus] = useState<boolean>(true);
@@ -64,14 +66,14 @@ export default function AddAreaPopup({
       } else {
         // Add mode - reset form
         setCustomTitle("");
-        setType("Finished Area");
+        setType(defaultType);
         setCharge("");
         setDiscount("");
         setStatus(true);
         setIsPercentage(false);
       }
     }
-  }, [open, editingArea]);
+  }, [open, editingArea, defaultType]);
 
   const handleSubmit = async (e: React.MouseEvent) => {
     e.stopPropagation();

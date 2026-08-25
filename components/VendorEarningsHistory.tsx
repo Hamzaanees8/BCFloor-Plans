@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { format } from "date-fns"
 import { Calendar as CalendarIcon, Loader2, ChevronRight, DollarSign, Briefcase, Truck } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { getOrgCurrency, formatCurrency as formatCurrencyUtil } from '@/lib/currency'
 import {
     Popover,
     PopoverContent,
@@ -109,11 +110,10 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
         fetchData();
     }, [fetchData]);
 
+    const orgCurrency = useMemo(() => getOrgCurrency(), []);
+
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        }).format(amount);
+        return formatCurrencyUtil(amount, orgCurrency, { showCode: false });
     };
 
     const getStatusColor = (status: string) => {

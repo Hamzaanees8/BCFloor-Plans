@@ -902,7 +902,7 @@ const GlobalSettings = () => {
             { name: "Profile Settings", permission: null },
             { name: "Discounts", permission: PERMISSIONS.SET_DISCOUNTS },
             { name: "Tour Settings", permission: PERMISSIONS.CREATE_TOUR_SETTINGS },
-            { name: "Portal Settings", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Area & Scheduling", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Email Settings", permission: PERMISSIONS.VIEW_ADMIN },
@@ -1221,7 +1221,7 @@ const GlobalSettings = () => {
                             Save Changes
                         </Button>
                     ) : null
-                ) : activeTab === "Portal Settings" ? (
+                ) : (activeTab === "Area & Scheduling" || activeTab === "Portal Settings") ? (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -1306,7 +1306,7 @@ const GlobalSettings = () => {
                 {activeTab === "QB Sync Logs" && userType === "admin" && (
                     <QbSyncLogsSettings />
                 )}
-                {activeTab === "Portal Settings" && userType === "admin" && (
+                {(activeTab === "Area & Scheduling" || activeTab === "Portal Settings") && userType === "admin" && (
                     <PortalSettings ref={portalSettingsRef} />
                 )}
 

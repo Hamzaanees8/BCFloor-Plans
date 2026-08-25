@@ -641,6 +641,15 @@ export interface PortalSettingsPayload {
   booking_cutoff_time: string;
   allow_print_request: boolean;
   allow_booking_through_lunch?: boolean;
+  other_areas_free_allowance?: number;
+  other_areas_rate_per_sq_ft?: number;
+  other_areas_enable_allowance?: boolean;
+  sub_areas_free_allowance?: number;
+  sub_areas_rate_per_sq_ft?: number;
+  sub_areas_enable_allowance?: boolean;
+  finished_areas_free_allowance?: number;
+  finished_areas_rate_per_sq_ft?: number;
+  finished_areas_enable_allowance?: boolean;
 }
 
 export async function SavePortalSettings(payload: PortalSettingsPayload) {

@@ -19,6 +19,7 @@ export interface AgentPayload {
   company_logos?: {
     file?: File | null;
     type: string;
+    path?: string;
     url?: string;
     uuid?: string;
   }[];

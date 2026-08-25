@@ -119,6 +119,9 @@ type OrderContextType = {
     customServiceNames: Record<string, string>; // service.uuid -> name
     setCustomServiceNames: Dispatch<SetStateAction<Record<string, string>>>;
 
+    selectedAddOns: Record<string, { uuid?: string; title: string; amount: number }[]>; // service.uuid -> addOns
+    setSelectedAddOns: Dispatch<SetStateAction<Record<string, { uuid?: string; title: string; amount: number }[]>>>;
+
     selectedCurrentListing: Listings | null
     setSelectedCurrentListing: Dispatch<SetStateAction<Listings | null>>;
 
@@ -202,6 +205,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [selectedOptions, setSelectedOptions] = useState<SelectedOptionsMap>({});
     const [customPrices, setCustomPrices] = useState<Record<string, string>>({});
     const [customServiceNames, setCustomServiceNames] = useState<Record<string, string>>({});
+    const [selectedAddOns, setSelectedAddOns] = useState<Record<string, { uuid?: string; title: string; amount: number }[]>>({});
     const [discountCode, setDiscountCode] = useState('');
     const [appliedCodeDiscount, setAppliedCodeDiscount] = useState<Discount | null>(null);
     const [appliedQuantityDiscounts, setAppliedQuantityDiscounts] = useState<Discount[]>([]);
@@ -242,6 +246,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setSelectedOptions({});
         setCustomPrices({});
         setCustomServiceNames({});
+        setSelectedAddOns({});
         setDiscountCode('');
         setAppliedCodeDiscount(null);
         setAppliedQuantityDiscounts([]);
@@ -271,6 +276,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setSelectedOptions({});
         setCustomPrices({});
         setCustomServiceNames({});
+        setSelectedAddOns({});
         setDiscountCode('');
         setAppliedCodeDiscount(null);
         setAppliedQuantityDiscounts([]);
@@ -311,6 +317,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setCustomPrices,
                 customServiceNames,
                 setCustomServiceNames,
+                selectedAddOns,
+                setSelectedAddOns,
                 discountCode,
                 setDiscountCode,
                 appliedCodeDiscount,

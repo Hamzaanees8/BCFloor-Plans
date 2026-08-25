@@ -132,7 +132,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 }
             }
         }
-        return originalPrice;
+
+        // Add selected add-ons to original price
+        const addOnsTotal = (sel.addOns || []).reduce((sum, a) => sum + (parseFloat(String(a.amount || 0)) || 0), 0);
+        return originalPrice + addOnsTotal;
     }, [services, sqFootage]);
 
     // Helper function to calculate discounted price for a service (code or quantity discount, whichever is greater)
@@ -425,7 +428,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                             service_id: service.uuid as string,
                             option_id: service.option_id ?? undefined,
                             amount: Number(computedPrice.toFixed(2)),
-                            custom: service.custom ?? undefined
+                            custom: service.custom ?? undefined,
+                            add_ons: service.addOns && service.addOns.length > 0 ? service.addOns : undefined
                         };
                     }),
                 discounts,
