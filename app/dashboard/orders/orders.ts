@@ -277,6 +277,46 @@ export async function EditOrderStatus(
   return data;
 }
 
+export async function UpdateSlotTime(
+  payload: {
+    order_uuid: string;
+    order_service_id: string;
+    service_uuid: string;
+    slot_uuid: string;
+    vendor_uuid: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+  },
+  token: string
+) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const endpoint = API_URL ? `${API_URL}/orders/update-slot-time` : "/api/orders/update-slot-time";
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  let data: any = {};
+  if (contentType.includes("application/json")) {
+    data = await response.json();
+  }
+
+  if (!response.ok) {
+    const errorMsg = data.message || "Failed to update slot time";
+    throw new Error(errorMsg);
+  }
+
+  return data;
+}
+
 export async function UpdateOrderService(
   orderUuid: string,
   services: OrderServiceItem[],

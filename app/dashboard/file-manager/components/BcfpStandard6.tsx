@@ -7,6 +7,8 @@ import {
   RotateCw,
   Lock,
   Unlock,
+  Square,
+  Layers,
 } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
@@ -547,6 +549,36 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
     };
 
+    // --- imageSettings State ---
+    interface ImageSettingOptions {
+      showBorder: boolean;
+      showShadow: boolean;
+    }
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >(() => ({
+      image7: { showBorder: true, showShadow: true },
+      image16: { showBorder: true, showShadow: true },
+      ...(formData.imageSettings || {}),
+    }));
+
+    const toggleImageSetting = (
+      key: string,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || { showBorder: true, showShadow: true };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
+    };
+
     // --- images States ---
     const [images, setImages] = useState({
       image1: null as string | null,
@@ -863,6 +895,12 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
             formData.fieldPositions as Record<string, { x: number; y: number }>,
           );
         }
+        if (formData.imageSettings) {
+          setImageSettings((prev) => ({
+            ...prev,
+            ...(formData.imageSettings as Record<string, ImageSettingOptions>),
+          }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -870,6 +908,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
     // Update context when local state changes
     useEffect(() => {
       updateFormData({
+        imageSettings,
         leftDetailFields,
         rightDetailFields,
         deletedStandardFieldIds,
@@ -936,6 +975,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
       position,
       rotation,
       fieldPositions,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -2046,7 +2086,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                           setActiveSlot("image7");
                         }}
                       >
-                        <div className="w-[160px] h-[90px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                        <div
+                          className={`w-[160px] h-[90px] relative overflow-hidden flex items-center justify-center transition-all ${
+                            (imageSettings.image7?.showBorder ?? true)
+                              ? "border border-gray-200 p-1 bg-white"
+                              : "bg-transparent"
+                          } ${
+                            (imageSettings.image7?.showShadow ?? true)
+                              ? "shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                              : ""
+                          }`}
+                        >
                           <BoxIndicator isVisible={isSlotActive("image7")} />
                           <div
                             className="w-full h-full relative overflow-hidden flex items-center justify-center"
@@ -2068,6 +2118,52 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                     position={position.image7}
                                     rotation={rotation.image7}
                                   />
+                                </div>
+
+                                {/* Top-Left Border & Shadow Toggles */}
+                                <div
+                                  data-html2canvas-ignore="true"
+                                  className="absolute top-1 left-1 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleImageSetting("image7", "showBorder");
+                                    }}
+                                    className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                      (imageSettings.image7?.showBorder ?? true)
+                                        ? "bg-[#8B3DFF] text-white"
+                                        : "bg-white text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                    title={
+                                      (imageSettings.image7?.showBorder ?? true)
+                                        ? "Transparent Background"
+                                        : "Solid Background"
+                                    }
+                                  >
+                                    <Square className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleImageSetting("image7", "showShadow");
+                                    }}
+                                    className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                      (imageSettings.image7?.showShadow ?? true)
+                                        ? "bg-[#8B3DFF] text-white"
+                                        : "bg-white text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                    title={
+                                      (imageSettings.image7?.showShadow ?? true)
+                                        ? "Hide Shadow"
+                                        : "Show Shadow"
+                                    }
+                                  >
+                                    <Layers className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
 
                                 {/* Zoom Controls */}
@@ -2746,7 +2842,17 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                       setActiveSlot("image16");
                     }}
                   >
-                    <div className="w-[160px] h-[90px] bg-white p-1 shadow-lg border border-gray-200 relative overflow-hidden flex items-center justify-center">
+                    <div
+                      className={`w-[160px] h-[90px] relative overflow-hidden flex items-center justify-center transition-all ${
+                        (imageSettings.image16?.showBorder ?? true)
+                          ? "border border-gray-200 p-1 bg-white"
+                          : "bg-transparent"
+                      } ${
+                        (imageSettings.image16?.showShadow ?? true)
+                          ? "shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          : ""
+                      }`}
+                    >
                       <BoxIndicator isVisible={isSlotActive("image16")} />
                       <div
                         className="w-full h-full relative overflow-hidden flex items-center justify-center"
@@ -2766,6 +2872,52 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(
                                 position={position.image16}
                                 rotation={rotation.image16}
                               />
+                            </div>
+
+                            {/* Top-Left Border & Shadow Toggles */}
+                            <div
+                              data-html2canvas-ignore="true"
+                              className="absolute top-1 left-1 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image16", "showBorder");
+                                }}
+                                className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                  (imageSettings.image16?.showBorder ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image16?.showBorder ?? true)
+                                    ? "Transparent Background"
+                                    : "Solid Background"
+                                }
+                              >
+                                <Square className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image16", "showShadow");
+                                }}
+                                className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                  (imageSettings.image16?.showShadow ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image16?.showShadow ?? true)
+                                    ? "Hide Shadow"
+                                    : "Show Shadow"
+                                }
+                              >
+                                <Layers className="w-3.5 h-3.5" />
+                              </button>
                             </div>
 
                             {/* Zoom Controls */}

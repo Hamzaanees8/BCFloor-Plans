@@ -7,6 +7,8 @@ import {
   RotateCw,
   Lock,
   Unlock,
+  Square,
+  Layers,
 } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
@@ -365,6 +367,37 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
     const [disclaimerText, setDisclaimerText] = useState(
       "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
     );
+
+    // ── imageSettings State ───────────────────────────────────────────────────
+    interface ImageSettingOptions {
+      showBorder: boolean;
+      showShadow: boolean;
+    }
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >(() => ({
+      image2: { showBorder: true, showShadow: true },
+      image3: { showBorder: true, showShadow: true },
+      ...(formData.imageSettings || {}),
+    }));
+
+    const toggleImageSetting = (
+      key: string,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || { showBorder: true, showShadow: true };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
+    };
+
     const [printedByText, setPrintedByText] = useState(
       "DESIGNED AND PRINTED BY BC FLOOR PLANS",
     );
@@ -693,6 +726,12 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
             formData.fieldPositions as Record<string, { x: number; y: number }>,
           );
         }
+        if (formData.imageSettings) {
+          setImageSettings((prev) => ({
+            ...prev,
+            ...(formData.imageSettings as Record<string, ImageSettingOptions>),
+          }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -700,6 +739,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
     // ── Sync to Context ───────────────────────────────────────────────────────
     useEffect(() => {
       updateFormData({
+        imageSettings,
         fullName,
         email,
         propertyName,
@@ -764,6 +804,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
       position,
       rotation,
       fieldPositions,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -1796,7 +1837,15 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                     data-image-slot="true"
                     data-slot-type="logo"
                     data-logo-slot="true"
-                    className="w-[240px] h-[75px] mx-auto my-1 relative overflow-hidden group cursor-pointer"
+                    className={`w-[200px] h-[90px] mx-auto my-1 relative overflow-hidden group cursor-pointer transition-all ${
+                      (imageSettings.image2?.showBorder ?? true)
+                        ? "border border-gray-200 p-1 bg-white"
+                        : "bg-transparent"
+                    } ${
+                      (imageSettings.image2?.showShadow ?? true)
+                        ? "shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                        : ""
+                    }`}
                     onMouseEnter={() => setHoveredSlot("image2")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1824,6 +1873,52 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               position={position.image2}
                               rotation={rotation.image2}
                             />
+                          </div>
+
+                          {/* Top-Left Border & Shadow Toggles */}
+                          <div
+                            data-html2canvas-ignore="true"
+                            className="absolute top-1 left-1 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleImageSetting("image2", "showBorder");
+                              }}
+                              className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                (imageSettings.image2?.showBorder ?? true)
+                                  ? "bg-[#8B3DFF] text-white"
+                                  : "bg-white text-gray-700 hover:bg-gray-100"
+                              }`}
+                              title={
+                                (imageSettings.image2?.showBorder ?? true)
+                                  ? "Transparent Background"
+                                  : "Solid Background"
+                              }
+                            >
+                              <Square className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleImageSetting("image2", "showShadow");
+                              }}
+                              className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                (imageSettings.image2?.showShadow ?? true)
+                                  ? "bg-[#8B3DFF] text-white"
+                                  : "bg-white text-gray-700 hover:bg-gray-100"
+                              }`}
+                              title={
+                                (imageSettings.image2?.showShadow ?? true)
+                                  ? "Hide Shadow"
+                                  : "Show Shadow"
+                              }
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                            </button>
                           </div>
 
                           {/* Zoom Controls */}
@@ -1882,7 +1977,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                         <div
                           data-html2canvas-ignore="true"
                           onClick={(e) => openImageSourceModal("image2", e)}
-                          className="w-full h-full bg-white/20 text-white flex items-center justify-center cursor-pointer border border-dashed border-white/50 text-xs font-medium"
+                          className="w-full h-full bg-white text-gray-500 flex items-center justify-center cursor-pointer border border-dashed border-gray-300 text-xs font-medium hover:bg-gray-50 transition-colors"
                         >
                           Select Agent Logo
                         </div>
@@ -2380,7 +2475,15 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                       data-image-slot="true"
                       data-slot-type="logo"
                       data-logo-slot="true"
-                      className="my-1 w-[200px] h-[100px] relative overflow-hidden group cursor-pointer"
+                      className={`w-[200px] h-[90px] my-1 relative overflow-hidden group cursor-pointer transition-all ${
+                        (imageSettings.image3?.showBorder ?? true)
+                          ? "border border-gray-200 p-1 bg-white"
+                          : "bg-transparent"
+                      } ${
+                        (imageSettings.image3?.showShadow ?? true)
+                          ? "shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                          : ""
+                      }`}
                       onMouseEnter={() => setHoveredSlot("image3")}
                       onMouseLeave={() => setHoveredSlot(null)}
                       onClick={(e) => {
@@ -2408,6 +2511,52 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image3}
                                 rotation={rotation.image3}
                               />
+                            </div>
+
+                            {/* Top-Left Border & Shadow Toggles */}
+                            <div
+                              data-html2canvas-ignore="true"
+                              className="absolute top-1 left-1 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image3", "showBorder");
+                                }}
+                                className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                  (imageSettings.image3?.showBorder ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image3?.showBorder ?? true)
+                                    ? "Transparent Background"
+                                    : "Solid Background"
+                                }
+                              >
+                                <Square className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image3", "showShadow");
+                                }}
+                                className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                  (imageSettings.image3?.showShadow ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image3?.showShadow ?? true)
+                                    ? "Hide Shadow"
+                                    : "Show Shadow"
+                                }
+                              >
+                                <Layers className="w-3.5 h-3.5" />
+                              </button>
                             </div>
 
                             {/* Zoom Controls */}
@@ -2466,7 +2615,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                           <div
                             data-html2canvas-ignore="true"
                             onClick={(e) => openImageSourceModal("image3", e)}
-                            className="w-full h-full bg-white/20 text-white flex items-center justify-center cursor-pointer border border-dashed border-white/50 text-xs"
+                            className="w-full h-full bg-white text-gray-500 flex items-center justify-center cursor-pointer border border-dashed border-gray-300 text-xs font-medium hover:bg-gray-50 transition-colors"
                           >
                             Select Agent Logo
                           </div>

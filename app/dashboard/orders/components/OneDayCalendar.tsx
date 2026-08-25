@@ -34,7 +34,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getEffectiveServiceDuration } from "../utils/serviceTimeUtils";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 declare global {
@@ -989,6 +989,7 @@ export default function OneDayCalendar({
     selectedServices,
     vendorsData: contextVendorsData,
     ordersData,
+    setOrdersData,
     selectedCurrentListing,
     tempPropertyData,
     servicesData: contextServicesData,
@@ -1126,6 +1127,233 @@ export default function OneDayCalendar({
     slotRangeText: string;
   } | null>(null);
   const [showAgain, setShowAgain] = useState(true);
+  const [showConfirmUnbookSlot, setShowConfirmUnbookSlot] = useState(false);
+  const [pendingUnbookSlot, setPendingUnbookSlot] = useState<{
+    booking: any;
+    isFirstOfGroup: boolean;
+    isLastOfGroup: boolean;
+    slotStart: any;
+    slotEnd: any;
+  } | null>(null);
+  const [unbookedSlotsKeys, setUnbookedSlotsKeys] = useState<Set<string>>(new Set());
+
+  const handleConfirmUnbookSlot = async () => {
+    if (!pendingUnbookSlot || !pendingUnbookSlot.booking) {
+      setShowConfirmUnbookSlot(false);
+      return;
+    }
+
+    const booking = pendingUnbookSlot.booking;
+    const dateStr = booking.date || currentDate;
+    const vId = booking.vendor_id || booking.vendor?.uuid || "";
+
+    let newStartTime = booking.start_time;
+    let newEndTime = booking.end_time;
+
+    const chunkStart = dayjs(pendingUnbookSlot.slotStart).format("HH:mm:ss");
+    const chunkEnd = dayjs(pendingUnbookSlot.slotEnd).format("HH:mm:ss");
+
+    if (pendingUnbookSlot.isLastOfGroup) {
+      newEndTime = chunkStart;
+    } else if (pendingUnbookSlot.isFirstOfGroup) {
+      newStartTime = chunkEnd;
+    }
+
+    // Resolve UUIDs for order, service, order_service, slot, and vendor
+    const matchedOrder = ordersData?.find(
+      (o: any) =>
+        o.uuid === booking.order?.uuid ||
+        o.uuid === booking.order_uuid ||
+        String(o.id) === String(booking.order_id || booking.order?.id),
+    );
+    const orderUuid =
+      matchedOrder?.uuid ||
+      booking.order?.uuid ||
+      booking.order_uuid ||
+      "";
+
+    // Find the specific OrderService item inside matchedOrder.services
+    const matchedOrderService = matchedOrder?.services?.find(
+      (os: any) =>
+        String(os.service_id) === String(booking.service_id) ||
+        os.service?.uuid === booking.service_uuid ||
+        os.service?.uuid === booking.service?.uuid ||
+        String(os.service?.id) === String(booking.service_id),
+    );
+
+    const orderServiceId =
+      matchedOrderService?.uuid ||
+      booking.order_service?.uuid ||
+      booking.order_service_uuid ||
+      (typeof booking.order_service_id === "string" && booking.order_service_id.includes("-")
+        ? booking.order_service_id
+        : "");
+
+    const globalService = servicesData?.find(
+      (s) =>
+        s.uuid === matchedOrderService?.service?.uuid ||
+        s.uuid === booking.service?.uuid ||
+        s.uuid === booking.service_uuid ||
+        String(s.id) === String(booking.service_id || matchedOrderService?.service_id),
+    );
+    const serviceUuid =
+      matchedOrderService?.service?.uuid ||
+      globalService?.uuid ||
+      booking.service?.uuid ||
+      booking.service_uuid ||
+      "";
+
+    const slotUuid =
+      booking.slot_uuid ||
+      booking.uuid ||
+      "";
+
+    const matchedVendor = vendorsData.find(
+      (v) =>
+        v.uuid === vId ||
+        v.uuid === booking.vendor?.uuid ||
+        v.uuid === booking.vendor_id ||
+        String((v as any).id) === String(booking.vendor_id || vId),
+    );
+    const vendorUuid =
+      matchedVendor?.uuid ||
+      booking.vendor?.uuid ||
+      (typeof vId === "string" && vId.includes("-") ? vId : "");
+
+    const payload = {
+      order_uuid: orderUuid,
+      order_service_id: orderServiceId,
+      service_uuid: serviceUuid,
+      slot_uuid: slotUuid,
+      vendor_uuid: vendorUuid,
+      date: dateStr,
+      start_time: newStartTime,
+      end_time: newEndTime,
+    };
+
+    console.log("=== UNBOOK / TRIM SLOT DEBUG DATA ===", {
+      order_uuid: orderUuid,
+      orderObject: matchedOrder,
+      serviceObject: matchedOrderService || globalService,
+      globalServiceObject: globalService,
+      vendorObject: matchedVendor || booking.vendor,
+      slotObject: booking,
+      payload,
+    });
+
+    try {
+      const token =
+        localStorage.getItem("token") || localStorage.getItem("agentToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const endpoint = API_URL ? `${API_URL}/orders/update-slot-time` : "/api/orders/update-slot-time";
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        let errorMsg = "Failed to update slot time.";
+        if (data?.errors) {
+          if (typeof data.errors === "object") {
+            errorMsg = Object.values(data.errors).flat().join(", ");
+          } else {
+            errorMsg = String(data.errors);
+          }
+        } else if (data?.message) {
+          if (typeof data.message === "object") {
+            errorMsg = Object.values(data.message).flat().join(", ");
+          } else {
+            errorMsg = String(data.message);
+          }
+        } else if (data?.error) {
+          errorMsg = String(data.error);
+        }
+        toast.error(errorMsg);
+        return;
+      }
+
+      // API returned success -> update local calendar state & show success toast
+      const keyUuid = `${dateStr}_${vendorUuid}_${chunkStart}_${chunkEnd}`;
+      const keyId = `${dateStr}_${vId}_${chunkStart}_${chunkEnd}`;
+      setUnbookedSlotsKeys((prev) => {
+        const next = new Set(prev);
+        if (vendorUuid) next.add(keyUuid);
+        if (vId) next.add(keyId);
+        return next;
+      });
+
+      // 1. Update ordersData in OrderContext locally so AllBookedSlots and computedEvents recalculate immediately
+      setOrdersData((prevOrders: any[]) => {
+        if (!prevOrders) return prevOrders;
+        return prevOrders.map((ord: any) => {
+          if (
+            ord.uuid === orderUuid ||
+            String(ord.id) === String(booking.order_id || booking.order?.id)
+          ) {
+            const updatedSlots = (ord.slots || []).map((s: any) => {
+              if (
+                s.uuid === slotUuid ||
+                s.uuid === booking.uuid ||
+                String(s.id) === String(booking.id) ||
+                (s.service_id === booking.service_id && (s.vendor_id === booking.vendor_id || s.vendor?.uuid === vendorUuid))
+              ) {
+                return {
+                  ...s,
+                  start_time: newStartTime,
+                  end_time: newEndTime,
+                };
+              }
+              return s;
+            });
+            return {
+              ...ord,
+              slots: updatedSlots,
+            };
+          }
+          return ord;
+        });
+      });
+
+      // 2. Refetch orders from backend API to ensure complete data sync
+      try {
+        const refetchRes = await fetch(`${API_URL || ""}/orders`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+            Accept: "application/json",
+          },
+        });
+        if (refetchRes.ok) {
+          const freshData = await refetchRes.json();
+          const ordersList = Array.isArray(freshData.data)
+            ? freshData.data
+            : Array.isArray(freshData)
+            ? freshData
+            : null;
+          if (ordersList) {
+            setOrdersData(ordersList);
+          }
+        }
+      } catch (refetchErr) {
+        console.log("Error refetching orders after slot update:", refetchErr);
+      }
+
+      toast.success(data?.message || "Order slot time successfully updated.");
+    } catch (err: any) {
+      console.log("Error invoking /orders/update-slot-time:", err);
+      toast.error(err?.message || "An error occurred while updating slot time.");
+    } finally {
+      setShowConfirmUnbookSlot(false);
+      setPendingUnbookSlot(null);
+    }
+  };
   const [hoveredSlotStart, setHoveredSlotStart] = useState<string | null>(null);
   const calendarRef = React.useRef<FullCalendar>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -1296,7 +1524,7 @@ export default function OneDayCalendar({
     const bookedVendorsMap = new Map<string, Set<string>>();
     const travelVendorsMap = new Map<string, Set<string>>();
     const breakVendorsMap = new Map<string, Set<string>>();
-    const filteredVendorIds = filteredVendors.map((v) => v.uuid).filter(Boolean);
+    const bookingInfoMap = new Map<string, { booking: any; isFirst: boolean; isLast: boolean }>();
 
     // Collect booked slots, travel buffers, and breaks per vendor
     filteredVendors.forEach((vendor) => {
@@ -1347,14 +1575,45 @@ export default function OneDayCalendar({
         }
       });
 
-      // 2. Mark booked slots for this vendor
+      // 2. Mark booked slots for this vendor and compute effective booking bounds
       const vendorBookings = (AllBookedSlots || [])
-        .filter((s) => (s?.vendor?.uuid || s?.vendor_id) === vId && s?.date === date)
-        .map((s) => ({
-          start: dayjs(`${s.date}T${s.start_time}`),
-          end: dayjs(`${s.date}T${s.end_time}`),
-          address: (s as any).order?.property?.address || (s as any).address || "",
-        }))
+        .filter((s) => {
+          const slotVendorUuid =
+            s?.vendor?.uuid ||
+            vendorsData.find(
+              (v) => v.uuid === s?.vendor_id || String((v as any).id) === String(s?.vendor_id),
+            )?.uuid ||
+            s?.vendor_id;
+          return (slotVendorUuid === vId || s?.vendor_id === vId) && s?.date === date;
+        })
+        .map((s) => {
+          let bStart = dayjs(`${s.date}T${s.start_time}`);
+          let bEnd = dayjs(`${s.date}T${s.end_time}`);
+
+          fullDaySlots.forEach((slot) => {
+            const slotStart = dayjs(slot.start);
+            const slotEnd = dayjs(slot.end);
+            if (slotStart.isSameOrAfter(bStart) && slotEnd.isSameOrBefore(bEnd)) {
+              const chunkKey = `${date}_${vId}_${slotStart.format("HH:mm:ss")}_${slotEnd.format("HH:mm:ss")}`;
+              const chunkKeyAlt = `${date}_${s.vendor_id}_${slotStart.format("HH:mm:ss")}_${slotEnd.format("HH:mm:ss")}`;
+              if (unbookedSlotsKeys.has(chunkKey) || unbookedSlotsKeys.has(chunkKeyAlt)) {
+                if (slotStart.isSame(bStart, "minute")) {
+                  bStart = slotEnd;
+                } else if (slotEnd.isSame(bEnd, "minute")) {
+                  bEnd = slotStart;
+                }
+              }
+            }
+          });
+
+          return {
+            rawSlot: s,
+            start: bStart,
+            end: bEnd,
+            address: (s as any).order?.property?.address || (s as any).address || "",
+          };
+        })
+        .filter((b) => b.end.isAfter(b.start))
         .sort((a, b) => a.start.valueOf() - b.start.valueOf());
 
       vendorBookings.forEach((b) => {
@@ -1366,11 +1625,15 @@ export default function OneDayCalendar({
           if (slotStart.isSameOrAfter(b.start) && slotEnd.isSameOrBefore(b.end)) {
             if (!bookedVendorsMap.has(slotKey)) bookedVendorsMap.set(slotKey, new Set());
             bookedVendorsMap.get(slotKey)!.add(vId);
+
+            const isFirst = slotStart.isSame(b.start, "minute");
+            const isLast = slotEnd.isSame(b.end, "minute");
+            bookingInfoMap.set(slotKey, { booking: b.rawSlot, isFirst, isLast });
           }
         });
       });
 
-      // 3. Mark 30-minute travel buffer after each booking (unless it falls in a break)
+      // 3. Mark 30-minute travel buffer after each effective booking (unless it falls in a break)
       vendorBookings.forEach((b) => {
         const tStart = b.end;
         const tEnd = b.end.add(30, "minute");
@@ -1627,11 +1890,17 @@ export default function OneDayCalendar({
       const isCommonBooked =
         filteredVendors.length > 0 && bookedCount === filteredVendors.length;
       if (isCommonBooked) {
+        const info = bookingInfoMap.get(key);
         return {
           ...slot,
           title: "Booked",
           className: "slot-booked",
-          extendedProps: { availableVendorIds: [] },
+          extendedProps: {
+            availableVendorIds: [],
+            booking: info?.booking,
+            isFirstOfGroup: info?.isFirst || false,
+            isLastOfGroup: info?.isLast || false,
+          },
         };
       }
 
@@ -1772,6 +2041,8 @@ export default function OneDayCalendar({
     selectedCurrentListing,
     portalSettings?.allow_booking_through_lunch,
     destinationAddress,
+    unbookedSlotsKeys,
+    userType,
   ]);
 
   // Sync computedEvents to state only when they actually change (reference-stable write)
@@ -2425,15 +2696,6 @@ export default function OneDayCalendar({
         if (!isAdmin && currentDurationMins >= requiredDuration) {
           // Agent already has full required duration selected; proceed to replacement selection prompt
         } else {
-          const assignedVendor =
-            firstSlot.vendor ||
-            vendorsData.find(
-              (v) =>
-                v.uuid === firstSlot.vendor_id ||
-                (v.uuid && selectedVendors.includes(v.uuid)),
-            ) ||
-            vendorsData[0];
-
           const newSlot: Slot = {
             ...firstSlot,
             start_time: slotStart,
@@ -2980,6 +3242,33 @@ export default function OneDayCalendar({
                       )}
                     </div>
                   </TooltipProvider>
+                ) : eventInfo.event.classNames.includes("slot-booked") ? (
+                  <div className="flex items-center justify-between w-full px-1">
+                    <span className="fc-event-title text-[9px] text-[#64748B] font-medium truncate">
+                      {eventInfo.event.title}
+                    </span>
+                    {(userType === "admin" || (userType as string)?.toLowerCase() === "admin" || !userType) && (eventInfo.event.extendedProps?.isFirstOfGroup || eventInfo.event.extendedProps?.isLastOfGroup) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setPendingUnbookSlot({
+                            booking: eventInfo.event.extendedProps?.booking,
+                            isFirstOfGroup: eventInfo.event.extendedProps?.isFirstOfGroup,
+                            isLastOfGroup: eventInfo.event.extendedProps?.isLastOfGroup,
+                            slotStart: eventInfo.event.start,
+                            slotEnd: eventInfo.event.end,
+                          });
+                          setShowConfirmUnbookSlot(true);
+                        }}
+                        className="w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm ml-1"
+                        title="Trim/Unselect this slot"
+                      >
+                        <X className="w-2.5 h-2.5 stroke-[3]" />
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div
                     className="fc-event-title fc-sticky text-center"
@@ -3378,6 +3667,24 @@ export default function OneDayCalendar({
         toggleShowAgain={() => setShowAgain((prev) => !prev)}
         title="Travel Adjustment Override"
         description="This slot is currently reserved as a Travel Adjustment time for the vendor to travel to this property. Do you want to convert/select it as a Booked Service slot?"
+      />
+      <ConfirmationDialog
+        open={showConfirmUnbookSlot}
+        setOpen={(open) => {
+          setShowConfirmUnbookSlot(open);
+          if (!open) {
+            setPendingUnbookSlot(null);
+          }
+        }}
+        onConfirm={handleConfirmUnbookSlot}
+        onCancel={() => {
+          setShowConfirmUnbookSlot(false);
+          setPendingUnbookSlot(null);
+        }}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain((prev) => !prev)}
+        title="Trim / Unbook Slot?"
+        description="Are you sure you want to trim this slot from the previously booked order? The updated schedule will be saved."
       />
     </>
   );

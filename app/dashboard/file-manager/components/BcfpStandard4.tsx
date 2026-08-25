@@ -6,6 +6,8 @@ import {
   RotateCw,
   Lock,
   Unlock,
+  Square,
+  Layers,
 } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
@@ -562,7 +564,36 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
     };
 
-    // ── Images States ──────────────────────────────────────────────────────
+    // ── Images States ──────────────────────────────────────────────────────    // --- imageSettings State ---
+    interface ImageSettingOptions {
+      showBorder: boolean;
+      showShadow: boolean;
+    }
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >(() => ({
+      image2: { showBorder: true, showShadow: true },
+      ...(formData.imageSettings || {}),
+    }));
+
+    const toggleImageSetting = (
+      key: string,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || { showBorder: true, showShadow: true };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
+    };
+
+    // --- images States ---
     const [images, setImages] = useState({
       image1: null as string | null,
       image2: null as string | null,
@@ -841,6 +872,12 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
         if (formData.deletedStandardFieldIds) {
           setDeletedStandardFieldIds(formData.deletedStandardFieldIds);
         }
+        if (formData.imageSettings) {
+          setImageSettings((prev) => ({
+            ...prev,
+            ...(formData.imageSettings as Record<string, ImageSettingOptions>),
+          }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
@@ -848,6 +885,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
     // Update context when local state changes
     useEffect(() => {
       updateFormData({
+        imageSettings,
         leftDetailFields,
         rightDetailFields,
         description,
@@ -894,6 +932,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
       fieldPositions,
       deletedStandardFieldIds,
       deletedDetailFields,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -1981,7 +2020,15 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         data-image-slot="true"
                         data-slot-type="logo"
                         data-logo-slot="true"
-                        className="absolute right-[24px] top-[-35px] z-20 group cursor-pointer w-[140px] h-[77px] overflow-hidden"
+                        className={`absolute right-[24px] top-[-35px] z-20 group cursor-pointer w-[140px] h-[77px] overflow-hidden transition-all ${
+                          (imageSettings.image2?.showBorder ?? true)
+                            ? "border border-gray-200 p-1 bg-white"
+                            : "bg-transparent"
+                        } ${
+                          (imageSettings.image2?.showShadow ?? true)
+                            ? "shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
+                            : ""
+                        }`}
                         onMouseEnter={() => setHoveredSlot("image2")}
                         onMouseLeave={() => setHoveredSlot(null)}
                         onClick={(e) => {
@@ -2011,6 +2058,52 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   position={position.image2}
                                   rotation={rotation.image2}
                                 />
+                              </div>
+
+                              {/* Top-Left Border & Shadow Toggles */}
+                              <div
+                                data-html2canvas-ignore="true"
+                                className="absolute top-1 left-1 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleImageSetting("image2", "showBorder");
+                                  }}
+                                  className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                    (imageSettings.image2?.showBorder ?? true)
+                                      ? "bg-[#8B3DFF] text-white"
+                                      : "bg-white text-gray-700 hover:bg-gray-100"
+                                  }`}
+                                  title={
+                                    (imageSettings.image2?.showBorder ?? true)
+                                      ? "Transparent Background"
+                                      : "Solid Background"
+                                  }
+                                >
+                                  <Square className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleImageSetting("image2", "showShadow");
+                                  }}
+                                  className={`p-1.5 rounded-full shadow text-xs transition-colors ${
+                                    (imageSettings.image2?.showShadow ?? true)
+                                      ? "bg-[#8B3DFF] text-white"
+                                      : "bg-white text-gray-700 hover:bg-gray-100"
+                                  }`}
+                                  title={
+                                    (imageSettings.image2?.showShadow ?? true)
+                                      ? "Hide Shadow"
+                                      : "Show Shadow"
+                                  }
+                                >
+                                  <Layers className="w-3.5 h-3.5" />
+                                </button>
                               </div>
 
                               {/* Zoom Controls */}
