@@ -550,7 +550,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                         const squareFootage = selectedCurrentListing?.square_footage || tempPropertyData?.square_footage;
                         const requiredDuration = getEffectiveServiceDuration(
-                            productOption?.service_duration || (service as any).service_duration,
+                            productOption,
+                            currentService,
                             squareFootage
                         );
 
@@ -607,7 +608,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 <span className="text-[16px] font-[700] block min-h-[24px]">
                                                     {(() => {
                                                         const effectiveDuration = getEffectiveServiceDuration(
-                                                            productOption?.service_duration,
+                                                            productOption,
+                                                            currentService,
                                                             squareFootage
                                                         );
                                                         const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);

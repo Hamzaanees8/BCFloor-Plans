@@ -16,7 +16,7 @@ import {
   convertUTCToTimezone,
   convertVendorWorkHoursToPropertyTimezone,
 } from '../../orders/orders';
-import { getVendorValidStartSlots, ValidStartSlotResult } from '../../orders/components/OneDayCalendar';
+import { getVendorValidStartSlots, ValidStartSlotResult, getVendorDayBounds } from '../../orders/components/OneDayCalendar';
 import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import { toast } from 'sonner';
@@ -158,10 +158,18 @@ function isMatterportService(
   return /matterport|3d\s*tour|3dtour|iguide/.test(searchable);
 }
 
-function generateAllDaySlots(date: string, interval = 15): Slots[] {
+function generateAllDaySlots(
+  date: string,
+  interval = 15,
+  startTime = '00:00:00',
+  endTime = '24:00:00'
+): Slots[] {
   const slots: Slots[] = [];
-  const start = dayjs(`${date}T00:00:00`);
-  const end = dayjs(`${date}T24:00:00`);
+  const start = dayjs(`${date}T${startTime}`);
+  let end = dayjs(`${date}T${endTime}`);
+  if (endTime === '24:00:00' || endTime === '24:00') {
+    end = dayjs(`${date}T00:00:00`).add(1, 'day');
+  }
   let current = start;
   while (current.isBefore(end)) {
     const next = current.add(interval, 'minute');
@@ -204,6 +212,8 @@ export default function OneDayCalendar({
   const { userType } = useAppContext();
 
   const [events, setEvents] = useState<Slots[]>([]);
+  const [slotMinTime, setSlotMinTime] = useState<string>("08:00:00");
+  const [slotMaxTime, setSlotMaxTime] = useState<string>("18:00:00");
   const [vendors, setVendors] = useState<VendorData[]>([]);
   const [currentDate, setCurrentDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -226,7 +236,8 @@ export default function OneDayCalendar({
     (option: any) => option.uuid === (service.option_id || service.option?.uuid)
   );
   const requiredDurationForBorder = getEffectiveServiceDuration(
-    productOptionForBorder?.service_duration,
+    productOptionForBorder,
+    currentServiceForBorder,
     effectiveSquareFootage
   );
   const requiredSlotsCountForBorder = Math.ceil(requiredDurationForBorder / 15);
@@ -316,7 +327,24 @@ export default function OneDayCalendar({
       return;
     }
 
-    const fullDaySlots = generateAllDaySlots(date, 15);
+    const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
+    const isTwilightService = Boolean(currentServiceDataForSlots?.category?.name === 'Twilight Photos' || service?.title?.includes('Twilight'));
+    const selectedSlotsOnDate = selectedSlots.filter(s => isSameService(s.service_id, service.service) && s.date === date);
+
+    const { startTime: dayStartTime, endTime: dayEndTime } = getVendorDayBounds(
+      date,
+      filteredVendors,
+      propertyTimezone,
+      isTwilightService,
+      twilightData,
+      selectedSlotsOnDate,
+      scheduleOverride
+    );
+
+    setSlotMinTime(dayStartTime);
+    setSlotMaxTime(dayEndTime);
+
+    const fullDaySlots = generateAllDaySlots(date, 15, dayStartTime, dayEndTime);
     const slotVendorsMap = new Map<string, string[]>();
 
     const otherServiceSlots = selectedSlots.filter(s =>
@@ -324,11 +352,11 @@ export default function OneDayCalendar({
     );
 
     // Check if this service does not require travel (full-day availability regardless of work hours)
-    const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
     const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
     const productOptionForSlots = currentServiceDataForSlots?.product_options?.find((option: any) => option.uuid === service.option_id);
     const requiredDurationForSlots = getEffectiveServiceDuration(
-      productOptionForSlots?.service_duration,
+      productOptionForSlots,
+      currentServiceDataForSlots,
       squareFootage
     );
     const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
@@ -385,7 +413,10 @@ export default function OneDayCalendar({
           shouldEnforceForVendor,
           service.service.uuid,
           selectedSlots,
-          15
+          15,
+          false,
+          currentServiceDataForSlots?.is_travel_required !== false,
+          destinationAddress
         );
         
         startSlots.forEach(slot => {
@@ -419,7 +450,10 @@ export default function OneDayCalendar({
           shouldEnforceForVendor,
           service.service.uuid,
           selectedSlots,
-          15
+          15,
+          false,
+          currentServiceDataForSlots?.is_travel_required !== false,
+          destinationAddress
         );
         
         startSlots.forEach(slot => {
@@ -495,7 +529,7 @@ export default function OneDayCalendar({
 
         if (isTwilightService) {
           const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-          const reqDur = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+          const reqDur = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
           maxRecommended = Math.ceil(reqDur / 15) || 1;
         }
 
@@ -610,7 +644,7 @@ export default function OneDayCalendar({
     // Duration enforcement: compute how many consecutive slots to select
     const currentServiceData = servicesData?.find(s => isSameService(s.uuid, service.service));
     const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-    const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+    const requiredDuration = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
     const requiredSlots = Math.ceil(requiredDuration / 15);
 
     const isAlreadySelected = selectedSlots.find(slot => {
@@ -948,8 +982,8 @@ export default function OneDayCalendar({
           initialView="timeGridDay"
           slotDuration="00:15:00"
           slotLabelInterval="00:15:00"
-          slotMinTime="00:00:00"
-          slotMaxTime="24:00:00"
+          slotMinTime={slotMinTime || "08:00:00"}
+          slotMaxTime={slotMaxTime || "18:00:00"}
           allDaySlot={false}
           events={events}
           eventContent={(eventInfo) => {
@@ -1093,7 +1127,7 @@ export default function OneDayCalendar({
                             const selDate = dayjs(clickedSlot.start).format('YYYY-MM-DD');
                             const otherSlotsForDate = selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selDate);
                             const productOption = currentServiceDataForModal?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-                            const reqDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+                            const reqDuration = getEffectiveServiceDuration(productOption, currentServiceDataForModal, effectiveSquareFootage);
                             const requiredSlotsForModal = Math.max(1, Math.ceil(reqDuration / 15));
 
                             let validResult: ValidStartSlotResult;
@@ -1124,7 +1158,10 @@ export default function OneDayCalendar({
                                 shouldEnforceForVendor,
                                 service.service.uuid,
                                 selectedSlots,
-                                15
+                                15,
+                                false,
+                                currentServiceDataForModal?.is_travel_required !== false,
+                                destinationAddress
                               );
                             } else {
                               if (!vendor.work_hours) {
@@ -1152,7 +1189,10 @@ export default function OneDayCalendar({
                                 shouldEnforceForVendor,
                                 service.service.uuid,
                                 selectedSlots,
-                                15
+                                15,
+                                false,
+                                currentServiceDataForModal?.is_travel_required !== false,
+                                destinationAddress
                               );
                             }
 
