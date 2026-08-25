@@ -52,6 +52,7 @@ export interface OrderServiceItem {
   option_id?: string;
   amount: number;
   custom?: string;
+  add_ons?: { uuid?: string; title: string; amount: number }[];
 }
 export type AgentNote = {
   note: string;

@@ -692,11 +692,10 @@ const InvoiceDocument = ({
             style={{ backgroundColor: settings.pageTabColor }}
           >
             <span className="font-bold uppercase tracking-wider text-xs md:text-sm leading-normal">
-              Total
+              Total ({invoice.currency || 'CAD'})
             </span>
             <span className="text-base md:text-xl font-bold leading-normal">
-              ${" "}
-              {grandTotal.toFixed(2)}
+              ${grandTotal.toFixed(2)} {invoice.currency || 'CAD'}
             </span>
           </div>
 

@@ -82,7 +82,7 @@ export interface CategoriesData {
 }
 
 const ServicesFrom = () => {
-  const [background, setBackground] = useState("");
+  const [background, setBackground] = useState("ffffff");
   const [currentService, setCurrentService] = useState<Services | null>(null);
   const [services, setServices] = useState<Services[] | null>(null);
   const [categoriesData, setCategoriesData] = useState<CategoriesData[] | null>(
@@ -93,7 +93,7 @@ const ServicesFrom = () => {
   const [categoryObject, setCategoryObject] = useState<CategoriesData | null>(
     null,
   );
-  const [border, setBorder] = useState("");
+  const [border, setBorder] = useState("000000");
   const [serviceName, setServiceName] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailName, setThumbnailName] = useState<string>("");
@@ -419,6 +419,18 @@ const ServicesFrom = () => {
       .catch((err) => console.log(err.message));
   }, [ServiceId, isPackageParam]);
 
+  // Keep categoryObject in sync with category selection and categoriesData
+  useEffect(() => {
+    if (category && categoriesData && categoriesData.length > 0) {
+      const found = categoriesData.find(
+        (c: CategoriesData) => c.id.toString() === category.toString()
+      );
+      if (found) {
+        setCategoryObject(found);
+      }
+    }
+  }, [category, categoriesData]);
+
   // For create mode, mark as initially rendered after a short delay
   // This prevents browser autofill from triggering dirty state
   useEffect(() => {
@@ -736,12 +748,17 @@ const ServicesFrom = () => {
           (addon) => addon.title?.trim() !== ""
         );
 
+        const safeBg = (background || "ffffff").replace(/^#/, "");
+        const safeBorder = (border || "000000").replace(/^#/, "");
+        const formattedBg = `#${safeBg.length === 6 ? safeBg : safeBg.padEnd(6, "0").slice(0, 6)}`;
+        const formattedBorder = `#${safeBorder.length === 6 ? safeBorder : safeBorder.padEnd(6, "0").slice(0, 6)}`;
+
         const payload = {
           name: serviceName,
           category_id: category,
           description: ServiceDescription,
-          background_color: `#${background.replace(/^#/, "")}`,
-          border_color: `#${border.replace(/^#/, "")}`,
+          background_color: formattedBg,
+          border_color: formattedBorder,
           thumbnail: thumbnailFile,
           product_options: cleanedProductOptions,
           add_ons: cleanedAddOns,
@@ -982,7 +999,7 @@ const ServicesFrom = () => {
                       <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
                         <HexColorPicker
                           className="!w-[175px]"
-                          color={`#${background}`}
+                          color={`#${background || "ffffff"}`}
                           onChange={(newColor) =>
                             setBackground(newColor.replace(/^#/, ""))
                           }
@@ -1029,7 +1046,7 @@ const ServicesFrom = () => {
                       {/* Right-side color preview circle */}
                       <div
                         className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-gray-400"
-                        style={{ backgroundColor: `#${border || "ffffff"}` }}
+                        style={{ backgroundColor: `#${border || "000000"}` }}
                       />
                     </div>
 
@@ -1037,7 +1054,7 @@ const ServicesFrom = () => {
                       <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
                         <HexColorPicker
                           className="!w-[175px]"
-                          color={`#${border}`}
+                          color={`#${border || "000000"}`}
                           onChange={(newColor) =>
                             setBorder(newColor.replace(/^#/, ""))
                           }
@@ -1105,24 +1122,24 @@ const ServicesFrom = () => {
                             className="block text-sm font-medium"
                             style={{ color: roleSettings.pageText }}
                           >
-                            Thumbnail (Recommended 1024px x 550px)
+                            Thumbnail (Accepts JPG, PNG, SVG, WebP, GIF up to 20MB — Any aspect ratio)
                           </label>
                           {(thumbnailFile || currentService?.thumbnail_url) && (
                             <div className="mt-2 mb-3 flex items-center gap-3">
-                              <div className="relative w-full h-auto rounded-md overflow-hidden border border-gray-300 bg-gray-100">
+                              <div className="relative w-full h-[140px] rounded-md overflow-hidden border border-gray-300 bg-[repeating-conic-gradient(#f3f4f6_0%_25%,#ffffff_0%_50%)] bg-[length:16px_16px] flex items-center justify-center p-2 shadow-inner">
                                 {thumbnailFile ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={URL.createObjectURL(thumbnailFile)}
                                     alt="Thumbnail preview"
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                   />
                                 ) : currentService?.thumbnail_url ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={currentService.thumbnail_url}
                                     alt="Saved thumbnail"
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                     onError={(e) => {
                                       // Hide the image on error
                                       e.currentTarget.style.display = "none";
@@ -1574,15 +1591,15 @@ Product Options{" "}
                             )}
                             {Number(categoryObject?.duration) == 1 && (
                               <TableHead className="text-[14px] font-bold">
-                                SERVICE DURATION
+                                SERVICE DURATION (Mins)
                               </TableHead>
                             )}
                             {/* <TableHead className="text-[14px] font-bold">MIN PRICE</TableHead> */}
                             <TableHead className="text-[14px] font-bold">
-                              MIN PRICE
+                              MIN PRICE ($ CAD)
                             </TableHead>
                             <TableHead className="text-[14px] font-bold">
-                              AMOUNT
+                              AMOUNT ($ CAD)
                             </TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1655,7 +1672,7 @@ Product Options{" "}
                                   <Label className=" text-[15px] font-[400] text-[#666666]">
                                     {opt.service_duration &&
                                     opt.service_duration != 0
-                                      ? opt.service_duration + " Min"
+                                      ? opt.service_duration + " Mins"
                                       : "-"}
                                   </Label>
                                 </TableCell>
@@ -1981,7 +1998,7 @@ Product Options{" "}
                                   <Input
                                     type="number"
                                     min={-1} // allows clearing the input without defaulting to 0
-                                    placeholder="Duration"
+                                    placeholder="Duration (Mins)"
                                     className="w-[192px] h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[10px]"
                                     value={
                                       opt.service_duration <= 0
@@ -2137,7 +2154,7 @@ Product Options{" "}
                           )}
                         </TableBody>
                       </Table>
-                      {categoryObject?.add_ons && (
+                      {(!isPackage && categoryObject?.name?.toLowerCase() !== "package") && (
                         <div className="w-full">
                           <hr />
                           <div className="flex justify-between items-center px-[20px]">
@@ -2173,7 +2190,7 @@ Product Options{" "}
                                   TITLE
                                 </TableCell>
                                 <TableCell className="text-[14px] font-bold pl-[15px]">
-                                  AMOUNT
+                                  AMOUNT ($ CAD)
                                 </TableCell>
                               </TableRow>
                             </TableHeader>
@@ -2187,7 +2204,7 @@ Product Options{" "}
 
                                 <TableCell className="flex justify-between items-center px-[20px]">
                                   <Label className=" text-[15px] font-[400] text-[#666666]">
-                                    $ {opt?.amount}
+                                    ${Number(opt?.amount || 0).toFixed(2)} CAD
                                   </Label>
                                   <DropdownActions
                                     options={[
@@ -2282,7 +2299,7 @@ Product Options{" "}
                                     <Input
                                       className="h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]"
                                       type="number"
-                                      placeholder="Enter Amount"
+                                      placeholder="Amount ($ CAD)"
                                       value={
                                         addOn.amount === undefined || addOn.amount === null ? "" : addOn.amount
                                       }
@@ -2362,7 +2379,7 @@ Product Options{" "}
                                                     <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">EMAIL</TableHead>
                                                     <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">PHONE</TableHead>
                                                     <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">RATE</TableHead>
-                                                    <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">DURATION</TableHead>
+                                                    <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">DURATION (Mins)</TableHead>
                                                     <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">HOMEBASE ADDRESS</TableHead>
                                                     <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">STATUS</TableHead>
                                                 </TableRow>

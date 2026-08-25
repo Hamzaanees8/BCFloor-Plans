@@ -1207,7 +1207,7 @@ const TourConfirm = ({
                             <img
                               src={getAgentLogo() || orderData?.agent?.logo_url}
                               alt="Agent Photo"
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain p-2"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 const parent = e.currentTarget.parentElement;
@@ -1479,7 +1479,7 @@ const TourConfirm = ({
                         <img
                           src={getAgentLogo() || orderData?.agent.logo_url}
                           alt="Agent photo"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain p-2"
                         />
                       ) : (
                         <div className="text-gray-400 font-medium">
@@ -2256,7 +2256,7 @@ const TourConfirm = ({
                       orderData?.agent?.avatar
                     }
                     alt={`${orderData?.agent?.first_name || "Agent"} photo`}
-                    className="w-full h-full object-cover rounded-sm"
+                    className="w-full h-full object-contain p-1 rounded-sm"
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 font-medium text-xs">

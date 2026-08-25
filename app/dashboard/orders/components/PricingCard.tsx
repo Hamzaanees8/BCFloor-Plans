@@ -33,6 +33,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     setCustomPrices,
     customServiceNames,
     setCustomServiceNames,
+    selectedAddOns,
+    setSelectedAddOns,
     selectedListingId,
     setSelectedSlots,
     selectedSlots,
@@ -252,15 +254,32 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [squareFootage]);
 
-  const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string) => {
+  const availableAddOns = useMemo(() => {
+    const rawAddOns = service.service_add_ons || (service as any).serviceAddOns || [];
+    return rawAddOns.map((a: any) => ({
+      uuid: a.uuid,
+      title: a.title,
+      amount: parseFloat(String(a.amount || 0)) || 0,
+    }));
+  }, [service]);
+
+  const currentServiceAddOns = selectedAddOns[service.uuid] || [];
+  const addOnsTotal = currentServiceAddOns.reduce((sum, a) => sum + (parseFloat(String(a.amount || 0)) || 0), 0);
+
+  const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string, customAddOns?: typeof currentServiceAddOns) => {
     const currentOption = optionTitle ?? selectedOption;
     const currentCustom = customAmt ?? customPrice;
     const currentCustomName = forcedQty ?? customServiceName;
+    const activeAddOns = customAddOns !== undefined ? customAddOns : currentServiceAddOns;
+    const activeAddOnsTotal = activeAddOns.reduce((sum, a) => sum + (parseFloat(String(a.amount || 0)) || 0), 0);
 
-    if (!currentOption) return { price: undefined, quantity: 1, option_id: undefined, custom: undefined, optionName: "" };
+    if (!currentOption) {
+      const fallbackPrice = activeAddOnsTotal > 0 ? activeAddOnsTotal : undefined;
+      return { price: fallbackPrice, quantity: 1, option_id: undefined, custom: undefined, optionName: "", addOns: activeAddOns };
+    }
 
     const selectedOptionData = pricingOptions?.find(opt => opt.title === currentOption);
-    let price: number | undefined = undefined;
+    let basePrice: number | undefined = undefined;
     let quantity = selectedOptionData?.quantity ?? 1;
     let option_id = selectedOptionData?.uuid;
     let custom: string | undefined = undefined;
@@ -271,7 +290,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         const qtyValue = parseInt(currentCustomName) || 0;
         const result = calcCustomQtyPrice(pricingOptions || [], qtyValue > 0 ? qtyValue : 1);
         quantity = qtyValue;
-        price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
+        basePrice = currentCustom ? parseFloat(currentCustom) : (result?.price !== undefined ? parseFloat(String(result.price)) : undefined);
         option_id = undefined;
         custom = `${quantity} Units`;
         optionName = custom;
@@ -282,9 +301,9 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           : (squareFootage > 0 ? squareFootage : 0);
         if (sqftValue > 0) {
           const result = calcCustomSqftPrice(pricingOptions || [], sqftValue);
-          price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
+          basePrice = currentCustom ? parseFloat(currentCustom) : (result?.price !== undefined ? parseFloat(String(result.price)) : undefined);
         } else {
-          price = currentCustom ? Number(currentCustom) : undefined;
+          basePrice = currentCustom ? parseFloat(currentCustom) : undefined;
         }
         quantity = 1;
         option_id = undefined;
@@ -300,18 +319,20 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         parseFloat(selectedOptionData.sq_ft_rate) > 0
       ) {
         const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
-        price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
+        basePrice = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
       } else {
-        price = selectedOptionData?.amount ?? 0;
+        basePrice = selectedOptionData?.amount !== undefined && selectedOptionData?.amount !== null ? parseFloat(String(selectedOptionData.amount)) : 0;
         quantity = selectedOptionData?.quantity || 1;
       }
     }
 
-    return { price, quantity, option_id, custom, optionName };
+    const price = basePrice !== undefined ? (basePrice + activeAddOnsTotal) : (activeAddOnsTotal > 0 ? activeAddOnsTotal : undefined);
+
+    return { price, quantity, option_id, custom, optionName, addOns: activeAddOns };
   };
 
-  const handleSelectService = (optionValue?: string, customVal?: string, forcedQty?: string) => {
-    const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty(optionValue, customVal, forcedQty);
+  const handleSelectService = (optionValue?: string, customVal?: string, forcedQty?: string, customAddOns?: typeof currentServiceAddOns) => {
+    const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty(optionValue, customVal, forcedQty, customAddOns);
 
     if (setSelectedServices) {
       setSelectedServices(prev => {
@@ -321,10 +342,59 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         const alreadySelected = prev.some(targetPredicate);
         if (alreadySelected) {
           return prev.map(item =>
-            targetPredicate(item) ? { ...item, price, quantity, option_id, custom, optionName } : item
+            targetPredicate(item) ? { ...item, price, quantity, option_id, custom, optionName, addOns } : item
           );
         }
         return prev;
+      });
+    }
+  };
+
+  const handleToggleAddOn = (addon: { uuid?: string; title: string; amount: number }) => {
+    if (isPaid || isBooked || hasPastSlots) return;
+    const existing = selectedAddOns[service.uuid] || [];
+    const isChecked = existing.some(a => (addon.uuid && a.uuid === addon.uuid) || a.title === addon.title);
+    const updatedAddOns = isChecked
+      ? existing.filter(a => !(addon.uuid && a.uuid === addon.uuid) && a.title !== addon.title)
+      : [...existing, { ...addon, amount: parseFloat(String(addon.amount || 0)) || 0 }];
+
+    setSelectedAddOns(prev => ({
+      ...prev,
+      [service.uuid]: updatedAddOns
+    }));
+
+    if (setSelectedServices) {
+      setSelectedServices(prev => {
+        const targetPredicate = (item: SelectedService) =>
+          item.uuid === service.uuid && (isOriginallyBooked && isCompleted ? !item.service_uuid : true);
+
+        const alreadySelected = prev.some(targetPredicate);
+        const effectiveOption = selectedOption || (pricingOptions && pricingOptions[0]?.title) || "";
+        const effectiveData = getEffectivePriceAndQty(effectiveOption, undefined, undefined, updatedAddOns);
+
+        if (alreadySelected) {
+          return prev.map(item =>
+            targetPredicate(item)
+              ? { ...item, price: effectiveData.price, quantity: effectiveData.quantity, option_id: effectiveData.option_id, custom: effectiveData.custom, optionName: effectiveData.optionName, addOns: updatedAddOns }
+              : item
+          );
+        } else {
+          // If the service is not currently selected, selecting an add-on selects the service too
+          if (!selectedOption && effectiveOption) {
+            setSelectedOptions(p => ({ ...p, [service.uuid]: effectiveOption }));
+          }
+          return [...prev, {
+            title,
+            uuid: service.uuid,
+            price: effectiveData.price,
+            quantity: effectiveData.quantity,
+            option_id: effectiveData.option_id,
+            custom: effectiveData.custom,
+            optionName: effectiveData.optionName,
+            addOns: updatedAddOns,
+            payment_status: 'UNPAID'
+          }];
+        }
       });
     }
   };
@@ -341,16 +411,16 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
             if (isRebooked) {
               return prev.filter(item => !(item.uuid === service.uuid && !item.service_uuid));
             } else {
-              const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty();
-              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
+              const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
+              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
             }
           } else {
             const exists = prev.some(item => item.uuid === service.uuid);
             if (exists) {
               return prev.filter(item => item.uuid !== service.uuid);
             } else {
-              const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty();
-              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
+              const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
+              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
             }
           }
         } else {
@@ -358,8 +428,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           if (alreadySelected) {
             return prev.filter(item => item.uuid !== service.uuid);
           } else {
-            const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty();
-            return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
+            const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
+            return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
           }
         }
       });
@@ -441,7 +511,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 <p>{title}</p>
               </div>
               <div className={`text-[20px] font-[500]`} style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
-                ${selectedPrice !== null ? Number(selectedPrice).toFixed(2) : ''}
+                ${selectedPrice !== null ? Number(selectedPrice + addOnsTotal).toFixed(2) : ''}
               </div>
             </div>
           </div>
@@ -626,10 +696,99 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       </div>
                     )}
                   </RadioGroup>
+
+                  {availableAddOns && availableAddOns.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[12px] font-semibold text-[#8E8E8E] uppercase tracking-wider">Add-ons</span>
+                        {currentServiceAddOns.length > 0 && (
+                          <span className="text-[10px] text-[#6BAE41] font-semibold">
+                            +{currentServiceAddOns.length} selected (+${addOnsTotal.toFixed(2)})
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        {availableAddOns.map((addon, aIdx) => {
+                          const isAddonChecked = currentServiceAddOns.some(
+                            a => (addon.uuid && a.uuid === addon.uuid) || a.title === addon.title
+                          );
+                          return (
+                            <div
+                              key={aIdx}
+                              onClick={() => handleToggleAddOn(addon)}
+                              className={`flex items-center justify-between p-1.5 px-2 rounded-md border transition-all cursor-pointer ${
+                                isAddonChecked
+                                  ? 'bg-green-50/80 border-[#6BAE41] text-gray-900'
+                                  : 'bg-white/60 border-gray-200 hover:border-gray-300 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-4 h-4 rounded-[3px] border flex items-center justify-center transition-colors ${
+                                    isAddonChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400 bg-white'
+                                  }`}
+                                >
+                                  {isAddonChecked && <Check className="w-3 h-3 text-white" />}
+                                </div>
+                                <span className="text-[12px] font-medium select-none">{addon.title}</span>
+                              </div>
+                              <span className={`text-[12px] font-semibold ${isAddonChecked ? 'text-[#6BAE41]' : 'text-gray-600'}`}>
+                                +${Number(addon.amount).toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
           }
+          {(!Array.isArray(pricingOptions) || pricingOptions.length === 0) && availableAddOns && availableAddOns.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 px-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12px] font-semibold text-[#8E8E8E] uppercase tracking-wider">Add-ons</span>
+                {currentServiceAddOns.length > 0 && (
+                  <span className="text-[10px] text-[#6BAE41] font-semibold">
+                    +{currentServiceAddOns.length} selected (+${addOnsTotal.toFixed(2)})
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {availableAddOns.map((addon, aIdx) => {
+                  const isAddonChecked = currentServiceAddOns.some(
+                    a => (addon.uuid && a.uuid === addon.uuid) || a.title === addon.title
+                  );
+                  return (
+                    <div
+                      key={aIdx}
+                      onClick={() => handleToggleAddOn(addon)}
+                      className={`flex items-center justify-between p-1.5 px-2 rounded-md border transition-all cursor-pointer ${
+                        isAddonChecked
+                          ? 'bg-green-50/80 border-[#6BAE41] text-gray-900'
+                          : 'bg-white/60 border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-[3px] border flex items-center justify-center transition-colors ${
+                            isAddonChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400 bg-white'
+                          }`}
+                        >
+                          {isAddonChecked && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <span className="text-[12px] font-medium select-none">{addon.title}</span>
+                      </div>
+                      <span className={`text-[12px] font-semibold ${isAddonChecked ? 'text-[#6BAE41]' : 'text-gray-600'}`}>
+                        +${Number(addon.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

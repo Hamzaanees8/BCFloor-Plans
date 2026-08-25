@@ -15,7 +15,8 @@ import { GetOrganizations, Organization } from '../../global-settings/global-set
 import { DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Pencil, Plus, X } from 'lucide-react'
+import { Loader2, Pencil, Plus, X, Eye, Image as ImageIcon } from 'lucide-react'
+import ImagePopup from '@/components/ImagePopup'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
 //import SaveDialog from '@/components/SaveDialog'
@@ -68,6 +69,7 @@ type CurrentAgent = {
     secondary_phone: string | null;
     company_name: string;
     company_logo_url: string | null;
+    logo_url?: string | null;
     company_banner_url: string | null;
     avatar_url: string | null;
     avatar: string | null;
@@ -126,6 +128,7 @@ type CompanyLogoState = {
     url: string;
     fileName: string;
     type: string;
+    path?: string;
     uuid?: string;
 };
 
@@ -209,6 +212,8 @@ const AgentForm = () => {
     const CompanyBannerfileInputRef = useRef(null)
     const [CompanyBannerfileName, setCompanyBannerFileName] = useState('')
     const [CompanyBannerUrl, setCompanyBannerUrl] = useState('')
+    const [previewPopupUrl, setPreviewPopupUrl] = useState<string | null>(null);
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
     type Role = { id: string; name: string };
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [roles, setRoles] = useState<Role[]>([])
@@ -502,24 +507,39 @@ const AgentForm = () => {
             setIsPaymentRequired(currentUser.requires_payment ?? true)
             setAvatarFileName(currentUser.avatar || "")
             setCompanyBannerFileName(currentUser.company_banner || "")
-            if (currentUser.company_logo_url) {
-                setAvatarUrl(currentUser.company_logo_url);
-            } else if (currentUser.avatar_url) {
+            if (currentUser.avatar_url) {
                 setAvatarUrl(currentUser.avatar_url);
+            } else {
+                setAvatarUrl("");
             }
 
-            // Prioritize company_logos_urls for the gallery/list as it handles S3 URL generation and fallback logic
+            // Prioritize company_logos_urls for the gallery/list
             const logosSource = currentUser.company_logos_urls && currentUser.company_logos_urls.length > 0
                 ? currentUser.company_logos_urls
                 : currentUser.company_logos_data;
 
-            if (logosSource && Array.isArray(logosSource)) {
-                setCompanyLogos(logosSource.map((logo: any) => ({
-                    uuid: logo.uuid,
-                    url: logo.url || logo.file_url,
-                    fileName: logo.file_name || 'Logo',
-                    type: logo.type || 'General'
-                })));
+            if (logosSource && Array.isArray(logosSource) && logosSource.length > 0) {
+                const parsedLogos: CompanyLogoState[] = logosSource
+                    .map((logo: any, idx: number) => ({
+                        uuid: logo.uuid || `logo-${idx}`,
+                        url: logo.url || logo.file_url || currentUser.company_logo_url || currentUser.logo_url || "",
+                        fileName: logo.file_name || (logo.path ? logo.path.split('/').pop() : '') || currentUser.company_logo || `Logo ${idx + 1}`,
+                        type: logo.type || 'General',
+                        path: logo.path || undefined
+                    }))
+                    .filter((l: CompanyLogoState) => Boolean(l.url));
+
+                setCompanyLogos(parsedLogos);
+            } else if (currentUser.company_logo_url || currentUser.company_logo) {
+                setCompanyLogos([{
+                    uuid: 'default-logo',
+                    url: currentUser.company_logo_url || "",
+                    fileName: currentUser.company_logo || 'General Logo',
+                    type: 'General',
+                    path: currentUser.company_logo ? `agents/${currentUser.uuid}/${currentUser.company_logo}` : undefined
+                }]);
+            } else {
+                setCompanyLogos([]);
             }
             if (currentUser.company_banner_url) setCompanyBannerUrl(currentUser.company_banner_url);
             if (currentUser.co_agents && Array.isArray(currentUser.co_agents)) {
@@ -775,10 +795,11 @@ const AgentForm = () => {
                 company_name: companyName || undefined,
                 website: formattedWebsite || undefined,
                 password: userId ? undefined : (password || undefined),
-                // Pass existing logos to maintain their state (deletions, type changes).
+                // Pass existing logos to maintain their state (deletions, type changes, path persistence).
                 // Files are handled via S3 upload after agent creation/update.
                 company_logos: companyLogos.map(logo => ({
                     type: logo.type,
+                    path: logo.path || undefined,
                     uuid: logo.uuid
                 })),
                 role_id: role ? Number(role) : undefined,
@@ -808,7 +829,7 @@ const AgentForm = () => {
 
                 // Add avatar
                 if (avatarFile) {
-                    filesToUpload.push({ file: avatarFile, slot: 'company_logo' });
+                    filesToUpload.push({ file: avatarFile, slot: 'avatar' });
                 }
 
                 // Add banner
@@ -1946,119 +1967,170 @@ const AgentForm = () => {
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                            <div className='flex flex-col gap-y-[6px]'>
-                                                <div className='flex items-end gap-x-[6px]'>
-                                                    {avatarUrl ?
-                                                        <Image
-                                                            unoptimized
-                                                            src={avatarUrl}
-                                                            alt="Avatar"
-                                                            width={64}
-                                                            height={64}
-                                                            className="h-16 w-16 object-cover border"
-                                                        />
-                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                                    }
-                                                    <div className="flex-1">
-                                                        <Label className="text-sm  text-gray-600">Avatar</Label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
+                                            <div className='flex flex-col gap-y-[10px]'>
+                                                <Label className="text-sm font-semibold text-gray-700">Avatar / Profile Picture</Label>
+                                                <div className='flex items-center gap-x-4 p-3.5 border border-gray-200 rounded-[10px] bg-white shadow-sm'>
+                                                    {avatarUrl ? (
+                                                        <div
+                                                            className="w-[84px] h-[84px] shrink-0 rounded-full border-2 border-gray-200 shadow-inner overflow-hidden relative group cursor-pointer [background-image:linear-gradient(45deg,#f0f0f0_25%,transparent_25%),linear-gradient(-45deg,#f0f0f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0f0f0_75%),linear-gradient(-45deg,transparent_75%,#f0f0f0_75%)] [background-size:10px_10px] [background-position:0_0,0_5px,5px_-5px,-5px_0px] bg-white"
+                                                            onClick={() => {
+                                                                setPreviewPopupUrl(avatarUrl);
+                                                                setIsPopupOpen(true);
+                                                            }}
+                                                            title="Click to preview"
+                                                        >
+                                                            <Image
+                                                                unoptimized
+                                                                src={avatarUrl}
+                                                                alt="Avatar"
+                                                                width={84}
+                                                                height={84}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                <Eye className="w-5 h-5" />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className='w-[84px] h-[84px] shrink-0 bg-gray-100 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400'>
+                                                            <ImageIcon className="w-6 h-6" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center bg-gray-50 border border-gray-300 rounded-[8px] overflow-hidden w-full h-10">
+                                                            <span className="text-[13px] text-gray-600 px-3 truncate flex-1" title={AvatarfileName || "No photo selected"}>
+                                                                {AvatarfileName || "No profile photo uploaded"}
                                                             </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={triggerFileInput}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                className={`px-3.5 h-full ${userType}-bg text-white text-xs font-medium hover:opacity-90 transition-opacity shrink-0`}
                                                             >
-                                                                Replace
+                                                                {avatarUrl ? 'Replace' : 'Upload'}
                                                             </button>
                                                         </div>
                                                         <input
                                                             type="file"
-                                                            accept="image/png, image/jpeg"
+                                                            accept="image/png, image/jpeg, image/webp"
                                                             ref={AvatarfileInputRef}
                                                             onChange={handleFileChange}
                                                             className="hidden"
                                                         />
+                                                        <p className="text-[11px] text-gray-500 mt-1.5">
+                                                            Recommended 512 × 512 px (PNG or JPG).
+                                                        </p>
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#4290E9] ">
-                                                    Profile picture 512 x 512, PNG or JPG
-                                                </p>
-
                                             </div>
-                                            <div className='flex flex-col gap-y-[16px]'>
+
+                                            <div className='flex flex-col gap-y-[14px] mt-2'>
                                                 <div className='flex items-center justify-between'>
-                                                    <Label className="text-sm text-gray-600 font-bold">Company Logos</Label>
-                                                    <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
-                                                        const el = document.createElement('input');
-                                                        el.type = 'file';
-                                                        el.accept = 'image/png, image/jpeg';
-                                                        el.onchange = (e) => handleAddLogo(e as unknown as React.ChangeEvent<HTMLInputElement>);
-                                                        el.click();
-                                                    }}>
-                                                        <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add Logo</p>
-                                                        <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
+                                                    <div>
+                                                        <Label className="text-sm font-semibold text-gray-700">Company Logos</Label>
+                                                        <p className="text-[11px] text-gray-500">Logos used on feature sheets, videos, and tour branding.</p>
                                                     </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex items-center gap-x-1.5 h-8 border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41]/10 font-semibold"
+                                                        onClick={() => {
+                                                            const el = document.createElement('input');
+                                                            el.type = 'file';
+                                                            el.accept = 'image/png, image/jpeg, image/svg+xml, image/webp';
+                                                            el.onchange = (e) => handleAddLogo(e as unknown as React.ChangeEvent<HTMLInputElement>);
+                                                            el.click();
+                                                        }}
+                                                    >
+                                                        <Plus className='w-4 h-4' />
+                                                        Add Logo
+                                                    </Button>
                                                 </div>
 
-                                                <div className="space-y-4">
+                                                <div className="space-y-3">
                                                     {companyLogos.map((logo, index) => (
-                                                        <div key={index} className="flex flex-col gap-y-2 p-4 border border-[#BBBBBB] rounded-[8px] bg-white shadow-sm overflow-hidden">
-                                                            <div className="flex items-center gap-x-4">
-                                                                <div className="w-[64px] h-[64px] shrink-0 border border-gray-200 rounded-[6px] overflow-hidden">
+                                                        <div key={index} className="flex items-center gap-x-4 p-3 border border-gray-200 hover:border-gray-300 rounded-[10px] bg-white shadow-sm transition-all overflow-hidden">
+                                                            <div
+                                                                className="w-[84px] h-[72px] shrink-0 border border-gray-200 rounded-[8px] overflow-hidden relative group cursor-pointer [background-image:linear-gradient(45deg,#f0f0f0_25%,transparent_25%),linear-gradient(-45deg,#f0f0f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0f0f0_75%),linear-gradient(-45deg,transparent_75%,#f0f0f0_75%)] [background-size:10px_10px] [background-position:0_0,0_5px,5px_-5px,-5px_0px] bg-white"
+                                                                onClick={() => {
+                                                                    if (logo.url) {
+                                                                        setPreviewPopupUrl(logo.url);
+                                                                        setIsPopupOpen(true);
+                                                                    }
+                                                                }}
+                                                                title="Click to preview logo"
+                                                            >
+                                                                {logo.url ? (
                                                                     <Image
                                                                         unoptimized
                                                                         src={logo.url}
                                                                         alt={`Logo ${index + 1}`}
-                                                                        width={64}
-                                                                        height={64}
-                                                                        className="w-full h-full object-cover"
+                                                                        width={84}
+                                                                        height={72}
+                                                                        className="w-full h-full object-contain p-1.5"
                                                                     />
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-xs font-medium text-gray-500 truncate" title={logo.fileName}>
-                                                                        {logo.fileName}
-                                                                    </p>
-                                                                    <div className="mt-1 flex items-center gap-x-2">
-                                                                        <Select
-                                                                            value={logo.type}
-                                                                            onValueChange={(val) => handleLogoTypeChange(index, val)}
-                                                                        >
-                                                                            <SelectTrigger className="h-[32px] w-[140px] text-xs">
-                                                                                <SelectValue placeholder="Logo Type" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {SERVICE_LOGO_TYPES.map(type => (
-                                                                                    <SelectItem key={type} value={type} className="text-xs">
-                                                                                        {type}
-                                                                                    </SelectItem>
-                                                                                ))}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                                            onClick={() => handleRemoveLogo(index)}
-                                                                        >
-                                                                            <X className="w-4 h-4" />
-                                                                        </Button>
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                                        <ImageIcon className="w-6 h-6" />
                                                                     </div>
+                                                                )}
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                    <Eye className="w-4 h-4" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-semibold text-gray-800 truncate" title={logo.fileName}>
+                                                                    {logo.fileName}
+                                                                </p>
+                                                                <div className="mt-2 flex items-center gap-x-2">
+                                                                    <Select
+                                                                        value={logo.type}
+                                                                        onValueChange={(val) => handleLogoTypeChange(index, val)}
+                                                                    >
+                                                                        <SelectTrigger className="h-[32px] w-[140px] text-xs font-medium bg-gray-50 border-gray-200">
+                                                                            <SelectValue placeholder="Logo Type" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {SERVICE_LOGO_TYPES.map(type => (
+                                                                                <SelectItem key={type} value={type} className="text-xs">
+                                                                                    {type}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto"
+                                                                        onClick={() => handleRemoveLogo(index)}
+                                                                        title="Remove Logo"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     ))}
                                                     {companyLogos.length === 0 && (
-                                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-[8px] bg-gray-50/50">
-                                                            <p className="text-xs text-gray-400">No logos added yet</p>
+                                                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 rounded-[10px] bg-gray-50/50 text-center">
+                                                            <ImageIcon className="w-8 h-8 text-gray-300 mb-1.5" />
+                                                            <p className="text-xs font-medium text-gray-500">No logos added yet</p>
+                                                            <p className="text-[11px] text-gray-400 mt-0.5">Click + Add Logo above to upload General or service-specific logos.</p>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <p className="text-[10px] text-[#6BAE41]">
-                                                    Add multiple logos for different services (Video, 2D Floor Plan, etc.). Recommended 512 x 512, PNG or JPG.
-                                                </p>
                                             </div>
+
+                                            {/* Full Preview Modal */}
+                                            <ImagePopup
+                                                open={isPopupOpen}
+                                                imageUrl={previewPopupUrl || undefined}
+                                                onClose={() => {
+                                                    setIsPopupOpen(false);
+                                                    setPreviewPopupUrl(null);
+                                                }}
+                                            />
                                             <div className=' flex-col gap-y-[6px] hidden'>
                                                 <div className='flex items-end gap-x-[6px] flex-1'>
                                                     {CompanyBannerUrl ?

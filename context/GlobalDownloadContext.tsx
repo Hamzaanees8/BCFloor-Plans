@@ -119,12 +119,12 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                                 }
                                 
                                 if (download_url) {
-                                    links.push({ name: 'All Files ZIP', url: download_url });
+                                    links.push({ name: label ? `${label} (ZIP)` : 'ZIP File', url: download_url });
                                 }
                                 
                                 updateJob(jobId, {
                                     completedFiles: links,
-                                    statusText: label ? `${label}: Ready` : 'Files Ready for Download',
+                                    statusText: label ? `${label}: Ready` : 'Ready for Download',
                                     isDownloading: false,
                                 });
                                 

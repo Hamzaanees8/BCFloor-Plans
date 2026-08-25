@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import React, { useMemo, useState, useEffect } from 'react';
 import { useGlobalDownload } from '@/context/GlobalDownloadContext';
+import { GetMediaSettings } from '@/app/dashboard/global-settings/global-settings';
 
 type LocalFile = {
   file: File;
@@ -62,7 +63,24 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   const { userType } = useAppContext();
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, 'small' | 'large' | 'mls' | 'original'>>({});
+  const [dimensions, setDimensions] = useState<{
+    mls?: { width: number; height: number };
+    large?: { width: number; height: number };
+    small?: { width: number; height: number };
+  }>({});
   const { startDownload } = useGlobalDownload();
+
+  useEffect(() => {
+    if (open) {
+      GetMediaSettings().then((res) => {
+        if (res?.value?.photos) {
+          setDimensions(res.value.photos);
+        }
+      }).catch((err) => {
+        console.error("Failed to load media settings:", err);
+      });
+    }
+  }, [open]);
 
   const files: CombinedFile[] = useMemo(() => {
     const local = localFiles?.map((f, idx) => ({
@@ -218,42 +236,46 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
           {/* Global Size Selector */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-[#E4E4E4] mb-4">
             <p className={`text-[14px] font-semibold ${userType}-text mb-3 uppercase tracking-wider`}>Select size for all</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Button
                 onClick={() => handleGlobalSizeSelect('original')}
-                className={`flex-1 min-w-[140px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                className={`w-full h-auto py-2 px-2.5 flex flex-col items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
                   ${Object.values(selectedSizes).every(s => s === 'original') && Object.keys(selectedSizes).length === files.length
                     ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
                     : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
               >
-                Original Quality
-              </Button>
-              <Button
-                onClick={() => handleGlobalSizeSelect('small')}
-                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
-                  ${Object.values(selectedSizes).every(s => s === 'small') && Object.keys(selectedSizes).length === files.length
-                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
-                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
-              >
-                Small
-              </Button>
-              <Button
-                onClick={() => handleGlobalSizeSelect('large')}
-                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
-                  ${Object.values(selectedSizes).every(s => s === 'large') && Object.keys(selectedSizes).length === files.length
-                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
-                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
-              >
-                Large
+                <span>Original Quality</span>
+                <span className="text-[10px] opacity-75 font-normal">Full Resolution</span>
               </Button>
               <Button
                 onClick={() => handleGlobalSizeSelect('mls')}
-                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                className={`w-full h-auto py-2 px-2.5 flex flex-col items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
                   ${Object.values(selectedSizes).every(s => s === 'mls') && Object.keys(selectedSizes).length === files.length
                     ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
                     : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
               >
-                MLS
+                <span>MLS</span>
+                <span className="text-[10px] opacity-75 font-normal">{dimensions.mls?.width || 2048}×{dimensions.mls?.height || 1536} px</span>
+              </Button>
+              <Button
+                onClick={() => handleGlobalSizeSelect('large')}
+                className={`w-full h-auto py-2 px-2.5 flex flex-col items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'large') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
+              >
+                <span>Large</span>
+                <span className="text-[10px] opacity-75 font-normal">{dimensions.large?.width || 1920}×{dimensions.large?.height || 1280} px</span>
+              </Button>
+              <Button
+                onClick={() => handleGlobalSizeSelect('small')}
+                className={`w-full h-auto py-2 px-2.5 flex flex-col items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'small') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
+              >
+                <span>Small</span>
+                <span className="text-[10px] opacity-75 font-normal">{dimensions.small?.width || 800}×{dimensions.small?.height || 533} px</span>
               </Button>
             </div>
           </div>

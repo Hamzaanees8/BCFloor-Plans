@@ -106,6 +106,20 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                                     )}
 
                                 </div>
+
+                                {selectedService.addOns && selectedService.addOns.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                        <p className="text-[#8E8E8E] text-[11px] font-semibold uppercase mb-1">Add-ons</p>
+                                        <div className="space-y-1">
+                                            {selectedService.addOns.map((addon, aIdx) => (
+                                                <div key={aIdx} className="flex items-center justify-between text-[12px] text-[#555]">
+                                                    <span>+ {addon.title}</span>
+                                                    <span className="font-medium">+${Number(addon.amount).toFixed(2)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>

@@ -216,13 +216,13 @@ const Page = () => {
               setSelectedImageUrl(row.original.thumbnail_url);
               setImagePopupOpen(true);
             }}
-            className="cursor-pointer rounded-full border border-gray-300"
+            className="cursor-pointer rounded-lg border border-gray-300 w-[52px] h-[52px] shrink-0 overflow-hidden flex items-center justify-center shadow-xs bg-[repeating-conic-gradient(#f3f4f6_0%_25%,#ffffff_0%_50%)] bg-[length:12px_12px]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={row.original.thumbnail_url}
               alt={row.original.name}
-              className="w-[40px] h-[40px] object-cover rounded-full bg-gray-200"
+              className="w-full h-full object-contain p-1"
             />
           </div>
           {row.original.name}
