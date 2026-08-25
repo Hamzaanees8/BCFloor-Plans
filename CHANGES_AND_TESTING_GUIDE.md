@@ -9,8 +9,9 @@ This document details all technical updates implemented today in the Order Sched
 2. [Feature 2: 3-Tier Priority Hierarchy for Service Duration Calculation](#feature-2-3-tier-priority-hierarchy-for-service-duration-calculation)
 3. [Feature 3: Dynamic Vendor Travel Time Adjustment (6 Business Cases)](#feature-3-dynamic-vendor-travel-time-adjustment)
 4. [Feature 4: Partial Slot Display & Toast Error Notification](#feature-4-partial-slot-display--toast-error-notification)
-5. [Modified Files List](#modified-files-list)
-6. [Potential Risks & Regression Areas to Monitor](#potential-risks--regression-areas-to-monitor)
+5. [Feature 5: Common Booked Slots, Travel Adjustments & Vendor Breaks Display](#feature-5-common-booked-slots-travel-adjustments--vendor-breaks-display)
+6. [Feature 6: Agent vs Admin Role-Based Calendar Bounds & Clickability Rules](#feature-6-agent-vs-admin-role-based-calendar-bounds--clickability-rules)
+7. [Modified Files List](#modified-files-list)
 
 ---
 
@@ -61,13 +62,6 @@ flowchart TD
 
 ## Feature 4: Partial Slot Display & Toast Error Notification
 
-### Problem Solved
-When a vendor has a 90-minute window (e.g. `12:30 PM - 2:00 PM`) between appointments, and 30 minutes of travel is required:
-- Net available service window = `90 mins - 30 mins travel = 60 mins`.
-- If a user selects a service requiring `75 mins`, the system previously marked `12:30 PM - 2:00 PM` as completely unavailable (gray/hidden), confusing users who saw 1.5 hours free on the calendar.
-
-### Technical Implementation & UX Flow
-
 ```mermaid
 flowchart TD
     A["Calculate Candidate Start Slot (e.g. 12:30 PM)"] --> B["Compute Free Window (e.g. 12:30-2:00 PM = 90m)"]
@@ -82,27 +76,46 @@ flowchart TD
     H -- No --> J["Show Toast Error:\n'Selected available duration (60 min) is less than the required service duration (75 min). Please select another slot.'"]
 ```
 
-1. **Slot Display**:
-   - Deducts required travel buffer (30m) from available window.
-   - If net available service time is at least 15 minutes, renders `12:30 PM` as an **available (green) slot** on the UI calendar grid.
-2. **Click Toast Error**:
-   - Clicking `12:30 PM` evaluates `availableDurationMins` (60m) vs `requiredDuration` (75m).
-   - Shows toast error: `"Selected available duration (60 min) is less than the required service duration (75 min). Please select another slot."`
+---
+
+## Feature 5: Common Booked Slots, Travel Adjustments & Vendor Breaks Display
+
+### Complete Calendar Badge Matrix
+
+| Slot Type | Title | Badge Styling | Background Color | Text Color | Admin Clickable? | Agent Clickable? |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Available / Recommended** | `"Available"` / `"MO"` | `.slot-available` | Soft Green `#B2FFB2` | Dark Green `#166534` | ✅ YES | ✅ YES |
+| **Travel Buffer** | `"Travel Adjustment"` | `.slot-travel-adjustment` | Amber `#FDE68A` | Dark Amber `#92400E` | ℹ️ Inspect | ❌ **NO (Not clickable)** |
+| **Booked Appointment** | `"Booked"` | `.slot-booked` | Slate `#CBD5E1` | Dark Slate `#1E293B` | ❌ **NO** | ❌ **NO** |
+| **Vendor Break** | `"Vendor Break"` | `.slot-vendor-break` | Soft Indigo `#E0E7FF` | Dark Indigo `#3730A3` | ℹ️ Inspect | ❌ **NO** |
+| **Off-Hours / Time-Off** | `"Unavailable"` | `.slot-unavailable` | Light Gray `#EEEEEE` | Gray `#424242` | ❌ **NO** | ❌ **NO** |
+
+---
+
+## Feature 6: Agent vs Admin Role-Based Calendar Bounds & Clickability Rules
+
+### 1. Time Axis Trimming with Travel Adjustments Included
+- **Admin (`userType === "admin"`)**: Sees full day operating hours (`dayStartTime` to `dayEndTime`) including leading & trailing booked blocks.
+- **Agent / Client (`userType !== "admin"`)**:
+  - `activeIndices` includes `slot-available`, `slot-selected`, `slot-recommended`, AND `slot-travel-adjustment`.
+  - Leading travel buffers (e.g. `12:00 PM - 12:30 PM` before `12:30 PM` available slot) are included in the agent grid (`slotMinTime` = `12:00 PM`).
+  - Travel adjustment slots are clearly labeled as **"Travel Adjustment"** (`#FDE68A` amber badge).
+  - Trailing booked/unavailable blocks are trimmed off the time axis.
+
+### 2. Slot Clickability Guards
+- **Booked Slots**: Blocked from being clicked by ANY user (Admin or Agent). Hover cursor displays `not-allowed` (🚫).
+- **Vendor Break & Travel Adjustment Slots**: Blocked from being clicked by Agents (`userType !== "admin"`). Hover cursor displays `not-allowed` (🚫).
 
 ---
 
 ## Step-by-Step Testing Guide
 
-### Feature 4 Test (Partial Slot Display & Toast Error)
-1. **Setup**:
-   - Vendor has booking `8:00 AM - 12:30 PM` at Property A and break `2:00 PM - 3:00 PM`.
-   - Select a 75-minute service at Property B.
-2. **Step 1 - Grid Display Verification**:
-   - **PASS**: `12:30 PM` is rendered as an available (green) slot on the calendar grid (showing 60 mins net available service window after 30m travel deduction).
-3. **Step 2 - Toast Error Verification**:
-   - Click `12:30 PM`.
-   - **PASS**: Toast notification appears: `"Selected available duration (60 min) is less than the required service duration (75 min). Please select another slot."`
-   - **PASS**: Incomplete slots are not booked.
+1. **Agent Travel Adjustment Visibility Test**:
+   - Login as Agent. Schedule has travel adjustment buffer at `12:00 PM - 12:30 PM` before `12:30 PM` available slot.
+   - **PASS**: Agent grid starts at `12:00 PM`. `12:00 PM - 12:30 PM` displays label **"Travel Adjustment"** with amber badge styling (`#FDE68A`) and `not-allowed` cursor.
+2. **Admin Full Schedule View Test**:
+   - Login as Admin.
+   - **PASS**: Admin grid shows full operating hours with all booked, break, travel, and available slots.
 
 ---
 
@@ -111,6 +124,6 @@ flowchart TD
 | File Path | Description of Changes |
 | :--- | :--- |
 | [`app/dashboard/orders/utils/serviceTimeUtils.ts`](file:///c:/Users/NVT-HP-18/Desktop/bcf-admin/app/dashboard/orders/utils/serviceTimeUtils.ts) | Implemented 3-tier hierarchy in `getEffectiveServiceDuration` with flexible overload parameters and per-sqft rate handling. |
-| [`app/dashboard/orders/components/OneDayCalendar.tsx`](file:///c:/Users/NVT-HP-18/Desktop/bcf-admin/app/dashboard/orders/components/OneDayCalendar.tsx) | Added `getVendorDayBounds`, `getRequiredTravelBufferInfo`, 6-case travel time logic, net window slot rendering, and click toast error validation. |
+| [`app/dashboard/orders/components/OneDayCalendar.tsx`](file:///c:/Users/NVT-HP-18/Desktop/bcf-admin/app/dashboard/orders/components/OneDayCalendar.tsx) | Updated Agent time bounds trimming to include `slot-travel-adjustment`, enforced non-clickability for booked/travel/break slots, and added `cursor: not-allowed` CSS rules. |
 | [`app/dashboard/calendar/components/OneDayCalendar.tsx`](file:///c:/Users/NVT-HP-18/Desktop/bcf-admin/app/dashboard/calendar/components/OneDayCalendar.tsx) | Integrated travel buffer logic, dynamic `slotMinTime`/`slotMaxTime` props, and updated all `getEffectiveServiceDuration` call sites. |
 | [`app/dashboard/orders/components/Schedule.tsx`](file:///c:/Users/NVT-HP-18/Desktop/bcf-admin/app/dashboard/orders/components/Schedule.tsx) | Updated duration calculation calls to pass `productOption`, `currentService`, and `squareFootage`. |

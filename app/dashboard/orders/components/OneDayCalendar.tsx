@@ -15,6 +15,7 @@ import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import { EventClickArg, DatesSetArg } from "@fullcalendar/core";
 import { useOrderContext, Slot } from "../context/OrderContext";
+import { useAppContext } from "@/app/context/AppContext";
 import { VendorData } from "../[id]/page";
 import { Order } from "../page";
 import {
@@ -242,6 +243,7 @@ function isMatterportService(
 export interface ValidStartSlotResult {
   startSlots: Slots[];
   proposedSlotsMap: Map<string, { start: string; end: string }[]>;
+  travelSlotsSet: Set<string>;
 }
 
 export interface TravelBufferInfo {
@@ -450,7 +452,7 @@ export function getVendorValidStartSlots(
   isTravelRequired: boolean = true,
   currentPropertyAddress?: string,
 ): ValidStartSlotResult {
-  if (!workHours) return { startSlots: [], proposedSlotsMap: new Map() };
+  if (!workHours) return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
 
   const currentDateObj = dayjs(date);
   const dayOfWeek = currentDateObj.format("ddd").toLowerCase();
@@ -470,7 +472,7 @@ export function getVendorValidStartSlots(
       daySchedule.is_off === true)
   ) {
     if (!isTwilightService || !isTwilightChecked) {
-      return { startSlots: [], proposedSlotsMap: new Map() };
+      return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
     }
   }
 
@@ -483,7 +485,7 @@ export function getVendorValidStartSlots(
   }
 
   if (!effectiveStartTime || !effectiveEndTime)
-    return { startSlots: [], proposedSlotsMap: new Map() };
+    return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
 
   const vendorId = vendor.uuid ?? "";
   const start = dayjs(`${date}T${effectiveStartTime}`);
@@ -598,11 +600,27 @@ export function getVendorValidStartSlots(
   while (cur.isBefore(end)) {
     const nxt = cur.add(interval, "minute");
 
-    const inBreak =
-      hasLunchBreak &&
-      ((cur.isSameOrAfter(breakStart) && cur.isBefore(breakEnd)) ||
-        (nxt.isAfter(breakStart) && nxt.isSameOrBefore(breakEnd)) ||
-        (cur.isBefore(breakStart) && nxt.isAfter(breakEnd)));
+    const inAdditionalBreak = (vendor.additional_breaks || []).some(
+      (brk: { start_time: string; end_time: string }) => {
+        if (!brk.start_time || !brk.end_time) return false;
+        const bStart = dayjs(`${date}T${brk.start_time}`);
+        const bEnd = dayjs(`${date}T${brk.end_time}`);
+        return (
+          (cur.isSameOrAfter(bStart) && cur.isBefore(bEnd)) ||
+          (nxt.isAfter(bStart) && nxt.isSameOrBefore(bEnd)) ||
+          (cur.isBefore(bStart) && nxt.isAfter(bEnd))
+        );
+      },
+    );
+
+    const inLunchBreak =
+      (hasLunchBreak &&
+        ((cur.isSameOrAfter(breakStart) && cur.isBefore(breakEnd)) ||
+          (nxt.isAfter(breakStart) && nxt.isSameOrBefore(breakEnd)) ||
+          (cur.isBefore(breakStart) && nxt.isAfter(breakEnd)))) ||
+      inAdditionalBreak;
+
+    const inBreak = inLunchBreak;
 
     const isBooked = relevantBookedSlots.some(
       (s) =>
@@ -656,6 +674,7 @@ export function getVendorValidStartSlots(
 
   const validStartSlots: Slots[] = [];
   const proposedSlotsMap = new Map<string, { start: string; end: string }[]>();
+  const travelSlotsSet = new Set<string>();
 
   for (let i = 0; i < intervals.length; i++) {
     const candidate = intervals[i];
@@ -719,6 +738,14 @@ export function getVendorValidStartSlots(
         vendor_id: vendorId,
       });
       proposedSlotsMap.set(startISO, collected);
+
+      // Record travel buffer slots ONLY when candidate slot is valid and bookable
+      for (let k = 0; k < travelBeforeSlots && i + k < intervals.length; k++) {
+        const step = intervals[i + k];
+        travelSlotsSet.add(
+          `${step.start.toISOString()}_${step.end.toISOString()}`,
+        );
+      }
     }
   }
 
@@ -754,6 +781,7 @@ export function getVendorValidStartSlots(
       return {
         startSlots: filteredStartSlots,
         proposedSlotsMap,
+        travelSlotsSet,
       };
     }
   }
@@ -761,6 +789,7 @@ export function getVendorValidStartSlots(
   return {
     startSlots: validStartSlots,
     proposedSlotsMap,
+    travelSlotsSet,
   };
 }
 
@@ -976,6 +1005,7 @@ export default function OneDayCalendar({
   const setSelectedSlots = externalSetSelectedSlots || contextSetSelectedSlots;
   const vendorsData = externalVendorsData || contextVendorsData;
   const servicesData = externalServicesData || contextServicesData;
+  const { userType } = useAppContext();
   const { id } = useParams();
 
   const minDate = React.useMemo(() => {
@@ -1264,6 +1294,103 @@ export default function OneDayCalendar({
       dayEndTime,
     );
     const slotVendorsMap = new Map<string, string[]>();
+    const bookedVendorsMap = new Map<string, Set<string>>();
+    const travelVendorsMap = new Map<string, Set<string>>();
+    const breakVendorsMap = new Map<string, Set<string>>();
+    const filteredVendorIds = filteredVendors.map((v) => v.uuid).filter(Boolean);
+
+    // Collect booked slots, travel buffers, and breaks per vendor
+    filteredVendors.forEach((vendor) => {
+      const vId = vendor.uuid ?? "";
+      if (!vId) return;
+
+      // 1. Mark break slots for this vendor
+      fullDaySlots.forEach((slot) => {
+        const slotStart = dayjs(slot.start);
+        const slotEnd = dayjs(slot.end);
+        const slotKey = `${slot.start}_${slot.end}`;
+
+        let inBreak = false;
+        if (vendor.work_hours) {
+          const dayOfWeek = dayjs(date).format("ddd").toLowerCase();
+          const daySchedule = vendor.work_hours.work_days?.find((d) => d.day === dayOfWeek);
+          const breakStartStr = (daySchedule as any)?.break_start || vendor.work_hours.break_start;
+          const breakEndStr = (daySchedule as any)?.break_end || vendor.work_hours.break_end;
+          if (breakStartStr && breakEndStr) {
+            const brkStart = dayjs(`${date}T${breakStartStr}`);
+            const brkEnd = dayjs(`${date}T${breakEndStr}`);
+            if (brkEnd.isAfter(brkStart)) {
+              if (
+                (slotStart.isSameOrAfter(brkStart) && slotStart.isBefore(brkEnd)) ||
+                (slotEnd.isAfter(brkStart) && slotEnd.isSameOrBefore(brkEnd))
+              ) {
+                inBreak = true;
+              }
+            }
+          }
+        }
+
+        if (!inBreak) {
+          inBreak = (vendor.additional_breaks || []).some((brk) => {
+            if (!brk.start_time || !brk.end_time) return false;
+            const brkStart = dayjs(`${date}T${brk.start_time}`);
+            const brkEnd = dayjs(`${date}T${brk.end_time}`);
+            return (
+              (slotStart.isSameOrAfter(brkStart) && slotStart.isBefore(brkEnd)) ||
+              (slotEnd.isAfter(brkStart) && slotEnd.isSameOrBefore(brkEnd))
+            );
+          });
+        }
+
+        if (inBreak) {
+          if (!breakVendorsMap.has(slotKey)) breakVendorsMap.set(slotKey, new Set());
+          breakVendorsMap.get(slotKey)!.add(vId);
+        }
+      });
+
+      // 2. Mark booked slots for this vendor
+      const vendorBookings = (AllBookedSlots || [])
+        .filter((s) => (s?.vendor?.uuid || s?.vendor_id) === vId && s?.date === date)
+        .map((s) => ({
+          start: dayjs(`${s.date}T${s.start_time}`),
+          end: dayjs(`${s.date}T${s.end_time}`),
+          address: (s as any).order?.property?.address || (s as any).address || "",
+        }))
+        .sort((a, b) => a.start.valueOf() - b.start.valueOf());
+
+      vendorBookings.forEach((b) => {
+        fullDaySlots.forEach((slot) => {
+          const slotStart = dayjs(slot.start);
+          const slotEnd = dayjs(slot.end);
+          const slotKey = `${slot.start}_${slot.end}`;
+
+          if (slotStart.isSameOrAfter(b.start) && slotEnd.isSameOrBefore(b.end)) {
+            if (!bookedVendorsMap.has(slotKey)) bookedVendorsMap.set(slotKey, new Set());
+            bookedVendorsMap.get(slotKey)!.add(vId);
+          }
+        });
+      });
+
+      // 3. Mark 30-minute travel buffer after each booking (unless it falls in a break)
+      vendorBookings.forEach((b) => {
+        const tStart = b.end;
+        const tEnd = b.end.add(30, "minute");
+
+        fullDaySlots.forEach((slot) => {
+          const slotStart = dayjs(slot.start);
+          const slotEnd = dayjs(slot.end);
+          const slotKey = `${slot.start}_${slot.end}`;
+
+          if (slotStart.isSameOrAfter(tStart) && slotEnd.isSameOrBefore(tEnd)) {
+            const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
+            if (!inBreak) {
+              if (!travelVendorsMap.has(slotKey)) travelVendorsMap.set(slotKey, new Set());
+              travelVendorsMap.get(slotKey)!.add(vId);
+            }
+          }
+        });
+      });
+    });
 
     const otherServiceSlots = selectedSlots.filter(
       (s: Slot) => s.service_id !== service.uuid && s.date === date,
@@ -1334,7 +1461,7 @@ export default function OneDayCalendar({
           ],
         };
 
-        const { startSlots } = getVendorValidStartSlots(
+        const { startSlots, travelSlotsSet: vendorTravelSlots } = getVendorValidStartSlots(
           vendor,
           currentDate,
           fullDayWorkHours,
@@ -1352,6 +1479,11 @@ export default function OneDayCalendar({
           currentServiceDataForSlots?.is_travel_required !== false,
           destinationAddress,
         );
+
+        vendorTravelSlots?.forEach((key) => {
+          if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
+          travelVendorsMap.get(key)!.add(vendorId);
+        });
 
         startSlots.forEach((slot) => {
           const key = `${slot.start}_${slot.end}`;
@@ -1372,7 +1504,7 @@ export default function OneDayCalendar({
           targetTimezone,
         );
 
-        const { startSlots } = getVendorValidStartSlots(
+        const { startSlots, travelSlotsSet: vendorTravelSlots } = getVendorValidStartSlots(
           vendor,
           currentDate,
           convertedWorkHours,
@@ -1390,6 +1522,11 @@ export default function OneDayCalendar({
           currentServiceDataForSlots?.is_travel_required !== false,
           destinationAddress,
         );
+
+        vendorTravelSlots?.forEach((key) => {
+          if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
+          travelVendorsMap.get(key)!.add(vendorId);
+        });
 
         startSlots.forEach((slot) => {
           const key = `${slot.start}_${slot.end}`;
@@ -1486,6 +1623,31 @@ export default function OneDayCalendar({
         };
       }
 
+      // 1. Common Booked Slot check (ALL selected vendors are booked for this slot)
+      const bookedCount = bookedVendorsMap.get(key)?.size || 0;
+      const isCommonBooked =
+        filteredVendors.length > 0 && bookedCount === filteredVendors.length;
+      if (isCommonBooked) {
+        return {
+          ...slot,
+          title: "Booked",
+          className: "slot-booked",
+          extendedProps: { availableVendorIds: [] },
+        };
+      }
+
+      // 2. Vendor Break Slot check (vendor(s) on break during this slot, when no vendor is available for service start)
+      const breakCount = breakVendorsMap.get(key)?.size || 0;
+      if (breakCount > 0 && availableVendorIds.length === 0) {
+        return {
+          ...slot,
+          title: "Vendor Break",
+          className: "slot-vendor-break",
+          extendedProps: { availableVendorIds: [] },
+        };
+      }
+
+      // 3. Available Slots check (at least 1 vendor has candidate start slot available)
       if (availableVendorIds.length > 0 && !isTwilightRestricted) {
         let isRecommended = false;
         const isTwilightService =
@@ -1536,6 +1698,18 @@ export default function OneDayCalendar({
         };
       }
 
+      // 4. Travel Adjustment Slot check
+      const travelCount = travelVendorsMap.get(key)?.size || 0;
+      if (travelCount > 0) {
+        return {
+          ...slot,
+          title: "Travel Adjustment",
+          className: "slot-travel-adjustment",
+          extendedProps: { availableVendorIds: [] },
+        };
+      }
+
+      // 5. Fallback: Unavailable
       return {
         ...slot,
         title: "Unavailable",
@@ -1544,10 +1718,35 @@ export default function OneDayCalendar({
       };
     });
 
+    const isAdmin = userType === "admin";
+    let finalMinTime = dayStartTime;
+    let finalMaxTime = dayEndTime;
+
+    if (!isAdmin) {
+      const activeIndices = finalSlots
+        .map((s, idx) => ({
+          idx,
+          isRelevant:
+            s.className?.includes("slot-available") ||
+            s.className?.includes("slot-selected") ||
+            s.className?.includes("slot-recommended") ||
+            s.className?.includes("slot-travel-adjustment"),
+        }))
+        .filter((item) => item.isRelevant);
+
+      if (activeIndices.length > 0) {
+        const firstIdx = activeIndices[0].idx;
+        const lastIdx = activeIndices[activeIndices.length - 1].idx;
+
+        finalMinTime = dayjs(finalSlots[firstIdx].start).format("HH:mm:ss");
+        finalMaxTime = dayjs(finalSlots[lastIdx].end).format("HH:mm:ss");
+      }
+    }
+
     return {
       events: finalSlots,
-      minTime: dayStartTime,
-      maxTime: dayEndTime,
+      minTime: finalMinTime,
+      maxTime: finalMaxTime,
     };
   }, [
     vendorsData,
@@ -1896,7 +2095,18 @@ export default function OneDayCalendar({
   }
 
   // ── Hover preview handlers ─────────────────────────────────────────────────
-  const onEventMouseEnter = (info: { event: { start: Date | null } }) => {
+  const onEventMouseEnter = (info: {
+    event: { classNames?: string[]; start: Date | null };
+  }) => {
+    const classNames = info.event.classNames || [];
+    if (
+      classNames.includes("slot-booked") ||
+      classNames.includes("slot-vendor-break") ||
+      classNames.includes("slot-travel-adjustment") ||
+      classNames.includes("slot-unavailable")
+    ) {
+      return;
+    }
     if (info.event.start) {
       setHoveredSlotStart(info.event.start.toISOString());
     }
@@ -1908,6 +2118,26 @@ export default function OneDayCalendar({
 
   const onEventClick = async (info: EventClickArg, forceProceed = false) => {
     if (!info.event.start || !info.event.end) return;
+
+    const classNames = info.event.classNames || [];
+    const isBooked = classNames.includes("slot-booked");
+    const isVendorBreak = classNames.includes("slot-vendor-break");
+    const isTravelAdjustment = classNames.includes("slot-travel-adjustment");
+    const isUnavailable = classNames.includes("slot-unavailable");
+
+    const isAdmin = userType === "admin";
+
+    // Booked slots are NOT clickable for anyone (Admin or Agent)
+    if (isBooked) {
+      return;
+    }
+
+    // For Agent/Client users, Vendor Break, Travel Adjustment, and Unavailable slots are NOT clickable
+    if (!isAdmin) {
+      if (isVendorBreak || isTravelAdjustment || isUnavailable) {
+        return;
+      }
+    }
 
     const clicked = {
       start: info.event.start.toISOString(),
@@ -2474,6 +2704,30 @@ export default function OneDayCalendar({
       opacity: 0.85;
       transition: background-color 0.08s ease;
     }
+    .slot-booked {
+      background-color: #CBD5E1 !important;
+      color: #1E293B !important;
+      border: 1px solid #94A3B8 !important;
+      font-weight: 600;
+      cursor: not-allowed !important;
+    }
+    .slot-travel-adjustment {
+      background-color: #FDE68A !important;
+      color: #92400E !important;
+      border: 1px solid #F59E0B !important;
+      font-weight: 600;
+      cursor: not-allowed !important;
+    }
+    .slot-vendor-break {
+      background-color: #E0E7FF !important;
+      color: #3730A3 !important;
+      border: 1px solid #C7D2FE !important;
+      font-weight: 600;
+      cursor: not-allowed !important;
+    }
+    .slot-unavailable {
+      cursor: not-allowed !important;
+    }
   `;
 
   return (
@@ -2609,7 +2863,20 @@ export default function OneDayCalendar({
                 ) : (
                   <div
                     className="fc-event-title fc-sticky text-center"
-                    style={{ fontSize: "9px", color: "#424242" }}
+                    style={{
+                      fontSize: "9px",
+                      color: eventInfo.event.classNames.includes("slot-booked")
+                        ? "#1E293B"
+                        : eventInfo.event.classNames.includes(
+                              "slot-travel-adjustment",
+                            )
+                          ? "#92400E"
+                          : eventInfo.event.classNames.includes(
+                                "slot-vendor-break",
+                              )
+                            ? "#3730A3"
+                            : "#424242",
+                    }}
                   >
                     {eventInfo.event.title}
                   </div>
