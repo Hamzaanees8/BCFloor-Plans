@@ -559,8 +559,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                             (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
                         );
                         const currentDuration = serviceSlots.length * 15;
-                        const isFullyScheduled = isEdit ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0);
-                        const isInvalid = invalidServices.includes(service.uuid || '');
+                        const isFullyScheduled = (userType === 'admin' || isEdit) ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0);
+                        const isInvalid = (userType === 'admin' || isEdit) ? (serviceSlots.length === 0 && invalidServices.includes(service.uuid || '')) : invalidServices.includes(service.uuid || '');
 
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);

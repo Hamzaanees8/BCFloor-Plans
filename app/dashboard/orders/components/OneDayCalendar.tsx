@@ -381,12 +381,7 @@ export function getRequiredTravelBufferInfo(
   }
 
   if (!subsequentBooking) {
-    if (travelBeforeMins > 0) {
-      // Case 2: Prior booking at different property ending right at start -> append 30m travel buffer
-      travelAfterMins = 30;
-    } else {
-      travelAfterMins = 0;
-    }
+    travelAfterMins = 0;
   } else if (subsequentBooking.isSameProperty) {
     // Case 3: Same property next booking -> 0 travel after
     travelAfterMins = 0;
@@ -1106,6 +1101,10 @@ export default function OneDayCalendar({
   const [showConfirmVendorChange, setShowConfirmVendorChange] = useState(false);
   const [showConfirmReplaceSelection, setShowConfirmReplaceSelection] =
     useState(false);
+  const [showConfirmTravelOverride, setShowConfirmTravelOverride] =
+    useState(false);
+  const [pendingTravelOverride, setPendingTravelOverride] =
+    useState<EventClickArg | null>(null);
   const [pendingSelection, setPendingSelection] = useState<any | null>(null);
   const [pendingVendorAssignment, setPendingVendorAssignment] = useState<{
     vendor: VendorData;
@@ -1701,12 +1700,21 @@ export default function OneDayCalendar({
       // 4. Travel Adjustment Slot check
       const travelCount = travelVendorsMap.get(key)?.size || 0;
       if (travelCount > 0) {
-        return {
-          ...slot,
-          title: "Travel Adjustment",
-          className: "slot-travel-adjustment",
-          extendedProps: { availableVendorIds: [] },
-        };
+        if (userType === "admin") {
+          return {
+            ...slot,
+            title: "Travel Adjustment",
+            className: "slot-travel-adjustment",
+            extendedProps: { availableVendorIds: [] },
+          };
+        } else {
+          return {
+            ...slot,
+            title: "Unavailable",
+            className: "slot-unavailable",
+            extendedProps: { availableVendorIds: [] },
+          };
+        }
       }
 
       // 5. Fallback: Unavailable
@@ -1729,8 +1737,7 @@ export default function OneDayCalendar({
           isRelevant:
             s.className?.includes("slot-available") ||
             s.className?.includes("slot-selected") ||
-            s.className?.includes("slot-recommended") ||
-            s.className?.includes("slot-travel-adjustment"),
+            s.className?.includes("slot-recommended"),
         }))
         .filter((item) => item.isRelevant);
 
@@ -2132,6 +2139,13 @@ export default function OneDayCalendar({
       return;
     }
 
+    // Travel Adjustment click for Admin triggers override confirmation dialog
+    if (isAdmin && isTravelAdjustment && !forceProceed) {
+      setPendingTravelOverride(info);
+      setShowConfirmTravelOverride(true);
+      return;
+    }
+
     // For Agent/Client users, Vendor Break, Travel Adjustment, and Unavailable slots are NOT clickable
     if (!isAdmin) {
       if (isVendorBreak || isTravelAdjustment || isUnavailable) {
@@ -2196,6 +2210,27 @@ export default function OneDayCalendar({
             slot.service_id === service.uuid && slot.date === selectedDate,
         )
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+      if (serviceSlotsForDate.length > 0) {
+        const firstSlot = serviceSlotsForDate[0];
+        const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+        const isFirst = firstSlot.start_time === slotStart;
+        const isLast = lastSlot.start_time === slotStart;
+        if (isFirst || isLast) {
+          setSelectedSlots((prev: Slot[]) =>
+            prev.filter(
+              (s: Slot) =>
+                !(
+                  s.service_id === service.uuid &&
+                  s.start_time === slotStart &&
+                  s.end_time === slotEnd &&
+                  s.date === selectedDate
+                ),
+            ),
+          );
+          return;
+        }
+      }
 
       const formatTime = (time: string) => {
         const [h, m] = time.split(":");
@@ -2353,9 +2388,78 @@ export default function OneDayCalendar({
       return candidates;
     };
 
+    const getAdminOverrideSlots = (startISO: string, slotsCount: number) => {
+      const slots: { start: string; end: string }[] = [];
+      let cur = dayjs(startISO);
+      for (let i = 0; i < slotsCount; i++) {
+        const nxt = cur.add(15, "minute");
+        slots.push({
+          start: cur.toISOString(),
+          end: nxt.toISOString(),
+        });
+        cur = nxt;
+      }
+      return slots;
+    };
+
     if (effectiveCurrentServiceSlots.length > 0 && !forceProceed) {
+      const sortedCurrentSlots = [...effectiveCurrentServiceSlots].sort(
+        (a, b) => a.start_time.localeCompare(b.start_time),
+      );
+      const firstSlot = sortedCurrentSlots[0];
+      const lastSlot = sortedCurrentSlots[sortedCurrentSlots.length - 1];
+
+      const isAdjacentToEnd =
+        slotStart === lastSlot.end_time ||
+        dayjs(clicked.start).isSame(
+          dayjs(`${selectedDate}T${lastSlot.end_time}`),
+        );
+      const isAdjacentToStart =
+        slotEnd === firstSlot.start_time ||
+        dayjs(clicked.end).isSame(
+          dayjs(`${selectedDate}T${firstSlot.start_time}`),
+        );
+
+      if (isAdjacentToEnd || isAdjacentToStart) {
+        const currentDurationMins = effectiveCurrentServiceSlots.length * 15;
+        if (!isAdmin && currentDurationMins >= requiredDuration) {
+          // Agent already has full required duration selected; proceed to replacement selection prompt
+        } else {
+          const assignedVendor =
+            firstSlot.vendor ||
+            vendorsData.find(
+              (v) =>
+                v.uuid === firstSlot.vendor_id ||
+                (v.uuid && selectedVendors.includes(v.uuid)),
+            ) ||
+            vendorsData[0];
+
+          const newSlot: Slot = {
+            ...firstSlot,
+            start_time: slotStart,
+            end_time: slotEnd,
+          };
+
+          setSelectedSlots((prev: Slot[]) => [...prev, newSlot]);
+          return;
+        }
+      }
+
       const candidateMatches = getMatchingVendorsForClick(clicked.start);
       if (candidateMatches.length === 0) {
+        if (isAdmin) {
+          const overrideSlots = getAdminOverrideSlots(
+            clicked.start,
+            requiredSlots,
+          );
+          setPendingReplaceSelection({
+            info,
+            proposedSlots: overrideSlots,
+            slotTime: dayjs(clicked.start).format("hh:mm A"),
+          });
+          setShowConfirmReplaceSelection(true);
+          return;
+        }
         toast.error(
           `There are not ${requiredDuration} min consecutive available slots starting at this time. Please select another slot.`,
         );
@@ -2373,6 +2477,22 @@ export default function OneDayCalendar({
 
     const matching = getMatchingVendorsForClick(clicked.start);
     if (matching.length === 0) {
+      if (isAdmin) {
+        const adminVendor =
+          vendorsData.find(
+            (v) =>
+              (v.uuid && currentAssignedVendorId === v.uuid) ||
+              (v.uuid && selectedVendors.includes(v.uuid)),
+          ) || vendorsData[0];
+        if (adminVendor) {
+          const overrideSlots = getAdminOverrideSlots(
+            clicked.start,
+            requiredSlots,
+          );
+          handleAssignVendor(adminVendor, overrideSlots, forceProceed);
+          return;
+        }
+      }
       toast.error(
         `There are not ${requiredDuration} min consecutive available slots for any eligible vendor starting at this time. Please select another slot.`,
       );
@@ -2385,7 +2505,7 @@ export default function OneDayCalendar({
         matching[0]
       : matching[0];
     const availableDurationMins = bestMatch.proposedSlots.length * 15;
-    if (availableDurationMins < requiredDuration) {
+    if (availableDurationMins < requiredDuration && !isAdmin) {
       toast.error(
         `Selected available duration (${availableDurationMins} min) is less than the required service duration (${requiredDuration} min). Please select another slot.`,
       );
@@ -2705,25 +2825,25 @@ export default function OneDayCalendar({
       transition: background-color 0.08s ease;
     }
     .slot-booked {
-      background-color: #CBD5E1 !important;
-      color: #1E293B !important;
-      border: 1px solid #94A3B8 !important;
+      background-color: #F1F5F9 !important;
+      color: #64748B !important;
+      border: 1px solid #E2E8F0 !important;
       font-weight: 600;
       cursor: not-allowed !important;
     }
     .slot-travel-adjustment {
-      background-color: #FDE68A !important;
-      color: #92400E !important;
-      border: 1px solid #F59E0B !important;
+      background-color: #FEF3C7 !important;
+      color: #B45309 !important;
+      border: 1px solid #FDE68A !important;
       font-weight: 600;
-      cursor: not-allowed !important;
+      cursor: ${userType === "admin" ? "pointer" : "not-allowed"} !important;
     }
     .slot-vendor-break {
-      background-color: #E0E7FF !important;
-      color: #3730A3 !important;
-      border: 1px solid #C7D2FE !important;
+      background-color: #EEF2FF !important;
+      color: #4F46E5 !important;
+      border: 1px solid #E0E7FF !important;
       font-weight: 600;
-      cursor: not-allowed !important;
+      cursor: ${userType === "admin" ? "pointer" : "not-allowed"} !important;
     }
     .slot-unavailable {
       cursor: not-allowed !important;
@@ -2866,15 +2986,15 @@ export default function OneDayCalendar({
                     style={{
                       fontSize: "9px",
                       color: eventInfo.event.classNames.includes("slot-booked")
-                        ? "#1E293B"
+                        ? "#64748B"
                         : eventInfo.event.classNames.includes(
                               "slot-travel-adjustment",
                             )
-                          ? "#92400E"
+                          ? "#B45309"
                           : eventInfo.event.classNames.includes(
                                 "slot-vendor-break",
                               )
-                            ? "#3730A3"
+                            ? "#4F46E5"
                             : "#424242",
                     }}
                   >
@@ -3238,6 +3358,26 @@ export default function OneDayCalendar({
         dialogType="deselect"
         title="Remove Selection?"
         description={`Did you want to remove the selection? Clicking confirm will remove the selected slots (${pendingDeselect?.slotRangeText || ""}) of ${service.title}.`}
+      />
+      <ConfirmationDialog
+        open={showConfirmTravelOverride}
+        setOpen={(open) => {
+          setShowConfirmTravelOverride(open);
+          if (!open) {
+            setPendingTravelOverride(null);
+          }
+        }}
+        onConfirm={() => {
+          if (pendingTravelOverride) {
+            onEventClick(pendingTravelOverride, true);
+          }
+          setShowConfirmTravelOverride(false);
+          setPendingTravelOverride(null);
+        }}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain((prev) => !prev)}
+        title="Travel Adjustment Override"
+        description="This slot is currently reserved as a Travel Adjustment time for the vendor to travel to this property. Do you want to convert/select it as a Booked Service slot?"
       />
     </>
   );

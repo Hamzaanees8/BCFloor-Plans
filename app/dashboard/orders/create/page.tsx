@@ -363,7 +363,8 @@ const OrderForm = () => {
                 const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
 
                 const requiredDuration = getEffectiveServiceDuration(
-                    productOption?.service_duration || (service as any).service_duration,
+                    productOption,
+                    globalService,
                     squareFootage
                 );
 
@@ -374,7 +375,7 @@ const OrderForm = () => {
                 );
                 const currentDuration = serviceSlots.length * 15;
 
-                const isInvalid = isEdit
+                const isInvalid = (role === 'admin' || isEdit)
                     ? serviceSlots.length === 0
                     : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
 
@@ -410,7 +411,8 @@ const OrderForm = () => {
             const globalService = servicesData?.find(s => s.uuid === serviceId || (service.id && String(s.id) === String(serviceId)));
             const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
             const requiredDuration = getEffectiveServiceDuration(
-                productOption?.service_duration || (service as any).service_duration,
+                productOption,
+                globalService,
                 squareFootage
             );
             const serviceSlots = selectedSlots.filter(slot =>
@@ -420,8 +422,8 @@ const OrderForm = () => {
             );
             const currentDuration = serviceSlots.length * 15;
 
-            // In edit mode, if slots exist for the service, consider it valid (matching Schedule.tsx isFullyScheduled logic)
-            const isInvalid = isEdit
+            // In edit mode or for admin, if slots exist for the service, consider it valid
+            const isInvalid = (role === 'admin' || isEdit)
                 ? serviceSlots.length === 0
                 : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
 
