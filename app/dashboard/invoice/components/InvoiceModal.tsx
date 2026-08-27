@@ -214,16 +214,16 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                     </>
                                 ) : (
                                     <>
-                                        {role === 'admin' && invoice.status === 'paid' && (
-                                            <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="text-orange-600 hover:text-orange-700">
-                                                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
-                                            </Button>
-                                        )}
-                                        {role === 'admin' && invoice.status !== 'paid' && (
-                                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                                                <Edit2 className="h-4 w-4 mr-2" /> Edit
-                                            </Button>
-                                        )}
+                                         {role === 'admin' && invoice.status === 'paid' && parseFloat(invoice.total || 0) > 0 && (
+                                             <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="text-orange-600 hover:text-orange-700">
+                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
+                                             </Button>
+                                         )}
+                                         {role === 'admin' && (invoice.status !== 'paid' || parseFloat(invoice.total || 0) === 0) && (
+                                             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                                                 <Edit2 className="h-4 w-4 mr-2" /> Edit
+                                             </Button>
+                                         )}
                                         <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-2">
                                             <Download className="h-4 w-4" /> Download PDF
                                         </Button>

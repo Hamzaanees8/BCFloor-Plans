@@ -138,6 +138,17 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const calculatedCustomPrice = customCalcResult?.price ?? null;
 
+  const recommendedOption = useMemo(() => {
+    if (!pricingOptions || pricingOptions.length === 0 || !squareFootage || squareFootage <= 0) return null;
+    return pricingOptions.find(
+      (opt) =>
+        opt.sq_ft_range &&
+        typeof opt.sq_ft_range === "string" &&
+        opt.sq_ft_range.trim() !== "" &&
+        isSqFtInRange(opt.sq_ft_range, squareFootage)
+    ) || null;
+  }, [pricingOptions, squareFootage]);
+
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
@@ -232,16 +243,30 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           });
         }
       }
-    } else if (!isValid && FilteredOptions.length > 0 && selectedOption !== "custom") {
-      const defaultVal = FilteredOptions[0].title ?? '';
-      console.log("Auto-selecting valid matching option:", defaultVal);
-      setSelectedOptions(prev => ({
-        ...prev,
-        [service.uuid]: defaultVal,
-      }));
+    } else if (selectedOption !== "custom") {
+      const suggestedVal = (recommendedOption && FilteredOptions.some(opt => opt.title === recommendedOption.title))
+        ? recommendedOption.title
+        : null;
+
+      if (!selectedOption) {
+        const defaultVal = suggestedVal || FilteredOptions[0]?.title || '';
+        if (defaultVal) {
+          setSelectedOptions(prev => ({
+            ...prev,
+            [service.uuid]: defaultVal,
+          }));
+        }
+      } else if (!isValid && FilteredOptions.length > 0) {
+        const defaultVal = suggestedVal || FilteredOptions[0]?.title || '';
+        console.log("Auto-selecting valid matching option:", defaultVal);
+        setSelectedOptions(prev => ({
+          ...prev,
+          [service.uuid]: defaultVal,
+        }));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, currentCalcMode, isHybrid]);
+  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, currentCalcMode, isHybrid, recommendedOption]);
 
   // Sync the recalculated price into selectedServices whenever squareFootage changes
   // so the right-panel "Order" section always reflects the current price.
@@ -369,7 +394,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           item.uuid === service.uuid && (isOriginallyBooked && isCompleted ? !item.service_uuid : true);
 
         const alreadySelected = prev.some(targetPredicate);
-        const effectiveOption = selectedOption || (pricingOptions && pricingOptions[0]?.title) || "";
+        const effectiveOption = selectedOption || recommendedOption?.title || (pricingOptions && pricingOptions[0]?.title) || "";
         const effectiveData = getEffectivePriceAndQty(effectiveOption, undefined, undefined, updatedAddOns);
 
         if (alreadySelected) {
@@ -556,8 +581,24 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         // Pure sq_ft_rate option without range (e.g. 2D/3D Floor Plans): always visible
                         if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
                         return false;
-                      }).map((option, idx) => (
-                        <div key={idx} className="w-full flex items-center justify-between gap-2">
+                      }).map((option, idx) => {
+                        const isRecommended = Boolean(
+                          squareFootage > 0 &&
+                          option.sq_ft_range &&
+                          typeof option.sq_ft_range === "string" &&
+                          option.sq_ft_range.trim() !== "" &&
+                          isSqFtInRange(option.sq_ft_range, squareFootage)
+                        );
+
+                        return (
+                        <div
+                          key={idx}
+                          className={`w-full flex items-center justify-between gap-2 p-1.5 rounded-md transition-all ${
+                            isRecommended
+                              ? 'bg-emerald-50/80 border border-emerald-300/80 shadow-xs'
+                              : 'hover:bg-black/5'
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             <RadioGroupItem
                               value={option?.title ?? ""}
@@ -581,11 +622,21 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                                 '--checked-bg': roleSettings.pageTabColor
                               }}
                             />
-                            <label htmlFor={`option-${service.uuid}-${idx}`} className="text-left">
-                              {option?.title ?? ''}
+                            <label
+                              htmlFor={`option-${service.uuid}-${idx}`}
+                              className="text-left flex items-center gap-1.5 cursor-pointer select-none"
+                            >
+                              <span className={isRecommended ? 'font-semibold text-emerald-950' : ''}>
+                                {option?.title ?? ''}
+                              </span>
+                              {isRecommended && (
+                                <span className="text-[9px] font-bold tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full uppercase leading-none">
+                                  Recommended
+                                </span>
+                              )}
                             </label>
                           </div>
-                          <span className="">${
+                          <span className={isRecommended ? 'font-semibold text-emerald-950' : ''}>${
                             (() => {
                               // If option has sq_ft_range (e.g. "2001-3000"), it is a tier-based fixed price option.
                               // sq_ft_rate in DB for ranges is often set to the flat amount (e.g. "235.00"), not a per-sqft multiplier.
@@ -601,7 +652,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             })()
                           }</span>
                         </div>
-                      ))}
+                      );})}
                     </div>
 
                     {userType === 'admin' && (

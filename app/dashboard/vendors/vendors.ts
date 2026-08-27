@@ -27,6 +27,7 @@ export interface VendorSettings {
   tax_number_us?: string | null;
   tax_rate?: number | null;
   tax_number?: string | null;
+  travel_pay_mode?: string;
 }
 export interface VendorCompany {
   name: string;

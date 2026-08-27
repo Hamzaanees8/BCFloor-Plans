@@ -141,14 +141,38 @@ export default function CancelOrderDialog({
           }}
         >
           <DialogTitle
-            className="text-[16px] font-[600] uppercase"
+            className="text-[16px] font-[600] uppercase flex items-center gap-2"
             style={{ color: roleSettings.pageTabColor }}
           >
-            {canCancel ? (mode === "service" ? "Cancel Service" : "Cancel Booking") : "Cancellation Unavailable"}
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+            <span>{canCancel ? (mode === "service" ? "Cancel Service" : "Cancel Booking") : "Cancellation Unavailable"}</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="px-6 py-5 space-y-4">
+          {orderData && (
+            <div className="grid grid-cols-1 gap-2 bg-gray-50/50 p-4 rounded-lg border border-gray-100 text-[13px] text-gray-600">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-800 min-w-[80px]">Order ID:</span>
+                <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono font-bold text-gray-700">
+                  #{orderData.id}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="font-semibold text-gray-800 min-w-[80px]">Address:</span>
+                <span className="truncate">{orderData.property_address}</span>
+              </div>
+              {targetName && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-800 min-w-[80px]">Service:</span>
+                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium border border-blue-100">
+                    {targetName}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {!canCancel ? (
             <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
               <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />

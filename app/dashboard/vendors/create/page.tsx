@@ -293,6 +293,7 @@ const VendorForm = () => {
   const [allowConnectStripe, setAllowConnectStripe] = useState<boolean>(true);
   const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(true);
   const [inkilometers, setInKilometers] = useState<boolean>(true);
+  const [travelPayMode, setTravelPayMode] = useState<string>("inherit");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState<string>("");
   // const [inmiles, setInMiles] = useState<boolean>(false);
@@ -520,6 +521,7 @@ const VendorForm = () => {
         setEnableServiceArea(!!currentUser.settings.enable_service_area);
         setForceServiceArea(!!currentUser.settings.force_service_area);
         setInKilometers(!!currentUser.settings.is_kilometers);
+        setTravelPayMode(currentUser.settings.travel_pay_mode || "inherit");
         
         setTaxEnabled(currentUser.settings.tax_enabled ?? true);
         const savedCountry = currentUser.settings.tax_country || "CA";
@@ -528,7 +530,7 @@ const VendorForm = () => {
         setTaxType(currentUser.settings.tax_type || "GST_HST");
         
         const rawTaxNumber = currentUser.settings.tax_number || (currentUser as any).tax_number || "";
-        const cleanTaxNumber = rawTaxNumber.replace(/^(GST\/HST:\s*|GST:\s*|PST:\s*|QST:\s*|US State Tax ID:\s*)/i, '').split(',')[0].trim();
+        const cleanTaxNumber = rawTaxNumber.replace(/^(GST\/HST:\s*|GST:\s*|PST:\s*|QST:\s*|US State Tax ID:\s*|Tax ID:\s*)/i, '').replace(/^GST\s*:\s*/i, '').replace(/^PST\s*:\s*/i, '').replace(/^HST\s*:\s*/i, '').split(',')[0].trim();
 
         setTaxNumberGstHst(currentUser.settings.tax_number_gst_hst || (savedCountry === "CA" ? cleanTaxNumber : ""));
         setTaxNumberPst(currentUser.settings.tax_number_pst || "");
@@ -567,15 +569,17 @@ const VendorForm = () => {
               options:
                 vs.options?.map((opt: any) => {
                   const productOption = serviceInfo?.product_options?.find(
-                    (po) => po.id === opt.option_id
+                    (po) => po.id === opt.option_id || po.uuid === opt.product_option?.uuid
                   );
 
                   return {
                     option_uuid: productOption?.uuid || opt.product_option?.uuid || "",
-                    pay_type: opt.pay_type || (vs as any).pay_type || "flat",
-                    vendor_price: Number(opt.vendor_price) || 0,
-                    sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? "",
-                    min_price: opt.min_price ?? (vs as any).min_price ?? "",
+                    pay_type: opt.pay_type || (vs as any).pay_type || (productOption as any)?.vendor_pay_type || "flat",
+                    vendor_price: opt.vendor_price !== undefined && opt.vendor_price !== null && opt.vendor_price !== ""
+                      ? Number(opt.vendor_price)
+                      : ((productOption as any)?.vendor_price !== undefined && (productOption as any)?.vendor_price !== null ? Number((productOption as any).vendor_price) : 0),
+                    sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? (productOption as any)?.vendor_sq_ft_rate ?? "",
+                    min_price: opt.min_price ?? (vs as any).min_price ?? (productOption as any)?.vendor_min_price ?? "",
                     adjustment_time:
                       opt.vendor_adjustment_time || "no adjustment",
                   };
@@ -851,16 +855,23 @@ const VendorForm = () => {
         const calculatedTaxNumber = (() => {
           if (taxEnabled && !taxExempt) {
             if (taxCountry === "CA") {
-              if (taxType === "GST_HST") return `GST/HST: ${taxNumberGstHst}`;
-              if (taxType === "GST_PST") return `GST: ${taxNumberGstHst}, PST: ${taxNumberPst}`;
-              if (taxType === "GST_QST") return `GST: ${taxNumberGstHst}, QST: ${taxNumberQst}`;
-              if (taxType === "GST") return `GST: ${taxNumberGstHst}`;
+              const parts: string[] = [];
+              if (taxNumberGstHst?.trim()) {
+                parts.push(taxType === "GST_HST" ? `GST/HST: ${taxNumberGstHst.trim()}` : `GST: ${taxNumberGstHst.trim()}`);
+              }
+              if (taxType === "GST_PST" && taxNumberPst?.trim()) {
+                parts.push(`PST: ${taxNumberPst.trim()}`);
+              }
+              if (taxType === "GST_QST" && taxNumberQst?.trim()) {
+                parts.push(`QST: ${taxNumberQst.trim()}`);
+              }
+              if (parts.length > 0) return parts.join(", ");
             } else if (taxCountry === "US") {
-              return `US State Tax ID: ${taxNumberUs}`;
+              if (taxNumberUs?.trim()) return `US State Tax ID: ${taxNumberUs.trim()}`;
             }
           }
           return undefined;
-        })() || taxNumber || undefined;
+        })() || (taxNumber?.trim() ? taxNumber.trim() : undefined);
 
       const payload: VendorPayload = {
         first_name: firstName,
@@ -938,6 +949,7 @@ const VendorForm = () => {
           enable_service_area: enableServiceArea ? 1 : 0,
           force_service_area: forceServiceArea ? 1 : 0,
           is_kilometers: inkilometers ? 1 : 0,
+          travel_pay_mode: travelPayMode,
           next_booking_slot_only: workHours.next_booking_slot_only ? 1 : 0,
           tax_enabled: taxEnabled,
           tax_country: taxCountry,
@@ -2543,6 +2555,36 @@ const VendorForm = () => {
                             )}
                           </div>
                         </div>
+
+                        {userType === "admin" && (
+                          <div className="col-span-2">
+                            <Label htmlFor="travel_pay_mode">
+                              Travel Reimbursement Calculation
+                            </Label>
+                            <Select
+                              value={travelPayMode}
+                              onValueChange={(val) => setTravelPayMode(val)}
+                            >
+                              <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[12px]">
+                                <SelectValue placeholder="Select calculation mode" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="inherit">
+                                  Inherit from Organization (Default: Between Appointments Only)
+                                </SelectItem>
+                                <SelectItem value="between_appointments">
+                                  Between Appointments Only (Exclude Home Commute)
+                                </SelectItem>
+                                <SelectItem value="include_home">
+                                  Include Home Commute (To/From Home Address)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-[#666666] mt-1.5">
+                              Determine whether to calculate travel compensation for morning/evening home commute or only between consecutive appointments.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

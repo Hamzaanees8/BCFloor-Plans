@@ -447,7 +447,7 @@ const FileManager = () => {
       }
 
       const isSplit = !!invoice.split_details;
-      const payerUuid = currentUser?.uuid;
+      const payerUuid = userType === "agent" ? currentUser?.uuid : undefined;
       const isOwner =
         currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
 

@@ -121,6 +121,11 @@ export default function MobileAdminVendorBilling({
                     <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${status.color}`}>
                       {status.label}
                     </Badge>
+                    {vg.organizationName && (
+                      <Badge variant="outline" className="text-[10px] px-2 py-0.5 border bg-blue-50 text-blue-700 border-blue-200">
+                        {vg.organizationName}
+                      </Badge>
+                    )}
                     <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
                       {vg.totalOrders} Orders
                     </Badge>

@@ -14,6 +14,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 export type SelectedFiles = {
   file: File;
   type: string;
+  subtype?: string | null;
   group?: string;
   upload?: boolean;
   service_id?: string;
@@ -62,6 +63,7 @@ export type Files = {
   uuid: string;
   tour_id: number;
   type: string;
+  subtype?: string | null;
   name: string;
   file_path: string;
   url?: string;

@@ -375,6 +375,7 @@ export async function UploadFilesData(
               original_filename: mainUpload.original_filename,
               content_type: mainUpload.content_type,
               type: getFileTypeFromContentType(mainUpload.content_type),
+              subtype: fileObj.subtype || (fileObj.isPanorama ? "panorama_360" : null),
               group: fileObj.type,
               service_id: fileObj.service_id,
               is_featured: fileObj.is_featured || false,
@@ -562,6 +563,7 @@ export async function UpdateFilesData(
               original_filename: mainUpload.original_filename,
               content_type: mainUpload.content_type,
               type: getFileTypeFromContentType(mainUpload.content_type),
+              subtype: fileObj.subtype || (fileObj.isPanorama ? "panorama_360" : null),
               group: fileObj.type,
               service_id: fileObj.service_id,
               is_featured: fileObj.is_featured || false,
@@ -650,6 +652,11 @@ export async function UpdateFilesData(
     formData.append(`files[${fileIndex}][file_path]`, fileObj.file_path);
     formData.append(`files[${fileIndex}][name]`, fileObj.name || "");
     formData.append(`files[${fileIndex}][type]`, fileObj.type || "photo");
+    if (fileObj.subtype !== undefined && fileObj.subtype !== null) {
+      formData.append(`files[${fileIndex}][subtype]`, fileObj.subtype);
+    } else if (fileObj.isPanorama) {
+      formData.append(`files[${fileIndex}][subtype]`, "panorama_360");
+    }
     formData.append(`files[${fileIndex}][group]`, fileObj.group || "");
     formData.append(
       `files[${fileIndex}][service_id]`,

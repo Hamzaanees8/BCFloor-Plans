@@ -641,6 +641,7 @@ export interface PortalSettingsPayload {
   booking_cutoff_time: string;
   allow_print_request: boolean;
   allow_booking_through_lunch?: boolean;
+  only_pay_travel_between_appointments?: boolean;
   other_areas_free_allowance?: number;
   other_areas_rate_per_sq_ft?: number;
   other_areas_enable_allowance?: boolean;

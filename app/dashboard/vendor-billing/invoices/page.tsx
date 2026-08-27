@@ -18,13 +18,12 @@ import {
     ChevronUp,
     ChevronDown,
     ChevronsUpDown,
-    Save,
-    X,
     Download,
     CheckCircle2,
     DollarSign,
     Clock,
-    Wallet
+    Wallet,
+    Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -47,9 +46,15 @@ import {
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
+import { SearchableSelect } from "@/app/dashboard/orders/components/SearchableSelect";
+import EditInvoiceModal from "../components/EditInvoiceModal";
+import PayPeriodFilter from "../components/PayPeriodFilter";
 
 export default function VendorInvoicesListPage() {
     const router = useRouter();
@@ -61,9 +66,33 @@ export default function VendorInvoicesListPage() {
     const [activeTab, setActiveTab] = useState<'draft' | 'pending_payment' | 'paid'>('draft');
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
+    const { isSuperAdmin } = useUser();
+    const [organizations, setOrganizations] = useState<any[]>([]);
+    const [orgFilter, setOrgFilter] = useState<string>("all");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
+    // Confirmation dialog state
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+    const [showAgain, setShowAgain] = useState(false);
+
+    const triggerPaymentAction = (action: () => void) => {
+        if (showAgain) {
+            action();
+        } else {
+            setPendingAction(() => action);
+            setConfirmOpen(true);
+        }
+    };
+
+    const confirmAndExecute = () => {
+        pendingAction?.();
+        setPendingAction(null);
+    };
 
     // Edit state
     const [editingInvoice, setEditingInvoice] = useState<VendorInvoice | null>(null);
@@ -85,21 +114,33 @@ export default function VendorInvoicesListPage() {
     const isMobile = useIsMobile();
 
     useEffect(() => {
+        if (isSuperAdmin) {
+            GetOrganizations()
+                .then((res) => {
+                    if (res.status && Array.isArray(res.data)) {
+                        setOrganizations(res.data);
+                    }
+                })
+                .catch((err) => console.error("Failed to fetch organizations:", err));
+        }
+    }, [isSuperAdmin]);
+
+    useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
             router.push("/login");
             return;
         }
 
-        fetchData(token);
-    }, [router]);
+        fetchData(token, orgFilter);
+    }, [router, orgFilter]);
 
-    const fetchData = async (token: string) => {
+    const fetchData = async (token: string, orgId?: string) => {
         try {
             setLoading(true);
             const [invoicesData, summaryData] = await Promise.all([
-                vendorBillingService.getAdminInvoices(token),
-                vendorBillingService.getSummaryMetrics(token).catch(() => null),
+                vendorBillingService.getAdminInvoices(token, orgId),
+                vendorBillingService.getSummaryMetrics(token, orgId).catch(() => null),
             ]);
 
             const invoicesList = Array.isArray(invoicesData) ? invoicesData : ((invoicesData as any)?.data ? (invoicesData as any).data : []);
@@ -240,6 +281,40 @@ export default function VendorInvoicesListPage() {
         }
     };
 
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [invoiceToDelete, setInvoiceToDelete] = useState<VendorInvoice | null>(null);
+
+    const handleDeleteInvoice = (invoice: VendorInvoice) => {
+        if (invoice.status === 'paid') {
+            toast.error("Paid invoices cannot be deleted.");
+            return;
+        }
+        setInvoiceToDelete(invoice);
+        setConfirmDeleteOpen(true);
+    };
+
+    const executeDeleteInvoice = async () => {
+        if (!invoiceToDelete) return;
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const res = await vendorBillingService.deleteInvoice(invoiceToDelete.uuid, token);
+            toast.success(res.message || "Invoice deleted and services released back to uninvoiced.");
+            setIsViewModalOpen(false);
+            setViewingInvoice(null);
+            setIsEditModalOpen(false);
+            setEditingInvoice(null);
+            fetchData(token);
+        } catch (err: any) {
+            console.error("Delete invoice error:", err);
+            toast.error(err.response?.data?.message || "Failed to delete invoice");
+        } finally {
+            setInvoiceToDelete(null);
+            setConfirmDeleteOpen(false);
+        }
+    };
+
     const handleUpdateSuccess = () => {
         const token = localStorage.getItem("token");
         if (token) fetchData(token);
@@ -248,16 +323,26 @@ export default function VendorInvoicesListPage() {
     };
 
     const safeInvoices = Array.isArray(invoices) ? invoices : [];
-    const filteredInvoices = safeInvoices.filter(inv => {
+    const dateFilteredInvoices = safeInvoices.filter(inv => {
+        if (startDate || endDate) {
+            const dateVal = inv.paid_at || inv.created_at || "";
+            const invDate = dateVal ? new Date(dateVal).toISOString().split('T')[0] : "";
+            if (startDate && invDate && invDate < startDate) return false;
+            if (endDate && invDate && invDate > endDate) return false;
+        }
+        return true;
+    });
+
+    const filteredInvoices = dateFilteredInvoices.filter(inv => {
         if (activeTab === 'draft') return inv.status === 'draft';
         if (activeTab === 'pending_payment') return inv.status === 'pending_payment' || (inv.status as string) === 'approved';
         if (activeTab === 'paid') return inv.status === 'paid';
         return true;
     });
 
-    const draftCount = safeInvoices.filter(i => i.status === 'draft').length;
-    const approvedCount = safeInvoices.filter(i => i.status === 'pending_payment' || (i.status as string) === 'approved').length;
-    const paidCount = safeInvoices.filter(i => i.status === 'paid').length;
+    const draftCount = dateFilteredInvoices.filter(i => i.status === 'draft').length;
+    const approvedCount = dateFilteredInvoices.filter(i => i.status === 'pending_payment' || (i.status as string) === 'approved').length;
+    const paidCount = dateFilteredInvoices.filter(i => i.status === 'paid').length;
 
     return (
         <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
@@ -322,52 +407,87 @@ export default function VendorInvoicesListPage() {
                     </div>
                 )}
 
-                {/* Tab Controls */}
-                <div className="flex items-center gap-1 border-b pb-px">
-                    <button
-                        onClick={() => setActiveTab('draft')}
-                        className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors relative",
-                            activeTab === 'draft' ? "" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        style={activeTab === 'draft' ? { color: roleSettings.pageTabColor } : {}}
-                    >
-                        Drafts
-                        <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
-                            {draftCount}
-                        </Badge>
-                        {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
-                    </button>
+                {/* Tab Controls & Filters */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-3">
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                        <button
+                            onClick={() => setActiveTab('draft')}
+                            className={cn(
+                                "px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap",
+                                activeTab === 'draft' ? "" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            style={activeTab === 'draft' ? { color: roleSettings.pageTabColor } : {}}
+                        >
+                            Drafts
+                            <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
+                                {draftCount}
+                            </Badge>
+                            {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('pending_payment')}
-                        className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors relative",
-                            activeTab === 'pending_payment' ? "" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        style={activeTab === 'pending_payment' ? { color: roleSettings.pageTabColor } : {}}
-                    >
-                        Approved for Payout
-                        <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px] bg-blue-100 text-blue-800">
-                            {approvedCount}
-                        </Badge>
-                        {activeTab === 'pending_payment' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('pending_payment')}
+                            className={cn(
+                                "px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap",
+                                activeTab === 'pending_payment' ? "" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            style={activeTab === 'pending_payment' ? { color: roleSettings.pageTabColor } : {}}
+                        >
+                            Approved for Payout
+                            <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px] bg-blue-100 text-blue-800">
+                                {approvedCount}
+                            </Badge>
+                            {activeTab === 'pending_payment' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('paid')}
-                        className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors relative",
-                            activeTab === 'paid' ? "" : "text-muted-foreground hover:text-foreground"
+                        <button
+                            onClick={() => setActiveTab('paid')}
+                            className={cn(
+                                "px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap",
+                                activeTab === 'paid' ? "" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            style={activeTab === 'paid' ? { color: roleSettings.pageTabColor } : {}}
+                        >
+                            Paid
+                            <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px] bg-emerald-100 text-emerald-800">
+                                {paidCount}
+                            </Badge>
+                            {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <PayPeriodFilter
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={(s, e) => {
+                                setStartDate(s);
+                                setEndDate(e);
+                            }}
+                            roleSettings={roleSettings}
+                            compact={true}
+                        />
+
+                        {isSuperAdmin && organizations.length > 0 && (
+                            <div className="w-full sm:w-[220px]">
+                                <SearchableSelect
+                                    options={[
+                                        { label: "All Organizations", value: "all" },
+                                        ...organizations.map((org) => ({
+                                            label: org.name,
+                                            value: String(org.id),
+                                        })),
+                                    ]}
+                                    value={orgFilter}
+                                    onChange={(val) => setOrgFilter(val)}
+                                    placeholder="Filter by Org..."
+                                    searchPlaceholder="Search organization..."
+                                    emptyMessage="No organization found."
+                                    className="h-9 text-xs bg-white"
+                                />
+                            </div>
                         )}
-                        style={activeTab === 'paid' ? { color: roleSettings.pageTabColor } : {}}
-                    >
-                        Paid
-                        <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px] bg-emerald-100 text-emerald-800">
-                            {paidCount}
-                        </Badge>
-                        {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
-                    </button>
+                    </div>
                 </div>
 
                 <InvoiceTable
@@ -378,6 +498,7 @@ export default function VendorInvoicesListPage() {
                     onApprove={handleApprovePayout}
                     onManualPay={handleOpenManualPay}
                     onEdit={handleEdit}
+                    onDelete={handleDeleteInvoice}
                     onView={handleView}
                     paying={paying}
                     approving={approving}
@@ -385,6 +506,8 @@ export default function VendorInvoicesListPage() {
                     headerBg={headerBg}
                     userType={userType}
                     isMobile={isMobile}
+                    isSuperAdmin={isSuperAdmin}
+                    triggerPaymentAction={triggerPaymentAction}
                 />
 
                 {editingInvoice && (
@@ -402,9 +525,37 @@ export default function VendorInvoicesListPage() {
                         isOpen={isViewModalOpen}
                         onClose={() => setIsViewModalOpen(false)}
                         invoice={viewingInvoice}
+                        onEdit={(inv: VendorInvoice) => {
+                            setIsViewModalOpen(false);
+                            handleEdit(inv);
+                        }}
+                        onDelete={handleDeleteInvoice}
+                        onPay={handlePay}
+                        onManualPay={handleOpenManualPay}
+                        triggerPaymentAction={triggerPaymentAction}
                         roleSettings={roleSettings}
                     />
                 )}
+
+                <ConfirmationDialog
+                    open={confirmOpen}
+                    setOpen={setConfirmOpen}
+                    onConfirm={confirmAndExecute}
+                    showAgain={showAgain}
+                    toggleShowAgain={() => setShowAgain(!showAgain)}
+                    dialogType="payment"
+                />
+
+                <ConfirmationDialog
+                    open={confirmDeleteOpen}
+                    setOpen={setConfirmDeleteOpen}
+                    onConfirm={executeDeleteInvoice}
+                    showAgain={true}
+                    toggleShowAgain={() => {}}
+                    dialogType="delete"
+                    title="DELETE INVOICE"
+                    description="Are you sure you want to delete this invoice? The invoice will be permanently deleted and all linked orders/services will be released back to uninvoiced work."
+                />
 
                 {/* Mark as Paid (Manual) Dialog */}
                 {manualPayInvoice && (
@@ -504,13 +655,14 @@ function InvoiceTable({
     onApprove,
     onManualPay,
     onEdit,
+    onDelete,
     onView,
     paying,
     approving,
     roleSettings,
-    headerBg,
-    userType,
-    isMobile
+    isMobile,
+    isSuperAdmin,
+    triggerPaymentAction
 }: any) {
     if (loading) {
         return (
@@ -522,106 +674,128 @@ function InvoiceTable({
         );
     }
 
+    if (invoices.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-gray-50 border-dashed">
+                <p className="text-sm text-gray-500">No invoices found in this view.</p>
+            </div>
+        );
+    }
+
     if (isMobile) {
         return (
-            <div className="space-y-4">
-                {invoices.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground text-sm font-medium">
-                        No Invoices found.
-                    </div>
-                ) : (
-                    invoices.map((invoice: VendorInvoice) => {
-                        const status = invoice.status || "draft";
-                        let bgColor = "#E06D5E";
-                        if (status === "paid") bgColor = "#6BAE41";
-                        else if (status === "pending_payment") bgColor = "#3B82F6";
-                        else if (status === "draft") bgColor = "#F5A623";
+            <div className="space-y-3">
+                {invoices.map((invoice: VendorInvoice) => {
+                    const status = invoice.status || 'draft';
+                    let bgColor = "#E06D5E";
+                    if (status === "paid") bgColor = "#6BAE41";
+                    else if (status === "pending_payment") bgColor = "#3B82F6";
+                    else if (status === "draft") bgColor = "#F5A623";
 
-                        const company = invoice.vendor?.company_name;
-                        const name = `${invoice.vendor?.first_name || ""} ${invoice.vendor?.last_name || ""}`.trim();
-                        const displayVendor = company || name || "—";
+                    const displayVendor = invoice.vendor?.company_name ||
+                        invoice.vendor_details?.company_name ||
+                        invoice.vendor_details?.name ||
+                        `${invoice.vendor?.first_name || ""} ${invoice.vendor?.last_name || ""}`.trim() ||
+                        "Vendor";
 
-                        return (
-                            <Card key={invoice.uuid} className="overflow-hidden border border-gray-100 shadow-sm">
-                                <CardContent className="p-4 space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
-                                                #{invoice.invoice_number}
-                                            </h3>
-                                            <p className="text-xs text-gray-500 mt-1 font-semibold">
-                                                {displayVendor}
+                    const orgName = invoice.org_details?.name || invoice.organization?.name;
+
+                    return (
+                        <Card key={invoice.uuid} className="p-4 shadow-sm border border-gray-200">
+                            <CardContent className="p-0 space-y-3">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
+                                            #{invoice.invoice_number}
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                            {displayVendor}
+                                        </p>
+                                        {isSuperAdmin && orgName && (
+                                            <p className="text-[11px] text-blue-600 font-medium mt-0.5">
+                                                {orgName}
                                             </p>
-                                            <p className="text-[10px] text-gray-400 mt-1">
-                                                {new Date(invoice.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[14px] font-bold text-gray-800">${Number(invoice.total_amount).toFixed(2)}</p>
-                                            <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
-                                                {status === 'pending_payment' ? 'APPROVED' : status.toUpperCase()}
-                                            </Badge>
-                                        </div>
+                                        )}
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            {new Date(invoice.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}
+                                        </p>
                                     </div>
+                                    <div className="text-right">
+                                        <p className="text-[14px] font-bold text-gray-800">${Number(invoice.total_amount).toFixed(2)}</p>
+                                        <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
+                                            {status === 'pending_payment' ? 'APPROVED' : status.toUpperCase()}
+                                        </Badge>
+                                    </div>
+                                </div>
 
-                                    <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
-                                        {status === 'draft' && onApprove && (
-                                            <Button
-                                                size="sm"
-                                                className="flex-1 h-8 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                                onClick={() => onApprove(invoice.uuid)}
-                                                disabled={approving === invoice.uuid}
-                                            >
-                                                {approving === invoice.uuid ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                                                Approve
-                                            </Button>
-                                        )}
-                                        {(status === 'draft' || status === 'pending_payment') && onPay && (
-                                            <Button
-                                                size="sm"
-                                                className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                onClick={() => onPay(invoice.uuid)}
-                                                disabled={paying === invoice.uuid}
-                                            >
-                                                {paying === invoice.uuid ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
-                                                Stripe
-                                            </Button>
-                                        )}
-                                        {(status === 'draft' || status === 'pending_payment') && onManualPay && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex-1 h-8 text-xs gap-1"
-                                                onClick={() => onManualPay(invoice)}
-                                            >
-                                                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                                Mark Paid
-                                            </Button>
-                                        )}
-                                        {status === 'draft' && onEdit && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 text-xs gap-1"
-                                                onClick={() => onEdit(invoice)}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
+                                <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                                    {status === 'draft' && onApprove && (
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 h-8 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                            onClick={() => onApprove(invoice.uuid)}
+                                            disabled={approving === invoice.uuid}
+                                        >
+                                            {approving === invoice.uuid ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                            Approve
+                                        </Button>
+                                    )}
+                                    {(status === 'draft' || status === 'pending_payment') && onPay && (
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            onClick={() => triggerPaymentAction ? triggerPaymentAction(() => onPay(invoice.uuid)) : onPay(invoice.uuid)}
+                                            disabled={paying === invoice.uuid}
+                                        >
+                                            {paying === invoice.uuid ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+                                            Stripe
+                                        </Button>
+                                    )}
+                                    {(status === 'draft' || status === 'pending_payment') && onManualPay && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 h-8 text-xs gap-1"
+                                            onClick={() => onManualPay(invoice)}
+                                        >
+                                            <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                            Mark Paid
+                                        </Button>
+                                    )}
+                                    {status !== 'paid' && onEdit && (
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             className="h-8 text-xs gap-1"
-                                            onClick={() => onView(invoice)}
+                                            onClick={() => onEdit(invoice)}
                                         >
-                                            <Eye className="h-3.5 w-3.5" />
+                                            <Pencil className="h-3.5 w-3.5" />
                                         </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })
-                )}
+                                    )}
+                                    {status !== 'paid' && onDelete && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                            onClick={() => onDelete(invoice)}
+                                            title="Delete Invoice"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs gap-1"
+                                        onClick={() => onView(invoice)}
+                                    >
+                                        <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
         );
     }
@@ -630,18 +804,34 @@ function InvoiceTable({
         {
             accessorKey: "invoice_number",
             header: "INVOICE #",
-            cell: ({ row }) => <div className="ml-[5px] font-semibold" style={{ color: roleSettings?.pageTabColor }}>#{row.original.invoice_number}</div>
+            cell: ({ row }) => (
+                <div className="font-semibold" style={{ color: roleSettings?.pageTabColor }}>
+                    #{row.original.invoice_number}
+                </div>
+            )
         },
+        ...(isSuperAdmin ? [{
+            accessorKey: "organization",
+            header: "ORGANIZATION",
+            cell: ({ row }: any) => {
+                const orgName = row.original.org_details?.name || row.original.organization?.name || "—";
+                return (
+                    <div className="font-medium text-xs text-blue-600">
+                        {orgName}
+                    </div>
+                );
+            }
+        }] : []),
         {
             accessorKey: "vendor",
             header: "VENDOR",
             cell: ({ row }) => {
-                const company = row.original.vendor?.company_name;
-                const name = `${row.original.vendor?.first_name || ""} ${row.original.vendor?.last_name || ""}`.trim();
-                const display = company || name || "—";
+                const company = row.original.vendor?.company_name || row.original.vendor_details?.company_name;
+                const name = row.original.vendor_details?.name || `${row.original.vendor?.first_name || ""} ${row.original.vendor?.last_name || ""}`.trim();
                 return (
-                    <div style={{ color: roleSettings?.pageText }}>
-                        {display}
+                    <div>
+                        <div className="font-medium text-gray-900">{company || name}</div>
+                        {company && name && <div className="text-xs text-gray-500">{name}</div>}
                     </div>
                 );
             }
@@ -673,25 +863,29 @@ function InvoiceTable({
         {
             accessorKey: "total_amount",
             header: "AMOUNT",
-            cell: ({ row }) => <div className="font-semibold" style={{ color: roleSettings?.pageText }}>${Number(row.original.total_amount).toFixed(2)}</div>
+            cell: ({ row }) => (
+                <div className="font-semibold text-gray-900">
+                    ${Number(row.original.total_amount).toFixed(2)}
+                </div>
+            )
         },
         {
             accessorKey: "status",
             header: "STATUS",
             cell: ({ row }) => {
-                const status = row.original.status || "draft";
+                const status = row.original.status || 'draft';
                 let bgColor = "#E06D5E";
                 if (status === "paid") bgColor = "#6BAE41";
                 else if (status === "pending_payment") bgColor = "#3B82F6";
                 else if (status === "draft") bgColor = "#F5A623";
 
                 return (
-                    <div
-                        className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold w-fit uppercase"
+                    <Badge
+                        className="text-white px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border-0"
                         style={{ backgroundColor: bgColor }}
                     >
                         {status === 'pending_payment' ? 'APPROVED' : status.toUpperCase()}
-                    </div>
+                    </Badge>
                 );
             }
         },
@@ -720,7 +914,7 @@ function InvoiceTable({
                             <Button
                                 size="sm"
                                 className="h-7 px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                                onClick={() => onPay(invoice.uuid)}
+                                onClick={() => triggerPaymentAction ? triggerPaymentAction(() => onPay(invoice.uuid)) : onPay(invoice.uuid)}
                                 disabled={paying === invoice.uuid}
                             >
                                 {paying === invoice.uuid ? <Loader2 className="h-3 w-3 animate-spin" /> : <CreditCard className="h-3 w-3" />}
@@ -734,27 +928,40 @@ function InvoiceTable({
                                 className="h-7 px-2.5 gap-1 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => onManualPay(invoice)}
                             >
-                                <DollarSign className="h-3 w-3" />
+                                <DollarSign className="h-3 w-3 text-emerald-600" />
                                 Mark Paid
                             </Button>
                         )}
-                        {status === 'draft' && onEdit && (
+                        {status !== 'paid' && onEdit && (
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs"
+                                className="h-7 w-7 p-0"
                                 onClick={() => onEdit(invoice)}
+                                title="Edit Invoice"
                             >
-                                <Pencil className="h-3 w-3" />
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                        {status !== 'paid' && onDelete && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 p-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                onClick={() => onDelete(invoice)}
+                                title="Delete Invoice"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                         )}
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="h-7 w-7 p-0"
                             onClick={() => onView(invoice)}
+                            title="View Invoice"
                         >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3.5 w-3.5" />
                         </Button>
                     </div>
                 );
@@ -764,12 +971,9 @@ function InvoiceTable({
 
     return (
         <DataTable
-            data={invoices}
             columns={columns}
-            loading={loading}
+            data={invoices}
             dataName="Invoices"
-            userType={userType}
-            headerBgOverride={headerBg}
         />
     );
 }
@@ -777,57 +981,10 @@ function InvoiceTable({
 const enrichModalInvoiceLines = (lines: any[]) => {
     if (!lines || !Array.isArray(lines)) return [];
 
-    const formatTime = (timeStr?: string) => {
-        if (!timeStr) return "—";
-        const parts = timeStr.split(":");
-        if (parts.length >= 2) return `${parts[0].padStart(2, "0")}:${parts[1]}`;
-        return timeStr;
-    };
-
-    const computeSlots = (slots: any[]) => {
-        if (!slots || slots.length === 0) return "";
-        const sorted = [...slots].sort(
-            (a, b) =>
-                new Date(`1970-01-01T${a.start_time}`).getTime() -
-                new Date(`1970-01-01T${b.start_time}`).getTime(),
-        );
-        const first = sorted[0];
-        const last = sorted[sorted.length - 1];
-
-        const start = formatTime(first.start_time);
-        const end = formatTime(last.end_time);
-
-        let slotDate = "";
-        if (first.date) {
-            try {
-                const d = new Date(first.date);
-                if (!isNaN(d.getTime())) {
-                    slotDate = d.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "2-digit",
-                        year: "numeric",
-                    });
-                }
-            } catch {
-                slotDate = first.date;
-            }
-        }
-
-        const startDate = new Date(`1970-01-01T${first.start_time}`);
-        const endDate = new Date(`1970-01-01T${last.end_time}`);
-        const diffMin = Math.max(
-            0,
-            Math.round((endDate.getTime() - startDate.getTime()) / 60000),
-        );
-
-        const timeRange = `${start} - ${end} (${diffMin} minutes)`;
-        return slotDate ? `${slotDate} @ ${timeRange}` : timeRange;
-    };
-
     return lines.map((line: any) => {
         let desc = line.description || "";
 
-        if (desc.includes("address:") || desc.includes("order:")) {
+        if (desc.includes("Order #") || desc.includes("order:") || desc.includes("address:")) {
             return {
                 ...line,
                 description: desc,
@@ -845,14 +1002,15 @@ const enrichModalInvoiceLines = (lines: any[]) => {
             lineOrder?.property?.address ||
             "";
         const orderId = lineOrder?.id || lineOrderSvc?.order_id || "";
-        const slotsStr = lineOrderSvc?.slots ? computeSlots(lineOrderSvc.slots) : "";
 
-        if (address || orderId || slotsStr) {
-            const parts = [desc];
-            if (address) parts.push(`address: ${address}`);
-            if (orderId) parts.push(`order: #${orderId}`);
-            if (slotsStr) parts.push(`slots: ${slotsStr}`);
-            desc = parts.join("\n");
+        if (address || orderId) {
+            if (address && orderId) {
+                desc = `${desc}\n${address} (Order #${orderId})`;
+            } else if (address) {
+                desc = `${desc}\n${address}`;
+            } else if (orderId) {
+                desc = `${desc}\nOrder #${orderId}`;
+            }
         }
 
         return {
@@ -864,7 +1022,7 @@ const enrichModalInvoiceLines = (lines: any[]) => {
     });
 };
 
-function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
+function ViewInvoiceModal({ isOpen, onClose, invoice, onEdit, onDelete, onPay, onManualPay, triggerPaymentAction, roleSettings }: any) {
     const handleDownload = async () => {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
@@ -880,26 +1038,82 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden bg-gray-50">
-                <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white shrink-0">
-                    <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
-                        <div className="flex flex-col items-start w-full md:w-auto">
-                            <span className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none" style={{ color: roleSettings.pageTabColor }}>
+            <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden bg-gray-50">
+                <DialogHeader className="px-5 py-3.5 md:px-6 md:py-4 border-b border-[#E4E4E4] bg-white shrink-0">
+                    <DialogTitle className="flex flex-wrap items-center justify-between gap-3 w-full font-alexandria relative pr-8">
+                        <div className="flex flex-col items-start min-w-[200px] shrink-0">
+                            <span className="text-[18px] md:text-[20px] font-[700] uppercase tracking-wide leading-none" style={{ color: roleSettings.pageTabColor }}>
                                 Invoice
                             </span>
-                            <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                            <span className="text-[12px] md:text-[13px] font-[500] text-gray-500 mt-1 font-mono tracking-tight whitespace-nowrap">
                                 #{invoice.invoice_number || invoice.id}
                             </span>
                         </div>
 
-                        <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 flex-col md:flex-row items-start`}>
+                        <div className="flex items-center flex-wrap gap-1.5 ml-auto">
+                            {invoice?.status !== 'paid' && onEdit && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        onClose();
+                                        onEdit(invoice);
+                                    }}
+                                    className="h-8 px-2.5 text-xs font-semibold gap-1 border-gray-300 hover:bg-gray-100 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                                >
+                                    <Pencil className="w-3.5 h-3.5 inline-block" /> Edit
+                                </Button>
+                            )}
+                            {invoice?.status !== 'paid' && onDelete && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        onClose();
+                                        onDelete(invoice);
+                                    }}
+                                    className="h-8 px-2.5 text-xs font-semibold gap-1 border-red-200 text-red-600 hover:bg-red-50 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 inline-block" /> Delete
+                                </Button>
+                            )}
                             <Button
+                                size="sm"
                                 onClick={handleDownload}
-                                className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all`}
+                                className="h-8 px-3 text-xs font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none shadow-sm gap-1.5 transition-all cursor-pointer"
                                 style={{ backgroundColor: roleSettings.pageTabColor }}
                             >
-                                <Download className="w-4 h-4 mr-1.5 inline-block" /> Download PDF
+                                <Download className="w-3.5 h-3.5 inline-block" /> Download PDF
                             </Button>
+                            {invoice?.status !== 'paid' && onPay && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        onClose();
+                                        if (triggerPaymentAction) {
+                                            triggerPaymentAction(() => onPay(invoice.uuid));
+                                        } else {
+                                            onPay(invoice.uuid);
+                                        }
+                                    }}
+                                    className="h-8 px-3 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[6px] shadow-sm transition-all cursor-pointer"
+                                >
+                                    <CreditCard className="w-3.5 h-3.5 inline-block" /> Stripe
+                                </Button>
+                            )}
+                            {invoice?.status !== 'paid' && onManualPay && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        onClose();
+                                        onManualPay(invoice);
+                                    }}
+                                    className="h-8 px-3 text-xs font-semibold gap-1 border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                                >
+                                    <DollarSign className="w-3.5 h-3.5 inline-block" /> Mark Paid
+                                </Button>
+                            )}
                         </div>
                     </DialogTitle>
                 </DialogHeader>
@@ -940,173 +1154,3 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
     );
 }
 
-function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }: any) {
-    const [editData, setEditData] = useState<any>(null);
-    const [saving, setSaving] = useState(false);
-
-    // Normalise vendor `lines[]` → `items[]` that InvoiceDocument understands
-    useEffect(() => {
-        if (!invoice) return;
-
-        const items = (invoice.lines || []).map((line: any) => ({
-            description: line.description || '',
-            quantity: parseFloat(String(line.quantity ?? 1)),
-            unit_price: parseFloat(String(line.unit_price ?? line.amount ?? 0)),
-            amount: parseFloat(String(line.amount ?? 0)),
-            type: line.type || 'service',
-            order_service_id: line.order_service_id ?? null,
-        }));
-
-        const taxRate = parseFloat(String(invoice.tax_rate ?? 0));
-        const subtotal = items.reduce(
-            (acc: number, item: any) => acc + (item.quantity * item.unit_price || 0), 0
-        );
-        const taxAmount = subtotal * (taxRate / 100);
-
-        setEditData({
-            ...invoice,
-            items,
-            tax_rate: taxRate,
-            tax_type: invoice.tax_type || "Tax",
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2),
-            notes: invoice.notes || '',
-        });
-    }, [invoice]);
-
-    const recalculateTotals = (items: any[], taxRate: number) => {
-        const subtotal = items.reduce(
-            (acc: number, item: any) =>
-                acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0),
-            0
-        );
-        const taxAmount = subtotal * (taxRate / 100);
-        return {
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2),
-        };
-    };
-
-    const updateItem = (index: number, field: string, value: any) => {
-        const newItems = [...editData.items];
-        newItems[index] = { ...newItems[index], [field]: value };
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
-        setEditData({ ...editData, items: newItems, ...totals });
-    };
-
-    const addItem = () => {
-        const newItem = {
-            description: '',
-            quantity: 1,
-            unit_price: 0,
-            amount: 0,
-            type: 'service',
-            order_service_id: null,
-        };
-        const newItems = [...editData.items, newItem];
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
-        setEditData({ ...editData, items: newItems, ...totals });
-    };
-
-    const removeItem = (index: number) => {
-        const newItems = editData.items.filter((_: any, i: number) => i !== index);
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
-        setEditData({ ...editData, items: newItems, ...totals });
-    };
-
-    const updateTaxRate = (val: string) => {
-        const rate = parseFloat(val) || 0;
-        const totals = recalculateTotals(editData.items, rate);
-        setEditData({ ...editData, tax_rate: val, ...totals });
-    };
-
-    const updateTaxType = (val: string) => {
-        setEditData({ ...editData, tax_type: val });
-    };
-
-    const handleSave = async () => {
-        if (!editData) return;
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        setSaving(true);
-        try {
-            const payload = {
-                notes: editData.notes,
-                tax_rate: editData.tax_rate,
-                tax_type: editData.tax_type,
-                lines: editData.items.map((item: any) => ({
-                    description: item.description,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    amount: parseFloat(item.quantity) * parseFloat(item.unit_price),
-                    type: item.type || 'service',
-                    order_service_id: item.order_service_id || null,
-                })),
-            };
-            await vendorBillingService.updateInvoice(invoice.uuid, payload as any, token);
-            toast.success("Invoice updated successfully!");
-            onSuccess();
-        } catch (err: any) {
-            console.error("Update failed:", err);
-            toast.error(err.response?.data?.message || "Failed to update invoice");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    if (!editData) return null;
-
-    return (
-        <Dialog open={isOpen} onOpenChange={saving ? undefined : onClose}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-[90vw] p-4 sm:p-6">
-                <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3 pr-8">
-                    <DialogTitle className="text-base sm:text-xl font-bold text-left" style={{ color: roleSettings.pageTabColor }}>
-                        Edit Vendor Invoice: {invoice.invoice_number}
-                    </DialogTitle>
-                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9 px-4 gap-2 flex-1 sm:flex-none justify-center"
-                            onClick={onClose}
-                            disabled={saving}
-                        >
-                            <X className="h-4 w-4" /> Cancel
-                        </Button>
-                        <Button
-                            size="sm"
-                            className="h-9 px-5 gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all flex-1 sm:flex-none justify-center"
-                            style={{ backgroundColor: roleSettings.pageTabColor }}
-                            onClick={handleSave}
-                            disabled={saving}
-                        >
-                            {saving
-                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                : <Save className="h-4 w-4" />
-                            }
-                            Save
-                        </Button>
-                    </div>
-                </DialogHeader>
-
-                <div className="py-4">
-                    <InvoiceDocument
-                        invoice={editData}
-                        editData={editData}
-                        isEditing={true}
-                        updateItem={updateItem}
-                        addItem={addItem}
-                        removeItem={removeItem}
-                        updateTaxRate={updateTaxRate}
-                        updateTaxType={updateTaxType}
-                        setEditData={setEditData}
-                        roleSettings={roleSettings}
-                    />
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}

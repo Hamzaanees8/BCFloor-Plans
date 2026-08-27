@@ -56,14 +56,18 @@ const CategoryDialog: React.FC<Props> = ({
         if (editData) {
             setName(editData.name || "");
             setDescription(editData.description || "");
-            const typeArr: string[] = Array.isArray(editData.type) ? editData.type : [];
+            const typeArr: string[] = Array.isArray(editData.type)
+                ? editData.type
+                : typeof editData.type === 'string'
+                    ? (editData.type.startsWith('[') ? JSON.parse(editData.type) : [editData.type])
+                    : [];
             setTypes({
                 quantity: typeArr.includes("quantity"),
                 fixed: typeArr.includes("fixed"),
                 area: typeArr.includes("area"),
             });
-            setDuration(!!editData.duration);
-            setAddOns(!!editData.add_ons);
+            setDuration(Boolean(editData.duration));
+            setAddOns(Boolean(editData.add_ons));
         } else {
             setName("");
             setDescription("");

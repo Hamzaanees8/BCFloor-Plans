@@ -1,10 +1,12 @@
 import { api } from "@/lib/api";
 
 export interface CategoryPayload {
+    name?: string | null;
     title?: string | null;
     description?: string | null;
-    type: string[]
-    duration: number;
+    type: string[];
+    duration: number | boolean;
+    add_ons?: number | boolean;
 }
 
 export interface FetchErrors {

@@ -1788,16 +1788,22 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'HDR Photo') : 'HDR Photo'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Exterior') : ''}
+                    initialSubtype={editingFile ? (('file' in editingFile) ? (editingFile as any).subtype : (editingFile as Files).subtype) : null}
                     isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
-                    onSave={(newName) => {
+                    onSave={(newName, newSubtype) => {
                         if (!editingFile) return;
 
                         if ('file' in editingFile) {
                             // Unsaved file (SelectedFiles)
                             setSelectedFiles(prev => prev.map(f => {
                                 if (f.file === editingFile.file && f.service_id === editingFile.service_id) {
-                                    return { ...f, type: newName };
+                                    return {
+                                        ...f,
+                                        type: newName,
+                                        subtype: newSubtype,
+                                        isPanorama: newSubtype !== null && newSubtype !== undefined,
+                                    };
                                 }
                                 return f;
                             }));
@@ -1814,7 +1820,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                 newSet.add(f.uuid);
                                                 return newSet;
                                             });
-                                            return { ...f, group: newName };
+                                            return {
+                                                ...f,
+                                                group: newName,
+                                                subtype: newSubtype,
+                                                isPanorama: newSubtype !== null && newSubtype !== undefined,
+                                            };
                                         }
                                         return f;
                                     })

@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useAppContext } from '@/app/context/AppContext';
 import { useFileManagerContext } from '../FileManagerContext';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { detectIsPanoramaFromFile, detectIsPanoramaFromUrl } from '../utils/panoramaUtils';
 
 interface Props {
     file: File | string | null;
@@ -23,7 +24,8 @@ interface Props {
     onDelete?: () => void;
     onReplace?: () => void;
     initialName?: string;
-    onSave?: (newName: string) => void;
+    initialSubtype?: string | null;
+    onSave?: (newName: string, newSubtype?: string | null) => void;
     type?: 'photo' | 'video';
     suggestions?: string[];
     isPaid?: boolean;
@@ -47,6 +49,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     onDelete,
     onReplace,
     initialName = '',
+    initialSubtype = null,
     onSave,
     type = 'photo',
     suggestions,
@@ -58,6 +61,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const { userType } = useAppContext();
     const { filesData } = useFileManagerContext();
     const [name, setName] = useState(initialName);
+    const [subtype, setSubtype] = useState<string | null>(initialSubtype);
+    const [autoDetectedSubtype, setAutoDetectedSubtype] = useState<string | null>(null);
     const [openDropdown, setOpenDropdown] = useState(false);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [showAgentWarning, setShowAgentWarning] = useState(false);
@@ -82,10 +87,33 @@ const PhotoPreviewModal: React.FC<Props> = ({
     useEffect(() => {
         if (open) {
             setName(initialName);
+            setSubtype(initialSubtype);
+            setAutoDetectedSubtype(null);
             setVideoMessage('');
             setIsVideoLoading(true);
+
+            // Auto-detect panorama if subtype is not explicitly set
+            if (type === 'photo' && file) {
+                if (initialSubtype) {
+                    setSubtype(initialSubtype);
+                } else if (file instanceof File) {
+                    detectIsPanoramaFromFile(file).then(detected => {
+                        if (detected) {
+                            setAutoDetectedSubtype(detected);
+                            setSubtype(detected);
+                        }
+                    });
+                } else if (typeof file === 'string') {
+                    detectIsPanoramaFromUrl(file).then(detected => {
+                        if (detected) {
+                            setAutoDetectedSubtype(detected);
+                            setSubtype(detected);
+                        }
+                    });
+                }
+            }
         }
-    }, [initialName, open]);
+    }, [initialName, initialSubtype, open, type, file]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -127,7 +155,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
     const handleSave = () => {
         if (onSave) {
-            onSave(name);
+            onSave(name, subtype);
             onClose();
         }
     };
@@ -272,6 +300,54 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         />
                     )}
                 </div>
+
+                {onSave && userType !== 'agent' && type === 'photo' && (
+                    <div className="mt-2 space-y-1.5 font-alexandria">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[#7d7d7d] text-[13px] font-semibold">Media Display Format</Label>
+                            {autoDetectedSubtype && (
+                                <span className="text-[11px] text-blue-700 bg-blue-50 font-medium px-2 py-0.5 rounded border border-blue-200">
+                                    ✨ Auto-detected as {autoDetectedSubtype === 'panorama_360' ? '360° Sphere' : '180° Wide Pano'}
+                                </span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSubtype(null)}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    !subtype
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                Standard Photo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSubtype('panorama_360')}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    subtype === 'panorama_360' || subtype === 'panorama'
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                ⬡ 360° Sphere
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSubtype('panorama_180')}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    subtype === 'panorama_180'
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                ↔ 180° Wide Pano
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {onSave && userType !== 'agent' && (
                     <div className="mt-2 space-y-2 relative" ref={dropdownRef}>

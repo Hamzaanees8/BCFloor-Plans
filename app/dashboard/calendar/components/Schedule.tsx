@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import React, { useEffect, useState } from 'react'
-import OneDayCalendar from './OneDayCalendar'
+import OneDayCalendar from '../../orders/components/OneDayCalendar'
 import { Services } from '../../services/page'
 import { VendorData } from '../../orders/[id]/page'
 import { useOrderContext } from '../../orders/context/OrderContext'
@@ -1002,7 +1002,7 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                                         )
                                             }
                                             selectedListingId={currentOrder?.property?.uuid ?? ''}
-                                            service={service}
+                                            service={service as any}
                                             calendarIdx={idx}
                                             showAllVendorsMap={showAllVendorsMap}
                                             scheduleOverrideMap={scheduleOverrideMap}
@@ -1024,6 +1024,8 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                             propertyTimezone={propertyLocation?.timeZoneId}
                                             squareFootage={squareFootage}
                                             isCalculating={isCalculating}
+                                            serviceKey={service.service?.uuid || String(service.id || idx)}
+                                            masterDate={serviceDates[idx] || new Date()}
                                         />
                                     </div>
 

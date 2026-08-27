@@ -65,11 +65,17 @@ interface ProductOption {
   amount: number;
   min_price: number;
   sort_order?: number;
+  vendor_pay_type?: string;
+  vendor_price?: number | string;
+  vendor_sq_ft_rate?: number | string;
+  vendor_min_price?: number | string;
+  vendor_unit_rate?: number | string;
+  vendor_hourly_rate?: number | string;
 }
 interface AddOns {
   uuid?: string;
   title: string;
-  amount: number;
+  amount: number | string;
 }
 export interface CategoriesData {
   name: string;
@@ -129,6 +135,12 @@ const ServicesFrom = () => {
       isSqFtRange: true,
       isSqFtRate: false,
       min_price: 0,
+      vendor_pay_type: "",
+      vendor_price: "",
+      vendor_sq_ft_rate: "",
+      vendor_min_price: "",
+      vendor_unit_rate: "",
+      vendor_hourly_rate: "",
     },
   ]);
   const [optionSortDirection, setOptionSortDirection] = useState<
@@ -286,6 +298,12 @@ const ServicesFrom = () => {
         service_duration: 0,
         amount: 0,
         min_price: 0,
+        vendor_pay_type: "",
+        vendor_price: "",
+        vendor_sq_ft_rate: "",
+        vendor_min_price: "",
+        vendor_unit_rate: "",
+        vendor_hourly_rate: "",
       },
     ]);
   };
@@ -686,6 +704,16 @@ const ServicesFrom = () => {
             opt.sq_ft_rate !== null &&
             String(opt.sq_ft_rate).trim() !== "" &&
             Number(opt.sq_ft_rate) > 0;
+          const hasVendorPrice =
+            opt.vendor_price !== undefined &&
+            opt.vendor_price !== null &&
+            opt.vendor_price !== "" &&
+            Number(opt.vendor_price) > 0;
+          const hasVendorPayType =
+            opt.vendor_pay_type !== undefined &&
+            opt.vendor_pay_type !== null &&
+            opt.vendor_pay_type !== "" &&
+            opt.vendor_pay_type !== "inherit";
 
           return (
             !hasTitle &&
@@ -694,7 +722,9 @@ const ServicesFrom = () => {
             !hasQuantity &&
             !hasDuration &&
             !hasSqFtRange &&
-            !hasSqFtRate
+            !hasSqFtRate &&
+            !hasVendorPrice &&
+            !hasVendorPayType
           );
         };
 
@@ -714,6 +744,12 @@ const ServicesFrom = () => {
               min_price: option.min_price,
               uuid: option.uuid,
               sort_order: index + 1,
+              vendor_pay_type: option.vendor_pay_type && option.vendor_pay_type !== 'inherit' ? option.vendor_pay_type : undefined,
+              vendor_price: option.vendor_price !== undefined && option.vendor_price !== "" ? Number(option.vendor_price) : undefined,
+              vendor_sq_ft_rate: option.vendor_sq_ft_rate !== undefined && option.vendor_sq_ft_rate !== "" ? Number(option.vendor_sq_ft_rate) : undefined,
+              vendor_min_price: option.vendor_min_price !== undefined && option.vendor_min_price !== "" ? Number(option.vendor_min_price) : undefined,
+              vendor_unit_rate: option.vendor_unit_rate !== undefined && option.vendor_unit_rate !== "" ? Number(option.vendor_unit_rate) : undefined,
+              vendor_hourly_rate: option.vendor_hourly_rate !== undefined && option.vendor_hourly_rate !== "" ? Number(option.vendor_hourly_rate) : undefined,
             };
 
             if (
@@ -744,9 +780,12 @@ const ServicesFrom = () => {
           ...addOns,
         ];
 
-        const cleanedAddOns = combinedAddOns.filter(
-          (addon) => addon.title?.trim() !== ""
-        );
+        const cleanedAddOns = combinedAddOns
+          .filter((addon) => addon.title?.trim() !== "")
+          .map((addon) => ({
+            ...addon,
+            amount: parseFloat(String(addon.amount ?? 0)) || 0,
+          }));
 
         const safeBg = (background || "ffffff").replace(/^#/, "");
         const safeBorder = (border || "000000").replace(/^#/, "");
@@ -1686,10 +1725,30 @@ Product Options{" "}
                                 </Label>
                               </TableCell>
                               <TableCell className="">
-                                <div className="flex justify-between">
-                                  <Label className=" text-[15px] font-[400] text-[#666666] flex items-center">
-                                    ${opt.amount}
-                                  </Label>
+                                <div className="flex justify-between items-center">
+                                  <div className="flex flex-col gap-0.5">
+                                    <Label className="text-[15px] font-[400] text-[#666666] flex items-center">
+                                      ${opt.amount}
+                                    </Label>
+                                    <div className="flex items-center gap-1.5 text-[11px]">
+                                      <span className="font-medium text-gray-500">Payout:</span>
+                                      {opt.vendor_price !== undefined && opt.vendor_price !== null && Number(opt.vendor_price) > 0 ? (
+                                        <span className="font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                          ${Number(opt.vendor_price).toFixed(2)} ({opt.vendor_pay_type || 'flat'})
+                                        </span>
+                                      ) : opt.vendor_sq_ft_rate !== undefined && opt.vendor_sq_ft_rate !== null && Number(opt.vendor_sq_ft_rate) > 0 ? (
+                                        <span className="font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                          ${opt.vendor_sq_ft_rate}/sq.ft
+                                        </span>
+                                      ) : vendorPrice && Number(vendorPrice) > 0 ? (
+                                        <span className="text-gray-400 italic">
+                                          Default (${Number(vendorPrice).toFixed(2)})
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 italic">Default</span>
+                                      )}
+                                    </div>
+                                  </div>
                                   <DropdownActions
                                     options={[
                                       {
@@ -1711,7 +1770,11 @@ Product Options{" "}
                                                 (!row.sq_ft_rate ||
                                                   row.sq_ft_rate === "") &&
                                                 (!row.sq_ft_range ||
-                                                  row.sq_ft_range === ""),
+                                                  row.sq_ft_range === "") &&
+                                                (!row.vendor_price ||
+                                                  row.vendor_price === "") &&
+                                                (!row.vendor_pay_type ||
+                                                  row.vendor_pay_type === ""),
                                             );
 
                                             const newOption = {
@@ -1730,6 +1793,12 @@ Product Options{" "}
                                                 "",
                                               isSqFtRate: !!opt.sq_ft_rate,
                                               isSqFtRange: !!opt.sq_ft_range,
+                                              vendor_pay_type: opt.vendor_pay_type ?? "",
+                                              vendor_price: opt.vendor_price ?? "",
+                                              vendor_sq_ft_rate: opt.vendor_sq_ft_rate ?? "",
+                                              vendor_min_price: opt.vendor_min_price ?? "",
+                                              vendor_unit_rate: opt.vendor_unit_rate ?? "",
+                                              vendor_hourly_rate: opt.vendor_hourly_rate ?? "",
                                             };
 
                                             // If an empty row is found, replace it
@@ -1774,8 +1843,8 @@ Product Options{" "}
                           ))}
 
                           {options.map((opt, idx) => (
+                            <React.Fragment key={idx}>
                             <TableRow
-                              key={idx}
                               className="text-[#666666] text-[14px] !border-b-0 "
                             >
                               <TableCell className="w-[75px]">
@@ -2122,9 +2191,6 @@ Product Options{" "}
                                     ]}
                                   />
                                 )}
-                                {/* {opt.uuid && (
-                                                            <Button className='bg-[#4290E9] hover:bg-[#4a96ec]'>Save</Button>
-                                                        )} */}
 
                                 {fieldErrors[
                                   `product_options.${
@@ -2145,6 +2211,114 @@ Product Options{" "}
                                 )}
                               </TableCell>
                             </TableRow>
+
+                            {/* Sub-Row 2: Dedicated Vendor Payout Configuration */}
+                            <TableRow key={`payout-${idx}`} className="bg-blue-50/40 hover:bg-blue-50/60 border-b border-[#BBBBBB]">
+                              <TableCell colSpan={4 + (categoryObject?.type.includes("quantity") ? 1 : 0) + (categoryObject?.type.includes("area") ? 1 : 0) + (Number(categoryObject?.duration) == 1 ? 1 : 0)} className="py-2.5 px-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex items-center gap-1.5 font-bold text-[#4290E9] bg-white border border-blue-200 px-2.5 py-1 rounded shadow-sm">
+                                      <span>👤 Option Vendor Payout:</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <label className="font-semibold text-gray-700">Model:</label>
+                                      <Select
+                                        value={opt.vendor_pay_type || "inherit"}
+                                        onValueChange={(val) =>
+                                          updateOption(idx, {
+                                            ...opt,
+                                            vendor_pay_type: val === "inherit" ? "" : val,
+                                          })
+                                        }
+                                      >
+                                        <SelectTrigger className="w-[155px] h-[36px] bg-white border border-[#BBBBBB] text-xs">
+                                          <SelectValue placeholder="Inherit Default" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="inherit">Inherit Default ({vendorPayType === 'flat' ? 'Flat' : vendorPayType === 'per_sq_ft' ? 'Per Sq.Ft.' : vendorPayType === 'per_unit' ? 'Per Unit' : 'Hourly'})</SelectItem>
+                                          <SelectItem value="flat">Flat Rate ($)</SelectItem>
+                                          <SelectItem value="per_sq_ft">Per Sq. Ft.</SelectItem>
+                                          <SelectItem value="per_unit">Per Unit</SelectItem>
+                                          <SelectItem value="hourly">Hourly</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    {(opt.vendor_pay_type === 'flat' || opt.vendor_pay_type === 'per_unit' || opt.vendor_pay_type === 'hourly' || !opt.vendor_pay_type || opt.vendor_pay_type === 'inherit') && (
+                                      <div className="flex items-center gap-1.5">
+                                        <label className="font-semibold text-gray-700">
+                                          {opt.vendor_pay_type === 'hourly' ? 'Rate ($/hr):' : opt.vendor_pay_type === 'per_unit' ? 'Rate ($/unit):' : 'Payout ($):'}
+                                        </label>
+                                        <div className="relative">
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder={vendorPrice ? `${vendorPrice} (Default)` : "0.00"}
+                                            value={opt.vendor_price ?? ""}
+                                            onChange={(e) =>
+                                              updateOption(idx, {
+                                                ...opt,
+                                                vendor_price: e.target.value,
+                                              })
+                                            }
+                                            className="w-[125px] h-[36px] bg-white border border-[#BBBBBB] text-xs pr-6"
+                                          />
+                                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {opt.vendor_pay_type === 'per_sq_ft' && (
+                                      <>
+                                        <div className="flex items-center gap-1.5">
+                                          <label className="font-semibold text-gray-700">Rate ($/sq.ft):</label>
+                                          <Input
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            placeholder={vendorSqFtRate ? `${vendorSqFtRate} (Default)` : "0.05"}
+                                            value={opt.vendor_sq_ft_rate ?? ""}
+                                            onChange={(e) =>
+                                              updateOption(idx, {
+                                                ...opt,
+                                                vendor_sq_ft_rate: e.target.value,
+                                              })
+                                            }
+                                            className="w-[120px] h-[36px] bg-white border border-[#BBBBBB] text-xs"
+                                          />
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          <label className="font-semibold text-gray-700">Min Guarantee ($):</label>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder={vendorMinPrice ? `${vendorMinPrice} (Default)` : "60.00"}
+                                            value={opt.vendor_min_price ?? ""}
+                                            onChange={(e) =>
+                                              updateOption(idx, {
+                                                ...opt,
+                                                vendor_min_price: e.target.value,
+                                              })
+                                            }
+                                            className="w-[120px] h-[36px] bg-white border border-[#BBBBBB] text-xs"
+                                          />
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[11px] text-gray-500 italic">
+                                    {!opt.vendor_price && !opt.vendor_sq_ft_rate && (
+                                      <span>Inherits service default ({vendorPayType === 'flat' ? `Flat $${Number(vendorPrice || 0).toFixed(2)}` : vendorPayType})</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            </React.Fragment>
                           ))}
 
                           {fieldErrors.product_options && (
@@ -2299,27 +2473,17 @@ Product Options{" "}
                                     <Input
                                       className="h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]"
                                       type="number"
-                                      placeholder="Amount ($ CAD)"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="0.00"
                                       value={
                                         addOn.amount === undefined || addOn.amount === null ? "" : addOn.amount
                                       }
                                       onChange={(e) => {
                                         const val = e.target.value;
-
-                                        if (val === "") {
-                                          const newAddOns = [...addOns];
-                                          newAddOns[index].amount = 0;
-                                          setAddOns(newAddOns);
-                                          return;
-                                        }
-
-                                        const parsed = parseFloat(val);
-
-                                        if (!isNaN(parsed) && parsed >= 0) {
-                                          const newAddOns = [...addOns];
-                                          newAddOns[index].amount = parsed;
-                                          setAddOns(newAddOns);
-                                        }
+                                        const newAddOns = [...addOns];
+                                        newAddOns[index].amount = val;
+                                        setAddOns(newAddOns);
                                       }}
                                     />
                                     {addOns.length > 1 && !addOn.uuid && (

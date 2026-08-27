@@ -194,7 +194,7 @@ const CreateVendorInvoicePage = () => {
                     }
 
                     unpaidServices.push({
-                        description: `${svcRecord.service?.name || 'Service'} - ${order.property_address || 'No Address'}`,
+                        description: `${svcRecord.service?.name || 'Service'}\n${order.property_address || 'No Address'}${order.id ? ` (Order #${order.id})` : ''}`,
                         quantity: 1,
                         unit_price: finalAmount.toFixed(2),
                         amount: finalAmount.toFixed(2),
