@@ -9,6 +9,8 @@ export interface TextStyle {
     alignContent?: "start" | "center" | "end" | "space-between";
     lineHeight?: string;
     letterSpacing?: string;
+    fontStyle?: "normal" | "italic";
+    textDecoration?: "none" | "underline";
 }
 
 export interface DetailField {
@@ -213,6 +215,7 @@ export interface FeatureSheetPayload {
     image_uuids?: string[];   // UUIDs from the confirm step — sent to backend
     // For PDF sheets:
     pdf_s3_key?: string;
+    is_published?: boolean;
     // Internal only — used by buildPayload, never sent to backend directly
     images?: FeatureSheetImage[];
     fieldStyles?: Record<string, any>;
@@ -232,6 +235,7 @@ export interface FeatureSheetResponse {
     pdf_path: string | null;
     pdf_url: string | null;
     uploaded_by: UploadedBy;
+    is_published?: boolean;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

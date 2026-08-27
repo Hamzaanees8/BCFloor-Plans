@@ -81,6 +81,8 @@ import UpgradeServicePopup from "./UpgradeServicePopup";
 import { GetServices } from "../../orders/orders";
 import { usePortalSettings } from "@/app/hooks/usePortalSettings";
 import DeletedFieldsPanel from "./DeletedFieldsPanel";
+import { FieldPanelProvider, useFieldPanel } from "./FieldPanelContext";
+import FieldSidePanel from "./FieldSidePanel";
 
 interface FeatureSheetComponentRef {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -95,6 +97,37 @@ interface CreateFeatureSheetProps {
 
 export interface CreateFeatureSheetRef {
   handleSave: () => Promise<void>;
+}
+
+/**
+ * Thin consumer that reads FieldPanelContext and renders the right-side FieldSidePanel.
+ * Must be rendered INSIDE a <FieldPanelProvider>.
+ */
+function FieldSidePanelConsumer({
+  handleSaveFeatureSheet,
+  isSaving,
+  userType,
+}: {
+  handleSaveFeatureSheet: () => Promise<void>;
+  isSaving: boolean;
+  userType: string;
+}) {
+  const fieldPanel = useFieldPanel();
+  if (!fieldPanel) return null;
+
+  const { activeField, closePanel, updateActiveStyle } = fieldPanel;
+
+  return (
+    <FieldSidePanel
+      isOpen={!!activeField}
+      activeField={activeField}
+      onStyleChange={updateActiveStyle}
+      onSave={handleSaveFeatureSheet}
+      isSaving={isSaving}
+      onClose={closePanel}
+      userType={userType}
+    />
+  );
 }
 
 const CreateFeatureSheet = forwardRef<
@@ -183,13 +216,29 @@ const CreateFeatureSheet = forwardRef<
     return [];
   });
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && orderData?.uuid) {
+      try {
+        const saved = localStorage.getItem(`printed_sheets_${orderData.uuid}`);
+        if (saved) {
+          setPrintedSheetUuids(JSON.parse(saved));
+        }
+      } catch {
+        // ignore JSON parse errors
+      }
+    }
+  }, [orderData?.uuid]);
+
   const handlePrintRequestSuccess = (sheetUuid: string) => {
     if (!sheetUuid) return;
     setPrintedSheetUuids((prev) => {
       if (prev.includes(sheetUuid)) return prev;
       const updated = [...prev, sheetUuid];
       if (typeof window !== "undefined" && orderData?.uuid) {
-        localStorage.setItem(`printed_sheets_${orderData.uuid}`, JSON.stringify(updated));
+        localStorage.setItem(
+          `printed_sheets_${orderData.uuid}`,
+          JSON.stringify(updated),
+        );
       }
       return updated;
     });
@@ -200,13 +249,27 @@ const CreateFeatureSheet = forwardRef<
     return featureSheets.find((s) => s.uuid === selectedSheetUuid) || null;
   }, [selectedSheetUuid, featureSheets]);
 
+  const [isPublished, setIsPublished] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentSheet) {
+      setIsPublished(Boolean(currentSheet.is_published));
+    } else {
+      setIsPublished(false);
+    }
+  }, [currentSheet]);
+
   const isCurrentSheetPrinted = useMemo(() => {
     if (!selectedSheetUuid && !selectedTemplate) return false;
 
     // Check backend feature sheet object flags
     if (currentSheet) {
       const s = currentSheet as any;
-      if (s.print_request || s.is_print_requested || (Array.isArray(s.print_requests) && s.print_requests.length > 0)) {
+      if (
+        s.print_request ||
+        s.is_print_requested ||
+        (Array.isArray(s.print_requests) && s.print_requests.length > 0)
+      ) {
         return true;
       }
     }
@@ -216,39 +279,68 @@ const CreateFeatureSheet = forwardRef<
       return true;
     }
 
-    // Check if orderData.services has a service item whose custom label matches this sheet's template label/key/uuid
+    // Check if orderData.services has a service item under Print or feature_sheets category
     if (orderData?.services && orderData.services.length > 0) {
       const label = getTemplateLabel(selectedTemplate);
       const matchesCustom = orderData.services.some((os: any) => {
-        const isFS = os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
-                     os.service?.category?.name?.toLowerCase() === "feature sheets" ||
-                     os.service?.name?.toLowerCase() === "feature sheets";
+        const isFS =
+          os.service?.category?.name?.toLowerCase() === "print" ||
+          os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
+          os.service?.category?.name?.toLowerCase() === "feature sheets" ||
+          os.service?.name?.toLowerCase() === "feature sheets" ||
+          os.service?.name?.toLowerCase() === "print";
         if (!isFS) return false;
         const customStr = (os.custom || "").toLowerCase();
-        if (!customStr) return false;
-        if (selectedSheetUuid && customStr.includes(selectedSheetUuid.toLowerCase())) return true;
+        if (!customStr) return true; // If no custom label specified, assume it applies to feature sheet
+        if (
+          selectedSheetUuid &&
+          customStr.includes(selectedSheetUuid.toLowerCase())
+        )
+          return true;
         if (label && customStr.includes(label.toLowerCase())) return true;
-        if (selectedTemplate && customStr.includes(selectedTemplate.toLowerCase())) return true;
+        if (
+          selectedTemplate &&
+          customStr.includes(selectedTemplate.toLowerCase())
+        )
+          return true;
+        if (
+          customStr.includes("feature sheet") ||
+          customStr.includes("feature_sheet") ||
+          customStr.includes("print")
+        )
+          return true;
         return false;
       });
       if (matchesCustom) return true;
     }
 
     return false;
-  }, [currentSheet, selectedSheetUuid, selectedTemplate, printedSheetUuids, orderData?.services]);
+  }, [
+    currentSheet,
+    selectedSheetUuid,
+    selectedTemplate,
+    printedSheetUuids,
+    orderData?.services,
+  ]);
 
   const bookedFeatureSheetsService = useMemo(() => {
     if (!orderData?.services || !isCurrentSheetPrinted) return null;
-    return orderData.services.find(
-      (os: any) =>
-        os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
-        os.service?.category?.name?.toLowerCase() === "feature sheets" ||
-        os.service?.name?.toLowerCase() === "feature sheets"
-    ) || null;
+    return (
+      orderData.services.find(
+        (os: any) =>
+          os.service?.category?.name?.toLowerCase() === "print" ||
+          os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
+          os.service?.category?.name?.toLowerCase() === "feature sheets" ||
+          os.service?.name?.toLowerCase() === "feature sheets" ||
+          os.service?.name?.toLowerCase() === "print",
+      ) || null
+    );
   }, [orderData?.services, isCurrentSheetPrinted]);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [featureSheetsFullService, setFeatureSheetsFullService] = useState<any | null>(null);
+  const [featureSheetsFullService, setFeatureSheetsFullService] = useState<
+    any | null
+  >(null);
 
   const handleOpenUpgradeModal = async () => {
     if (!featureSheetsFullService) {
@@ -258,15 +350,19 @@ const CreateFeatureSheet = forwardRef<
         const servicesList = Array.isArray(response.data)
           ? response.data
           : Array.isArray(response)
-          ? response
-          : [];
+            ? response
+            : [];
         const fsService = servicesList.find(
           (s: any) =>
+            s.category?.name?.toLowerCase() === "print" ||
             s.category?.name?.toLowerCase() === "feature_sheets" ||
             s.category?.name?.toLowerCase() === "feature sheets" ||
-            s.name?.toLowerCase() === "feature sheets"
+            s.name?.toLowerCase() === "feature sheets" ||
+            s.name?.toLowerCase() === "print",
         );
-        setFeatureSheetsFullService(fsService || bookedFeatureSheetsService?.service || null);
+        setFeatureSheetsFullService(
+          fsService || bookedFeatureSheetsService?.service || null,
+        );
       } catch (e) {
         console.error("Failed to fetch full service options for upgrade:", e);
       }
@@ -291,7 +387,7 @@ const CreateFeatureSheet = forwardRef<
   const [previewMode, setPreviewMode] = useState<"edit" | "preview">(
     isReadonly ? "preview" : "edit",
   );
-  const [previewZoom, setPreviewZoom] = useState(1.0);
+  const [previewZoom, setPreviewZoom] = useState(isReadonly ? 0.55 : 1.0);
   const [showGuide, setShowGuide] = useState(isReadonly ? false : true);
   const [showBleed, setShowBleed] = useState(isReadonly ? false : true);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -304,6 +400,7 @@ const CreateFeatureSheet = forwardRef<
       setPreviewMode("preview");
       setShowGuide(false);
       setShowBleed(false);
+      setPreviewZoom(0.55);
     }
   }, [isReadonly]);
 
@@ -375,7 +472,7 @@ const CreateFeatureSheet = forwardRef<
   }, []);
 
   const resetPanAndZoom = () => {
-    setPreviewZoom(1.0);
+    setPreviewZoom(isReadonly ? 0.55 : 1.0);
     setPanOffset({ x: 0, y: 0 });
   };
 
@@ -605,11 +702,37 @@ const CreateFeatureSheet = forwardRef<
     }
   };
 
+  const handleTogglePublish = async (newStatus: boolean) => {
+    setIsPublished(newStatus);
+    if (selectedSheetUuid && activeStandardRef.current) {
+      try {
+        const payload = await activeStandardRef.current.exportToPayload();
+        payload.is_published = newStatus;
+        const result = await featureSheetService.updateFeatureSheet(
+          selectedSheetUuid,
+          payload,
+        );
+        setFeatureSheets((prev) =>
+          prev.map((s) => (s.uuid === selectedSheetUuid ? result : s)),
+        );
+        toast.success(
+          newStatus
+            ? "Feature sheet published to public tour!"
+            : "Feature sheet unpublished from public tour.",
+        );
+      } catch (err) {
+        console.error("Error toggling publish status:", err);
+        toast.error("Failed to update publish status.");
+      }
+    }
+  };
+
   const handleSaveFeatureSheet = async () => {
     setIsSaving(true);
     try {
       if (activeStandardRef.current) {
         const payload = await activeStandardRef.current.exportToPayload();
+        payload.is_published = isPublished;
 
         let result: FeatureSheetResponse;
         if (selectedSheetUuid) {
@@ -1067,45 +1190,51 @@ const CreateFeatureSheet = forwardRef<
   };
 
   return (
-    <>
-      <div className="w-full h-auto">
-        {!isReadonly && (
-          <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
-            <div className="flex gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    disabled={isDownloading}
-                    className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
-                  >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Download PDF"
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[220px]">
-                  <DropdownMenuItem
-                    onClick={() => handleDownload(false, false)}
-                    className="cursor-pointer"
-                  >
-                    Download (No Bleed)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDownload(true, false)}
-                    className="cursor-pointer"
-                  >
-                    Download (With Bleed)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+    <FieldPanelProvider>
+      <FieldSidePanelConsumer
+        handleSaveFeatureSheet={handleSaveFeatureSheet}
+        isSaving={isSaving}
+        userType={userType as string}
+      />
+      <>
+        <div className="w-full h-auto">
+          {!isReadonly && (
+            <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      disabled={isDownloading}
+                      className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                    >
+                      {isDownloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Download PDF"
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[220px]">
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(false, false)}
+                      className="cursor-pointer"
+                    >
+                      Download (No Bleed)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDownload(true, false)}
+                      className="cursor-pointer"
+                    >
+                      Download (With Bleed)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              {/* Safe Zone Toggle Toolbar Button */}
-              {/* <button
+                {/* Safe Zone Toggle Toolbar Button */}
+                {/* <button
                 type="button"
                 onClick={() => setSafeZone(!safeZone)}
                 className={`flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] h-[32px] transition-colors border-2 rounded-[6px] font-[500] ${
@@ -1120,446 +1249,634 @@ const CreateFeatureSheet = forwardRef<
                 <span className="font-bold">{safeZone ? "ON" : "OFF"}</span>
               </button> */}
 
-              {/* Copy Style button — only visible when a template is open */}
-              {selectedTemplate && (
-                <button
-                  type="button"
-                  onClick={() => setCopyStyleOpen(true)}
-                  className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:opacity-80`}
-                >
-                  Copy Style
-                </button>
-              )}
-
-              {allowPrintRequest &&
-                (userType === "agent" || userType === "admin") &&
-                selectedTemplate &&
-                selectedSheetUuid &&
-                !isCurrentSheetPrinted && (
+                {/* Copy Style button — only visible when a template is open */}
+                {selectedTemplate && (
                   <button
                     type="button"
-                    onClick={() => setIsPrintModalOpen(true)}
-                    className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                    onClick={() => setCopyStyleOpen(true)}
+                    className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:opacity-80`}
                   >
-                    <Printer className="w-4 h-4" />
-                    Send Print Request
+                    Copy Style
                   </button>
                 )}
-            </div>
-            <div className="text-center">
-              <div
-                className={`text-[16px] font-alexandria font-bold ${userType}-text`}
-              >
-                Feature Sheets
+
+                {allowPrintRequest &&
+                  (userType === "agent" || userType === "admin") &&
+                  selectedTemplate &&
+                  selectedSheetUuid &&
+                  !isCurrentSheetPrinted && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPrintModalOpen(true)}
+                      className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                    >
+                      <Printer className="w-4 h-4" />
+                      Send Print Request
+                    </button>
+                  )}
+              </div>
+              <div className="text-center">
+                <div
+                  className={`text-[16px] font-alexandria font-bold ${userType}-text`}
+                >
+                  Feature Sheets
+                </div>
+              </div>
+              <div className="flex gap-3 items-center">
+                {/* Publish Check Toggle - Top Right Header (only visible when a sheet is open) */}
+                {selectedTemplate && (
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePublish(!isPublished)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-[13px] h-[32px] font-semibold rounded-[6px] border transition-all ${
+                      isPublished
+                        ? "bg-cyan-50 text-cyan-700 border-cyan-300 hover:bg-cyan-100 shadow-2xs"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                    title="Toggle publish status for public tour"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isPublished
+                          ? "bg-cyan-500 animate-pulse"
+                          : "bg-gray-400"
+                      }`}
+                    />
+                    <span>
+                      {isPublished ? "Published in Tour" : "Publish to Tour"}
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
-            <div className="flex gap-3 items-center">
-              {/* Service integration removed */}
-            </div>
-          </div>
-        )}
+          )}
 
-        {!selectedTemplate && !isReadonly && (
-          <div className="flex flex-col items-center w-full">
-            <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
-              <button
-                onClick={() => setActiveTab("listing")}
-                className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
-                  activeTab === "listing"
-                    ? `text-white border-b-2 ${userType}-bg`
-                    : "bg-[#EEEEEE] hover:text-gray-700"
-                }`}
-              >
-                Listing Flyers
-              </button>
-              <button
-                onClick={() => setActiveTab("tabloid")}
-                className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
-                  activeTab === "tabloid"
-                    ? `text-white border-b-2  ${userType}-bg`
-                    : "bg-[#EEEEEE] hover:text-gray-700"
-                }`}
-              >
-                Tabloid Feature Sheet
-              </button>
-              <button
-                onClick={() => setActiveTab("my_sheets")}
-                className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
-                  activeTab === "my_sheets"
-                    ? `text-white border-b-2  ${userType}-bg`
-                    : "bg-[#EEEEEE] hover:text-gray-700"
-                }`}
-              >
-                My Sheets
-              </button>
-            </div>
+          {!selectedTemplate && !isReadonly && (
+            <div className="flex flex-col items-center w-full">
+              <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
+                <button
+                  onClick={() => setActiveTab("listing")}
+                  className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
+                    activeTab === "listing"
+                      ? `text-white border-b-2 ${userType}-bg`
+                      : "bg-[#EEEEEE] hover:text-gray-700"
+                  }`}
+                >
+                  Listing Flyers
+                </button>
+                <button
+                  onClick={() => setActiveTab("tabloid")}
+                  className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
+                    activeTab === "tabloid"
+                      ? `text-white border-b-2  ${userType}-bg`
+                      : "bg-[#EEEEEE] hover:text-gray-700"
+                  }`}
+                >
+                  Tabloid Feature Sheet
+                </button>
+                <button
+                  onClick={() => setActiveTab("my_sheets")}
+                  className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
+                    activeTab === "my_sheets"
+                      ? `text-white border-b-2  ${userType}-bg`
+                      : "bg-[#EEEEEE] hover:text-gray-700"
+                  }`}
+                >
+                  My Sheets
+                </button>
+              </div>
 
-            <div className="mt-10">
-              <button
-                onClick={() =>
-                  document.getElementById("custom-pdf-upload")?.click()
-                }
-                className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
-              >
-                + Upload Feature Sheet
-              </button>
-              <input
-                id="custom-pdf-upload"
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={handlePdfUpload}
-              />
+              <div className="mt-10">
+                <button
+                  onClick={() =>
+                    document.getElementById("custom-pdf-upload")?.click()
+                  }
+                  className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
+                >
+                  + Upload Feature Sheet
+                </button>
+                <input
+                  id="custom-pdf-upload"
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handlePdfUpload}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!selectedTemplate && !isReadonly && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-20 mt-8 mb-20 h-auto px-4 md:px-20">
-            {/* Saved Feature Sheets Section */}
-            {featureSheets.length > 0 && (
-              <>
-                <div className="col-span-full">
-                  <h2
-                    className={`text-[24px] font-semibold ${userType}-text mb-4`}
-                  >
-                    Saved Feature Sheets
-                  </h2>
-                </div>
-                {featureSheets
-                  .filter((sheet) => {
-                    if (activeTab === "my_sheets") return true;
-                    const template = templateImages.find(
-                      (t) => t.id === sheet.template_key,
-                    );
-                    if (!template) return activeTab === "listing";
-                    return template?.type === activeTab;
-                  })
-                  .map((sheet) => {
-                    return (
-                      <div key={sheet.uuid} className="flex flex-col gap-2">
-                        <div className="text-start">
-                          <p className="text-[24px] text-[#666666]">
-                            {getTemplateLabel(sheet.template_key)}
-                          </p>
-                          <p className="text-[12px] text-[#888888]">
-                            Last updated:{" "}
-                            {new Date(sheet.updated_at).toLocaleDateString()}
-                          </p>
-                          <div className="flex gap-4">
-                            <p
-                              className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
-                              onClick={() => {
-                                setSelectedTemplate(sheet.template_key);
-                                setSelectedSheetUuid(sheet.uuid);
-                              }}
-                            >
-                              Edit Feature Sheet
+          {!selectedTemplate && !isReadonly && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-20 mt-8 mb-20 h-auto px-4 md:px-20">
+              {/* Saved Feature Sheets Section */}
+              {featureSheets.length > 0 && (
+                <>
+                  <div className="col-span-full">
+                    <h2
+                      className={`text-[24px] font-semibold ${userType}-text mb-4`}
+                    >
+                      Saved Feature Sheets
+                    </h2>
+                  </div>
+                  {featureSheets
+                    .filter((sheet) => {
+                      if (activeTab === "my_sheets") return true;
+                      const template = templateImages.find(
+                        (t) => t.id === sheet.template_key,
+                      );
+                      if (!template) return activeTab === "listing";
+                      return template?.type === activeTab;
+                    })
+                    .map((sheet) => {
+                      return (
+                        <div key={sheet.uuid} className="flex flex-col gap-2">
+                          <div className="text-start">
+                            <p className="text-[24px] text-[#666666]">
+                              {getTemplateLabel(sheet.template_key)}
                             </p>
-                            {allowPrintRequest && (
+                            <p className="text-[12px] text-[#888888]">
+                              Last updated:{" "}
+                              {new Date(sheet.updated_at).toLocaleDateString()}
+                            </p>
+                            <div className="flex gap-4">
                               <p
                                 className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
                                 onClick={() => {
+                                  setSelectedTemplate(sheet.template_key);
                                   setSelectedSheetUuid(sheet.uuid);
-                                  setIsPrintModalOpen(true);
                                 }}
                               >
-                                Print
+                                Edit Feature Sheet
                               </p>
-                            )}
-                            <p
-                              className="text-[15px] text-red-500 hover:underline cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (showAgain) {
-                                  setSheetToDelete(sheet.uuid);
-                                  setConfirmOpen(true);
-                                } else {
-                                  handleDeleteFeatureSheet(sheet.uuid);
-                                }
-                              }}
+                              {allowPrintRequest && (
+                                <p
+                                  className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
+                                  onClick={() => {
+                                    setSelectedSheetUuid(sheet.uuid);
+                                    setIsPrintModalOpen(true);
+                                  }}
+                                >
+                                  Print
+                                </p>
+                              )}
+                              <p
+                                className="text-[15px] text-red-500 hover:underline cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (showAgain) {
+                                    setSheetToDelete(sheet.uuid);
+                                    setConfirmOpen(true);
+                                  } else {
+                                    handleDeleteFeatureSheet(sheet.uuid);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </p>
+                            </div>
+                          </div>
+                          <div
+                            onClick={() => {
+                              setSelectedTemplate(sheet.template_key);
+                              setSelectedSheetUuid(sheet.uuid);
+                            }}
+                            className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === sheet.template_key && selectedSheetUuid === sheet.uuid ? `${userType}-border shadow-md` : "border-gray-300 shadow-md"} relative`}
+                          >
+                            <FeatureSheetThumbnail
+                              images={getThumbnailUrls(sheet.template_key)}
+                              className="w-full h-[400px]"
                             >
-                              Delete
-                            </p>
+                              <div
+                                className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded z-20`}
+                              >
+                                Saved
+                              </div>
+                            </FeatureSheetThumbnail>
                           </div>
                         </div>
-                        <div
-                          onClick={() => {
-                            setSelectedTemplate(sheet.template_key);
-                            setSelectedSheetUuid(sheet.uuid);
-                          }}
-                          className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === sheet.template_key && selectedSheetUuid === sheet.uuid ? `${userType}-border shadow-md` : "border-gray-300 shadow-md"} relative`}
-                        >
-                          <FeatureSheetThumbnail
-                            images={getThumbnailUrls(sheet.template_key)}
-                            className="w-full h-[400px]"
-                          >
-                            <div
-                              className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded z-20`}
-                            >
-                              Saved
-                            </div>
-                          </FeatureSheetThumbnail>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                {activeTab !== "my_sheets" && (
-                  <div className="col-span-full mt-4">
-                    <h2 className="text-[24px] font-semibold text-[#666666] mb-4">
-                      Create New Feature Sheet
+                  {activeTab !== "my_sheets" && (
+                    <div className="col-span-full mt-4">
+                      <h2 className="text-[24px] font-semibold text-[#666666] mb-4">
+                        Create New Feature Sheet
+                      </h2>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* My Sheets Tab Content */}
+              {activeTab === "my_sheets" && (
+                <>
+                  <div className="col-span-full">
+                    <h2
+                      className={`text-[24px] font-semibold ${userType}-text mb-4`}
+                    >
+                      My Saved Sheets (Style Sources)
                     </h2>
+                    <p className="text-sm text-[#7D7D7D] mb-6">
+                      Click a sheet to apply its styling (fonts, colors, layout)
+                      to your current order.
+                    </p>
                   </div>
-                )}
-              </>
-            )}
 
-            {/* My Sheets Tab Content */}
-            {activeTab === "my_sheets" && (
-              <>
-                <div className="col-span-full">
-                  <h2
-                    className={`text-[24px] font-semibold ${userType}-text mb-4`}
-                  >
-                    My Saved Sheets (Style Sources)
-                  </h2>
-                  <p className="text-sm text-[#7D7D7D] mb-6">
-                    Click a sheet to apply its styling (fonts, colors, layout)
-                    to your current order.
-                  </p>
-                </div>
-
-                {loadingAgentSheets ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
-                    <Loader2
-                      className={`w-10 h-10 animate-spin ${userType}-text`}
-                    />
-                    <p className="text-[#7D7D7D]">Loading your sheets...</p>
-                  </div>
-                ) : agentSheets.length === 0 ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-20">
-                    <p className="text-[#7D7D7D]">No saved sheets found.</p>
-                  </div>
-                ) : (
-                  agentSheets.map((sheet) => {
-                    return (
-                      <div key={sheet.uuid} className="flex flex-col gap-2">
-                        <div className="text-start">
-                          <p className="text-[20px] font-medium text-[#444444] truncate">
-                            {getTemplateLabel(sheet.template_key)}
-                          </p>
-                          <p className="text-[12px] text-[#888888]">
-                            Last updated:{" "}
-                            {new Date(sheet.updated_at).toLocaleDateString()}
-                          </p>
-                          <button
+                  {loadingAgentSheets ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+                      <Loader2
+                        className={`w-10 h-10 animate-spin ${userType}-text`}
+                      />
+                      <p className="text-[#7D7D7D]">Loading your sheets...</p>
+                    </div>
+                  ) : agentSheets.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-20">
+                      <p className="text-[#7D7D7D]">No saved sheets found.</p>
+                    </div>
+                  ) : (
+                    agentSheets.map((sheet) => {
+                      return (
+                        <div key={sheet.uuid} className="flex flex-col gap-2">
+                          <div className="text-start">
+                            <p className="text-[20px] font-medium text-[#444444] truncate">
+                              {getTemplateLabel(sheet.template_key)}
+                            </p>
+                            <p className="text-[12px] text-[#888888]">
+                              Last updated:{" "}
+                              {new Date(sheet.updated_at).toLocaleDateString()}
+                            </p>
+                            <button
+                              onClick={() => handleMySheetClick(sheet)}
+                              className={`mt-2 text-[14px] ${userType}-text hover:underline font-medium`}
+                            >
+                              Apply Style →
+                            </button>
+                          </div>
+                          <div
                             onClick={() => handleMySheetClick(sheet)}
-                            className={`mt-2 text-[14px] ${userType}-text hover:underline font-medium`}
+                            className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform border-gray-300 shadow-sm hover:${userType}-border relative group`}
                           >
-                            Apply Style →
-                          </button>
+                            <FeatureSheetThumbnail
+                              images={getThumbnailUrls(sheet.template_key)}
+                              className="w-full h-[300px]"
+                            >
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none z-20">
+                                <span className="bg-white/90 text-black px-4 py-2 rounded-full text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Use This Style
+                                </span>
+                              </div>
+                            </FeatureSheetThumbnail>
+                          </div>
                         </div>
-                        <div
-                          onClick={() => handleMySheetClick(sheet)}
-                          className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform border-gray-300 shadow-sm hover:${userType}-border relative group`}
-                        >
-                          <FeatureSheetThumbnail
-                            images={getThumbnailUrls(sheet.template_key)}
-                            className="w-full h-[300px]"
-                          >
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none z-20">
-                              <span className="bg-white/90 text-black px-4 py-2 rounded-full text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                                Use This Style
-                              </span>
-                            </div>
-                          </FeatureSheetThumbnail>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </>
-            )}
+                      );
+                    })
+                  )}
+                </>
+              )}
 
-            {/* Template Options */}
-            {activeTab !== "my_sheets" &&
-              templateImages
-                .filter((template) => template.type === activeTab)
-                .map((template) => (
-                  <div key={template.id} className="flex flex-col gap-2">
-                    <div className="text-start">
-                      <p className="text-[24px] text-[#666666]">
-                        {template.label ?? template.id}
-                      </p>
-                      <p
-                        className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
+              {/* Template Options */}
+              {activeTab !== "my_sheets" &&
+                templateImages
+                  .filter((template) => template.type === activeTab)
+                  .map((template) => (
+                    <div key={template.id} className="flex flex-col gap-2">
+                      <div className="text-start">
+                        <p className="text-[24px] text-[#666666]">
+                          {template.label ?? template.id}
+                        </p>
+                        <p
+                          className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
+                          onClick={() => {
+                            handleTemplateChange(template.id);
+                          }}
+                        >
+                          Edit Feature Sheet
+                        </p>
+                      </div>
+                      <div
                         onClick={() => {
                           handleTemplateChange(template.id);
                         }}
+                        className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${
+                          selectedTemplate === template.id && !selectedSheetUuid
+                            ? `${userType}-border shadow-md`
+                            : "border-gray-300"
+                        }`}
                       >
-                        Edit Feature Sheet
-                      </p>
-                    </div>
-                    <div
-                      onClick={() => {
-                        handleTemplateChange(template.id);
-                      }}
-                      className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${
-                        selectedTemplate === template.id && !selectedSheetUuid
-                          ? `${userType}-border shadow-md`
-                          : "border-gray-300"
-                      }`}
-                    >
-                      <FeatureSheetThumbnail
-                        images={getThumbnailUrls(template.id)}
-                        className="w-full h-[400px]"
-                      >
-                        <div className="absolute top-2 right-2 bg-gray-500 text-white text-xs px-2 py-1 rounded opacity-80 pointer-events-none z-20">
-                          New
-                        </div>
-                      </FeatureSheetThumbnail>
-                    </div>
-                  </div>
-                ))}
-          </div>
-        )}
-        {selectedTemplate && (
-          <form>
-            <Accordion
-              type="multiple"
-              defaultValue={
-                isReadonly
-                  ? ["FeatureSheetPreview"]
-                  : ["FeatureSheetSettings", "FeatureSheetPreview"]
-              }
-              className="w-full space-y-4"
-            >
-              {!isReadonly && (
-                <AccordionItem value="FeatureSheetSettings">
-                  <AccordionTrigger
-                    className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  >
-                    General Information
-                  </AccordionTrigger>
-                  <AccordionContent className="grid gap-4 !overflow-visible">
-                    <div className="w-full flex flex-col items-center px-[16px]">
-                      {bookedFeatureSheetsService && (
-                        <div className="flex w-full gap-3 mt-4 justify-end items-center">
-                          <div className="text-center">
-                            <div className="text-[20px] md:text-[24px] font-alexandria font-semibold leading-tight text-[#424242]">
-                              {bookedFeatureSheetsService.option?.title || `${bookedFeatureSheetsService.option?.quantity || 25} Copies`}
-                            </div>
-                            <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                              <span className="text-[11px] md:text-[12px] font-alexandria text-[#7D7D7D]">
-                                Printed
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                  bookedFeatureSheetsService.payment_status === "PAID"
-                                    ? "bg-green-100 text-green-700 border border-green-300"
-                                    : "bg-gray-100 text-gray-700 border border-gray-300"
-                                }`}
-                              >
-                                {bookedFeatureSheetsService.payment_status === "PAID" ? "PAID" : "UNPAID"}
-                              </span>
-                            </div>
+                        <FeatureSheetThumbnail
+                          images={getThumbnailUrls(template.id)}
+                          className="w-full h-[400px]"
+                        >
+                          <div className="absolute top-2 right-2 bg-gray-500 text-white text-xs px-2 py-1 rounded opacity-80 pointer-events-none z-20">
+                            New
                           </div>
-                          {userType !== "vendor" && (
-                            <button
-                              type="button"
-                              onClick={handleOpenUpgradeModal}
-                              className={`text-center px-4 py-2 text-[13px] h-[32px] transition-colors ${userType}-bg hover:brightness-90 text-white rounded-[6px] font-[500] border-none shadow-sm cursor-pointer`}
-                            >
-                              Upgrade Plan
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <div className="grid-cols-1 md:grid-cols-3 gap-6 !hidden">
-                        <div className="">
-                          <div ref={wrapperRef} className="relative w-full">
-                            <label
-                              htmlFor="bgcolor"
-                              className="block text-sm font-medium text-gray-700"
-                            >
-                              Primary Color
-                            </label>
-
-                            {/* Box + Input side by side */}
-                            <div className="flex items-center gap-3 mt-2">
-                              {/* Color preview box */}
-                              <div
-                                className="w-8 h-8 border border-gray-400 rounded"
-                                style={{
-                                  backgroundColor: `#${formData.background || "ffffff"}`,
-                                }}
-                              />
-
-                              {/* Input wrapper */}
-                              <div className="relative flex-1">
-                                <span
-                                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-700"
-                                  style={{
-                                    color: `#${formData.background || ""}`,
-                                  }}
-                                >
-                                  #
+                        </FeatureSheetThumbnail>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+          )}
+          {selectedTemplate && (
+            <form>
+              <Accordion
+                type="multiple"
+                defaultValue={
+                  isReadonly
+                    ? ["FeatureSheetPreview"]
+                    : ["FeatureSheetSettings", "FeatureSheetPreview"]
+                }
+                className="w-full space-y-4"
+              >
+                {!isReadonly && (
+                  <AccordionItem value="FeatureSheetSettings">
+                    <AccordionTrigger
+                      className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    >
+                      General Information
+                    </AccordionTrigger>
+                    <AccordionContent className="grid gap-4 !overflow-visible">
+                      <div className="w-full flex flex-col items-center px-[16px]">
+                        {bookedFeatureSheetsService && (
+                          <div className="flex w-full gap-3 mt-4 justify-end items-center">
+                            <div className="text-center">
+                              <div className="text-[20px] md:text-[24px] font-alexandria font-semibold leading-tight text-[#424242]">
+                                {bookedFeatureSheetsService.option?.title ||
+                                  `${bookedFeatureSheetsService.option?.quantity || 25} Copies`}
+                              </div>
+                              <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                                <span className="text-[11px] md:text-[12px] font-alexandria text-[#7D7D7D]">
+                                  Printed
                                 </span>
-
-                                <Input
-                                  id="bgcolor"
-                                  value={formData.background}
-                                  onFocus={() => setOpenColorPicker(true)}
-                                  onClick={() => setOpenColorPicker(true)}
-                                  onChange={(e) => {
-                                    const value = e.target.value
-                                      .replace(/[^0-9a-fA-F]/g, "")
-                                      .slice(0, 6);
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      background: value,
-                                    }));
-                                  }}
-                                  className="pl-6 pr-4 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB]"
-                                  maxLength={6}
-                                  style={{
-                                    color: `#${formData.background || ""}`,
-                                  }}
-                                />
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                    bookedFeatureSheetsService.payment_status ===
+                                    "PAID"
+                                      ? "bg-green-100 text-green-700 border border-green-300"
+                                      : "bg-gray-100 text-gray-700 border border-gray-300"
+                                  }`}
+                                >
+                                  {bookedFeatureSheetsService.payment_status ===
+                                  "PAID"
+                                    ? "PAID"
+                                    : "UNPAID"}
+                                </span>
                               </div>
                             </div>
-
-                            {openColorPicker && (
-                              <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
-                                <HexColorPicker
-                                  className="!w-[175px]"
-                                  color={`#${formData.background}`}
-                                  onChange={(newColor) =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      background: newColor.replace(/^#/, ""),
-                                    }))
-                                  }
-                                />
-                              </div>
+                            {userType !== "vendor" && (
+                              <button
+                                type="button"
+                                onClick={handleOpenUpgradeModal}
+                                className={`text-center px-4 py-2 text-[13px] h-[32px] transition-colors ${userType}-bg hover:brightness-90 text-white rounded-[6px] font-[500] border-none shadow-sm cursor-pointer`}
+                              >
+                                Upgrade Plan
+                              </button>
                             )}
                           </div>
-                          <div>
+                        )}
+                        <div className="grid-cols-1 md:grid-cols-3 gap-6 !hidden">
+                          <div className="">
+                            <div ref={wrapperRef} className="relative w-full">
+                              <label
+                                htmlFor="bgcolor"
+                                className="block text-sm font-medium text-gray-700"
+                              >
+                                Primary Color
+                              </label>
+
+                              {/* Box + Input side by side */}
+                              <div className="flex items-center gap-3 mt-2">
+                                {/* Color preview box */}
+                                <div
+                                  className="w-8 h-8 border border-gray-400 rounded"
+                                  style={{
+                                    backgroundColor: `#${formData.background || "ffffff"}`,
+                                  }}
+                                />
+
+                                {/* Input wrapper */}
+                                <div className="relative flex-1">
+                                  <span
+                                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-700"
+                                    style={{
+                                      color: `#${formData.background || ""}`,
+                                    }}
+                                  >
+                                    #
+                                  </span>
+
+                                  <Input
+                                    id="bgcolor"
+                                    value={formData.background}
+                                    onFocus={() => setOpenColorPicker(true)}
+                                    onClick={() => setOpenColorPicker(true)}
+                                    onChange={(e) => {
+                                      const value = e.target.value
+                                        .replace(/[^0-9a-fA-F]/g, "")
+                                        .slice(0, 6);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        background: value,
+                                      }));
+                                    }}
+                                    className="pl-6 pr-4 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB]"
+                                    maxLength={6}
+                                    style={{
+                                      color: `#${formData.background || ""}`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {openColorPicker && (
+                                <div className="absolute z-10 mt-2 rounded shadow-md border border-gray-300 bg-white p-3">
+                                  <HexColorPicker
+                                    className="!w-[175px]"
+                                    color={`#${formData.background}`}
+                                    onChange={(newColor) =>
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        background: newColor.replace(/^#/, ""),
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="mt-4 w-full">
+                                <label className="text-[#666666]">Logo</label>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                  {/* Preview */}
+                                  <div className="flex h-[128px] items-end gap-x-[6px]">
+                                    <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
+                                      {logoPreview && (
+                                        <Image
+                                          unoptimized
+                                          src={logoPreview}
+                                          alt="Logo Preview"
+                                          width={193}
+                                          height={128}
+                                          className="object-cover w-full h-full"
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Button */}
+                                  <div className="flex flex-1 w-full">
+                                    <div className="flex flex-col gap-3 justify-between w-full self-center">
+                                      <div>
+                                        <button
+                                          type="button"
+                                          onClick={triggerLogoInput}
+                                          className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
+                                        >
+                                          Choose Image
+                                        </button>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        accept="image/png, image/jpeg"
+                                        ref={logoInputRef}
+                                        onChange={handleLogoChange}
+                                        className="hidden"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="">
+                            <div>
+                              <label htmlFor="">Template</label>
+                              <Select
+                                value={selectedTemplate}
+                                onValueChange={handleTemplateChange}
+                              >
+                                <SelectTrigger className="w-full h-[52px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                  <SelectValue placeholder="Select Template" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {/* Listing Flyers */}
+                                  <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100">
+                                    Listing Flyers
+                                  </div>
+                                  {templateImages
+                                    .filter(
+                                      (template) => template.type === "listing",
+                                    )
+                                    .map((template) => {
+                                      const thumb = getThumbnailUrls(
+                                        template.id,
+                                      )[0];
+                                      const label = getTemplateLabel(
+                                        template.id,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={template.id}
+                                          value={template.id}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            {thumb && (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={thumb}
+                                                alt={label}
+                                                className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
+                                              />
+                                            )}
+                                            <span className="font-medium text-sm text-gray-800">
+                                              {label}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+
+                                  {/* Tabloid Sheets */}
+                                  <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
+                                    Tabloid Sheets
+                                  </div>
+                                  {templateImages
+                                    .filter(
+                                      (template) => template.type === "tabloid",
+                                    )
+                                    .map((template) => {
+                                      const thumb = getThumbnailUrls(
+                                        template.id,
+                                      )[0];
+                                      const label = getTemplateLabel(
+                                        template.id,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={template.id}
+                                          value={template.id}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            {thumb && (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={thumb}
+                                                alt={label}
+                                                className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
+                                              />
+                                            )}
+                                            <span className="font-medium text-sm text-gray-800">
+                                              {label}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+
+                                  {/* Uploaded Sheets */}
+                                  {uploadedPdfs.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
+                                        Uploaded Sheets
+                                      </div>
+                                      {uploadedPdfs.map((pdf) => (
+                                        <SelectItem
+                                          key={pdf.name}
+                                          value={pdf.name}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-7 h-9 bg-red-50 border border-red-200 rounded flex items-center justify-center text-[10px] font-bold text-red-600 shrink-0 shadow-sm">
+                                              PDF
+                                            </div>
+                                            <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
+                                              {pdf.name}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <div className="mt-4 w-full">
-                              <label className="text-[#666666]">Logo</label>
-                              <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Preview */}
-                                <div className="flex h-[128px] items-end gap-x-[6px]">
-                                  <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
-                                    {logoPreview && (
+                              <label className="text-[#666666]">
+                                Realtor Image
+                              </label>
+                              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                                {/* Circle Preview */}
+                                <div className="flex items-center gap-x-[6px]">
+                                  <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
+                                    {realtorPreview && (
                                       <Image
                                         unoptimized
-                                        src={logoPreview}
-                                        alt="Logo Preview"
-                                        width={193}
-                                        height={128}
-                                        className="object-cover w-full h-full"
+                                        src={realtorPreview}
+                                        alt="Realtor Preview"
+                                        width={62}
+                                        height={62}
+                                        className="object-cover w-full h-full rounded-full"
                                       />
                                     )}
                                   </div>
@@ -1571,7 +1888,7 @@ const CreateFeatureSheet = forwardRef<
                                     <div>
                                       <button
                                         type="button"
-                                        onClick={triggerLogoInput}
+                                        onClick={triggerRealtorInput}
                                         className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
                                       >
                                         Choose Image
@@ -1580,8 +1897,8 @@ const CreateFeatureSheet = forwardRef<
                                     <input
                                       type="file"
                                       accept="image/png, image/jpeg"
-                                      ref={logoInputRef}
-                                      onChange={handleLogoChange}
+                                      ref={realtorInputRef}
+                                      onChange={handleRealtorChange}
                                       className="hidden"
                                     />
                                   </div>
@@ -1589,425 +1906,301 @@ const CreateFeatureSheet = forwardRef<
                               </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="">
                           <div>
-                            <label htmlFor="">Template</label>
-                            <Select
-                              value={selectedTemplate}
-                              onValueChange={handleTemplateChange}
-                            >
-                              <SelectTrigger className="w-full h-[52px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                <SelectValue placeholder="Select Template" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {/* Listing Flyers */}
-                                <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100">
-                                  Listing Flyers
-                                </div>
-                                {templateImages
-                                  .filter(
-                                    (template) => template.type === "listing",
-                                  )
-                                  .map((template) => {
-                                    const thumb = getThumbnailUrls(
-                                      template.id,
-                                    )[0];
-                                    const label = getTemplateLabel(template.id);
-                                    return (
-                                      <SelectItem
-                                        key={template.id}
-                                        value={template.id}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          {thumb && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={thumb}
-                                              alt={label}
-                                              className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
-                                            />
-                                          )}
-                                          <span className="font-medium text-sm text-gray-800">
-                                            {label}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-
-                                {/* Tabloid Sheets */}
-                                <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
-                                  Tabloid Sheets
-                                </div>
-                                {templateImages
-                                  .filter(
-                                    (template) => template.type === "tabloid",
-                                  )
-                                  .map((template) => {
-                                    const thumb = getThumbnailUrls(
-                                      template.id,
-                                    )[0];
-                                    const label = getTemplateLabel(template.id);
-                                    return (
-                                      <SelectItem
-                                        key={template.id}
-                                        value={template.id}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          {thumb && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={thumb}
-                                              alt={label}
-                                              className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
-                                            />
-                                          )}
-                                          <span className="font-medium text-sm text-gray-800">
-                                            {label}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-
-                                {/* Uploaded Sheets */}
-                                {uploadedPdfs.length > 0 && (
-                                  <>
-                                    <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
-                                      Uploaded Sheets
-                                    </div>
-                                    {uploadedPdfs.map((pdf) => (
-                                      <SelectItem
-                                        key={pdf.name}
-                                        value={pdf.name}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-9 bg-red-50 border border-red-200 rounded flex items-center justify-center text-[10px] font-bold text-red-600 shrink-0 shadow-sm">
-                                            PDF
-                                          </div>
-                                          <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
-                                            {pdf.name}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="mt-4 w-full">
-                            <label className="text-[#666666]">
-                              Realtor Image
-                            </label>
-                            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                              {/* Circle Preview */}
-                              <div className="flex items-center gap-x-[6px]">
-                                <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
-                                  {realtorPreview && (
-                                    <Image
-                                      unoptimized
-                                      src={realtorPreview}
-                                      alt="Realtor Preview"
-                                      width={62}
-                                      height={62}
-                                      className="object-cover w-full h-full rounded-full"
-                                    />
-                                  )}
-                                </div>
+                            <div className="space-y-4 mt-4">
+                              {/* Email Link */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Email Link
+                                </label>
+                                <input
+                                  type="email"
+                                  value={email}
+                                  onChange={(e) => setEmail(e.target.value)}
+                                  placeholder="email@gmail.com"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
                               </div>
 
-                              {/* Button */}
-                              <div className="flex flex-1 w-full">
-                                <div className="flex flex-col gap-3 justify-between w-full self-center">
-                                  <div>
-                                    <button
-                                      type="button"
-                                      onClick={triggerRealtorInput}
-                                      className="px-4 py-2 bg-[#E4E4E4] text-base font-normal w-[156px] h-full rounded-[6px] text-[#666666] border border-[#A8A8A8]"
-                                    >
-                                      Choose Image
-                                    </button>
-                                  </div>
-                                  <input
-                                    type="file"
-                                    accept="image/png, image/jpeg"
-                                    ref={realtorInputRef}
-                                    onChange={handleRealtorChange}
-                                    className="hidden"
-                                  />
-                                </div>
+                              {/* LinkedIn Link */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  LinkedIn Link
+                                </label>
+                                <input
+                                  type="url"
+                                  value={linkedin}
+                                  onChange={(e) => setLinkedin(e.target.value)}
+                                  placeholder="linkedin.com/in/yourname"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
+                              </div>
+
+                              {/* Phone Number */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Phone Number
+                                </label>
+                                <input
+                                  type="tel"
+                                  value={phone}
+                                  onChange={(e) => setPhone(e.target.value)}
+                                  placeholder="123-123-1234"
+                                  className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
+                                />
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div>
-                          <div className="space-y-4 mt-4">
-                            {/* Email Link */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                Email Link
-                              </label>
-                              <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="email@gmail.com"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-
-                            {/* LinkedIn Link */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                LinkedIn Link
-                              </label>
-                              <input
-                                type="url"
-                                value={linkedin}
-                                onChange={(e) => setLinkedin(e.target.value)}
-                                placeholder="linkedin.com/in/yourname"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-
-                            {/* Phone Number */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                Phone Number
-                              </label>
-                              <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="123-123-1234"
-                                className="pl-2 pr-2 w-full h-[42px] bg-[#E4E4E4] border border-[#BBBBBB] text-black rounded-md placeholder:text-[#7D7D7D]"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex w-full flex-col">
-                        <div className="mb-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTemplate("");
-                              setSelectedSheetUuid(null);
-                              updateFormData({
-                                ...initialFormData,
-                                avatar_url: orderData?.agent.avatar_url || "",
-                                AvatarfileName: orderData?.agent.avatar || "",
-                                images: {},
-                                imageScales: {},
-                                imagePositions: {},
-                                imageRotations: {},
-                                fieldPositions: {},
-                                deletedDetailFields: [],
-                                deletedStandardFieldIds: [],
-                              });
-                            }}
-                            className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] w-full sm:w-[20%] transition-colors border-2 ${userType}-border ${userType}-bg text-white rounded-[6px] font-[500] hover:opacity-80`}
-                          >
-                            ← Back
-                          </button>
-                        </div>
-                        <div className="flex w-full">
-                          <div className="w-full sm:w-[20%]">
-                            <label htmlFor="">Template</label>
-                            <Select
-                              value={selectedTemplate}
-                              onValueChange={handleTemplateChange}
-                            >
-                              <SelectTrigger className="w-full h-[52px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                <SelectValue placeholder="Select Template" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {/* Listing Flyers */}
-                                <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100">
-                                  Listing Flyers
-                                </div>
-                                {templateImages
-                                  .filter(
-                                    (template) => template.type === "listing",
-                                  )
-                                  .map((template) => {
-                                    const thumb = getThumbnailUrls(
-                                      template.id,
-                                    )[0];
-                                    const label = getTemplateLabel(template.id);
-                                    return (
-                                      <SelectItem
-                                        key={template.id}
-                                        value={template.id}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          {thumb && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={thumb}
-                                              alt={label}
-                                              className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
-                                            />
-                                          )}
-                                          <span className="font-medium text-sm text-gray-800">
-                                            {label}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-
-                                {/* Tabloid Sheets */}
-                                <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
-                                  Tabloid Sheets
-                                </div>
-                                {templateImages
-                                  .filter(
-                                    (template) => template.type === "tabloid",
-                                  )
-                                  .map((template) => {
-                                    const thumb = getThumbnailUrls(
-                                      template.id,
-                                    )[0];
-                                    const label = getTemplateLabel(template.id);
-                                    return (
-                                      <SelectItem
-                                        key={template.id}
-                                        value={template.id}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          {thumb && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={thumb}
-                                              alt={label}
-                                              className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
-                                            />
-                                          )}
-                                          <span className="font-medium text-sm text-gray-800">
-                                            {label}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-
-                                {/* Uploaded Sheets */}
-                                {uploadedPdfs.length > 0 && (
-                                  <>
-                                    <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
-                                      Uploaded Sheets
-                                    </div>
-                                    {uploadedPdfs.map((pdf) => (
-                                      <SelectItem
-                                        key={pdf.name}
-                                        value={pdf.name}
-                                        className="cursor-pointer py-1.5"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-9 bg-red-50 border border-red-200 rounded flex items-center justify-center text-[10px] font-bold text-red-600 shrink-0 shadow-sm">
-                                            PDF
-                                          </div>
-                                          <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
-                                            {pdf.name}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-
-              <AccordionItem
-                value="FeatureSheetPreview"
-                className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB] relative z-[55]"
-              >
-                <AccordionTrigger
-                  className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
-                >
-                  <div className="flex items-center justify-between w-full pr-4">
-                    <span className="flex items-center gap-2">
-                      Feature Sheet Preview
-                    </span>
-                    {!isReadonly && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-2.5 normal-case tracking-normal"
-                      >
-                        {/* Save Feature Sheet button */}
-                        <button
-                          type="button"
-                          disabled={isSaving}
-                          onClick={handleSaveFeatureSheet}
-                          className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
-                        >
-                          {isSaving ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Save Sheet"
-                          )}
-                        </button>
-
-                        {/* Download PDF Dropdown */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                        <div className="flex w-full flex-col">
+                          <div className="mb-4">
                             <button
                               type="button"
-                              disabled={isDownloading}
-                              className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                              onClick={() => {
+                                setSelectedTemplate("");
+                                setSelectedSheetUuid(null);
+                                updateFormData({
+                                  ...initialFormData,
+                                  avatar_url: orderData?.agent.avatar_url || "",
+                                  AvatarfileName: orderData?.agent.avatar || "",
+                                  images: {},
+                                  imageScales: {},
+                                  imagePositions: {},
+                                  imageRotations: {},
+                                  fieldPositions: {},
+                                  deletedDetailFields: [],
+                                  deletedStandardFieldIds: [],
+                                });
+                              }}
+                              className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] w-full sm:w-[20%] transition-colors border-2 ${userType}-border ${userType}-bg text-white rounded-[6px] font-[500] hover:opacity-80`}
                             >
-                              {isDownloading ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Processing...
-                                </>
-                              ) : (
-                                "Download PDF"
-                              )}
+                              ← Back
                             </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-[220px]"
-                          >
-                            <DropdownMenuItem
-                              onClick={() => handleDownload(false, false)}
-                              className="cursor-pointer"
-                            >
-                              Download (No Bleed)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDownload(true, false)}
-                              className="cursor-pointer"
-                            >
-                              Download (With Bleed)
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                          </div>
+                          <div className="flex w-full">
+                            <div className="w-full sm:w-[20%]">
+                              <label htmlFor="">Template</label>
+                              <Select
+                                value={selectedTemplate}
+                                onValueChange={handleTemplateChange}
+                              >
+                                <SelectTrigger className="w-full h-[52px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                  <SelectValue placeholder="Select Template" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {/* Listing Flyers */}
+                                  <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100">
+                                    Listing Flyers
+                                  </div>
+                                  {templateImages
+                                    .filter(
+                                      (template) => template.type === "listing",
+                                    )
+                                    .map((template) => {
+                                      const thumb = getThumbnailUrls(
+                                        template.id,
+                                      )[0];
+                                      const label = getTemplateLabel(
+                                        template.id,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={template.id}
+                                          value={template.id}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            {thumb && (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={thumb}
+                                                alt={label}
+                                                className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
+                                              />
+                                            )}
+                                            <span className="font-medium text-sm text-gray-800">
+                                              {label}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+
+                                  {/* Tabloid Sheets */}
+                                  <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
+                                    Tabloid Sheets
+                                  </div>
+                                  {templateImages
+                                    .filter(
+                                      (template) => template.type === "tabloid",
+                                    )
+                                    .map((template) => {
+                                      const thumb = getThumbnailUrls(
+                                        template.id,
+                                      )[0];
+                                      const label = getTemplateLabel(
+                                        template.id,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={template.id}
+                                          value={template.id}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            {thumb && (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={thumb}
+                                                alt={label}
+                                                className="w-7 h-9 object-cover rounded border border-gray-200 shrink-0 bg-gray-100 shadow-sm"
+                                              />
+                                            )}
+                                            <span className="font-medium text-sm text-gray-800">
+                                              {label}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+
+                                  {/* Uploaded Sheets */}
+                                  {uploadedPdfs.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
+                                        Uploaded Sheets
+                                      </div>
+                                      {uploadedPdfs.map((pdf) => (
+                                        <SelectItem
+                                          key={pdf.name}
+                                          value={pdf.name}
+                                          className="cursor-pointer py-1.5"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-7 h-9 bg-red-50 border border-red-200 rounded flex items-center justify-center text-[10px] font-bold text-red-600 shrink-0 shadow-sm">
+                                              PDF
+                                            </div>
+                                            <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
+                                              {pdf.name}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
-                  <style>{`
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                <AccordionItem
+                  value="FeatureSheetPreview"
+                  className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB] relative z-[55]"
+                >
+                  <AccordionTrigger
+                    className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
+                  >
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <span className="flex items-center gap-2">
+                        Feature Sheet Preview
+                      </span>
+                      {!isReadonly && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2.5 normal-case tracking-normal"
+                        >
+                          {/* Save Feature Sheet button */}
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={handleSaveFeatureSheet}
+                            className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              "Save Sheet"
+                            )}
+                          </button>
+
+                          {/* Download PDF Dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={isDownloading}
+                                className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  "Download PDF"
+                                )}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-[220px]"
+                            >
+                              <DropdownMenuItem
+                                onClick={() => handleDownload(false, false)}
+                                className="cursor-pointer"
+                              >
+                                Download (No Bleed)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDownload(true, false)}
+                                className="cursor-pointer"
+                              >
+                                Download (With Bleed)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {/* Publish Check Toggle */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTogglePublish(!isPublished);
+                            }}
+                            className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-[13px] h-[32px] font-semibold rounded-[6px] border transition-all ${
+                              isPublished
+                                ? "bg-cyan-50 text-cyan-700 border-cyan-300 hover:bg-cyan-100 shadow-2xs"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                            title="Toggle publish status for public tour"
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                isPublished
+                                  ? "bg-cyan-500 animate-pulse"
+                                  : "bg-gray-400"
+                              }`}
+                            />
+                            <span>
+                              {isPublished
+                                ? "Published in Tour"
+                                : "Publish to Tour"}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
+                    <style>{`
                       .pdf-page {
                         scroll-margin-top: 140px;
                       }
@@ -2044,605 +2237,616 @@ const CreateFeatureSheet = forwardRef<
                         pointer-events: none !important;
                       }
                     `}</style>
-                  <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
-                    {/* Sticky Header Toolbar Container */}
-                    <div className="sticky top-[60px] z-[50] pointer-events-none">
-                      <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none pointer-events-auto">
-                        {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
-                        <div className="flex items-center gap-3 shrink-0">
-                          {!isReadonly && (
-                            <>
-                              {/* Segmented Mode Switcher */}
-                              <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewMode("edit")}
-                                  className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                                    previewMode === "edit"
-                                      ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                      : "text-gray-500 hover:text-gray-800"
-                                  }`}
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5 text-blue-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                    <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
+                      {/* Sticky Header Toolbar Container */}
+                      <div className="sticky top-[60px] z-[50] pointer-events-none">
+                        <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none pointer-events-auto">
+                          {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
+                          <div className="flex items-center gap-3 shrink-0">
+                            {!isReadonly && (
+                              <>
+                                {/* Segmented Mode Switcher */}
+                                <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewMode("edit")}
+                                    className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                      previewMode === "edit"
+                                        ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                        : "text-gray-500 hover:text-gray-800"
+                                    }`}
                                   >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                    />
-                                  </svg>
-                                  Editable
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPreviewMode("preview");
-                                    setTimeout(() => {
-                                      if (previewContainerRef.current) {
-                                        const el = previewContainerRef.current;
-                                        el.scrollLeft =
-                                          (el.scrollWidth - el.clientWidth) / 2;
-                                        el.scrollTop = 0;
-                                      }
-                                    }, 50);
-                                  }}
-                                  className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                                    previewMode === "preview"
-                                      ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
-                                      : "text-gray-500 hover:text-gray-800"
-                                  }`}
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5 text-emerald-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                                    <svg
+                                      className="w-3.5 h-3.5 text-blue-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                      />
+                                    </svg>
+                                    Editable
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewMode("preview");
+                                      setTimeout(() => {
+                                        if (previewContainerRef.current) {
+                                          const el =
+                                            previewContainerRef.current;
+                                          el.scrollLeft =
+                                            (el.scrollWidth - el.clientWidth) /
+                                            2;
+                                          el.scrollTop = 0;
+                                        }
+                                      }, 50);
+                                    }}
+                                    className={`px-3 py-1.5 font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                                      previewMode === "preview"
+                                        ? "bg-white text-gray-900 shadow-xs border border-gray-200/80 font-semibold"
+                                        : "text-gray-500 hover:text-gray-800"
+                                    }`}
                                   >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                    />
-                                  </svg>
-                                  Read-Only
-                                </button>
-                              </div>
-
-                              {/* Pan & Zoom Hint */}
-                              {previewMode === "edit" && (
-                                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
-                                  <span>💡</span>
-                                  <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
-                                    Alt
-                                  </kbd>
-                                  <span>+ Drag to Pan</span>
-                                  <span className="text-amber-300">|</span>
-                                  <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
-                                    Ctrl
-                                  </kbd>
-                                  <span>+ Scroll to Zoom</span>
+                                    <svg
+                                      className="w-3.5 h-3.5 text-emerald-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                      />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                      />
+                                    </svg>
+                                    Read-Only
+                                  </button>
                                 </div>
-                              )}
-                            </>
-                          )}
-                        </div>
 
-                        {/* Center Group: Page Navigation */}
-                        <div
-                          className="flex items-center gap-2 shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (currentPreviewPage > 1)
-                                scrollToPage(currentPreviewPage - 1);
-                            }}
-                            disabled={currentPreviewPage <= 1}
-                            className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
-                              currentPreviewPage <= 1
-                                ? "opacity-40 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                          >
-                            Previous
-                          </button>
-                          <span className="text-xs font-semibold text-gray-600 px-1 min-w-[75px] text-center select-none">
-                            Page {currentPreviewPage} of {numPdfPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (currentPreviewPage < numPdfPages)
-                                scrollToPage(currentPreviewPage + 1);
-                            }}
-                            disabled={currentPreviewPage >= numPdfPages}
-                            className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
-                              currentPreviewPage >= numPdfPages
-                                ? "opacity-40 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                          >
-                            Next
-                          </button>
-                        </div>
+                                {/* Pan & Zoom Hint */}
+                                {previewMode === "edit" && (
+                                  <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
+                                    <span>💡</span>
+                                    <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                      Alt
+                                    </kbd>
+                                    <span>+ Drag to Pan</span>
+                                    <span className="text-amber-300">|</span>
+                                    <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                      Ctrl
+                                    </kbd>
+                                    <span>+ Scroll to Zoom</span>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
 
-                        {/* Right Group: Zoom Controls & Guideline / Bleed Toggles */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* Zoom Control Group */}
-                          <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                          {/* Center Group: Page Navigation */}
+                          <div
+                            className="flex items-center gap-2 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
-                              onClick={() =>
-                                setPreviewZoom((z) =>
-                                  Math.max(0.25, Number((z - 0.1).toFixed(2))),
-                                )
-                              }
-                              className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
-                              title="Zoom Out"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (currentPreviewPage > 1)
+                                  scrollToPage(currentPreviewPage - 1);
+                              }}
+                              disabled={currentPreviewPage <= 1}
+                              className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
+                                currentPreviewPage <= 1
+                                  ? "opacity-40 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
                             >
-                              -
+                              Previous
                             </button>
-                            <span className="font-semibold text-gray-700 w-11 text-center select-none text-[11px]">
-                              {Math.round(previewZoom * 100)}%
+                            <span className="text-xs font-semibold text-gray-600 px-1 min-w-[75px] text-center select-none">
+                              Page {currentPreviewPage} of {numPdfPages}
                             </span>
                             <button
                               type="button"
-                              onClick={() =>
-                                setPreviewZoom((z) =>
-                                  Math.min(3.0, Number((z + 0.1).toFixed(2))),
-                                )
-                              }
-                              className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
-                              title="Zoom In"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (currentPreviewPage < numPdfPages)
+                                  scrollToPage(currentPreviewPage + 1);
+                              }}
+                              disabled={currentPreviewPage >= numPdfPages}
+                              className={`px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-2xs ${
+                                currentPreviewPage >= numPdfPages
+                                  ? "opacity-40 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
                             >
-                              +
+                              Next
                             </button>
-                            <select
-                              value={
-                                [
+                          </div>
+
+                          {/* Right Group: Zoom Controls & Guideline / Bleed Toggles */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Zoom Control Group */}
+                            <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewZoom((z) =>
+                                    Math.max(
+                                      0.25,
+                                      Number((z - 0.1).toFixed(2)),
+                                    ),
+                                  )
+                                }
+                                className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
+                                title="Zoom Out"
+                              >
+                                -
+                              </button>
+                              <span className="font-semibold text-gray-700 w-11 text-center select-none text-[11px]">
+                                {Math.round(previewZoom * 100)}%
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewZoom((z) =>
+                                    Math.min(3.0, Number((z + 0.1).toFixed(2))),
+                                  )
+                                }
+                                className="w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 font-medium shadow-2xs transition-colors"
+                                title="Zoom In"
+                              >
+                                +
+                              </button>
+                              <select
+                                value={
+                                  [
+                                    0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5,
+                                    3.0,
+                                  ].includes(previewZoom)
+                                    ? previewZoom
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  if (e.target.value)
+                                    setPreviewZoom(parseFloat(e.target.value));
+                                }}
+                                className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                              >
+                                {![
                                   0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5,
                                   3.0,
-                                ].includes(previewZoom)
-                                  ? previewZoom
-                                  : ""
-                              }
-                              onChange={(e) => {
-                                if (e.target.value)
-                                  setPreviewZoom(parseFloat(e.target.value));
-                              }}
-                              className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                            >
-                              {![
-                                0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0,
-                              ].includes(previewZoom) && (
-                                <option value="">
-                                  {Math.round(previewZoom * 100)}%
-                                </option>
-                              )}
-                              <option value={0.25}>25%</option>
-                              <option value={0.5}>50%</option>
-                              <option value={0.75}>75%</option>
-                              <option value={1.0}>100%</option>
-                              <option value={1.25}>125%</option>
-                              <option value={1.5}>150%</option>
-                              <option value={2.0}>200%</option>
-                              <option value={2.5}>250%</option>
-                              <option value={3.0}>300%</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={resetPanAndZoom}
-                              className="p-1 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center transition-colors shadow-2xs"
-                              title="Reset View (100%)"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
+                                ].includes(previewZoom) && (
+                                  <option value="">
+                                    {Math.round(previewZoom * 100)}%
+                                  </option>
+                                )}
+                                <option value={0.25}>25%</option>
+                                <option value={0.5}>50%</option>
+                                <option value={0.75}>75%</option>
+                                <option value={1.0}>100%</option>
+                                <option value={1.25}>125%</option>
+                                <option value={1.5}>150%</option>
+                                <option value={2.0}>200%</option>
+                                <option value={2.5}>250%</option>
+                                <option value={3.0}>300%</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={resetPanAndZoom}
+                                className="p-1 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center transition-colors shadow-2xs"
+                                title="Reset View (100%)"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {!isReadonly && (
+                              <>
+                                {/* Divider */}
+                                <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+                                {/* Guidelines Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setShowGuide((prev) => !prev)}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                    showGuide
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                                  }`}
+                                  title="Toggle Guideline Borders"
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
+                                      strokeDasharray="3 3"
+                                    />
+                                  </svg>
+                                  <span>Guidelines</span>
+                                </button>
+
+                                {/* Bleed Area Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setShowBleed((prev) => !prev)}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                                    showBleed
+                                      ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
+                                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
+                                  }`}
+                                  title="Toggle Bleed Area"
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
+                                    />
+                                  </svg>
+                                  <span>Bleed Area</span>
+                                </button>
+                              </>
+                            )}
                           </div>
-
-                          {!isReadonly && (
-                            <>
-                              {/* Divider */}
-                              <div className="w-px h-5 bg-gray-200 mx-0.5" />
-
-                              {/* Guidelines Toggle */}
-                              <button
-                                type="button"
-                                onClick={() => setShowGuide((prev) => !prev)}
-                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                                  showGuide
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                                }`}
-                                title="Toggle Guideline Borders"
-                              >
-                                <svg
-                                  className="w-3.5 h-3.5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
-                                    strokeDasharray="3 3"
-                                  />
-                                </svg>
-                                <span>Guidelines</span>
-                              </button>
-
-                              {/* Bleed Area Toggle */}
-                              <button
-                                type="button"
-                                onClick={() => setShowBleed((prev) => !prev)}
-                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
-                                  showBleed
-                                    ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
-                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-800"
-                                }`}
-                                title="Toggle Bleed Area"
-                              >
-                                <svg
-                                  className="w-3.5 h-3.5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
-                                  />
-                                </svg>
-                                <span>Bleed Area</span>
-                              </button>
-                            </>
-                          )}
                         </div>
+
+                        {/* Deleted Fields Floating Button (attached 30px below the header, scrolls with header) */}
+                        {!isReadonly && (
+                          <div className="absolute top-[calc(100%+30px)] left-6 pointer-events-auto z-[999]">
+                            <DeletedFieldsPanel
+                              deletedFields={formData.deletedDetailFields || []}
+                              onRestore={(id) =>
+                                restoreDetailFieldHandler?.(id)
+                              }
+                              onRestoreAll={() =>
+                                restoreAllDetailFieldsHandler?.()
+                              }
+                              userType={userType as string}
+                            />
+                          </div>
+                        )}
                       </div>
-
-                      {/* Deleted Fields Floating Button (attached 30px below the header, scrolls with header) */}
-                      {!isReadonly && (
-                        <div className="absolute top-[calc(100%+30px)] left-6 pointer-events-auto z-[999]">
-                          <DeletedFieldsPanel
-                            deletedFields={formData.deletedDetailFields || []}
-                            onRestore={(id) => restoreDetailFieldHandler?.(id)}
-                            onRestoreAll={() =>
-                              restoreAllDetailFieldsHandler?.()
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      ref={previewContainerRef}
-                      onMouseDown={handlePanMouseDown}
-                      onMouseMove={handlePanMouseMove}
-                      onMouseUp={handlePanMouseUp}
-                      onMouseLeave={handlePanMouseUp}
-                      className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
-                        isPanning
-                          ? "cursor-grabbing select-none"
-                          : previewMode === "preview"
-                            ? "cursor-grab select-none"
-                            : ""
-                      }`}
-                    >
 
                       <div
-                        className={`relative flex flex-col items-center justify-center ${
+                        ref={previewContainerRef}
+                        onMouseDown={handlePanMouseDown}
+                        onMouseMove={handlePanMouseMove}
+                        onMouseUp={handlePanMouseUp}
+                        onMouseLeave={handlePanMouseUp}
+                        className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
                           isPanning
-                            ? "transition-none"
-                            : "transition-transform duration-75"
-                        } mx-auto min-w-full w-max`}
-                        style={{
-                          transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
-                          transformOrigin: "top center",
-                        }}
+                            ? "cursor-grabbing select-none"
+                            : previewMode === "preview"
+                              ? "cursor-grab select-none"
+                              : ""
+                        }`}
                       >
                         <div
-                          id="pdf-section"
-                          ref={pdfSectionRef}
-                          style={pdfSectionStyle}
-                          className={`flex flex-col items-center justify-center ${
-                            previewMode === "preview"
-                              ? "pointer-events-none select-none tabloid-preview-un-editable"
-                              : ""
-                          }`}
+                          className={`relative flex flex-col items-center justify-center ${
+                            isPanning
+                              ? "transition-none"
+                              : "transition-transform duration-75"
+                          } mx-auto min-w-full w-max`}
+                          style={{
+                            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
+                            transformOrigin: "top center",
+                          }}
                         >
-                          {selectedTemplate === "BCFPStandard" && (
-                            <BcfpStandard
-                              key={selectedSheetUuid || "new-BCFPStandard"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
-                          {selectedTemplate === "BCFPStandard2" && (
-                            <BcfpStandard2
-                              key={selectedSheetUuid || "new-BCFPStandard2"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard3" && (
-                            <BcfpStandard3
-                              key={selectedSheetUuid || "new-BCFPStandard3"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard4" && (
-                            <BcfpStandard4
-                              key={selectedSheetUuid || "new-BCFPStandard4"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
-                          {selectedTemplate === "BCFPStandard6" && (
-                            <BcfpStandard6
-                              key={selectedSheetUuid || "new-BCFPStandard6"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard7" && (
-                            <BcfpStandard7
-                              key={selectedSheetUuid || "new-BCFPStandard7"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard8" && (
-                            <BcfpStandard8
-                              key={selectedSheetUuid || "new-BCFPStandard8"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard9" && (
-                            <BcfpStandard9
-                              key={selectedSheetUuid || "new-BCFPStandard9"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard10" && (
-                            <BcfpStandard10
-                              key={selectedSheetUuid || "new-BCFPStandard10"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard11" && (
-                            <BcfpStandard11
-                              key={selectedSheetUuid || "new-BCFPStandard11"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard12" && (
-                            <BcfpStandard12
-                              key={selectedSheetUuid || "new-BCFPStandard12"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard13" && (
-                            <BcfpStandard13
-                              key={selectedSheetUuid || "new-BCFPStandard13"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard14" && (
-                            <BcfpStandard14
-                              key={selectedSheetUuid || "new-BCFPStandard14"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard15" && (
-                            <BcfpStandard15
-                              key={selectedSheetUuid || "new-BCFPStandard15"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard16" && (
-                            <BcfpStandard16
-                              key={selectedSheetUuid || "new-BCFPStandard16"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard17" && (
-                            <BcfpStandard17
-                              key={selectedSheetUuid || "new-BCFPStandard17"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                              showBleed={showBleed}
-                              showGuide={showGuide}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard18" && (
-                            <BcfpStandard18
-                              key={selectedSheetUuid || "new-BCFPStandard18"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard19" && (
-                            <BcfpStandard19
-                              key={selectedSheetUuid || "new-BCFPStandard19"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard20" && (
-                            <BcfpStandard20
-                              key={selectedSheetUuid || "new-BCFPStandard20"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard21" && (
-                            <BcfpStandard21
-                              key={selectedSheetUuid || "new-BCFPStandard21"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard22" && (
-                            <BcfpStandard22
-                              key={selectedSheetUuid || "new-BCFPStandard22"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard23" && (
-                            <BcfpStandard23
-                              key={selectedSheetUuid || "new-BCFPStandard23"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
-                          {selectedTemplate === "BCFPStandard24" && (
-                            <BcfpStandard24
-                              key={selectedSheetUuid || "new-BCFPStandard24"}
-                              ref={activeStandardRef}
-                              orderData={orderData || null}
-                            />
-                          )}
+                          <div
+                            id="pdf-section"
+                            ref={pdfSectionRef}
+                            style={pdfSectionStyle}
+                            className={`flex flex-col items-center justify-center ${
+                              previewMode === "preview"
+                                ? "pointer-events-none select-none tabloid-preview-un-editable"
+                                : ""
+                            }`}
+                          >
+                            {selectedTemplate === "BCFPStandard" && (
+                              <BcfpStandard
+                                key={selectedSheetUuid || "new-BCFPStandard"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
+                            {selectedTemplate === "BCFPStandard2" && (
+                              <BcfpStandard2
+                                key={selectedSheetUuid || "new-BCFPStandard2"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard3" && (
+                              <BcfpStandard3
+                                key={selectedSheetUuid || "new-BCFPStandard3"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard4" && (
+                              <BcfpStandard4
+                                key={selectedSheetUuid || "new-BCFPStandard4"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
+                            {selectedTemplate === "BCFPStandard6" && (
+                              <BcfpStandard6
+                                key={selectedSheetUuid || "new-BCFPStandard6"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard7" && (
+                              <BcfpStandard7
+                                key={selectedSheetUuid || "new-BCFPStandard7"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard8" && (
+                              <BcfpStandard8
+                                key={selectedSheetUuid || "new-BCFPStandard8"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard9" && (
+                              <BcfpStandard9
+                                key={selectedSheetUuid || "new-BCFPStandard9"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard10" && (
+                              <BcfpStandard10
+                                key={selectedSheetUuid || "new-BCFPStandard10"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard11" && (
+                              <BcfpStandard11
+                                key={selectedSheetUuid || "new-BCFPStandard11"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard12" && (
+                              <BcfpStandard12
+                                key={selectedSheetUuid || "new-BCFPStandard12"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard13" && (
+                              <BcfpStandard13
+                                key={selectedSheetUuid || "new-BCFPStandard13"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard14" && (
+                              <BcfpStandard14
+                                key={selectedSheetUuid || "new-BCFPStandard14"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard15" && (
+                              <BcfpStandard15
+                                key={selectedSheetUuid || "new-BCFPStandard15"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard16" && (
+                              <BcfpStandard16
+                                key={selectedSheetUuid || "new-BCFPStandard16"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard17" && (
+                              <BcfpStandard17
+                                key={selectedSheetUuid || "new-BCFPStandard17"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard18" && (
+                              <BcfpStandard18
+                                key={selectedSheetUuid || "new-BCFPStandard18"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard19" && (
+                              <BcfpStandard19
+                                key={selectedSheetUuid || "new-BCFPStandard19"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard20" && (
+                              <BcfpStandard20
+                                key={selectedSheetUuid || "new-BCFPStandard20"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard21" && (
+                              <BcfpStandard21
+                                key={selectedSheetUuid || "new-BCFPStandard21"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard22" && (
+                              <BcfpStandard22
+                                key={selectedSheetUuid || "new-BCFPStandard22"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard23" && (
+                              <BcfpStandard23
+                                key={selectedSheetUuid || "new-BCFPStandard23"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard24" && (
+                              <BcfpStandard24
+                                key={selectedSheetUuid || "new-BCFPStandard24"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {!isReadonly && (
-                      <>
-                        {/* Print Request Drawer */}
-                        <div className="fixed bottom-0 right-0 p-4 border-l border-t border-gray-200 bg-white rounded-tl-lg shadow-lg z-50 hidden">
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-lg text-gray-800">
-                              Print Request
-                            </h3>
+                      {!isReadonly && (
+                        <>
+                          {/* Print Request Drawer */}
+                          <div className="fixed bottom-0 right-0 p-4 border-l border-t border-gray-200 bg-white rounded-tl-lg shadow-lg z-50 hidden">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="font-semibold text-lg text-gray-800">
+                                Print Request
+                              </h3>
+                            </div>
+                            <PrintRequestModal
+                              featureSheetUuid={selectedSheetUuid || ""}
+                              orderUuid={orderData?.uuid || ""}
+                              open={isPrintModalOpen}
+                              onClose={() => setIsPrintModalOpen(false)}
+                            />
                           </div>
-                          <PrintRequestModal
-                            featureSheetUuid={selectedSheetUuid || ""}
-                            orderUuid={orderData?.uuid || ""}
-                            open={isPrintModalOpen}
-                            onClose={() => setIsPrintModalOpen(false)}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </form>
-        )}
-      </div>
+                        </>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </form>
+          )}
+        </div>
 
-      {/* Copy Style Popup */}
-      <CopyStylePopup
-        isOpen={copyStyleOpen}
-        onClose={() => setCopyStyleOpen(false)}
-        onApply={handleApplyStyle}
-        currentSheetUuid={selectedSheetUuid}
-        currentTemplateKey={selectedTemplate}
-      />
-
-      <ConfirmationDialog
-        open={confirmOpen}
-        setOpen={(open) => {
-          setConfirmOpen(open);
-          if (!open) setSheetToDelete(null);
-        }}
-        onConfirm={() => {
-          if (sheetToDelete) handleDeleteFeatureSheet(sheetToDelete);
-        }}
-        showAgain={showAgain}
-        toggleShowAgain={handleToggleShowAgain}
-        dialogType="delete"
-        title="Confirm Deletion"
-        description="Are you sure you want to delete this feature sheet? This action cannot be undone."
-      />
-      <PrintRequestModal
-        open={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
-        featureSheetUuid={selectedSheetUuid}
-        templateKey={selectedTemplate}
-        agentId={
-          orderData?.agent?.uuid ||
-          (userType === "agent" ? userInfo?.uuid : undefined)
-        }
-        propertyId={listingId || orderData?.property?.uuid}
-        tourId={filesData?.uuid || orderData?.tours?.[0]?.uuid}
-        orderUuid={orderData?.uuid}
-        orderData={orderData}
-        onTourCreated={setFilesData}
-        onSaveSheet={handleSaveFeatureSheet}
-        onRequestSuccess={handlePrintRequestSuccess}
-      />
-
-      {isPaymentModalOpen && (
-        <InvoicePaymentDialog
-          open={isPaymentModalOpen}
-          onClose={() => setIsPaymentModalOpen(false)}
-          orderData={orderData}
-          currentService={null}
-          activeTab="feature_sheets"
-          userType={userType}
-          url={typeof window !== "undefined" ? window.location.href : ""}
+        {/* Copy Style Popup */}
+        <CopyStylePopup
+          isOpen={copyStyleOpen}
+          onClose={() => setCopyStyleOpen(false)}
+          onApply={handleApplyStyle}
+          currentSheetUuid={selectedSheetUuid}
+          currentTemplateKey={selectedTemplate}
         />
-      )}
 
-      {isUpgradeModalOpen && (
-        <UpgradeServicePopup
-          open={isUpgradeModalOpen}
-          setOpen={setIsUpgradeModalOpen}
-          currentService={featureSheetsFullService || bookedFeatureSheetsService?.service}
-          currentOption={bookedFeatureSheetsService?.option}
-          orderData={orderData}
-          currentBookedService={bookedFeatureSheetsService || undefined}
-          onSuccess={() => {
-            toast.success("Print plan upgraded successfully!");
-            window.location.reload();
+        <ConfirmationDialog
+          open={confirmOpen}
+          setOpen={(open) => {
+            setConfirmOpen(open);
+            if (!open) setSheetToDelete(null);
           }}
+          onConfirm={() => {
+            if (sheetToDelete) handleDeleteFeatureSheet(sheetToDelete);
+          }}
+          showAgain={showAgain}
+          toggleShowAgain={handleToggleShowAgain}
+          dialogType="delete"
+          title="Confirm Deletion"
+          description="Are you sure you want to delete this feature sheet? This action cannot be undone."
         />
-      )}
-    </>
+        <PrintRequestModal
+          open={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          featureSheetUuid={selectedSheetUuid}
+          templateKey={selectedTemplate}
+          agentId={
+            orderData?.agent?.uuid ||
+            (userType === "agent" ? userInfo?.uuid : undefined)
+          }
+          propertyId={listingId || orderData?.property?.uuid}
+          tourId={filesData?.uuid || orderData?.tours?.[0]?.uuid}
+          orderUuid={orderData?.uuid}
+          orderData={orderData}
+          onTourCreated={setFilesData}
+          onSaveSheet={handleSaveFeatureSheet}
+          onRequestSuccess={handlePrintRequestSuccess}
+        />
+
+        {isPaymentModalOpen && (
+          <InvoicePaymentDialog
+            open={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            orderData={orderData}
+            currentService={null}
+            activeTab="feature_sheets"
+            userType={userType}
+            url={typeof window !== "undefined" ? window.location.href : ""}
+          />
+        )}
+
+        {isUpgradeModalOpen && (
+          <UpgradeServicePopup
+            open={isUpgradeModalOpen}
+            setOpen={setIsUpgradeModalOpen}
+            currentService={
+              featureSheetsFullService || bookedFeatureSheetsService?.service
+            }
+            currentOption={bookedFeatureSheetsService?.option}
+            orderData={orderData}
+            currentBookedService={bookedFeatureSheetsService || undefined}
+            onSuccess={() => {
+              toast.success("Print plan upgraded successfully!");
+              window.location.reload();
+            }}
+          />
+        )}
+      </>
+    </FieldPanelProvider>
   );
 });
 

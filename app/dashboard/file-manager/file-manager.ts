@@ -2014,12 +2014,15 @@ export class FeatureSheetService {
     console.log("[FeatureSheet] uploadFeatureSheet called");
 
     // Step 1: Create the feature sheet record FIRST to get a UUID
-    const createPayload = {
+    const createPayload: Record<string, unknown> = {
       order_uuid: orderUuid,
       type: payload.type,
       uploaded_by: payload.uploaded_by,
       template_key: payload.template_key,
     };
+    if (payload.is_published !== undefined) {
+      createPayload.is_published = payload.is_published;
+    }
 
     const createResponse = await api.post(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
@@ -2057,6 +2060,9 @@ export class FeatureSheetService {
       theme: payload.theme,
       content: payload.content,
     };
+    if (payload.is_published !== undefined) {
+      updatePayload.is_published = payload.is_published;
+    }
 
     if (imageUuids.length > 0) {
       updatePayload.image_uuids = imageUuids;
@@ -2109,6 +2115,9 @@ export class FeatureSheetService {
       theme: payload.theme,
       content: payload.content,
     };
+    if (payload.is_published !== undefined) {
+      apiPayload.is_published = payload.is_published;
+    }
 
     // Only include image_uuids if we actually uploaded new ones
     if (imageUuids.length > 0) {
@@ -2205,16 +2214,29 @@ export class FeatureSheetService {
   async getFeatureSheetsByOrder(
     orderUuid: string,
   ): Promise<FeatureSheetResponse[]> {
-    const response = await api.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
-    );
+    try {
+      const response = await api.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
+      );
 
-    if (response.status !== 200) {
-      throw new Error("Failed to fetch feature sheets for order");
+      if (response.status === 200) {
+        return response.data.data || response.data;
+      }
+    } catch (err) {
+      console.warn("api.get failed for feature sheets by order, attempting fetch fallback:", err);
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
+        );
+        if (res.ok) {
+          const json = await res.json();
+          return json.data || json;
+        }
+      } catch (fetchErr) {
+        console.error("Failed to fetch feature sheets by order fallback:", fetchErr);
+      }
     }
-
-    // Backend returns { data: [...] }
-    return response.data.data || response.data;
+    return [];
   }
 
   /**

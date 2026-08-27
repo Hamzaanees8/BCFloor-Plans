@@ -25,6 +25,8 @@ import {
   AlignVerticalJustifyEnd,
 } from "lucide-react";
 import type { TextStyle } from "../types/featureSheetTypes";
+import { useFieldPanel } from "./FieldPanelContext";
+import { DraggableBoxContext } from "./DraggableBox";
 
 export interface CustomFontOption {
   label: string;
@@ -482,6 +484,16 @@ type StyledInputProps = {
   /** Optional font folder override (e.g. "BcfpStandard6"). If not specified, checks FontFolderContext */
   fontFolder?: string;
   wrapperClassName?: string;
+  /** Unique field identifier used to register this field in FieldPanelContext */
+  fieldId?: string;
+  /** Human-readable label shown in the side panel header */
+  fieldLabel?: string;
+  /** Nudge callback passed from DraggableBox parent — forwarded to the panel */
+  onNudge?: (dx: number, dy: number) => void;
+  /** Delete callback forwarded to the panel */
+  onDelete?: () => void;
+  /** Reset position callback forwarded to the panel */
+  onResetPosition?: () => void;
   [key: string]: any;
 };
 
@@ -632,6 +644,11 @@ export default function StyledInput({
   placeholder,
   fontFolder,
   wrapperClassName,
+  fieldId,
+  fieldLabel,
+  onNudge,
+  onDelete,
+  onResetPosition,
   ...props
 }: StyledInputProps) {
   const contextFontFolder = useContext(FontFolderContext);
@@ -644,6 +661,19 @@ export default function StyledInput({
       )
     : undefined;
   const customFonts = folderConfig?.fonts || [];
+
+  // FieldPanel context – optional; graceful no-op when not inside a provider
+  const fieldPanel = useFieldPanel();
+  // Parent DraggableBox context if wrapped inside one
+  const draggableBox = useContext(DraggableBoxContext);
+  // Panel is "active" for this field when the panel is open and showing THIS field
+  const isPanelActive = !!fieldPanel;
+
+  const effectiveFieldId = fieldId || draggableBox?.id || "field";
+  const effectiveFieldLabel =
+    fieldLabel ||
+    draggableBox?.label ||
+    (draggableBox?.id ? draggableBox.id.charAt(0).toUpperCase() + draggableBox.id.slice(1) : "Text Field");
 
   const [fontWeight, setFontWeight] = useState("font-normal");
   const [fontSize, setFontSize] = useState<string>("16px");
@@ -725,7 +755,6 @@ export default function StyledInput({
   // ─── Sync value from parent ───────────────────────────────────────
   useEffect(() => {
     if (value !== undefined) {
-      // Robustly extract string value if an object {value, style} was passed
       const stringValue =
         typeof value === "string"
           ? value
@@ -778,7 +807,6 @@ export default function StyledInput({
       else if (inputStyle.alignContent === "end") setVerticalAlign("bottom");
       else setVerticalAlign("center");
     }
-    // italic / underline not stored in TextStyle currently — skip
   }, [inputStyle]);
 
   // ─── Helpers ─────────────────────────────────────────────────────
@@ -810,7 +838,6 @@ export default function StyledInput({
         return "Alexandria, sans-serif";
       case "font-raleway":
         return "Raleway, sans-serif";
-      // BcfpStandard4
       case "font-caslon-bold":
         return "ACaslonProBold, serif";
       case "font-caslon-regular":
@@ -821,7 +848,6 @@ export default function StyledInput({
         return "BickhamScriptBold, cursive";
       case "font-bickham-regular":
         return "BickhamScriptRegular, cursive";
-      // BcfpStandard6
       case "font-caslon":
         return "ACaslonPro, serif";
       case "font-bickham":
@@ -902,7 +928,6 @@ export default function StyledInput({
             return "Alexandria, sans-serif";
           case "font-raleway":
             return "Raleway, sans-serif";
-          // BcfpStandard4
           case "font-caslon-bold":
             return "ACaslonProBold, serif";
           case "font-caslon-regular":
@@ -913,7 +938,6 @@ export default function StyledInput({
             return "BickhamScriptBold, cursive";
           case "font-bickham-regular":
             return "BickhamScriptRegular, cursive";
-          // BcfpStandard6
           case "font-caslon":
             return "ACaslonPro, serif";
           case "font-bickham":
@@ -953,7 +977,6 @@ export default function StyledInput({
         alignContent: alignContentStr as any,
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign, verticalAlign],
   );
 
@@ -988,19 +1011,87 @@ export default function StyledInput({
 
   const handleFocus = () => {
     setIsFocused(true);
-    setShowMenu(true);
     setShowPlaceholder(false);
+
+    if (isPanelActive && fieldPanel) {
+      const nudgeFn = (dx: number, dy: number) => {
+        if (draggableBox) {
+          const currentX = draggableBox.position?.x || 0;
+          const currentY = draggableBox.position?.y || 0;
+          draggableBox.onPositionChange(draggableBox.id, {
+            x: currentX + dx,
+            y: currentY + dy,
+          });
+        } else if (onNudge) {
+          onNudge(dx, dy);
+        }
+      };
+
+      const resetFn = () => {
+        if (draggableBox) {
+          draggableBox.onPositionChange(draggableBox.id, { x: 0, y: 0 });
+        } else if (onResetPosition) {
+          onResetPosition();
+        }
+      };
+
+      const deleteFn = onDelete || draggableBox?.onDelete;
+
+      fieldPanel.openPanel({
+        fieldId: effectiveFieldId,
+        fieldLabel: effectiveFieldLabel,
+        currentStyle: {
+          fontSize,
+          fontWeight: getFontWeightStyle(),
+          fontFamily: getFontFamilyStyle(),
+          textAlign,
+          verticalAlign,
+          alignContent: getAlignContentStyle() as any,
+          fontStyle: italic ? "italic" : "normal",
+          textDecoration: underline ? "underline" : "none",
+        },
+        customFonts,
+        onStyleChange: (style) => {
+          if (style.fontSize) setFontSize(style.fontSize);
+          if (style.fontWeight !== undefined) {
+            const fw = String(style.fontWeight);
+            const cls =
+              fw === "100" ? "font-thin" :
+              fw === "500" ? "font-medium" :
+              fw === "700" ? "font-bold" :
+              fw === "800" ? "font-extrabold" :
+              "font-normal";
+            setFontWeight(cls);
+          }
+          if (style.fontFamily) {
+            setFontFamily(fontFamilyToClass(style.fontFamily));
+          }
+          if (style.textAlign) setTextAlign(style.textAlign);
+          if (style.verticalAlign) setVerticalAlign(style.verticalAlign);
+          if (style.fontStyle !== undefined) setItalic(style.fontStyle === "italic");
+          if (style.textDecoration !== undefined) setUnderline(style.textDecoration === "underline");
+
+          if (onChangeStyle) onChangeStyle(style);
+        },
+        onNudge: nudgeFn,
+        onResetPosition: resetFn,
+        onDelete: deleteFn,
+      });
+    } else {
+      setShowMenu(true);
+    }
   };
 
   const handleBlur = () => {
     setIsFocused(false);
     setShowPlaceholder(internalValue.length === 0);
 
-    if (!hoverRef.current) {
+    if (!isPanelActive && !hoverRef.current) {
       setShowMenu(false);
       setActiveDropdown(null);
     }
   };
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1159,6 +1250,7 @@ export default function StyledInput({
       </div>
 
       {mounted &&
+        !isPanelActive &&
         showMenu &&
         createPortal(
           <div

@@ -1,5 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, createContext, useMemo } from "react";
 import { Move, RotateCcw, Trash2 } from "lucide-react";
+import { useFieldPanel } from "./FieldPanelContext";
+
+export interface DraggableBoxContextValue {
+  id: string;
+  label?: string;
+  position: { x: number; y: number };
+  onPositionChange: (id: string, pos: { x: number; y: number }) => void;
+  onDelete?: () => void;
+}
+
+export const DraggableBoxContext = createContext<DraggableBoxContextValue | null>(null);
 
 export interface DraggableBoxProps {
   id: string;
@@ -36,6 +47,23 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   onDelete,
   deleteTitle,
 }) => {
+  const fieldPanel = useFieldPanel();
+  // Hide inline action buttons when the right-side panel context is available
+  const hasPanelContext = !!fieldPanel;
+
+  const posX = position?.x || 0;
+  const posY = position?.y || 0;
+
+  const boxContextValue = useMemo<DraggableBoxContextValue>(
+    () => ({
+      id,
+      label,
+      position: { x: posX, y: posY },
+      onPositionChange,
+      onDelete,
+    }),
+    [id, label, posX, posY, onPositionChange, onDelete],
+  );
   const [isHovered, setIsHovered] = useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -53,8 +81,6 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   });
   const rafId = useRef<number | null>(null);
 
-  const posX = position?.x || 0;
-  const posY = position?.y || 0;
   const hasMoved = posX !== 0 || posY !== 0;
 
   // Keep currentPosRef synchronized when position prop changes and not dragging
@@ -64,14 +90,8 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     }
   }, [posX, posY, isDragging]);
 
-  const startDrag = (clientX: number, clientY: number) => {
-    if (disabled) return;
-
-    startMouseRef.current = { x: clientX, y: clientY };
-    startPosRef.current = { x: posX, y: posY };
-    currentPosRef.current = { x: posX, y: posY };
-
-    // Calculate boundary limits once at drag start based on parent safezone container
+  // Calculate boundary limits based on parent safezone container or explicit limits
+  const calculateBounds = useCallback(() => {
     let minX = -10000;
     let maxX = 10000;
     let minY = -10000;
@@ -91,9 +111,11 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
         const cTop = cRect.top + pad;
         const cBottom = cRect.bottom - pad;
 
-        // Base unscaled coordinates of the element when position is (0, 0)
-        const baseLeft = eRect.left - posX * zoom;
-        const baseTop = eRect.top - posY * zoom;
+        const curX = currentPosRef.current.x || 0;
+        const curY = currentPosRef.current.y || 0;
+
+        const baseLeft = eRect.left - curX * zoom;
+        const baseTop = eRect.top - curY * zoom;
 
         const leftBound = (cLeft - baseLeft) / zoom;
         const rightBound = (cRight - (baseLeft + eRect.width)) / zoom;
@@ -118,12 +140,53 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       if (boundaryLimits.maxY !== undefined) maxY = Math.min(maxY, boundaryLimits.maxY);
     }
 
-    boundsRef.current = {
+    return {
       minX: Math.min(minX, maxX),
       maxX: Math.max(minX, maxX),
       minY: Math.min(minY, maxY),
       maxY: Math.max(minY, maxY),
     };
+  }, [zoom, boundaryLimits]);
+
+  // Dynamically attach nudge, reset, and delete handlers to fieldPanel when active
+  useEffect(() => {
+    if (fieldPanel?.activeField && fieldPanel.activeField.fieldId === id) {
+      fieldPanel.updateActiveFieldHandlers({
+        onNudge: (dx: number, dy: number) => {
+          const b = calculateBounds();
+          const rawX = (currentPosRef.current.x || 0) + dx;
+          const rawY = (currentPosRef.current.y || 0) + dy;
+
+          const nextX = Math.round(Math.max(b.minX, Math.min(b.maxX, rawX)));
+          const nextY = Math.round(Math.max(b.minY, Math.min(b.maxY, rawY)));
+
+          currentPosRef.current = { x: nextX, y: nextY };
+          if (boxRef.current) {
+            boxRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+          }
+          onPositionChange(id, { x: nextX, y: nextY });
+        },
+        onResetPosition: () => {
+          setIsFocused(false);
+          currentPosRef.current = { x: 0, y: 0 };
+          if (boxRef.current) {
+            boxRef.current.style.transform = "translate3d(0px, 0px, 0)";
+          }
+          onPositionChange(id, { x: 0, y: 0 });
+        },
+        onDelete: onDelete ? () => onDelete() : undefined,
+      });
+    }
+  }, [fieldPanel?.activeField?.fieldId, id, onPositionChange, onDelete, calculateBounds]);
+
+  const startDrag = (clientX: number, clientY: number) => {
+    if (disabled) return;
+
+    startMouseRef.current = { x: clientX, y: clientY };
+    startPosRef.current = { x: posX, y: posY };
+    currentPosRef.current = { x: posX, y: posY };
+
+    boundsRef.current = calculateBounds();
 
     setIsDragging(true);
     document.body.style.userSelect = "none";
@@ -297,49 +360,53 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
             <Move size={10} strokeWidth={2.5} />
           </div>
 
-          {/* Right-side Action Buttons (Reset position + Delete field) */}
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Reset position button if moved */}
-            {hasMoved && (
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={handleReset}
-                className="bg-gray-800/95 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
-                title="Reset position"
-              >
-                <RotateCcw size={10} />
-              </button>
-            )}
+          {/* Right-side Action Buttons (Reset position + Delete field) — hidden when panel is available */}
+          {!hasPanelContext && (
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Reset position button if moved */}
+              {hasMoved && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={handleReset}
+                  className="bg-gray-800/95 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                  title="Reset position"
+                >
+                  <RotateCcw size={10} />
+                </button>
+              )}
 
-            {/* Delete button if onDelete provided */}
-            {onDelete && (
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="bg-red-600/90 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-red-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
-                title={deleteTitle || "Delete field"}
-              >
-                <Trash2 size={10} />
-              </button>
-            )}
-          </div>
+              {/* Delete button if onDelete provided */}
+              {onDelete && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  className="bg-red-600/90 text-white p-1 rounded shadow text-[8px] flex items-center justify-center hover:bg-red-700 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+                  title={deleteTitle || "Delete field"}
+                >
+                  <Trash2 size={10} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Content wrapper */}
-      <div className={`relative ${className}`}>{children}</div>
+      <DraggableBoxContext.Provider value={boxContextValue}>
+        <div className={`relative ${className}`}>{children}</div>
+      </DraggableBoxContext.Provider>
     </div>
   );
 };

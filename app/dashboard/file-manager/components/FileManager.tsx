@@ -2602,9 +2602,11 @@ const FileManager = () => {
                 {userType !== "vendor" && (() => {
                   const featureSheetBooking = orderData?.services?.find(
                     (os: any) =>
+                      os.service?.category?.name?.toLowerCase() === "print" ||
                       os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
                       os.service?.category?.name?.toLowerCase() === "feature sheets" ||
-                      os.service?.name?.toLowerCase() === "feature sheets"
+                      os.service?.name?.toLowerCase() === "feature sheets" ||
+                      os.service?.name?.toLowerCase() === "print"
                   );
                   const isPaid = featureSheetBooking?.payment_status === "PAID";
                   const isBooked = !!featureSheetBooking;

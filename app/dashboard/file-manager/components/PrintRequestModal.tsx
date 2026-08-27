@@ -69,20 +69,26 @@ export default function PrintRequestModal({
           const response = await GetServices(token);
           const servicesList = Array.isArray(response.data) ? response.data : (Array.isArray(response) ? response : []);
 
-          // Find service with category name "feature_sheets" (or fallback to service name "Feature Sheets")
+          // Find service with category name "print" or "feature_sheets" (or fallback to service name "Feature Sheets")
           const fsService = servicesList.find(
-            (s: any) => s.category?.name?.toLowerCase() === "feature_sheets" ||
-                        s.category?.name?.toLowerCase() === "feature sheets" ||
-                        s.name?.toLowerCase() === "feature sheets"
+            (s: any) =>
+              s.category?.name?.toLowerCase() === "print" ||
+              s.category?.name?.toLowerCase() === "feature_sheets" ||
+              s.category?.name?.toLowerCase() === "feature sheets" ||
+              s.name?.toLowerCase() === "feature sheets" ||
+              s.name?.toLowerCase() === "print"
           );
           setFeatureSheetsService(fsService || null);
 
           if (fsService && fsService.product_options && fsService.product_options.length > 0) {
             // Find if order already has an option for this service and pre-select it, or fallback to first option
             const existingBilledService = orderData?.services?.find(
-              (os: any) => (os.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
-                           (os.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
-                           os.service?.name?.toLowerCase() === "feature sheets"
+              (os: any) =>
+                (os.service as any)?.category?.name?.toLowerCase() === "print" ||
+                (os.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
+                (os.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
+                os.service?.name?.toLowerCase() === "feature sheets" ||
+                os.service?.name?.toLowerCase() === "print"
             );
             
             const initialOption = fsService.product_options.find((opt: any) => opt.uuid === existingBilledService?.option?.uuid) || fsService.product_options[0];
@@ -192,9 +198,12 @@ export default function PrintRequestModal({
 
         // Find an existing UNPAID feature sheet service on the order that can be updated
         const existingUnpaidIndex = (orderData.services || []).findIndex(orderService => {
-          const isFS = (orderService.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
-                       (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
-                       orderService.service?.name?.toLowerCase() === "feature sheets";
+          const isFS =
+            (orderService.service as any)?.category?.name?.toLowerCase() === "print" ||
+            (orderService.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
+            (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
+            orderService.service?.name?.toLowerCase() === "feature sheets" ||
+            orderService.service?.name?.toLowerCase() === "print";
           return isFS && orderService.payment_status !== "PAID";
         });
 

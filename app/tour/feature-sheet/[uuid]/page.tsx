@@ -59,12 +59,21 @@ const FeatureSheetPreviewPage = () => {
           throw new Error("Feature sheet not found");
         }
         
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const isPreview = searchParams?.get("preview") === "true";
+
+        if (!sheet.is_published && !token && !isPreview) {
+          setError("This feature sheet is not published for public view.");
+          setFeatureSheet(null);
+          return;
+        }
+
         setFeatureSheet(sheet);
 
         // 2. Fetch order data (needed for templates)
         if (sheet.order_id) {
           let order = null;
-          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
           if (token) {
             try {
