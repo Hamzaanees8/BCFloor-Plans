@@ -240,9 +240,70 @@ const Page = () => {
         toast.success(
           response.message || "Manual payment recorded successfully!",
         );
+        const updatedInvoice = response.data;
+        const targetOrderUuid =
+          manualPaymentInvoice.order?.uuid ||
+          manualPaymentInvoice.order_uuid ||
+          selectedBilling?.order_uuid ||
+          serviceInvoicePopup?.billing?.order_uuid ||
+          selectedOrderUuid;
+
         setManualPaymentOpen(false);
         setManualPaymentInvoice(null);
-        loadBillings();
+
+        // 1. Refresh rowInvoices and modal invoices for the affected order
+        if (targetOrderUuid) {
+          try {
+            const res = await GetInvoicesByOrder(targetOrderUuid);
+            const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+            setRowInvoices((prev) => ({
+              ...prev,
+              [targetOrderUuid]: invoicesList,
+            }));
+            setInvoices(invoicesList);
+          } catch (err) {
+            console.error("Failed to refresh order invoices:", err);
+          }
+        }
+
+        // 2. Update serviceInvoicePopup if open
+        if (serviceInvoicePopup) {
+          if (updatedInvoice && serviceInvoicePopup.invoice?.uuid === updatedInvoice.uuid) {
+            setServiceInvoicePopup((prev) =>
+              prev ? { ...prev, invoice: updatedInvoice } : null,
+            );
+          } else if (targetOrderUuid) {
+            try {
+              const res = await GetInvoicesByOrder(targetOrderUuid);
+              const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+              const bestTarget = getBestTargetInvoice(
+                invoicesList,
+                serviceInvoicePopup.serviceId,
+              );
+              if (bestTarget) {
+                setServiceInvoicePopup((prev) =>
+                  prev ? { ...prev, invoice: bestTarget } : null,
+                );
+              }
+            } catch (err) {
+              console.error("Failed to refresh serviceInvoicePopup invoice:", err);
+            }
+          }
+        }
+
+        // 3. Update viewingInvoice if open
+        if (viewingInvoice) {
+          if (updatedInvoice && viewingInvoice.uuid === updatedInvoice.uuid) {
+            setViewingInvoice(updatedInvoice);
+          } else {
+            setViewingInvoice((prev: any) =>
+              prev ? { ...prev, status: "paid", paid_amount: prev.total } : null,
+            );
+          }
+        }
+
+        // 4. Reload overall billings table data
+        await loadBillings();
       } else {
         toast.error(response.message || "Failed to record manual payment.");
       }
@@ -279,7 +340,7 @@ const Page = () => {
     }
     try {
       const isSplit = !!invoice.split_details;
-      const payerUuid = currentUser?.uuid;
+      const payerUuid = userType === "agent" ? currentUser?.uuid : undefined;
       const isOwner =
         currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
 
@@ -577,6 +638,7 @@ const Page = () => {
     channel.onmessage = (event) => {
       if (event.data === "payment_success") {
         toast.success("Payment processed successfully! Updating records...");
+        setRowInvoices({});
         loadBillings();
       }
     };
@@ -2302,6 +2364,9 @@ const Page = () => {
                       } else if (status === "REFUNDED") {
                         badgeBg = "#D0021B";
                         badgeText = "Refunded";
+                      } else if (status === "PARTIALLY_REFUNDED" || status === "PARTIAL_REFUNDED") {
+                        badgeBg = "#D9534F";
+                        badgeText = "Partially Refunded";
                       }
 
                       const isOwner =

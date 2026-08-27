@@ -146,7 +146,11 @@ const ServiceItem = ({
               const optionData = getOptionData(option.uuid ?? "");
               const priceErrorKey = `services[${index}].options[${option.uuid}].vendor_price`;
               const hasError = fieldErrors?.[priceErrorKey];
-              const payType = optionData?.pay_type || "flat";
+              const defaultOptionPayType = (option as any)?.vendor_pay_type || (serviceData as any)?.vendor_pay_type || "flat";
+              const payType = optionData?.pay_type || defaultOptionPayType;
+              const defaultPrice = (option as any)?.vendor_price ?? (serviceData as any)?.vendor_price ?? 0;
+              const defaultSqFtRate = (option as any)?.vendor_sq_ft_rate ?? (serviceData as any)?.vendor_sq_ft_rate ?? 0;
+              const defaultMinPrice = (option as any)?.vendor_min_price ?? (serviceData as any)?.vendor_min_price ?? 0;
 
               return (
                 <AccordionItem key={option.uuid} value={option.uuid ?? ""} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -195,7 +199,7 @@ const ServiceItem = ({
                             id={`sqft-rate-${option.uuid}`}
                             type="number"
                             step="0.001"
-                            placeholder="e.g. 0.035"
+                            placeholder={defaultSqFtRate > 0 ? `e.g. ${defaultSqFtRate} (Default)` : "e.g. 0.035"}
                             value={optionData?.sq_ft_rate ?? ""}
                             onChange={(e) =>
                               handleOptionChange(
@@ -222,7 +226,7 @@ const ServiceItem = ({
                             id={`min-price-${option.uuid}`}
                             type="number"
                             step="0.01"
-                            placeholder="e.g. 75.00"
+                            placeholder={defaultMinPrice > 0 ? `e.g. ${Number(defaultMinPrice).toFixed(2)} (Default)` : "e.g. 75.00"}
                             value={optionData?.min_price ?? ""}
                             onChange={(e) =>
                               handleOptionChange(
@@ -251,7 +255,7 @@ const ServiceItem = ({
                           id={`price-${option.uuid}`}
                           type="number"
                           step="0.01"
-                          placeholder="e.g. 120.00"
+                          placeholder={defaultPrice > 0 ? `e.g. ${Number(defaultPrice).toFixed(2)} (Default)` : "e.g. 120.00"}
                           value={optionData?.vendor_price || ""}
                           onChange={(e) =>
                             handleOptionChange(

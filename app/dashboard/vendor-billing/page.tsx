@@ -20,8 +20,9 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Search, X, Pencil, Download, CreditCard, DollarSign, CheckCircle2, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Get, GetVendors } from "../orders/orders";
 import { GetServices } from "../services/services";
 import { toast } from "sonner";
@@ -39,9 +40,14 @@ import {
 } from "@/components/ui/dialog";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
+import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileVendorEarnings from "@/components/mobile/vendor/MobileVendorEarnings";
 import MobileAdminVendorBilling from "@/components/mobile/vendor-billing/MobileAdminVendorBilling";
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
+import { SearchableSelect } from "@/app/dashboard/orders/components/SearchableSelect";
+import EditInvoiceModal from "./components/EditInvoiceModal";
 
 export interface Slot {
   id: number;
@@ -62,6 +68,12 @@ export interface Vendor {
   uuid: string;
   first_name: string;
   last_name: string;
+  organization_id?: number | string;
+  organization?: {
+    id: number;
+    name: string;
+    slug?: string;
+  };
 }
 
 export interface ServiceRecord {
@@ -128,6 +140,8 @@ export interface VendorOrder {
 export interface VendorGrouped {
   vendorId: number | string;
   vendor: Vendor;
+  organizationId?: number | string;
+  organizationName?: string;
   totalServices: number;
   totalOrders: number;
   totalAmount: number;
@@ -311,12 +325,211 @@ const Page = () => {
     Map<string | number, number>
   >(new Map());
   const [searchQuery, setSearchQuery] = useState("");
+  const { isSuperAdmin } = useUser();
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [orgFilter, setOrgFilter] = useState<string>("all");
 
-  // Invoice detail modal
+  useEffect(() => {
+    if (isSuperAdmin) {
+      GetOrganizations()
+        .then((res) => {
+          if (res.status && Array.isArray(res.data)) {
+            setOrganizations(res.data);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch organizations:", err));
+    }
+  }, [isSuperAdmin]);
+
+  // Invoice detail & edit modals
   const [viewingInvoice, setViewingInvoice] = useState<VendorInvoice | null>(
     null,
   );
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<VendorInvoice | null>(
+    null,
+  );
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Manual Pay Modal State
+  const [manualPayInvoice, setManualPayInvoice] = useState<VendorInvoice | null>(null);
+  const [isManualPayModalOpen, setIsManualPayModalOpen] = useState(false);
+  const [manualDate, setManualDate] = useState<string>(() =>
+    new Date().toISOString().split("T")[0]
+  );
+  const [manualMethod, setManualMethod] = useState<string>("Bank Transfer");
+  const [manualRef, setManualRef] = useState<string>("");
+  const [manualNotes, setManualNotes] = useState<string>("");
+  const [isSubmittingManualPay, setIsSubmittingManualPay] = useState(false);
+
+  const handleOpenManualPay = (invoice: VendorInvoice) => {
+    setManualPayInvoice(invoice);
+    setManualDate(new Date().toISOString().split("T")[0]);
+    setManualMethod("Bank Transfer");
+    setManualRef("");
+    setManualNotes("");
+    setIsManualPayModalOpen(true);
+  };
+
+  const handleConfirmManualPay = async () => {
+    if (!manualPayInvoice) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setIsSubmittingManualPay(true);
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const paidAtTimestamp = manualDate === todayStr 
+        ? new Date().toISOString() 
+        : `${manualDate}T12:00:00.000Z`;
+
+      await vendorBillingService.updateInvoiceStatus(
+        manualPayInvoice.uuid,
+        {
+          status: "paid",
+          paid_at: paidAtTimestamp,
+          payment_method: manualMethod,
+          transaction_reference: manualRef,
+          notes: `Paid via ${manualMethod} (Ref: ${manualRef || "N/A"}). ${manualNotes}`.trim(),
+        },
+        token
+      );
+      toast.success("Invoice marked as paid!");
+      setIsManualPayModalOpen(false);
+
+      // 1. Optimistically update invoice across all keys in vendorInvoicesMap
+      setVendorInvoicesMap((prev) => {
+        const next = new Map(prev);
+        for (const [key, invList] of next.entries()) {
+          const hasInvoice = invList.some((inv) => inv.uuid === manualPayInvoice.uuid);
+          if (hasInvoice) {
+            next.set(
+              key,
+              invList.map((inv) =>
+                inv.uuid === manualPayInvoice.uuid
+                  ? {
+                      ...inv,
+                      status: "paid" as const,
+                      paid_at: paidAtTimestamp,
+                    }
+                  : inv
+              )
+            );
+          }
+        }
+        return next;
+      });
+
+      // 2. Fetch fresh invoices for this vendor from backend
+      const vUuid = manualPayInvoice.vendor?.uuid || (manualPayInvoice as any).vendor_id;
+      if (vUuid) {
+        vendorBillingService
+          .getVendorInvoices(vUuid, token)
+          .then((invs) => {
+            setVendorInvoicesMap((prev) => {
+              const next = new Map(prev);
+              for (const key of next.keys()) {
+                if (key === vUuid || String(key) === String((manualPayInvoice as any).vendor_id)) {
+                  next.set(key, invs);
+                }
+              }
+              next.set(vUuid, invs);
+              return next;
+            });
+          })
+          .catch(() => {});
+      }
+
+      // 3. Refresh vendor earnings
+      if (vUuid) {
+        GetVendorEarnings(vUuid, { period: "this_month" } as any).then((earnRes) => {
+          if (earnRes?.success) {
+            const totalEarned = earnRes.data?.summary?.total_earned ?? 0;
+            const matchingGroup = vendorsGrouped.find((vg: any) => vg.vendor?.uuid === vUuid || String(vg.vendorId) === String(vUuid));
+            if (matchingGroup) {
+              setVendorTotalEarnings((prev) => new Map(prev).set(matchingGroup.vendorId, totalEarned));
+            }
+          }
+        }).catch(() => {});
+      }
+
+      // 4. Refresh orders list so order services reflect paid status immediately
+      Get(token).then((ordersRes) => {
+        if (ordersRes?.data && Array.isArray(ordersRes.data)) {
+          setOrderData(ordersRes.data);
+        }
+      }).catch(() => {});
+
+      setManualPayInvoice(null);
+    } catch (err: any) {
+      console.error("Manual pay error:", err);
+      toast.error(err.response?.data?.message || "Failed to mark invoice as paid");
+    } finally {
+      setIsSubmittingManualPay(false);
+    }
+  };
+
+  // Delete invoice state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<VendorInvoice | null>(null);
+
+  const handleDeleteInvoice = (invoice: VendorInvoice) => {
+    if (invoice.status === "paid") {
+      toast.error("Paid invoices cannot be deleted.");
+      return;
+    }
+    setInvoiceToDelete(invoice);
+    setConfirmDeleteOpen(true);
+  };
+
+  const executeDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await vendorBillingService.deleteInvoice(invoiceToDelete.uuid, token);
+      toast.success(res.message || "Invoice deleted and services released back to uninvoiced.");
+      setIsViewModalOpen(false);
+      setViewingInvoice(null);
+      setIsEditModalOpen(false);
+      setEditingInvoice(null);
+
+      // Refresh invoices for current vendor
+      const vKey = invoiceToDelete.vendor?.uuid || String(invoiceToDelete.vendor_id || "");
+      if (vKey) {
+        vendorBillingService
+          .getVendorInvoices(vKey, token)
+          .then((invs) => {
+            setVendorInvoicesMap((prev) =>
+              new Map(prev).set(vKey, invs)
+            );
+          })
+          .catch(() => {});
+      }
+
+      // Re-fetch orders data so badges update
+      Get(token)
+        .then((data) => {
+          const sorted = Array.isArray(data.data)
+            ? [...data.data].sort(
+                (a, b) =>
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime(),
+              )
+            : [];
+          setOrderData(sorted);
+        })
+        .catch(() => {});
+    } catch (err: any) {
+      console.error("Delete invoice error:", err);
+      toast.error(err.response?.data?.message || "Failed to delete invoice");
+    } finally {
+      setInvoiceToDelete(null);
+      setConfirmDeleteOpen(false);
+    }
+  };
+
   const itemsPerPage = 10;
   const confirmAndExecute = () => {
     pendingAction?.();
@@ -339,8 +552,8 @@ const Page = () => {
       try {
         const earnCheck =
           userType === "vendor"
-            ? await GetMyEarnings()
-            : await GetVendorEarnings(vg.vendor.uuid);
+            ? await GetMyEarnings({ period: "this_month" } as any)
+            : await GetVendorEarnings(vg.vendor.uuid, { period: "this_month" } as any);
         if (earnCheck?.success) {
           const totalEarned = earnCheck.data?.summary?.total_earned ?? 0;
           setVendorTotalEarnings((prev) =>
@@ -566,7 +779,7 @@ const Page = () => {
     return lines.map((line: any) => {
       let desc = line.description || "";
 
-      if (desc.includes("address:") || desc.includes("order:")) {
+      if (desc.includes("Order #") || desc.includes("order:") || desc.includes("address:")) {
         return {
           ...line,
           description: desc,
@@ -584,9 +797,6 @@ const Page = () => {
         lineOrder?.property?.address ||
         "";
       let orderId = lineOrder?.id || lineOrderSvc?.order_id || "";
-      let slotsStr = lineOrderSvc?.slots
-        ? computeCombinedTime(lineOrderSvc.slots)
-        : "";
 
       if ((!address || !orderId) && orders && orders.length > 0) {
         for (const order of orders) {
@@ -613,7 +823,6 @@ const Page = () => {
                   address = `${address}, ${(order as any).property_location}`;
               }
               if (!orderId) orderId = order.id;
-              if (!slotsStr) slotsStr = computeCombinedTime(svc.slots || []);
               break;
             }
           }
@@ -621,12 +830,14 @@ const Page = () => {
         }
       }
 
-      if (address || orderId || slotsStr) {
-        const parts = [desc];
-        if (address) parts.push(`address: ${address}`);
-        if (orderId) parts.push(`order: #${orderId}`);
-        if (slotsStr) parts.push(`slots: ${slotsStr}`);
-        desc = parts.join("\n");
+      if (address || orderId) {
+        if (address && orderId) {
+          desc = `${desc}\n${address} (Order #${orderId})`;
+        } else if (address) {
+          desc = `${desc}\n${address}`;
+        } else if (orderId) {
+          desc = `${desc}\nOrder #${orderId}`;
+        }
       }
 
       return {
@@ -721,6 +932,8 @@ const Page = () => {
         serviceUuid: string;
         propertyAddress: string;
         propertyLocation: string;
+        date?: string;
+        startTime?: string;
       }[] = [];
 
       orders.forEach((order) => {
@@ -788,11 +1001,18 @@ const Page = () => {
           }
 
           // UNPAID + TRAVEL REQUIRED → queue for the single batch
+          const firstSlot = allSlots[0] || (orderSlotMap.get(order.orderId) as any);
+          const rawOrd = orderData.find((o: Order) => o.id === order.orderId);
+          const slotDate = firstSlot?.date || (rawOrd as any)?.date || (rawOrd as any)?.created_at?.split("T")[0] || "";
+          const slotStartTime = firstSlot?.start_time || "08:00";
+
           travelQueue.push({
             orderId: order.orderId,
             serviceUuid: svc.uuid ?? "",
             propertyAddress,
             propertyLocation,
+            date: slotDate,
+            startTime: slotStartTime,
           });
         });
       });
@@ -814,7 +1034,7 @@ const Page = () => {
         newTravelCosts.set(`${u.orderId}-${u.serviceUuid}`, {
           orderId: u.orderId,
           serviceUuid: u.serviceUuid,
-          date: "",
+          date: u.date || "",
           distance: 0,
           estimatedTime: 0,
           travelCost: 0,
@@ -832,84 +1052,203 @@ const Page = () => {
         return;
       }
 
-      // ── Build ONE 1×N Distance Matrix call ───────────────────────
-      //    Origin:       vendor start location (1 address only)
-      //    Destinations: all unique property addresses (N addresses)
-      //    Matrix size:  1 × N  →  never exceeds API limits (max 100)
-      //    Result:       exactly 1 API call regardless of how many services
-      const uniqueAddresses: string[] = [];
-      withAddr.forEach((u) => {
-        if (!uniqueAddresses.includes(u.propertyAddress))
-          uniqueAddresses.push(u.propertyAddress);
-      });
+      // ── Determine Travel Reimbursement Mode ───────────────────────
+      const travelPayMode = vendor?.settings?.travel_pay_mode || "inherit";
+      const isBetweenAppointments = travelPayMode === "include_home" ? false : true;
 
-      // Simple 1-origin legs: Vendor → each unique property address
-      const tripLegs = uniqueAddresses.map((addr, idx) => ({
-        from: startLocationAddress,
-        to: addr,
-        legIndex: idx,
-      }));
+      if (isBetweenAppointments) {
+        // Group services by date
+        const dateGroups: Record<string, typeof withAddr> = {};
+        withAddr.forEach((u) => {
+          const d = u.date || "unknown-date";
+          if (!dateGroups[d]) dateGroups[d] = [];
+          dateGroups[d].push(u);
+        });
 
-      console.log(
-        `📍 [Vendor Billing] 1 API call → 1 origin x ${uniqueAddresses.length} destinations (${withAddr.length} services)`,
-      );
+        const tripLegs: {
+          from: string;
+          to: string;
+          legIndex: number;
+          orderId: number;
+          serviceUuid: string;
+          fromDisplay: string;
+          toDisplay: string;
+        }[] = [];
+        let legIdx = 0;
 
-      // ── THE SINGLE API CALL ───────────────────────────────────────
-      const batchResult = await batchCalculateTravelCosts(tripLegs);
+        Object.entries(dateGroups).forEach(([, items]) => {
+          // Sort items chronologically by startTime
+          const sorted = [...items].sort((a, b) =>
+            (a.startTime || "").localeCompare(b.startTime || ""),
+          );
 
-      // Map address → result (each leg: vendor → that property)
-      const addrMap = new Map<
-        string,
-        { distance: number; estimatedTime: number; ok: boolean }
-      >();
-      uniqueAddresses.forEach((addr, idx) => {
-        const leg = batchResult.legs.find((l) => l.legIndex === idx);
-        if (!leg) {
-          addrMap.set(addr, { distance: 0, estimatedTime: 0, ok: false });
+          sorted.forEach((item, idx) => {
+            const toAddr = `${item.propertyAddress}, ${item.propertyLocation}`;
+            if (idx === 0) {
+              // First appointment of the day: $0.00 travel cost (commute not paid)
+              newTravelCosts.set(`${item.orderId}-${item.serviceUuid}`, {
+                orderId: item.orderId,
+                serviceUuid: item.serviceUuid,
+                date: item.date || "",
+                distance: 0,
+                estimatedTime: 0,
+                travelCost: 0,
+                fromAddress: "Home (Commute not paid)",
+                toAddress: toAddr,
+                error: false,
+              });
+            } else {
+              const prevItem = sorted[idx - 1];
+              const fromAddr = `${prevItem.propertyAddress}, ${prevItem.propertyLocation}`;
+              if (
+                prevItem.propertyAddress.trim().toLowerCase() ===
+                item.propertyAddress.trim().toLowerCase()
+              ) {
+                // Same location -> 0 distance
+                newTravelCosts.set(`${item.orderId}-${item.serviceUuid}`, {
+                  orderId: item.orderId,
+                  serviceUuid: item.serviceUuid,
+                  date: item.date || "",
+                  distance: 0,
+                  estimatedTime: 0,
+                  travelCost: 0,
+                  fromAddress: fromAddr,
+                  toAddress: toAddr,
+                  error: false,
+                });
+              } else {
+                tripLegs.push({
+                  from: prevItem.propertyAddress,
+                  to: item.propertyAddress,
+                  legIndex: legIdx++,
+                  orderId: item.orderId,
+                  serviceUuid: item.serviceUuid,
+                  fromDisplay: fromAddr,
+                  toDisplay: toAddr,
+                });
+              }
+            }
+          });
+        });
+
+        if (tripLegs.length === 0) {
+          setTravelCosts(newTravelCosts);
+          calculatedVendorIds.current.add(vendorId);
           return;
         }
-        addrMap.set(addr, {
-          distance: parseFloat(leg.distance.toFixed(2)),
-          estimatedTime: Math.round(leg.duration),
-          ok: true,
-        });
-      });
 
-      // ── Assign results to each service ────────────────────────────
-      withAddr.forEach((u) => {
-        const result = addrMap.get(u.propertyAddress);
-        const toAddr = `${u.propertyAddress}, ${u.propertyLocation}`;
-        if (result?.ok) {
-          const travelCost = parseFloat(
-            (result.distance * paymentPerKm).toFixed(2),
+        console.log(
+          `📍 [Vendor Billing] Batch calculating ${tripLegs.length} inter-appointment legs for vendor ${vendorId}`,
+        );
+
+        const batchResult = await batchCalculateTravelCosts(tripLegs);
+
+        tripLegs.forEach((leg) => {
+          const legResult = batchResult.legs.find(
+            (l) => l.legIndex === leg.legIndex,
           );
-          newTravelCosts.set(`${u.orderId}-${u.serviceUuid}`, {
-            orderId: u.orderId,
-            serviceUuid: u.serviceUuid,
-            date: "",
-            distance: result.distance,
-            estimatedTime: result.estimatedTime,
-            travelCost,
-            fromAddress: startLocationAddress,
-            toAddress: toAddr,
+          if (legResult && legResult.status === "OK") {
+            const dist = parseFloat(legResult.distance.toFixed(2));
+            const travelCost = parseFloat((dist * paymentPerKm).toFixed(2));
+            newTravelCosts.set(`${leg.orderId}-${leg.serviceUuid}`, {
+              orderId: leg.orderId,
+              serviceUuid: leg.serviceUuid,
+              date: "",
+              distance: dist,
+              estimatedTime: Math.round(legResult.duration),
+              travelCost,
+              fromAddress: leg.fromDisplay,
+              toAddress: leg.toDisplay,
+            });
+          } else {
+            newTravelCosts.set(`${leg.orderId}-${leg.serviceUuid}`, {
+              orderId: leg.orderId,
+              serviceUuid: leg.serviceUuid,
+              date: "",
+              distance: 0,
+              estimatedTime: 0,
+              travelCost: 0,
+              fromAddress: leg.fromDisplay,
+              toAddress: leg.toDisplay,
+              error: true,
+              errorType: "ROUTE_UNROUTABLE",
+              errorMessage:
+                "Address not found or route unroutable on Google Maps",
+            });
+          }
+        });
+      } else {
+        // ── Legacy: 1-origin x N destinations (Home -> each property) ─
+        const uniqueAddresses: string[] = [];
+        withAddr.forEach((u) => {
+          if (!uniqueAddresses.includes(u.propertyAddress))
+            uniqueAddresses.push(u.propertyAddress);
+        });
+
+        const tripLegs = uniqueAddresses.map((addr, idx) => ({
+          from: startLocationAddress,
+          to: addr,
+          legIndex: idx,
+        }));
+
+        console.log(
+          `📍 [Vendor Billing] 1 API call → 1 origin x ${uniqueAddresses.length} destinations (${withAddr.length} services)`,
+        );
+
+        const batchResult = await batchCalculateTravelCosts(tripLegs);
+
+        const addrMap = new Map<
+          string,
+          { distance: number; estimatedTime: number; ok: boolean }
+        >();
+        uniqueAddresses.forEach((addr, idx) => {
+          const leg = batchResult.legs.find((l) => l.legIndex === idx);
+          if (!leg) {
+            addrMap.set(addr, { distance: 0, estimatedTime: 0, ok: false });
+            return;
+          }
+          addrMap.set(addr, {
+            distance: parseFloat(leg.distance.toFixed(2)),
+            estimatedTime: Math.round(leg.duration),
+            ok: true,
           });
-        } else {
-          newTravelCosts.set(`${u.orderId}-${u.serviceUuid}`, {
-            orderId: u.orderId,
-            serviceUuid: u.serviceUuid,
-            date: "",
-            distance: 0,
-            estimatedTime: 0,
-            travelCost: 0,
-            fromAddress: startLocationAddress,
-            toAddress: toAddr,
-            error: true,
-            errorType: "ROUTE_UNROUTABLE",
-            errorMessage:
-              "Address not found or route unroutable on Google Maps",
-          });
-        }
-      });
+        });
+
+        withAddr.forEach((u) => {
+          const result = addrMap.get(u.propertyAddress);
+          const toAddr = `${u.propertyAddress}, ${u.propertyLocation}`;
+          if (result?.ok) {
+            const travelCost = parseFloat(
+              (result.distance * paymentPerKm).toFixed(2),
+            );
+            newTravelCosts.set(`${u.orderId}-${u.serviceUuid}`, {
+              orderId: u.orderId,
+              serviceUuid: u.serviceUuid,
+              date: u.date || "",
+              distance: result.distance,
+              estimatedTime: result.estimatedTime,
+              travelCost,
+              fromAddress: startLocationAddress,
+              toAddress: toAddr,
+            });
+          } else {
+            newTravelCosts.set(`${u.orderId}-${u.serviceUuid}`, {
+              orderId: u.orderId,
+              serviceUuid: u.serviceUuid,
+              date: u.date || "",
+              distance: 0,
+              estimatedTime: 0,
+              travelCost: 0,
+              fromAddress: startLocationAddress,
+              toAddress: toAddr,
+              error: true,
+              errorType: "ROUTE_UNROUTABLE",
+              errorMessage:
+                "Address not found or route unroutable on Google Maps",
+            });
+          }
+        });
+      }
 
       setTravelCosts(newTravelCosts);
       calculatedVendorIds.current.add(vendorId);
@@ -1266,9 +1605,20 @@ const Page = () => {
           ? earliestDate.toISOString().split("T")[0]
           : null;
 
+        const vendorOrg = (vendorEntry.vendor as any)?.organization;
+        const vendorOrgId = (vendorEntry.vendor as any)?.organization_id || vendorOrg?.id;
+        const orderOrg = ordersArr.find((o) => {
+          const raw = orderData.find((od) => od.id === o.orderId);
+          return (raw as any)?.organization || (raw as any)?.organization_id;
+        });
+        const resolvedOrgId = vendorOrgId || (orderOrg as any)?.organization_id || (orderOrg as any)?.organization?.id;
+        const resolvedOrgName = vendorOrg?.name || (orderOrg as any)?.organization?.name || organizations.find((o: any) => String(o.id) === String(resolvedOrgId))?.name || "BC Floor plans";
+
         return {
           vendorId,
           vendor: vendorEntry.vendor,
+          organizationId: resolvedOrgId,
+          organizationName: resolvedOrgName,
           totalServices,
           totalOrders: ordersArr.length,
           totalAmount,
@@ -1285,6 +1635,7 @@ const Page = () => {
     userType,
     loggedInVendorUuid,
     globalServices,
+    organizations,
   ]);
 
   // Build a flat map of invoiceId → VendorInvoice from all lazy-loaded invoices
@@ -1342,25 +1693,49 @@ const Page = () => {
   }, [userType, vendorsGrouped, expandedRow, isMobile]);
 
   const filteredVendorsGrouped = useMemo(() => {
-    if (!searchQuery.trim()) return vendorsGrouped;
+    let result = vendorsGrouped;
+
+    if (orgFilter !== "all") {
+      result = result.filter((vg) => {
+        const vendorOrgId = String(
+          vg.vendor?.organization_id ||
+          (vg.vendor as any)?.organization?.id ||
+          vg.organizationId ||
+          ""
+        );
+        const orderOrgIds = vg.orders.map((o) => {
+          const rawOrder = orderData.find((od) => od.id === o.orderId);
+          return String(
+            (rawOrder as any)?.organization_id ||
+            (rawOrder as any)?.organization?.id ||
+            ""
+          );
+        });
+        return vendorOrgId === orgFilter || orderOrgIds.includes(orgFilter);
+      });
+    }
+
+    if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase().trim();
-    return vendorsGrouped.filter((vg) => {
+    return result.filter((vg) => {
       const fn = (vg.vendor?.first_name || "").toLowerCase();
       const ln = (vg.vendor?.last_name || "").toLowerCase();
       const fullName = `${fn} ${ln}`.trim();
       const name = (vg.vendor as any)?.name?.toLowerCase() || "";
       const email = (vg.vendor as any)?.email?.toLowerCase() || "";
       const username = (vg.vendor as any)?.username?.toLowerCase() || "";
+      const orgName = (vg.organizationName || "").toLowerCase();
       return (
         fullName.includes(q) ||
         fn.includes(q) ||
         ln.includes(q) ||
         name.includes(q) ||
         email.includes(q) ||
-        username.includes(q)
+        username.includes(q) ||
+        orgName.includes(q)
       );
     });
-  }, [vendorsGrouped, searchQuery]);
+  }, [vendorsGrouped, searchQuery, orgFilter, orderData]);
 
   const totalPages = Math.ceil(filteredVendorsGrouped.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1450,6 +1825,28 @@ const Page = () => {
               Vendors Billing ({filteredVendorsGrouped.length})
             </p>
             <div className="flex items-center gap-3">
+              {isSuperAdmin && organizations.length > 0 && (
+                <div className="w-[200px] md:w-[240px]">
+                  <SearchableSelect
+                    options={[
+                      { label: "All Organizations", value: "all" },
+                      ...organizations.map((org) => ({
+                        label: org.name,
+                        value: String(org.id),
+                      })),
+                    ]}
+                    value={orgFilter}
+                    onChange={(val) => {
+                      setOrgFilter(val);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Filter by Org..."
+                    searchPlaceholder="Search organization..."
+                    emptyMessage="No organization found."
+                    className="h-[42px] bg-white text-sm"
+                  />
+                </div>
+              )}
               {userType !== "vendor" && (
                 <div className="relative w-[220px] md:w-[260px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1559,6 +1956,11 @@ const Page = () => {
                   <TableHead className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px]">
                     Vendor
                   </TableHead>
+                  {isSuperAdmin && (
+                    <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                      Organization
+                    </TableHead>
+                  )}
                   <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                     Orders
                   </TableHead>
@@ -1626,6 +2028,14 @@ const Page = () => {
                             <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                               {vg.vendor?.first_name} {vg.vendor?.last_name}
                             </TableCell>
+
+                            {isSuperAdmin && (
+                              <TableCell className="text-[14px] py-[19px] font-[500]">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                  {vg.organizationName || "BC Floor plans"}
+                                </span>
+                              </TableCell>
+                            )}
 
                             <TableCell
                               className={`text-[15px] py-[19px] font-[400] ${userType}-text`}
@@ -1728,16 +2138,22 @@ const Page = () => {
                                               .toFixed(2)}
                                           </p>
                                         )}
-                                        {vendorTotalEarnings.has(
-                                          vg.vendorId,
-                                        ) && (
+                                        {(vendorTotalEarnings.has(vg.vendorId) ||
+                                          (vendorInvoicesMap.get(vg.vendorId) ?? []).some(
+                                            (inv) => inv.status === "paid"
+                                          )) && (
                                           <p className="text-xs text-green-700">
-                                            Verified Vendor Earnings (This
-                                            Month): $
-                                            {Number(
-                                              vendorTotalEarnings.get(
-                                                vg.vendorId,
-                                              ) ?? 0,
+                                            Verified Vendor Earnings (This Month): $
+                                            {(
+                                              (vendorTotalEarnings.get(vg.vendorId) ?? 0) > 0
+                                                ? Number(vendorTotalEarnings.get(vg.vendorId))
+                                                : (vendorInvoicesMap.get(vg.vendorId) || [])
+                                                    .filter((i) => i.status === "paid")
+                                                    .reduce(
+                                                      (sum, i) =>
+                                                        sum + Number(i.total_amount || 0),
+                                                      0
+                                                    )
                                             ).toFixed(2)}
                                           </p>
                                         )}
@@ -1835,31 +2251,23 @@ const Page = () => {
                                                               ? inv.paid_at
                                                                 ? new Date(
                                                                     inv.paid_at,
-                                                                  ).toLocaleString(
+                                                                  ).toLocaleDateString(
                                                                     "en-US",
                                                                     {
-                                                                      month:
-                                                                        "short",
+                                                                      month: "short",
                                                                       day: "numeric",
                                                                       year: "numeric",
-                                                                      hour: "2-digit",
-                                                                      minute:
-                                                                        "2-digit",
                                                                     },
                                                                   )
                                                                 : inv.updated_at
                                                                   ? new Date(
                                                                       inv.updated_at,
-                                                                    ).toLocaleString(
+                                                                    ).toLocaleDateString(
                                                                       "en-US",
                                                                       {
-                                                                        month:
-                                                                          "short",
+                                                                        month: "short",
                                                                         day: "numeric",
                                                                         year: "numeric",
-                                                                        hour: "2-digit",
-                                                                        minute:
-                                                                          "2-digit",
                                                                       },
                                                                     )
                                                                   : "Paid"
@@ -1916,42 +2324,106 @@ const Page = () => {
                                                                         },
                                                                       );
                                                                   }}
-                                                                  className="px-2 py-1 text-xs border border-gray-300 rounded font-medium hover:bg-gray-100 transition cursor-pointer"
+                                                                  className="px-2.5 py-1 text-xs border border-gray-300 rounded font-medium hover:bg-gray-100 transition cursor-pointer"
                                                                 >
                                                                   View
                                                                 </button>
-                                                                {(inv.status ===
-                                                                  "pending_payment" ||
-                                                                  inv.status ===
-                                                                    "draft") && (
-                                                                  <button
-                                                                    onClick={(
-                                                                      e,
-                                                                    ) => {
-                                                                      e.stopPropagation();
-                                                                      triggerPaymentAction(
-                                                                        () =>
-                                                                          handlePayInvoice(
+                                                                {inv.status !==
+                                                                  "paid" && (
+                                                                  <>
+                                                                    <button
+                                                                      onClick={(
+                                                                        e,
+                                                                      ) => {
+                                                                        e.stopPropagation();
+                                                                        const token =
+                                                                          localStorage.getItem(
+                                                                            "token",
+                                                                          ) || "";
+                                                                        vendorBillingService
+                                                                          .getAdminInvoiceDetails(
                                                                             inv.uuid,
-                                                                            vg
-                                                                              .vendor
-                                                                              .uuid,
-                                                                            vg.vendorId,
-                                                                            inv.invoice_number,
-                                                                            Number(
-                                                                              inv.total_amount,
+                                                                            token,
+                                                                          )
+                                                                          .then(
+                                                                            (
+                                                                              details,
+                                                                            ) => {
+                                                                              setEditingInvoice(
+                                                                                details,
+                                                                              );
+                                                                              setIsEditModalOpen(
+                                                                                true,
+                                                                              );
+                                                                            },
+                                                                          )
+                                                                          .catch(
+                                                                            () => {
+                                                                              setEditingInvoice(
+                                                                                inv,
+                                                                              );
+                                                                              setIsEditModalOpen(
+                                                                                true,
+                                                                              );
+                                                                            },
+                                                                          );
+                                                                      }}
+                                                                      className="px-2.5 py-1 text-xs border border-gray-300 rounded font-medium hover:bg-gray-100 transition cursor-pointer flex items-center gap-1"
+                                                                      title="Edit Invoice"
+                                                                    >
+                                                                      <Pencil className="w-3.5 h-3.5" />{" "}
+                                                                      Edit
+                                                                    </button>
+                                                                    <button
+                                                                      onClick={(
+                                                                        e,
+                                                                      ) => {
+                                                                        e.stopPropagation();
+                                                                        triggerPaymentAction(
+                                                                          () =>
+                                                                            handlePayInvoice(
+                                                                              inv.uuid,
+                                                                              vg
+                                                                                .vendor
+                                                                                .uuid,
+                                                                              vg.vendorId,
+                                                                              inv.invoice_number,
+                                                                              Number(
+                                                                                inv.total_amount,
+                                                                              ),
                                                                             ),
-                                                                          ),
-                                                                      );
-                                                                    }}
-                                                                    className="px-2.5 py-1 text-xs text-white rounded font-medium transition hover:brightness-110 cursor-pointer shadow-sm"
-                                                                    style={{
-                                                                      backgroundColor:
-                                                                        roleSettings.pageTabColor,
-                                                                    }}
-                                                                  >
-                                                                    Pay
-                                                                  </button>
+                                                                        );
+                                                                      }}
+                                                                      className="px-2.5 py-1 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded font-medium transition cursor-pointer shadow-sm flex items-center gap-1"
+                                                                      title="Pay via Stripe"
+                                                                    >
+                                                                      <CreditCard className="w-3.5 h-3.5" /> Stripe
+                                                                    </button>
+                                                                    <button
+                                                                      onClick={(
+                                                                        e,
+                                                                      ) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenManualPay(inv);
+                                                                      }}
+                                                                      className="px-2.5 py-1 text-xs border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded font-medium transition cursor-pointer flex items-center gap-1"
+                                                                      title="Mark as Paid Manually"
+                                                                    >
+                                                                      <DollarSign className="w-3.5 h-3.5" /> Mark Paid
+                                                                    </button>
+                                                                    <button
+                                                                      onClick={(
+                                                                        e,
+                                                                      ) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteInvoice(inv);
+                                                                      }}
+                                                                      className="px-2.5 py-1 text-xs border border-red-300 text-red-600 hover:bg-red-50 rounded font-medium transition cursor-pointer flex items-center gap-1"
+                                                                      title="Delete Invoice"
+                                                                    >
+                                                                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                                                                    </button>
+                                                                  </>
                                                                 )}
                                                               </div>
                                                             </td>
@@ -2334,63 +2806,54 @@ const Page = () => {
                                                                       </span>
                                                                     )}
                                                                     {/* Invoice Chip */}
-                                                                    {linkedInvoice &&
-                                                                      (userType ===
-                                                                      "vendor" ? (
-                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 select-none">
-                                                                          #
-                                                                          {
-                                                                            linkedInvoice.invoice_number
-                                                                          }
-                                                                        </span>
-                                                                      ) : (
-                                                                        <button
-                                                                          onClick={async (
-                                                                            e,
-                                                                          ) => {
-                                                                            e.stopPropagation();
-                                                                            const token =
-                                                                              localStorage.getItem(
-                                                                                "token",
-                                                                              ) ||
-                                                                              "";
-                                                                            vendorBillingService
-                                                                              .getAdminInvoiceDetails(
-                                                                                linkedInvoice.uuid,
-                                                                                token,
-                                                                              )
-                                                                              .then(
-                                                                                (
+                                                                    {linkedInvoice && (
+                                                                      <button
+                                                                        onClick={async (
+                                                                          e,
+                                                                        ) => {
+                                                                          e.stopPropagation();
+                                                                          const token =
+                                                                            localStorage.getItem(
+                                                                              "token",
+                                                                            ) ||
+                                                                            "";
+                                                                          vendorBillingService
+                                                                            .getAdminInvoiceDetails(
+                                                                              linkedInvoice.uuid,
+                                                                              token,
+                                                                            )
+                                                                            .then(
+                                                                              (
+                                                                                d,
+                                                                              ) => {
+                                                                                setViewingInvoice(
                                                                                   d,
-                                                                                ) => {
-                                                                                  setViewingInvoice(
-                                                                                    d,
-                                                                                  );
-                                                                                  setIsViewModalOpen(
-                                                                                    true,
-                                                                                  );
-                                                                                },
-                                                                              )
-                                                                              .catch(
-                                                                                () => {
-                                                                                  setViewingInvoice(
-                                                                                    linkedInvoice,
-                                                                                  );
-                                                                                  setIsViewModalOpen(
-                                                                                    true,
-                                                                                  );
-                                                                                },
-                                                                              );
-                                                                          }}
-                                                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition cursor-pointer"
-                                                                          title="Click to view invoice"
-                                                                        >
-                                                                          #
-                                                                          {
-                                                                            linkedInvoice.invoice_number
-                                                                          }
-                                                                        </button>
-                                                                      ))}
+                                                                                );
+                                                                                setIsViewModalOpen(
+                                                                                  true,
+                                                                                );
+                                                                              },
+                                                                            )
+                                                                            .catch(
+                                                                              () => {
+                                                                                setViewingInvoice(
+                                                                                  linkedInvoice,
+                                                                                );
+                                                                                setIsViewModalOpen(
+                                                                                  true,
+                                                                                );
+                                                                              },
+                                                                            );
+                                                                        }}
+                                                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition cursor-pointer"
+                                                                        title="Click to view invoice"
+                                                                      >
+                                                                        #
+                                                                        {
+                                                                          linkedInvoice.invoice_number
+                                                                        }
+                                                                      </button>
+                                                                    )}
                                                                   </div>
                                                                   <p className="text-xs text-gray-500 mt-1">
                                                                     Price: $
@@ -2705,54 +3168,129 @@ const Page = () => {
         dialogType="payment"
       />
 
+      <ConfirmationDialog
+        open={confirmDeleteOpen}
+        setOpen={setConfirmDeleteOpen}
+        onConfirm={executeDeleteInvoice}
+        showAgain={true}
+        toggleShowAgain={() => {}}
+        dialogType="delete"
+        title="DELETE INVOICE"
+        description="Are you sure you want to delete this invoice? The invoice will be permanently deleted and all linked orders/services will be released back to uninvoiced work."
+      />
+
       {/* View Invoice Modal */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden">
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden">
           {viewingInvoice ? (
             <>
-              <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white shrink-0">
-                <DialogTitle className="flex flex-col md:flex-row items-start md:items-center w-full font-alexandria relative pr-8 md:pr-0">
-                  <div className="flex flex-col items-start w-full md:w-auto">
+              <DialogHeader className="px-5 py-3.5 md:px-6 md:py-4 border-b border-[#E4E4E4] bg-white shrink-0">
+                <DialogTitle className="flex flex-wrap items-center justify-between gap-3 w-full font-alexandria relative pr-8">
+                  <div className="flex flex-col items-start min-w-[200px] shrink-0">
                     <span
-                      className="text-[20px] md:text-[22px] font-[700] uppercase tracking-wide leading-none"
+                      className="text-[18px] md:text-[20px] font-[700] uppercase tracking-wide leading-none"
                       style={{
                         color: `var(--${userType}-page-tab-color, #000)`,
                       }}
                     >
                       Invoice
                     </span>
-                    <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
+                    <span className="text-[12px] md:text-[13px] font-[500] text-gray-500 mt-1 font-mono tracking-tight whitespace-nowrap">
                       #{viewingInvoice?.invoice_number || viewingInvoice?.id}
                     </span>
                   </div>
 
-                  <div
-                    className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === "admin" ? "flex-row" : "flex-col md:flex-row items-start"}`}
-                  >
+                  <div className="flex items-center flex-wrap gap-1.5 ml-auto">
+                    {userType !== "vendor" &&
+                      viewingInvoice?.status !== "paid" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const token = localStorage.getItem("token") || "";
+                              try {
+                                const details = await vendorBillingService.getAdminInvoiceDetails(viewingInvoice.uuid, token);
+                                setIsViewModalOpen(false);
+                                setEditingInvoice(details);
+                                setIsEditModalOpen(true);
+                              } catch {
+                                const invToEdit = viewingInvoice;
+                                setIsViewModalOpen(false);
+                                setEditingInvoice(invToEdit);
+                                setIsEditModalOpen(true);
+                              }
+                            }}
+                            className="h-8 px-2.5 text-xs font-semibold gap-1 border-gray-300 hover:bg-gray-100 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5 inline-block" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const invToDelete = viewingInvoice;
+                              setIsViewModalOpen(false);
+                              handleDeleteInvoice(invToDelete);
+                            }}
+                            className="h-8 px-2.5 text-xs font-semibold gap-1 border-red-200 text-red-600 hover:bg-red-50 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 inline-block" /> Delete
+                          </Button>
+                        </>
+                      )}
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!viewingInvoice) return;
+                        const invoiceNumber = viewingInvoice.invoice_number || viewingInvoice.id;
+                        const fileName = `Invoice_${invoiceNumber}.pdf`;
+                        await DownloadInvoicePdf('invoice-pdf-content', fileName);
+                      }}
+                      className="h-8 px-3 text-xs font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none shadow-sm gap-1.5 transition-all cursor-pointer"
+                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
+                      <Download className="w-3.5 h-3.5 inline-block" /> Download PDF
+                    </Button>
                     {userType === "admin" &&
                       (viewingInvoice?.status === "pending_payment" ||
                         viewingInvoice?.status === "draft") && (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerPaymentAction(() =>
-                              handlePayInvoice(
-                                viewingInvoice.uuid,
-                                (viewingInvoice as any).vendor_uuid ||
-                                  (viewingInvoice.vendor as any)?.uuid,
-                                (viewingInvoice as any).vendor_id ||
-                                  (viewingInvoice.vendor as any)?.id,
-                                viewingInvoice.invoice_number,
-                                Number(viewingInvoice.total_amount),
-                              ),
-                            );
-                            setIsViewModalOpen(false);
-                          }}
-                          className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                          style={{ backgroundColor: roleSettings.pageTabColor }}
-                        >
-                          Pay Now
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerPaymentAction(() =>
+                                handlePayInvoice(
+                                  viewingInvoice.uuid,
+                                  (viewingInvoice as any).vendor_uuid ||
+                                    (viewingInvoice.vendor as any)?.uuid,
+                                  (viewingInvoice as any).vendor_id ||
+                                    (viewingInvoice.vendor as any)?.id,
+                                  viewingInvoice.invoice_number,
+                                  Number(viewingInvoice.total_amount),
+                                ),
+                              );
+                              setIsViewModalOpen(false);
+                            }}
+                            className="h-8 px-3 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[6px] shadow-sm transition-all cursor-pointer"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 inline-block" /> Stripe
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const invToPay = viewingInvoice;
+                              setIsViewModalOpen(false);
+                              handleOpenManualPay(invToPay);
+                            }}
+                            className="h-8 px-3 text-xs font-semibold gap-1 border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-[6px] shadow-sm transition-all cursor-pointer"
+                          >
+                            <DollarSign className="w-3.5 h-3.5 inline-block" /> Mark Paid
+                          </Button>
+                        </>
                       )}
                   </div>
                 </DialogTitle>
@@ -2831,6 +3369,121 @@ const Page = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {editingInvoice && (
+        <EditInvoiceModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingInvoice(null);
+          }}
+          invoice={editingInvoice}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            setEditingInvoice(null);
+            // Refresh invoices for current vendor
+            const token = localStorage.getItem("token") || "";
+            if (editingInvoice.vendor?.uuid) {
+              vendorBillingService
+                .getVendorInvoices(editingInvoice.vendor.uuid, token)
+                .then((invs) => {
+                  setVendorInvoicesMap((prev) =>
+                    new Map(prev).set(editingInvoice.vendor?.uuid || String(editingInvoice.vendor_id || ""), invs)
+                  );
+                })
+                .catch(() => {});
+            }
+          }}
+          roleSettings={roleSettings}
+        />
+      )}
+
+      {/* Mark as Paid (Manual) Dialog */}
+      {manualPayInvoice && (
+        <Dialog open={isManualPayModalOpen} onOpenChange={setIsManualPayModalOpen}>
+          <DialogContent className="max-w-md p-6 font-alexandria">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold" style={{ color: roleSettings.pageTabColor }}>
+                Record Payment: #{manualPayInvoice.invoice_number}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs space-y-1">
+                <p className="font-semibold text-gray-800">Vendor: {manualPayInvoice.vendor?.company_name || `${manualPayInvoice.vendor?.first_name || ""} ${manualPayInvoice.vendor?.last_name || ""}`.trim()}</p>
+                <p className="text-gray-600">Total Payout Amount: <strong className="text-gray-900">${Number(manualPayInvoice.total_amount).toFixed(2)}</strong></p>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-gray-700">Payment Date</Label>
+                <Input
+                  type="date"
+                  value={manualDate}
+                  onChange={(e) => setManualDate(e.target.value)}
+                  className="h-9 text-xs mt-1"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-gray-700">Payment Method</Label>
+                <Select value={manualMethod} onValueChange={setManualMethod}>
+                  <SelectTrigger className="h-9 text-xs mt-1">
+                    <SelectValue placeholder="Select Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Bank Transfer">Bank Transfer / EFT / ACH</SelectItem>
+                    <SelectItem value="Check">Check / Cheque</SelectItem>
+                    <SelectItem value="E-Transfer">Interac E-Transfer</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-gray-700">Check # / Transfer Reference</Label>
+                <Input
+                  placeholder="e.g. Check #1049 or Ref TXN-8930"
+                  value={manualRef}
+                  onChange={(e) => setManualRef(e.target.value)}
+                  className="h-9 text-xs mt-1"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-gray-700">Notes / Remarks (Optional)</Label>
+                <Input
+                  placeholder="Add payment notes"
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  className="h-9 text-xs mt-1"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsManualPayModalOpen(false)}
+                disabled={isSubmittingManualPay}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="text-white hover:brightness-110"
+                style={{ backgroundColor: roleSettings.pageTabColor }}
+                onClick={handleConfirmManualPay}
+                disabled={isSubmittingManualPay}
+              >
+                {isSubmittingManualPay ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
+                Confirm Paid
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

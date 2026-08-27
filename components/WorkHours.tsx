@@ -600,7 +600,12 @@ const VendorWorkHours = ({
     const options =
       selectedService.product_options?.map((option) => ({
         option_uuid: option.uuid,
-        vendor_price: option.cost || Number(option.amount) || 0,
+        vendor_price: (option as any).vendor_price !== undefined && (option as any).vendor_price !== null && (option as any).vendor_price !== ""
+          ? Number((option as any).vendor_price)
+          : (option.cost ?? 0),
+        pay_type: (option as any).vendor_pay_type || "flat",
+        sq_ft_rate: (option as any).vendor_sq_ft_rate ?? "",
+        min_price: (option as any).vendor_min_price ?? "",
         adjustment_time: "no adjustment",
       })) || [];
 

@@ -197,8 +197,9 @@ const InvoiceListPage = () => {
                 if (status === "PAID") bgColor = "#6BAE41";
                 else if (status === "ISSUED") bgColor = "#4A90E2";
                 else if (status === "VOID") bgColor = "#A0A0A0";
-                else if (status === "PARTIAL") bgColor = "#F5A623";
+                else if (status === "PARTIAL" || status === "PARTIALLY_PAID" || status === "PARTIAL_PAID") bgColor = "#F5A623";
                 else if (status === "REFUNDED") bgColor = "#D0021B";
+                else if (status === "PARTIALLY_REFUNDED" || status === "PARTIAL_REFUNDED") bgColor = "#D9534F";
 
                 return (
                     <div

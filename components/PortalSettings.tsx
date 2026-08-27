@@ -36,6 +36,7 @@ const PortalSettings = React.forwardRef<
         show_org_details_on_empty_schedule: boolean;
         allow_print_request: boolean;
         allow_booking_through_lunch: boolean;
+        only_pay_travel_between_appointments: boolean;
         other_areas_free_allowance?: number | string;
         other_areas_rate_per_sq_ft?: number | string;
         other_areas_enable_allowance?: boolean;
@@ -51,6 +52,7 @@ const PortalSettings = React.forwardRef<
         show_org_details_on_empty_schedule: false,
         allow_print_request: false,
         allow_booking_through_lunch: false,
+        only_pay_travel_between_appointments: true,
         other_areas_free_allowance: 1000,
         other_areas_rate_per_sq_ft: 0.10,
         other_areas_enable_allowance: false,
@@ -138,6 +140,7 @@ const PortalSettings = React.forwardRef<
                         show_org_details_on_empty_schedule: settings.show_org_details_on_empty_schedule ?? false,
                         allow_print_request: settings.allow_print_request ?? false,
                         allow_booking_through_lunch: settings.allow_booking_through_lunch ?? false,
+                        only_pay_travel_between_appointments: settings.only_pay_travel_between_appointments ?? true,
                         other_areas_free_allowance: settings.other_areas_free_allowance ?? 1000,
                         other_areas_rate_per_sq_ft: settings.other_areas_rate_per_sq_ft ?? 0.10,
                         other_areas_enable_allowance: settings.other_areas_enable_allowance ?? false,
@@ -177,6 +180,7 @@ const PortalSettings = React.forwardRef<
                 show_org_details_on_empty_schedule: formState.show_org_details_on_empty_schedule,
                 allow_print_request: formState.allow_print_request,
                 allow_booking_through_lunch: formState.allow_booking_through_lunch,
+                only_pay_travel_between_appointments: formState.only_pay_travel_between_appointments,
                 other_areas_free_allowance: Number(formState.other_areas_free_allowance || 0),
                 other_areas_rate_per_sq_ft: Number(formState.other_areas_rate_per_sq_ft || 0),
                 other_areas_enable_allowance: Boolean(formState.other_areas_enable_allowance),
@@ -583,6 +587,24 @@ const PortalSettings = React.forwardRef<
                                     <Label htmlFor="allow-booking-through-lunch" className="cursor-pointer font-medium text-sm">
                                         Allow appointments to book through lunch time (additional appointment time will be added)
                                     </Label>
+                                </div>
+
+                                {/* Only Pay Travel Between Appointments */}
+                                <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                        <Switch
+                                            id="only-pay-travel-between-appointments"
+                                            checked={formState.only_pay_travel_between_appointments}
+                                            onCheckedChange={(val) => setFormState(prev => ({ ...prev, only_pay_travel_between_appointments: val }))}
+                                            className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
+                                        />
+                                        <Label htmlFor="only-pay-travel-between-appointments" className="cursor-pointer font-medium text-sm">
+                                            Only pay vendor travel between appointments (exclude travel to/from home address)
+                                        </Label>
+                                    </div>
+                                    <p className="text-xs text-gray-500 ml-11">
+                                        When enabled, vendor travel compensation is calculated only between consecutive appointments on the same day. The first appointment of the day receives $0.00 travel pay.
+                                    </p>
                                 </div>
 
                                 {/* Disable Next Day Booking */}

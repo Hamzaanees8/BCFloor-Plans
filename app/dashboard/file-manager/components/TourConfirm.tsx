@@ -590,6 +590,9 @@ const TourConfirm = ({
   const isPanoFile = React.useCallback((f: any) => {
     if (!f) return false;
     if (
+      f.subtype === "panorama_360" ||
+      f.subtype === "panorama_180" ||
+      f.subtype === "panorama" ||
       f.isPanorama === true ||
       f.is_panorama === true ||
       f.image_type === "panorama" ||

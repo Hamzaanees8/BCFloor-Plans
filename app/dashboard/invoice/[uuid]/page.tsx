@@ -11,6 +11,7 @@ import DownloadInvoicePdf from '../components/DownloadInvoicePdf'
 import InvoiceDocument from '../components/InvoiceDocument'
 import InvoicePdfDocument from '../components/InvoicePdfDocument'
 import RefundModal from '../components/RefundModal'
+import RefundReceiptModal from '../components/RefundReceiptModal'
 import ConfirmationDialog from '@/components/ConfirmationDialog'
 
 const STORAGE_KEY_PAYMENT = 'confirmation_dialog_payment_show_again';
@@ -31,6 +32,8 @@ const InvoicePreviewPage = () => {
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [showAgain, setShowAgain] = useState(true)
+    const [selectedRefundPayment, setSelectedRefundPayment] = useState<any>(null)
+    const [isReceiptOpen, setIsReceiptOpen] = useState(false)
 
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY_PAYMENT);
@@ -264,6 +267,11 @@ const InvoicePreviewPage = () => {
         setIsRefundModalOpen(true)
     }
 
+    const handleViewReceipt = (payment: any) => {
+        setSelectedRefundPayment(payment)
+        setIsReceiptOpen(true)
+    }
+
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...editData.items]
         newItems[index] = { ...newItems[index], [field]: value }
@@ -319,7 +327,10 @@ const InvoicePreviewPage = () => {
         })
     }
 
-    const isEditableStatus = invoice && !['paid', 'void', 'refunded'].includes((invoice.status || '').toLowerCase());
+    const isEditableStatus = invoice && (
+        !['void', 'refunded'].includes((invoice.status || '').toLowerCase()) &&
+        (!['paid'].includes((invoice.status || '').toLowerCase()) || parseFloat(invoice.total || 0) === 0)
+    );
     const canEdit = role === 'admin' && isEditableStatus;
 
     if (loading) {
@@ -372,7 +383,7 @@ const InvoicePreviewPage = () => {
                                     <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
                                 </Button>
                             )}
-                            {role === 'admin' && invoice.status === 'paid' && (
+                            {role === 'admin' && invoice.status === 'paid' && parseFloat(invoice.total || 0) > 0 && (
                                 <Button
                                     variant="outline"
                                     className="bg-orange-500 text-white hover:bg-orange-600 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"
@@ -428,6 +439,71 @@ const InvoicePreviewPage = () => {
                 />
             </div>
 
+            {/* Payment & Refund History */}
+            {invoice.payments && invoice.payments.length > 0 && (
+                <div className="mx-auto max-w-4xl px-8 pb-12 no-print font-alexandria">
+                    <div className="bg-white rounded-lg border-2 border-gray-100 shadow-xl p-6 md:p-8">
+                        <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">
+                            Transaction History
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                        <th className="pb-3">Date</th>
+                                        <th className="pb-3">Type</th>
+                                        <th className="pb-3">Method</th>
+                                        <th className="pb-3">Notes</th>
+                                        <th className="pb-3 text-right">Amount</th>
+                                        <th className="pb-3 text-center">Receipt</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-xs md:text-sm">
+                                    {invoice.payments.map((payment: any) => {
+                                        const isRefund = payment.payment_type === 'refund' || parseFloat(payment.amount) < 0;
+                                        const displayAmount = Math.abs(parseFloat(payment.amount));
+                                        return (
+                                            <tr key={payment.id} className="text-gray-700">
+                                                <td className="py-3">
+                                                    {new Date(payment.paid_at || payment.created_at).toLocaleDateString()}
+                                                </td>
+                                                <td className="py-3 font-semibold">
+                                                    {isRefund ? (
+                                                        <span className="text-red-600 bg-red-50 px-2 py-0.5 rounded">Refund</span>
+                                                    ) : (
+                                                        <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded">Payment</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3 capitalize">
+                                                    {payment.payment_method || 'N/A'}
+                                                </td>
+                                                <td className="py-3 text-gray-500 max-w-[200px] truncate">
+                                                    {payment.meta?.notes || payment.meta?.type || '—'}
+                                                </td>
+                                                <td className={`py-3 text-right font-bold ${isRefund ? 'text-red-600' : 'text-green-600'}`}>
+                                                    {isRefund ? '-' : ''}${displayAmount.toFixed(2)}
+                                                </td>
+                                                <td className="py-3 text-center">
+                                                    {isRefund ? (
+                                                        <Button
+                                                            variant="link"
+                                                            className="text-blue-600 hover:text-blue-800 p-0 h-auto font-medium"
+                                                            onClick={() => handleViewReceipt(payment)}
+                                                        >
+                                                            View Receipt
+                                                        </Button>
+                                                    ) : '—'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Hidden PDF component for high-accuracy capture */}
             <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
                 <InvoicePdfDocument
@@ -441,6 +517,13 @@ const InvoicePreviewPage = () => {
                 onClose={() => setIsRefundModalOpen(false)}
                 invoice={invoice}
                 onSuccess={fetchInvoice}
+            />
+
+            <RefundReceiptModal
+                isOpen={isReceiptOpen}
+                onClose={() => setIsReceiptOpen(false)}
+                payment={selectedRefundPayment}
+                invoice={invoice}
             />
 
             <ConfirmationDialog

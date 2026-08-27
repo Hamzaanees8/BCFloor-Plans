@@ -115,7 +115,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
     setActionLoading(invoice.uuid)
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-      const payerUuid = userInfo?.uuid
+      const payerUuid = role === 'agent' ? userInfo?.uuid : undefined
       const isOwner = payerUuid === (invoice.agent?.uuid || invoice.agent_uuid)
 
       let paymentMode: 'on_behalf' | 'self' | undefined

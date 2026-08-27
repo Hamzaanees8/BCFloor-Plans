@@ -23,6 +23,9 @@ import { DeleteVendorBreak } from '../calendar';
 import { Switch } from '@/components/ui/switch';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import VendorSwapReassignModal from './VendorSwapReassignModal';
+import { EditSlotTimeModal } from './EditSlotTimeModal';
+import CancelOrderDialog from '../../orders/components/CancelOrderDialog';
+import { PreviewCancelService, CancelService } from '../../orders/orders';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -226,6 +229,12 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [showSwapModal, setShowSwapModal] = useState(false);
     const [swapTargetOrder, setSwapTargetOrder] = useState<Order | null>(null);
     const [swapTargetService, setSwapTargetService] = useState<Services | null>(null);
+    const [editingSlotEvent, setEditingSlotEvent] = useState<CalendarEvent | null>(null);
+    const [showCancelServiceDialog, setShowCancelServiceDialog] = useState(false);
+    const [isCancelServiceLoading, setIsCancelServiceLoading] = useState(false);
+    const [cancelServicePreviewData, setCancelServicePreviewData] = useState<any>(null);
+    const [cancelTargetService, setCancelTargetService] = useState<{ uuid: string; service_uuid: string; name: string } | null>(null);
+    const [cancelTargetOrder, setCancelTargetOrder] = useState<Order | null>(null);
 
     useEffect(() => {
         const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
@@ -1029,6 +1038,89 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         }
     };
 
+    const handleCancelServiceClick = async (event: CalendarEvent) => {
+        const token = localStorage.getItem("token") || "";
+        if (!token) return;
+
+        const currentOrder = orderData.find((o) => o.uuid === event.order_id);
+        if (!currentOrder) {
+            toast.error("Order details not found.");
+            return;
+        }
+
+        const globalService = serviceData?.find((s) => s.id === Number(event.service_id));
+        if (!globalService) {
+            toast.error("Service details not found.");
+            return;
+        }
+
+        const matchedOrderService = currentOrder.services?.find((os) => os.service_id === Number(event.service_id));
+        if (!matchedOrderService) {
+            toast.error("Order service record not found.");
+            return;
+        }
+
+        setCancelTargetOrder(currentOrder);
+        setIsCancelServiceLoading(true);
+        setCancelTargetService({
+            uuid: matchedOrderService.uuid,
+            service_uuid: globalService.uuid || '',
+            name: globalService.name || '',
+        });
+
+        try {
+            const data = await PreviewCancelService(
+                currentOrder.uuid,
+                globalService.uuid || '',
+                token
+            );
+            setCancelServicePreviewData(data.data);
+        } catch {
+            setCancelServicePreviewData({
+                order_uuid: currentOrder.uuid,
+                service_uuid: globalService.uuid || '',
+                can_cancel: true,
+                is_free: true,
+                cancellation_fee: 0,
+                total_paid: 0,
+                expected_refund: 0,
+                threshold_hours: 24,
+                fee_percentage: 0,
+                booking_datetime: dayjs(currentOrder.created_at).toISOString(),
+                deadline: dayjs().toISOString(),
+                timezone: "America/Vancouver",
+                message: "Cancellation for past service",
+            });
+        } finally {
+            setIsCancelServiceLoading(false);
+            setShowCancelServiceDialog(true);
+        }
+    };
+
+    const handleCancelService = async (reason?: string) => {
+        const token = localStorage.getItem("token") || "";
+        if (!token || !cancelTargetOrder || !cancelTargetService) return;
+
+        setIsCancelServiceLoading(true);
+        try {
+            await CancelService(
+                cancelTargetOrder.uuid,
+                cancelTargetService.uuid,
+                token,
+                reason
+            );
+            toast.success("Service cancelled successfully");
+            setShowCancelServiceDialog(false);
+            refreshOrders();
+        } catch (err) {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to cancel service"
+            );
+        } finally {
+            setIsCancelServiceLoading(false);
+        }
+    };
+
     const confirmDelete = async (breakEvent = breakToDelete) => {
         const token = localStorage.getItem('token');
         const breakUuid = breakEvent?.uuid;
@@ -1325,8 +1417,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             <button
                                 className="w-full text-left px-3 py-2 text-[13px] hover:bg-amber-50 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
                                 onClick={() => {
-                                    setSelectedOrder(contextMenu.eventData || null);
-                                    setOpenDetails(true);
+                                    setEditingSlotEvent(contextMenu.eventData || null);
                                     setContextMenu(null);
                                 }}
                             >
@@ -1355,7 +1446,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         className="w-full text-left px-3 py-2 text-[13px] hover:bg-red-50 hover:text-red-600 flex items-center gap-2.5 transition-colors"
                         onClick={() => {
                             if (contextMenu.eventData?.order_id) {
-                                setSelectedOrder(contextMenu.eventData || null);
+                                handleCancelServiceClick(contextMenu.eventData);
                             } else {
                                 setBreakToDelete(contextMenu.eventData || null);
                                 setIsConfirmOpen(true);
@@ -1364,7 +1455,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         }}
                     >
                         <Trash2 className="w-4 h-4 text-red-500" />
-                        <span>Delete / Cancel</span>
+                        <span>{contextMenu.eventData?.order_id ? "Cancel Service" : "Delete / Cancel"}</span>
                     </button>
                 </div>
             )}
@@ -1393,6 +1484,29 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             )}
 
             <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={String(selectedOrder?.order_id) ?? 'c5527273-88cb-414f-8f23-26c2bdd852d4'} serviceId={selectedOrder?.service_id ?? 22} orderData={orderData} refreshOrders={refreshOrders} />
+
+            <EditSlotTimeModal
+                open={!!editingSlotEvent}
+                onClose={() => setEditingSlotEvent(null)}
+                event={editingSlotEvent}
+                orderData={orderData}
+                vendorData={vendorData}
+                serviceData={serviceData}
+                refreshOrders={refreshOrders}
+            />
+
+            {showCancelServiceDialog && cancelTargetOrder && (
+                <CancelOrderDialog
+                    open={showCancelServiceDialog}
+                    onOpenChange={setShowCancelServiceDialog}
+                    orderData={cancelTargetOrder}
+                    isLoading={isCancelServiceLoading}
+                    previewData={cancelServicePreviewData}
+                    mode="service"
+                    targetName={cancelTargetService?.name}
+                    onConfirm={handleCancelService}
+                />
+            )}
 
             <div className='min-h-screen'>
                 {(() => {

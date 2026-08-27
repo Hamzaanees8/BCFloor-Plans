@@ -22,6 +22,16 @@ interface InvoiceDocumentProps {
   roleSettings: any;
 }
 
+export function cleanTaxNumber(val?: string | null): string {
+  if (!val) return "";
+  return String(val)
+    .replace(/^(GST\/HST:\s*|GST:\s*|PST:\s*|QST:\s*|US State Tax ID:\s*|Tax ID:\s*)/i, "")
+    .replace(/^GST\s*:\s*/i, "")
+    .replace(/^PST\s*:\s*/i, "")
+    .replace(/^HST\s*:\s*/i, "")
+    .trim();
+}
+
 const InvoiceDocument = ({
   invoice,
   editData,
@@ -54,14 +64,6 @@ const InvoiceDocument = ({
 
   const orgName =
     invoiceOrg?.name || invOrg?.name || currentOrg?.name || "BC Floor plans";
-  const orgEmail =
-    invoiceOrg?.contact_email ||
-    invoiceOrg?.from_email ||
-    invOrg?.contact_email ||
-    invOrg?.from_email ||
-    currentOrg?.contact_email ||
-    currentOrg?.from_email ||
-    "info@bcfloorplans.com";
 
   // Attempt to extract logo from all possible nested structures
   const orgWlsLogo =
@@ -112,10 +114,28 @@ const InvoiceDocument = ({
   const isHstProvince = ["ON", "ONTARIO", "NB", "NEW BRUNSWICK", "NL", "NEWFOUNDLAND", "NS", "NOVA SCOTIA", "PE", "PRINCE EDWARD ISLAND"].includes(province);
   const hasPst = ["BC", "BRITISH COLUMBIA", "SK", "SASKATCHEWAN", "MB", "MANITOBA", "QC", "QUEBEC"].includes(province);
 
+  const isVendorInvoice = !!(invoice.vendor || invoice.vendor_details || invoice.vendor_id);
   const displayData = isEditing ? editData : invoice;
   const paidAmount = parseFloat(displayData.paid_amount || invoice.paid_amount || 0);
   const grandTotal = parseFloat(displayData.total || displayData.total_amount || invoice.total || "0");
   const balanceDue = Math.max(0, grandTotal - paidAmount);
+
+  // Resolved Org details (Payer)
+  const currentOrgDetails = displayData.org_details || invoice.org_details || {};
+  const displayOrgName = currentOrgDetails.name || displayData.org_name || invoiceOrg?.name || invOrg?.name || currentOrg?.name || "BC Floor plans";
+  const displayOrgEmail = currentOrgDetails.email || displayData.org_email || invoiceOrg?.contact_email || invoiceOrg?.from_email || invOrg?.contact_email || invOrg?.from_email || currentOrg?.contact_email || currentOrg?.from_email || "info@bcfloorplans.com";
+  const displayOrgPhone = currentOrgDetails.phone || displayData.org_phone || invoiceOrg?.phone || invOrg?.phone || "";
+  const displayOrgAddress = currentOrgDetails.address || displayData.org_address || invoiceOrg?.address || invOrg?.address || "";
+
+  // Resolved Vendor details (Payee)
+  const currentVendorDetails = displayData.vendor_details || invoice.vendor_details || {};
+  const displayVendorName = currentVendorDetails.name || (currentVendorDetails.first_name ? `${currentVendorDetails.first_name} ${currentVendorDetails.last_name || ''}`.trim() : '') || (invoice.vendor ? `${invoice.vendor.first_name} ${invoice.vendor.last_name}`.trim() : "Vendor");
+  const displayVendorCompany = currentVendorDetails.company_name || invoice.vendor?.company?.name || invoice.vendor?.company_name || "";
+  const displayVendorEmail = currentVendorDetails.email || invoice.vendor?.email || "";
+  const displayVendorPhone = currentVendorDetails.phone || invoice.vendor?.primary_phone || invoice.vendor?.phone || "";
+  const displayVendorAddress = currentVendorDetails.address || (invoice.vendor?.addresses?.[0] ? `${invoice.vendor.addresses[0].address_line_1 || ''}, ${invoice.vendor.addresses[0].city || ''}` : "");
+  const rawTaxNumber = displayData.tax_number || currentVendorDetails.tax_number || invoice.tax_number || invoice.vendor?.tax_number || invoice.vendor?.settings?.tax_number || "";
+  const displayTaxNumber = cleanTaxNumber(rawTaxNumber);
 
   return (
     <div
@@ -136,13 +156,13 @@ const InvoiceDocument = ({
               />
             )}
             <span className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">
-              {orgName}
+              {displayOrgName}
             </span>
           </div>
           <div className="space-y-1">
             <p className="text-xs md:text-sm font-medium text-gray-600">
               Invoice Number:{" "}
-              <span className="text-gray-900">#{invoice.invoice_number}</span>
+              <span className="text-gray-900">#{invoice.invoice_number || invoice.id}</span>
             </p>
             <p className="text-xs md:text-sm font-medium text-gray-600">
               Date:{" "}
@@ -160,10 +180,13 @@ const InvoiceDocument = ({
                   issued: "bg-blue-100 text-blue-600",
                   unpaid: "bg-orange-100 text-orange-600",
                   draft: "bg-amber-100 text-amber-600",
+                  pending_payment: "bg-blue-100 text-blue-600",
                   void: "bg-gray-100 text-gray-400",
                   partially_paid: "bg-yellow-100 text-yellow-700",
                   partial: "bg-yellow-100 text-yellow-700",
                   refunded: "bg-red-100 text-red-600",
+                  partially_refunded: "bg-red-50 text-red-500",
+                  partial_refunded: "bg-red-50 text-red-500",
                 };
                 return (
                   <span
@@ -205,93 +228,281 @@ const InvoiceDocument = ({
       ></div>
 
       {/* Bill From/To Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-16 px-2 md:px-4">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-12 px-2 md:px-4">
+        {/* Bill From */}
+        <div className="bg-gray-50/70 p-3 md:p-4 rounded-lg border border-gray-100">
           <h3
-            className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-4"
+            className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-3 flex items-center justify-between"
             style={{ color: settings.pageTabColor }}
           >
-            Bill From:
+            <span>Bill From:</span>
+            {isEditing && <span className="text-[10px] text-gray-400 font-normal lowercase">(organization)</span>}
           </h3>
-          <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
-            <p className="font-bold text-gray-900">{orgName}</p>
-            <p>{orgEmail}</p>
-          </div>
+          {isEditing ? (
+            <div className="space-y-2 text-xs">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Organization / Payer Name</label>
+                <Input
+                  value={currentOrgDetails.name ?? displayOrgName}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      org_details: { ...currentOrgDetails, name: e.target.value },
+                    })
+                  }
+                  className="h-7 text-xs bg-white"
+                  placeholder="Organization name"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Contact Email</label>
+                <Input
+                  value={currentOrgDetails.email ?? displayOrgEmail}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      org_details: { ...currentOrgDetails, email: e.target.value },
+                    })
+                  }
+                  className="h-7 text-xs bg-white"
+                  placeholder="Billing email"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Phone (optional)</label>
+                <Input
+                  value={currentOrgDetails.phone ?? displayOrgPhone}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      org_details: { ...currentOrgDetails, phone: e.target.value },
+                    })
+                  }
+                  className="h-7 text-xs bg-white"
+                  placeholder="Phone number"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Address (optional)</label>
+                <Input
+                  value={currentOrgDetails.address ?? displayOrgAddress}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      org_details: { ...currentOrgDetails, address: e.target.value },
+                    })
+                  }
+                  className="h-7 text-xs bg-white"
+                  placeholder="Organization address"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1 md:space-y-1.5 text-xs md:text-sm text-gray-600">
+              <p className="font-bold text-gray-900">{displayOrgName}</p>
+              <p className="flex items-center gap-2">
+                <Mail size={13} className="shrink-0" style={{ color: settings.pageTabColor }} />
+                <span>{displayOrgEmail}</span>
+              </p>
+              {displayOrgPhone && <p className="text-xs">{displayOrgPhone}</p>}
+              {displayOrgAddress && <p className="text-xs text-gray-500">{displayOrgAddress}</p>}
+            </div>
+          )}
         </div>
-        <div>
+
+        {/* Bill To */}
+        <div className="bg-gray-50/70 p-3 md:p-4 rounded-lg border border-gray-100">
           <h3
-            className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-4"
+            className="text-xs font-bold uppercase tracking-widest mb-2 md:mb-3 flex items-center justify-between"
             style={{ color: settings.pageTabColor }}
           >
-            Bill To:
+            <span>Bill To:</span>
+            {isEditing && <span className="text-[10px] text-gray-400 font-normal lowercase">({isVendorInvoice ? 'vendor' : 'agent'})</span>}
           </h3>
-          <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
-            {invoice.vendor ? (
-              <>
-                <p className="font-bold text-gray-900">
-                  {invoice.vendor.first_name} {invoice.vendor.last_name}
+          {isEditing && isVendorInvoice ? (
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Vendor Name</label>
+                  <Input
+                    value={currentVendorDetails.name ?? displayVendorName}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        vendor_details: { ...currentVendorDetails, name: e.target.value },
+                      })
+                    }
+                    className="h-7 text-xs bg-white"
+                    placeholder="Vendor contact name"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Company / Business</label>
+                  <Input
+                    value={currentVendorDetails.company_name ?? displayVendorCompany}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        vendor_details: { ...currentVendorDetails, company_name: e.target.value },
+                      })
+                    }
+                    className="h-7 text-xs bg-white"
+                    placeholder="Company name"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Email</label>
+                  <Input
+                    value={currentVendorDetails.email ?? displayVendorEmail}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        vendor_details: { ...currentVendorDetails, email: e.target.value },
+                      })
+                    }
+                    className="h-7 text-xs bg-white"
+                    placeholder="Vendor email"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Phone</label>
+                  <Input
+                    value={currentVendorDetails.phone ?? displayVendorPhone}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        vendor_details: { ...currentVendorDetails, phone: e.target.value },
+                      })
+                    }
+                    className="h-7 text-xs bg-white"
+                    placeholder="Phone"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Vendor Address</label>
+                <Input
+                  value={currentVendorDetails.address ?? displayVendorAddress}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      vendor_details: { ...currentVendorDetails, address: e.target.value },
+                    })
+                  }
+                  className="h-7 text-xs bg-white"
+                  placeholder="Billing / street address"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-200">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Tax ID / Number</label>
+                  <Input
+                    value={cleanTaxNumber(displayData.tax_number ?? displayTaxNumber)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditData({
+                        ...editData,
+                        tax_number: val,
+                        vendor_details: { ...currentVendorDetails, tax_number: val },
+                      });
+                    }}
+                    className="h-7 text-xs bg-white font-mono"
+                    placeholder="e.g. 123456789 RT0001"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Tax Type</label>
+                  <Input
+                    value={displayData.tax_type ?? "GST"}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        tax_type: e.target.value,
+                      })
+                    }
+                    className="h-7 text-xs bg-white"
+                    placeholder="e.g. GST, HST"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-0.5">Tax Rate (%)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={displayData.tax_rate ?? 0}
+                    onChange={(e) => {
+                      const rate = parseFloat(e.target.value) || 0;
+                      const subtotal = (displayData.items || []).reduce(
+                        (acc: number, item: any) =>
+                          acc + (parseFloat(item.quantity || 1) * parseFloat(item.unit_price || item.amount || 0) || 0),
+                        0
+                      );
+                      const taxAmount = subtotal * (rate / 100);
+                      setEditData({
+                        ...editData,
+                        tax_rate: e.target.value,
+                        subtotal: subtotal.toFixed(2),
+                        tax_amount: taxAmount.toFixed(2),
+                        total: (subtotal + taxAmount).toFixed(2),
+                      });
+                    }}
+                    className="h-7 text-xs bg-white font-bold"
+                    placeholder="5.00"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : isVendorInvoice ? (
+            <div className="space-y-1 md:space-y-1.5 text-xs md:text-sm text-gray-600">
+              <p className="font-bold text-gray-900">{displayVendorName}</p>
+              {displayVendorCompany && <p className="text-gray-700 font-medium">{displayVendorCompany}</p>}
+              {displayVendorEmail && (
+                <p className="flex items-center gap-2">
+                  <Mail size={13} className="shrink-0" style={{ color: settings.pageTabColor }} />
+                  <span>{displayVendorEmail}</span>
                 </p>
-                {(invoice.vendor.company?.name ||
-                  invoice.vendor.company_name) && (
-                  <p>
-                    {invoice.vendor.company?.name ||
-                      invoice.vendor.company_name}
-                  </p>
-                )}
-                <p className="flex items-center gap-2 px-1">
-                  <Mail
-                    size={14}
-                    className="shrink-0"
-                    style={{ color: settings.pageTabColor }}
-                  />{" "}
-                  <span>{invoice.vendor.email}</span>
-                </p>
-                {(invoice.tax_number ||
-                  invoice.vendor.tax_number ||
-                  invoice.vendor.settings?.tax_number) && (
-                  <p className="flex items-center gap-2 px-1 text-[10px] md:text-xs">
-                    <span
-                      className="font-semibold"
-                      style={{ color: settings.pageTabColor }}
-                    >
-                      Tax ID:
-                    </span>
-                    <span>
-                      {invoice.tax_number ||
-                        invoice.vendor.tax_number ||
-                        invoice.vendor.settings?.tax_number}
-                    </span>
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="font-bold text-gray-900">
-                  {invoice.agent?.first_name} {invoice.agent?.last_name}
-                </p>
-                <p className="flex items-start gap-2 px-1">
-                  <MapPin
-                    size={14}
-                    className="shrink-0 mt-0.5"
-                    style={{ color: settings.pageTabColor }}
-                  />{" "}
-                  <span>
-                    {invoice.order?.property?.address},{" "}
-                    {invoice.order?.property?.city},{" "}
-                    {invoice.order?.property?.province}
-                  </span>
-                </p>
-                <p className="flex items-center gap-2 px-1">
-                  <Mail
-                    size={14}
-                    className="shrink-0"
-                    style={{ color: settings.pageTabColor }}
-                  />{" "}
-                  <span>{invoice.agent?.email}</span>
-                </p>
-              </>
-            )}
-          </div>
+              )}
+              {displayVendorPhone && <p className="text-xs">{displayVendorPhone}</p>}
+              {displayVendorAddress && <p className="text-xs text-gray-500">{displayVendorAddress}</p>}
+              {displayTaxNumber && (
+                <div className="flex items-center gap-2 pt-1 mt-1 border-t border-gray-100 text-[11px]">
+                  <span className="font-bold uppercase" style={{ color: settings.pageTabColor }}>Tax ID:</span>
+                  <span className="font-mono text-gray-800">{displayTaxNumber}</span>
+                  {displayData.tax_type && <span className="text-gray-500">({displayData.tax_type})</span>}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
+              <p className="font-bold text-gray-900">
+                {invoice.agent?.first_name} {invoice.agent?.last_name}
+              </p>
+              <p className="flex items-start gap-2">
+                <MapPin
+                  size={14}
+                  className="shrink-0 mt-0.5"
+                  style={{ color: settings.pageTabColor }}
+                />{" "}
+                <span>
+                  {invoice.order?.property?.address},{" "}
+                  {invoice.order?.property?.city},{" "}
+                  {invoice.order?.property?.province}
+                </span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Mail
+                  size={14}
+                  className="shrink-0"
+                  style={{ color: settings.pageTabColor }}
+                />{" "}
+                <span>{invoice.agent?.email}</span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -710,6 +921,16 @@ const InvoiceDocument = ({
                   -${paidAmount.toFixed(2)}
                 </span>
               </div>
+              {parseFloat(invoice.refunded_amount || 0) > 0 && (
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span className="font-medium uppercase tracking-wider text-[10px]">
+                    Amount Refunded:
+                  </span>
+                  <span className="font-semibold text-red-500">
+                    +${parseFloat(invoice.refunded_amount).toFixed(2)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-xs md:text-sm">
                 <span className="font-bold uppercase tracking-wider text-[10px] text-gray-900">
                   Balance Due:

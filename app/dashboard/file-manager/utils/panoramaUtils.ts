@@ -1,22 +1,33 @@
 import { useEffect } from 'react';
 import { Files } from '../FileManagerContext';
 
-const PANORAMA_MIN_RATIO = 2.5;
+export type PanoramaSubtype = 'panorama_360' | 'panorama_180' | null;
 
 /**
- * Classify an image as panorama from its pixel dimensions.
+ * Classify an image as 360 sphere or 180 wide panorama from its pixel dimensions.
  */
-export function classifyImageFromDimensions(width: number, height: number): boolean {
-  if (!width || !height) return false;
+export function classifyImageFromDimensions(width: number, height: number): PanoramaSubtype {
+  if (!width || !height) return null;
   const ratio = width / height;
-  return ratio >= PANORAMA_MIN_RATIO;
+
+  // 360° Spherical / Equirectangular images (standard 2:1 aspect ratio, e.g. 6000x3000, 4000x2000)
+  if (ratio >= 1.90 && ratio <= 2.10) {
+    return 'panorama_360';
+  }
+
+  // 180° / Wide Panoramas (aspect ratio 2.4:1 or wider)
+  if (ratio >= 2.40) {
+    return 'panorama_180';
+  }
+
+  return null;
 }
 
 /**
- * Detects if a local File object is a panorama.
+ * Detects if a local File object is a panorama (360 or 180).
  */
-export async function detectIsPanoramaFromFile(file: File): Promise<boolean> {
-  if (!file.type.startsWith('image/')) return false;
+export async function detectIsPanoramaFromFile(file: File): Promise<PanoramaSubtype> {
+  if (!file.type.startsWith('image/')) return null;
 
   return new Promise((resolve) => {
     const img = new Image();
@@ -27,52 +38,77 @@ export async function detectIsPanoramaFromFile(file: File): Promise<boolean> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(false);
+      resolve(null);
     };
     img.src = url;
   });
 }
 
-// Cache: url -> boolean
-const detectionCache = new Map<string, boolean>();
+// Cache: url -> PanoramaSubtype
+const detectionCache = new Map<string, PanoramaSubtype>();
 
 /**
  * Detects if a remote URL is a panorama.
  */
-export async function detectIsPanoramaFromUrl(url: string): Promise<boolean> {
-  if (!url) return false;
+export async function detectIsPanoramaFromUrl(url: string): Promise<PanoramaSubtype> {
+  if (!url) return null;
   if (detectionCache.has(url)) return detectionCache.get(url)!;
 
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const isPanorama = classifyImageFromDimensions(img.naturalWidth, img.naturalHeight);
-      detectionCache.set(url, isPanorama);
-      resolve(isPanorama);
+      const detected = classifyImageFromDimensions(img.naturalWidth, img.naturalHeight);
+      detectionCache.set(url, detected);
+      resolve(detected);
     };
     img.onerror = () => {
-      detectionCache.set(url, false);
-      resolve(false);
+      detectionCache.set(url, null);
+      resolve(null);
     };
     img.src = url;
   });
 }
 
 /**
- * Returns true if a file should open in the panorama viewer.
- * Legacy "image_type" is still checked for backwards compatibility.
+ * Returns true if a file is any type of panorama (360 sphere or 180 wide).
  */
 export function isPanoramaFile(file: any): boolean {
   if (!file) return false;
-  if (file.isPanorama === true) return true;
+  if (file.subtype === 'panorama_360' || file.subtype === 'panorama_180' || file.subtype === 'panorama') return true;
+  if (file.isPanorama === true || file.is_panorama === true) return true;
   // Legacy support for previously tagged panoramas
   if (file.image_type === 'panorama' || file.image_type === 'wide_panorama' || file.image_type === '360') return true;
-  return false;
+  if (file.type === 'panorama' || file.type === '360') return true;
+
+  const sName = (file.service?.name || "").toLowerCase();
+  const catName = (file.service?.category?.name || "").toLowerCase();
+  const fileName = (file.name || file.file_name || "").toLowerCase();
+
+  return (
+    sName.includes("360") || sName.includes("panorama") || sName.includes("pano") ||
+    catName.includes("360") || catName.includes("panorama") || catName.includes("pano") ||
+    fileName.includes("360") || fileName.includes("pano")
+  );
+}
+
+/**
+ * Returns true if a file should render specifically as a 360° interactive sphere.
+ */
+export function is360SpherePanorama(file: any): boolean {
+  if (!file) return false;
+  if (file.subtype === 'panorama_360') return true;
+  if (file.subtype === 'panorama_180') return false;
+  // If subtype is generic 'panorama' or legacy, check if filename/service explicitly specifies 360
+  const fileName = (file.name || file.file_name || "").toLowerCase();
+  const sName = (file.service?.name || "").toLowerCase();
+  if (fileName.includes("360") || sName.includes("360") || file.image_type === '360' || file.type === '360') return true;
+  // Default generic panoramas to 360 if ratio is near 2:1
+  return isPanoramaFile(file);
 }
 
 /**
  * Hook to auto-detect and classify all untagged image files in the background.
- * Updates filesData in context with the detected isPanorama flag.
+ * Updates filesData in context with detected panorama flags and subtypes.
  */
 export function usePanoramaDetection(
   files: Files[] | undefined,
@@ -85,8 +121,9 @@ export function usePanoramaDetection(
     // Only process images that haven't been classified yet
     const unverified = files.filter(
       f =>
+        f.subtype === undefined &&
         f.isPanorama === undefined &&
-        !(f as any).image_type && // Skip if it already has the old image_type flag
+        !(f as any).image_type &&
         !f.type?.startsWith('video') &&
         !f.type?.startsWith('pdf') &&
         !f.file_path?.toLowerCase().endsWith('.pdf')
@@ -96,19 +133,25 @@ export function usePanoramaDetection(
     let isMounted = true;
 
     const checkFiles = async () => {
-      const updates: { uuid: string; isPanorama: boolean }[] = [];
+      const updates: { uuid: string; isPanorama: boolean; subtype?: PanoramaSubtype }[] = [];
 
       for (const file of unverified) {
-        // Use thumb for speed, but we need natural dimensions so we load it
         const url =
+          file.variant_urls?.landing ||
+          file.variant_urls?.popup ||
+          file.variant_urls?.slider ||
+          file.url ||
           file.variant_urls?.thumb ||
           file.thumbnail_url ||
-          file.url ||
           (file.file_path && apiUrl ? `${apiUrl}/${file.file_path}` : '');
 
         if (url) {
-          const isPanorama = await detectIsPanoramaFromUrl(url);
-          updates.push({ uuid: file.uuid, isPanorama });
+          const detected = await detectIsPanoramaFromUrl(url);
+          updates.push({
+            uuid: file.uuid,
+            isPanorama: detected !== null,
+            subtype: detected,
+          });
         }
       }
 
@@ -118,9 +161,13 @@ export function usePanoramaDetection(
           let changed = false;
           const newFiles = prev.files.map((f: any) => {
             const update = updates.find(u => u.uuid === f.uuid);
-            if (update && f.isPanorama === undefined && !(f as any).image_type) {
+            if (update && f.subtype === undefined && f.isPanorama === undefined && !(f as any).image_type) {
               changed = true;
-              return { ...f, isPanorama: update.isPanorama };
+              return {
+                ...f,
+                isPanorama: update.isPanorama,
+                subtype: f.subtype ?? update.subtype,
+              };
             }
             return f;
           });
@@ -136,3 +183,4 @@ export function usePanoramaDetection(
     };
   }, [files, setFilesData, apiUrl]);
 }
+

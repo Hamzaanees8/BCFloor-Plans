@@ -104,11 +104,13 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         Bill From:
                     </h3>
                     <div className="space-y-1 text-sm text-gray-600">
-                        <p className="font-bold text-gray-900 pb-1">{orgName}</p>
+                        <p className="font-bold text-gray-900 pb-1">{invoice.org_details?.name || invoice.org_name || orgName}</p>
                         <div className="flex items-start gap-2">
                             <Mail size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} />
-                            <span className="leading-snug">{orgEmail}</span>
+                            <span className="leading-snug">{invoice.org_details?.email || invoice.org_email || orgEmail}</span>
                         </div>
+                        {invoice.org_details?.phone && <p className="text-xs">{invoice.org_details.phone}</p>}
+                        {invoice.org_details?.address && <p className="text-xs text-gray-500">{invoice.org_details.address}</p>}
                     </div>
                 </div>
                 <div>
@@ -116,20 +118,28 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         Bill To:
                     </h3>
                     <div className="space-y-3 text-sm text-gray-600">
-                        {invoice.vendor ? (
+                        {(invoice.vendor || invoice.vendor_details) ? (
                             <>
                                 <div>
-                                    <p className="font-bold text-gray-900 mb-0.5">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
-                                    {(invoice.vendor.company?.name || invoice.vendor.company_name) && <p className="mb-1">{invoice.vendor.company?.name || invoice.vendor.company_name}</p>}
+                                    <p className="font-bold text-gray-900 mb-0.5">
+                                        {invoice.vendor_details?.name || (invoice.vendor_details?.first_name ? `${invoice.vendor_details.first_name} ${invoice.vendor_details.last_name || ''}` : '') || (invoice.vendor ? `${invoice.vendor.first_name} ${invoice.vendor.last_name}` : '')}
+                                    </p>
+                                    {(invoice.vendor_details?.company_name || invoice.vendor?.company?.name || invoice.vendor?.company_name) && (
+                                        <p className="mb-1">{invoice.vendor_details?.company_name || invoice.vendor?.company?.name || invoice.vendor?.company_name}</p>
+                                    )}
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <Mail size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} />
-                                    <span className="leading-snug">{invoice.vendor.email}</span>
-                                </div>
-                                {(invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number) && (
+                                {(invoice.vendor_details?.email || invoice.vendor?.email) && (
+                                    <div className="flex items-start gap-2">
+                                        <Mail size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} />
+                                        <span className="leading-snug">{invoice.vendor_details?.email || invoice.vendor?.email}</span>
+                                    </div>
+                                )}
+                                {invoice.vendor_details?.address && <p className="text-xs text-gray-500">{invoice.vendor_details.address}</p>}
+                                {(invoice.tax_number || invoice.vendor_details?.tax_number || invoice.vendor?.tax_number || invoice.vendor?.settings?.tax_number) && (
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <span className="font-bold text-[10px] uppercase tracking-wider" style={{ color: settings.pageTabColor }}>Tax ID:</span>
-                                        <span className="text-[10px] leading-snug">{invoice.tax_number || invoice.vendor.tax_number || invoice.vendor.settings?.tax_number}</span>
+                                        <span className="text-[10px] leading-snug">{invoice.tax_number || invoice.vendor_details?.tax_number || invoice.vendor?.tax_number || invoice.vendor?.settings?.tax_number}</span>
+                                        {(invoice.tax_type || invoice.vendor_details?.tax_type) && <span className="text-[10px] text-gray-500">({invoice.tax_type || invoice.vendor_details?.tax_type})</span>}
                                     </div>
                                 )}
                             </>

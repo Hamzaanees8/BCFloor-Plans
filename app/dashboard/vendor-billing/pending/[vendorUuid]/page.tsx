@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
 import { vendorBillingService } from "../../VendorBillingService";
-import { Info, Loader2, Save, X, AlertCircle, Calendar } from "lucide-react";
+import { Info, Loader2, Save, X, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
@@ -16,6 +16,7 @@ import { GetOne } from "@/app/dashboard/vendors/vendors";
 import { Get } from "@/app/dashboard/orders/orders";
 import { batchCalculateTravelCosts } from "@/lib/batchTravelCalculator";
 import { getTaxRateByLocation } from "@/lib/taxCalculator";
+import PayPeriodFilter, { getPayPeriodPresets } from "../../components/PayPeriodFilter";
 
 const logBillingError = (context: string, message: string, extraData?: any) => {
     console.error(`[Billing Error] Context: ${context} | Message: ${message}`, {
@@ -34,16 +35,10 @@ export default function PendingItemsPage() {
     const [generating, setGenerating] = useState(false);
     const [taxError] = useState<string | null>(null);
 
-    // Helper to get YYYY-MM-DD string
-    const formatDateYMD = (d: Date) => d.toISOString().split('T')[0];
-
-    // Billing Cycle Date Range filter state (Default: Today and past 15 days)
-    const [startDate, setStartDate] = useState<string>(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 15);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState<string>(() => formatDateYMD(new Date()));
+    // Billing Cycle Date Range filter state (Default: Current 15-day Pay Period cycle)
+    const initialPreset = getPayPeriodPresets()[0];
+    const [startDate, setStartDate] = useState<string>(() => initialPreset?.startDate || "");
+    const [endDate, setEndDate] = useState<string>(() => initialPreset?.endDate || "");
 
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
@@ -83,7 +78,6 @@ export default function PendingItemsPage() {
 
             // Map the items into detailed editable format (with Order ID, Address, Slot Date/Time, Service Option)
             const mappedItems: any[] = [];
-            let subtotal = 0;
             const serviceToOrderMap: Record<string, any> = {};
 
             pendingResponse.items.forEach(item => {
@@ -94,30 +88,22 @@ export default function PendingItemsPage() {
                 const optionTitle = (item.service as any)?.option?.title || (item.service as any)?.service_option?.title || '';
                 const fullSvcTitle = optionTitle ? `${svcName} - ${optionTitle}` : svcName;
 
-                let rateFormulaLabel = '';
-                if (item.pay_type === 'per_sq_ft') {
-                    const sqft = item.property_sq_ft || (item.service?.order?.property?.sq_ft ? Number(item.service.order.property.sq_ft) : 0);
-                    rateFormulaLabel = `rate: Per Sq. Ft. (${sqft.toLocaleString()} sq.ft @ $${Number(item.sq_ft_rate || 0).toFixed(3)}/sq.ft${item.min_price ? `, min: $${Number(item.min_price).toFixed(2)}` : ''})`;
-                } else if (item.pay_type === 'flat') {
-                    rateFormulaLabel = `rate: Flat ($${serviceAmount.toFixed(2)})`;
+                const orderIdVal = item.service?.order?.id;
+                const propAddress = item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || '';
+
+                const descParts = [fullSvcTitle];
+                if (propAddress && orderIdVal) {
+                    descParts.push(`${propAddress} (Order #${orderIdVal})`);
+                } else if (propAddress) {
+                    descParts.push(propAddress);
+                } else if (orderIdVal) {
+                    descParts.push(`Order #${orderIdVal}`);
                 }
 
-                const orderIdVal = item.service?.order?.id;
-                const orderLabel = orderIdVal ? `order: #${orderIdVal}` : '';
-                const propAddress = item.service?.order?.property?.property_address || (item.service?.order as any)?.property_address || '';
-                const addressLabel = propAddress ? `address: ${propAddress}` : '';
-
-                // Locate exact booking slot date & time
-                const matchingOrder = allOrdersList.find((o: any) => o.id === orderIdVal);
-                const matchingSlot = matchingOrder?.slots?.find((s: any) => String(s.service_id) === String((item.service as any)?.service_id || svcObj.id));
-                const slotDateStr = matchingSlot?.date || '';
-                const slotTimeStr = matchingSlot?.start_time ? `${matchingSlot.start_time}${matchingSlot.end_time ? ` - ${matchingSlot.end_time}` : ''}` : '';
-                const slotLabel = slotDateStr ? `slots: ${slotDateStr}${slotTimeStr ? ` @ ${slotTimeStr}` : ''}` : '';
-
-                const detailedDescription = [fullSvcTitle, rateFormulaLabel, addressLabel, orderLabel, slotLabel].filter(Boolean).join('\n');
+                const compactDescription = descParts.join('\n');
 
                 mappedItems.push({
-                    description: detailedDescription,
+                    description: compactDescription,
                     quantity: 1,
                     unit_price: serviceAmount,
                     amount: serviceAmount,
@@ -125,16 +111,18 @@ export default function PendingItemsPage() {
                     order_service_id: item.service?.uuid,
                     property_address: propAddress
                 });
-                subtotal += serviceAmount;
                 serviceToOrderMap[item.service.uuid] = item.service.order;
             });
 
-            // ── Travel Calculation (Single 1xN Distance Matrix Call) ─────
+            // ── Travel Calculation (Inter-Appointment or 1xN Batch) ─────
             const travelItems: any[] = [];
             let totalTravelCost = 0;
             let totalKm = 0;
 
             if (startLocationAddress && paymentPerKm > 0 && pendingResponse.items.length > 0) {
+                const travelPayMode = vendorDetails?.settings?.travel_pay_mode || "inherit";
+                const isBetweenAppointments = travelPayMode === "include_home" ? false : true;
+
                 const ordersToCalculateTravel: any[] = [];
                 const pendingOrderIds = new Set(pendingResponse.items.map(item => item.service?.order?.id).filter(Boolean));
 
@@ -143,40 +131,90 @@ export default function PendingItemsPage() {
                     const vendorSlots = order.slots?.filter((s: any) => s.vendor_id === vendorUuid || s.vendor?.uuid === vendorUuid);
                     if (!vendorSlots || vendorSlots.length === 0) return;
 
-                    ordersToCalculateTravel.push({
-                        id: order.id,
-                        address: order.property_address || order.property?.property_address || order.property?.address || '',
-                        hasTravelRequiredService: order.services?.some((s: any) =>
-                            vendorSlots.some((slot: any) => String(slot.service_id) === String(s.service_id)) &&
-                            (s.service?.is_travel_required || s.is_travel_required)
-                        )
-                    });
+                    const addr = order.property_address || order.property?.property_address || order.property?.address || '';
+                    const hasTravelRequired = order.services?.some((s: any) =>
+                        vendorSlots.some((slot: any) => String(slot.service_id) === String(s.service_id)) &&
+                        (s.service?.is_travel_required || s.is_travel_required)
+                    );
+
+                    if (addr && hasTravelRequired) {
+                        const firstSlot = vendorSlots[0];
+                        ordersToCalculateTravel.push({
+                            id: order.id,
+                            address: addr,
+                            date: firstSlot?.date || order.date || order.created_at?.split("T")[0] || "",
+                            startTime: firstSlot?.start_time || "08:00",
+                        });
+                    }
                 });
 
                 if (ordersToCalculateTravel.length > 0) {
-                    const uniqueAddresses: string[] = [];
-                    ordersToCalculateTravel.forEach(o => {
-                        if (o.address && o.hasTravelRequiredService && !uniqueAddresses.includes(o.address)) {
-                            uniqueAddresses.push(o.address);
-                        }
-                    });
+                    if (isBetweenAppointments) {
+                        // Group by date
+                        const dateGroups: Record<string, typeof ordersToCalculateTravel> = {};
+                        ordersToCalculateTravel.forEach(o => {
+                            const d = o.date || "unknown-date";
+                            if (!dateGroups[d]) dateGroups[d] = [];
+                            dateGroups[d].push(o);
+                        });
 
-                    if (uniqueAddresses.length > 0) {
-                        const tripLegs = uniqueAddresses.map((addr, idx) => ({
-                            from: startLocationAddress,
-                            to: addr,
-                            legIndex: idx,
-                        }));
+                        const tripLegs: { from: string; to: string; legIndex: number }[] = [];
+                        let legIdx = 0;
 
-                        try {
-                            console.log(`📍 [Pending Invoice] Single 1xN API call → 1 origin x ${uniqueAddresses.length} destinations`);
-                            const batchResult = await batchCalculateTravelCosts(tripLegs);
-                            if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
-                                totalKm = batchResult.totalDistance;
-                                totalTravelCost = parseFloat((totalKm * paymentPerKm).toFixed(2));
+                        Object.entries(dateGroups).forEach(([, items]) => {
+                            const sorted = [...items].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+                            sorted.forEach((item, idx) => {
+                                if (idx > 0) {
+                                    const prevItem = sorted[idx - 1];
+                                    if (prevItem.address.trim().toLowerCase() !== item.address.trim().toLowerCase()) {
+                                        tripLegs.push({
+                                            from: prevItem.address,
+                                            to: item.address,
+                                            legIndex: legIdx++,
+                                        });
+                                    }
+                                }
+                            });
+                        });
+
+                        if (tripLegs.length > 0) {
+                            try {
+                                console.log(`📍 [Pending Invoice] Batch calculating ${tripLegs.length} inter-appointment legs`);
+                                const batchResult = await batchCalculateTravelCosts(tripLegs);
+                                if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
+                                    totalKm = batchResult.totalDistance;
+                                    totalTravelCost = parseFloat((totalKm * paymentPerKm).toFixed(2));
+                                }
+                            } catch (e: any) {
+                                console.error("Exception in batch travel calculation:", e);
                             }
-                        } catch (e: any) {
-                            console.error("Exception in batch travel calculation:", e);
+                        }
+                    } else {
+                        // Legacy: 1-origin x N destinations
+                        const uniqueAddresses: string[] = [];
+                        ordersToCalculateTravel.forEach(o => {
+                            if (!uniqueAddresses.includes(o.address)) {
+                                uniqueAddresses.push(o.address);
+                            }
+                        });
+
+                        if (uniqueAddresses.length > 0) {
+                            const tripLegs = uniqueAddresses.map((addr, idx) => ({
+                                from: startLocationAddress,
+                                to: addr,
+                                legIndex: idx,
+                            }));
+
+                            try {
+                                console.log(`📍 [Pending Invoice] Single 1xN API call → 1 origin x ${uniqueAddresses.length} destinations`);
+                                const batchResult = await batchCalculateTravelCosts(tripLegs);
+                                if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
+                                    totalKm = batchResult.totalDistance;
+                                    totalTravelCost = parseFloat((totalKm * paymentPerKm).toFixed(2));
+                                }
+                            } catch (e: any) {
+                                console.error("Exception in batch travel calculation:", e);
+                            }
                         }
                     }
 
@@ -188,7 +226,6 @@ export default function PendingItemsPage() {
                             amount: totalTravelCost.toFixed(2),
                             type: 'travel'
                         });
-                        subtotal += totalTravelCost;
                     }
                 }
             }
@@ -198,6 +235,15 @@ export default function PendingItemsPage() {
             let taxRate = 0;
             let taxType = "Tax";
             let taxSnapshot: any = null;
+            let cleanTax = "";
+
+            const rawTax = vendorDetails?.tax_number || vendorDetails?.settings?.tax_number || vendorDetails?.settings?.tax_number_gst_hst || vendorDetails?.settings?.tax_number_us || "";
+            cleanTax = String(rawTax)
+                .replace(/^(GST\/HST:\s*|GST:\s*|PST:\s*|QST:\s*|US State Tax ID:\s*|Tax ID:\s*)/i, "")
+                .replace(/^GST\s*:\s*/i, "")
+                .replace(/^PST\s*:\s*/i, "")
+                .replace(/^HST\s*:\s*/i, "")
+                .trim();
 
             if (vendorDetails?.settings?.tax_enabled && !vendorDetails?.settings?.tax_exempt) {
                 const s = vendorDetails?.settings || {};
@@ -224,18 +270,43 @@ export default function PendingItemsPage() {
                     taxType = typeMap[s.tax_type] || s.tax_type || (vendorCountry === "USA" ? "Sales Tax" : "GST/HST");
                 }
 
-                const taxNumber = vendorDetails.tax_number || s.tax_number || s.tax_number_gst_hst || s.tax_number_us || "";
-
                 taxSnapshot = {
                     total_rate: taxRate,
-                    is_registered: !!taxNumber,
-                    tax_number: taxNumber,
+                    is_registered: !!cleanTax,
+                    tax_number: cleanTax,
                     taxes: taxType ? [{ name: taxType, rate: taxRate }] : [],
                     snapshotted_at: new Date().toISOString()
                 };
             }
 
-            const taxAmount = subtotal * (taxRate / 100);
+            const initialTotals = recalculateTotals(
+                allItems,
+                taxRate,
+                taxType,
+                null,
+                (vendorDetails?.addresses?.[0]?.province || "BC")
+            );
+
+            const vendorDetailsObj = {
+                first_name: vendorDetails?.first_name || pendingResponse.vendor?.first_name || '',
+                last_name: vendorDetails?.last_name || pendingResponse.vendor?.last_name || '',
+                name: `${vendorDetails?.first_name || pendingResponse.vendor?.first_name || ''} ${vendorDetails?.last_name || pendingResponse.vendor?.last_name || ''}`.trim(),
+                company_name: vendorDetails?.company_name || (vendorDetails as any)?.company?.name || '',
+                email: (vendorDetails as any)?.email || (pendingResponse.vendor as any)?.email || '',
+                phone: (vendorDetails as any)?.primary_phone || (vendorDetails as any)?.phone || '',
+                address: vendorDetails?.addresses?.[0] ? `${vendorDetails.addresses[0].address_line_1 || ''}, ${vendorDetails.addresses[0].city || ''}` : '',
+                tax_number: cleanTax,
+                tax_type: taxType,
+                tax_rate: taxRate,
+            };
+
+            const orgDetailsObj = {
+                id: (vendorDetails as any)?.organization_id || (pendingResponse.vendor as any)?.organization_id || (pendingResponse.vendor as any)?.organization?.id,
+                name: (pendingResponse.vendor as any)?.organization?.name || "BC Floor plans",
+                email: (pendingResponse.vendor as any)?.organization?.contact_email || (pendingResponse.vendor as any)?.organization?.from_email || "info@bcfloorplans.com",
+                phone: (pendingResponse.vendor as any)?.organization?.phone || "",
+                address: (pendingResponse.vendor as any)?.organization?.address || "",
+            };
 
             setEditData({
                 vendor: pendingResponse.vendor,
@@ -245,10 +316,10 @@ export default function PendingItemsPage() {
                 items: allItems,
                 tax_rate: taxRate,
                 tax_type: taxType,
-                travel_amount: parseFloat(totalTravelCost.toFixed(2)),
-                subtotal: subtotal.toFixed(2),
-                tax_amount: taxAmount.toFixed(2),
-                total: (subtotal + taxAmount).toFixed(2),
+                tax_number: cleanTax,
+                vendor_details: vendorDetailsObj,
+                org_details: orgDetailsObj,
+                ...initialTotals,
                 notes: "",
                 tax_snapshot: taxSnapshot
             });
@@ -271,25 +342,119 @@ export default function PendingItemsPage() {
         fetchPendingItems(token);
     }, [router, fetchPendingItems]);
 
-    // Same math handlers as the modal editor
-    const recalculateTotals = (items: any[], taxRate: number) => {
-        const subtotal = items.reduce(
+    const recalculateTotals = (
+        items: any[],
+        taxRate: number,
+        taxType: string = "GST",
+        existingTaxDetails: any = null,
+        province: string = "BC"
+    ) => {
+        const subtotal = items
+            .filter((i: any) => i.type === "service")
+            .reduce(
+                (acc: number, item: any) =>
+                    acc + (parseFloat(String(item.quantity || 1)) * parseFloat(String(item.unit_price || item.amount || 0)) || 0),
+                0
+            );
+
+        const travelAmount = items
+            .filter((i: any) => i.type === "travel")
+            .reduce(
+                (acc: number, item: any) =>
+                    acc + (parseFloat(String(item.quantity || 1)) * parseFloat(String(item.unit_price || item.amount || 0)) || 0),
+                0
+            );
+
+        const totalLines = items.reduce(
             (acc: number, item: any) =>
-                acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0),
+                acc + (parseFloat(String(item.quantity || 1)) * parseFloat(String(item.unit_price || item.amount || 0)) || 0),
             0
         );
-        const taxAmount = subtotal * (taxRate / 100);
+
+        const normalizedProv = (province || "BC").toUpperCase().trim();
+        const isHstProvince = ["ON", "ONTARIO", "NB", "NEW BRUNSWICK", "NL", "NEWFOUNDLAND", "NS", "NOVA SCOTIA", "PE", "PRINCE EDWARD ISLAND"].includes(normalizedProv);
+        const hasPst = ["BC", "BRITISH COLUMBIA", "SK", "SASKATCHEWAN", "MB", "MANITOBA", "QC", "QUEBEC"].includes(normalizedProv);
+
+        const gstRate = 5.0;
+        const pstRate = normalizedProv === "QC" ? 9.975 : (normalizedProv === "SK" ? 6.0 : 7.0);
+
+        let gstSum = 0;
+        let pstSum = 0;
+        let singleTaxSum = 0;
+
+        items.forEach((item: any) => {
+            const lineAmt = (parseFloat(String(item.quantity || 1)) * parseFloat(String(item.unit_price || item.amount || 0))) || 0;
+            const isGst = item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : (item.is_taxable !== undefined ? Boolean(item.is_taxable) : true);
+            const isPst = item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false;
+
+            if (isHstProvince) {
+                if (isGst) singleTaxSum += lineAmt * (taxRate / 100);
+            } else if (hasPst && (taxType === "GST_PST" || isPst || (existingTaxDetails && existingTaxDetails.PST))) {
+                if (isGst) gstSum += lineAmt * (gstRate / 100);
+                if (isPst) pstSum += lineAmt * (pstRate / 100);
+            } else {
+                if (isGst) singleTaxSum += lineAmt * (taxRate / 100);
+            }
+        });
+
+        if (travelAmount > 0 && taxRate > 0) {
+            if (isHstProvince) {
+                singleTaxSum += travelAmount * (taxRate / 100);
+            } else if (hasPst && (taxType === "GST_PST" || (existingTaxDetails && existingTaxDetails.PST))) {
+                gstSum += travelAmount * (gstRate / 100);
+            } else {
+                singleTaxSum += travelAmount * (taxRate / 100);
+            }
+        }
+
+        let calculatedTaxDetails: any = null;
+        let totalTax = 0;
+
+        if (hasPst && (taxType === "GST_PST" || pstSum > 0 || (existingTaxDetails && existingTaxDetails.PST))) {
+            calculatedTaxDetails = {
+                "GST": { rate: gstRate, amount: parseFloat(gstSum.toFixed(2)) },
+                "PST": { rate: pstRate, amount: parseFloat(pstSum.toFixed(2)) },
+            };
+            totalTax = gstSum + pstSum;
+        } else if (isHstProvince) {
+            calculatedTaxDetails = {
+                "HST": { rate: taxRate, amount: parseFloat(singleTaxSum.toFixed(2)) },
+            };
+            totalTax = singleTaxSum;
+        } else {
+            calculatedTaxDetails = {
+                [taxType || "GST"]: { rate: taxRate, amount: parseFloat(singleTaxSum.toFixed(2)) },
+            };
+            totalTax = singleTaxSum;
+        }
+
         return {
             subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2),
+            travel_amount: travelAmount.toFixed(2),
+            tax_amount: totalTax.toFixed(2),
+            total: (totalLines + totalTax).toFixed(2),
+            tax_details: calculatedTaxDetails,
         };
     };
 
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...editData.items];
         newItems[index] = { ...newItems[index], [field]: value };
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        if (field === "quantity" || field === "unit_price") {
+            const qty = parseFloat(String(newItems[index].quantity || 1)) || 1;
+            const unitPrice = parseFloat(String(newItems[index].unit_price || 0)) || 0;
+            newItems[index].amount = (qty * unitPrice).toFixed(2);
+        }
+        if (field === "gst_enabled" || field === "pst_enabled") {
+            newItems[index].is_taxable = Boolean(newItems[index].gst_enabled || newItems[index].pst_enabled);
+        }
+        const totals = recalculateTotals(
+            newItems,
+            parseFloat(String(editData.tax_rate || 0)) || 0,
+            editData.tax_type || "GST",
+            editData.tax_details,
+            (editData.vendor?.addresses?.[0]?.province || "BC")
+        );
         setEditData({ ...editData, items: newItems, ...totals });
     };
 
@@ -300,27 +465,55 @@ export default function PendingItemsPage() {
             unit_price: 0,
             amount: 0,
             type: 'service',
+            is_taxable: true,
+            gst_enabled: true,
+            pst_enabled: editData.tax_type === "GST_PST",
             order_service_id: null,
         };
         const newItems = [...editData.items, newItem];
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        const totals = recalculateTotals(
+            newItems,
+            parseFloat(String(editData.tax_rate || 0)) || 0,
+            editData.tax_type || "GST",
+            editData.tax_details,
+            (editData.vendor?.addresses?.[0]?.province || "BC")
+        );
         setEditData({ ...editData, items: newItems, ...totals });
     };
 
     const removeItem = (index: number) => {
         const newItems = editData.items.filter((_: any, i: number) => i !== index);
-        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        const totals = recalculateTotals(
+            newItems,
+            parseFloat(String(editData.tax_rate || 0)) || 0,
+            editData.tax_type || "GST",
+            editData.tax_details,
+            (editData.vendor?.addresses?.[0]?.province || "BC")
+        );
         setEditData({ ...editData, items: newItems, ...totals });
     };
 
     const updateTaxRate = (val: string) => {
         const rate = parseFloat(val) || 0;
-        const totals = recalculateTotals(editData.items, rate);
+        const totals = recalculateTotals(
+            editData.items,
+            rate,
+            editData.tax_type || "GST",
+            editData.tax_details,
+            (editData.vendor?.addresses?.[0]?.province || "BC")
+        );
         setEditData({ ...editData, tax_rate: val, ...totals });
     };
 
     const updateTaxType = (val: string) => {
-        setEditData({ ...editData, tax_type: val });
+        const totals = recalculateTotals(
+            editData.items,
+            parseFloat(String(editData.tax_rate || 0)) || 0,
+            val,
+            editData.tax_details,
+            (editData.vendor?.addresses?.[0]?.province || "BC")
+        );
+        setEditData({ ...editData, tax_type: val, ...totals });
     };
 
     const handleGenerateInvoice = async () => {
@@ -349,9 +542,6 @@ export default function PendingItemsPage() {
 
             // STEP 2: Issue generation call — travel_amount sent as a top-level field
             // so the backend saves it directly to vendor_invoices.travel_amount
-            const travelItem = editData.items.find((item: any) => item.type === 'travel');
-            const travelAmount = travelItem ? parseFloat(String(travelItem.amount)) : (editData.travel_amount ?? 0);
-
             const generatePayload = {
                 vendor_uuid: vendorUuid,
                 order_service_uuids: uniqueServiceIds,
@@ -360,9 +550,21 @@ export default function PendingItemsPage() {
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
                 tax_type: editData.tax_type,
-                tax_number: editData.tax_snapshot?.tax_number,
-                travel_amount: parseFloat(travelAmount.toFixed(2)),
-                tax_snapshot: editData.tax_snapshot
+                tax_number: editData.tax_number || editData.vendor_details?.tax_number || editData.tax_snapshot?.tax_number,
+                travel_amount: parseFloat(String(editData.travel_amount || 0)),
+                tax_snapshot: editData.tax_snapshot,
+                tax_details: editData.tax_details,
+                vendor_details: editData.vendor_details,
+                org_details: editData.org_details,
+                lines: editData.items.map((item: any) => ({
+                    description: item.description,
+                    quantity: parseFloat(String(item.quantity || 1)) || 1,
+                    unit_price: parseFloat(String(item.unit_price || item.amount || 0)) || 0,
+                    amount: parseFloat(String(item.amount || (item.quantity * item.unit_price) || 0)) || 0,
+                    type: item.type || 'service',
+                    is_taxable: item.is_taxable !== undefined ? Boolean(item.is_taxable) : true,
+                    order_service_id: item.order_service_id || null,
+                })),
             };
 
             await vendorBillingService.generateInvoice(generatePayload, token);
@@ -423,62 +625,15 @@ export default function PendingItemsPage() {
                 </Card>
 
                 {/* BILLING CYCLE DATE RANGE FILTER BAR */}
-                <Card className="border shadow-sm bg-white">
-                    <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-gray-500 shrink-0" style={{ color: roleSettings.pageTabColor }} />
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-800">Billing Cycle Range</h3>
-                                <p className="text-xs text-gray-500">Select dates to filter uninvoiced services within a specific period.</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                            <div className="flex items-center gap-1.5 text-xs">
-                                <span className="font-medium text-gray-600">From:</span>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="border rounded px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs">
-                                <span className="font-medium text-gray-600">To:</span>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="border rounded px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() - 15);
-                                    setStartDate(d.toISOString().split('T')[0]);
-                                    setEndDate(new Date().toISOString().split('T')[0]);
-                                }}
-                                className="text-xs h-7 px-2 text-gray-500 hover:text-gray-800"
-                                title="Reset to default 15 days cycle"
-                            >
-                                Reset 15 Days
-                            </Button>
-                            {(startDate || endDate) && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => { setStartDate(""); setEndDate(""); }}
-                                    className="text-xs h-7 px-2 text-gray-400 hover:text-gray-700"
-                                    title="Show all uninvoiced without date filter"
-                                >
-                                    All Dates
-                                </Button>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                <PayPeriodFilter
+                    startDate={startDate}
+                    endDate={endDate}
+                    onChange={(s, e) => {
+                        setStartDate(s);
+                        setEndDate(e);
+                    }}
+                    roleSettings={roleSettings}
+                />
 
                 {taxError && (
                     <Card className="border shadow-none bg-red-50 border-red-200">

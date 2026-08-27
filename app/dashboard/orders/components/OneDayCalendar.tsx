@@ -95,6 +95,11 @@ interface CalendarProps {
   onVendorSelected?: (vendorId: string) => void;
   isCalculating?: boolean;
   twilightData?: TwilightResponse | null;
+  className?: string;
+  selectedListingId?: string;
+  targetDate?: string;
+  currentOrderId?: number | string;
+  squareFootage?: number | string;
 }
 
 interface MinimalSlot {
@@ -982,6 +987,8 @@ export default function OneDayCalendar({
   isCalculating,
   scheduleOverride,
   twilightData: externalTwilightData,
+  className,
+  squareFootage,
 }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
@@ -1003,6 +1010,7 @@ export default function OneDayCalendar({
   const servicesData = externalServicesData || contextServicesData;
   const { userType } = useAppContext();
   const { id } = useParams();
+  const activeSquareFootage = Number(squareFootage) || tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
 
   const minDate = React.useMemo(() => {
     const serviceSlotDates =
@@ -1055,8 +1063,7 @@ export default function OneDayCalendar({
   const productOptionForBorder = currentServiceForBorder?.product_options?.find(
     (option) => option.uuid === service.option_id,
   );
-  const squareFootageForBorder =
-    tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+  const squareFootageForBorder = activeSquareFootage;
   const requiredDurationForBorder = getEffectiveServiceDuration(
     productOptionForBorder,
     currentServiceForBorder,
@@ -1414,10 +1421,28 @@ export default function OneDayCalendar({
     return (
       ordersData
         ?.filter((order: Order) => order.uuid !== orderIdParam)
-        .map((order: Order) => order.slots)
+        .map((order: Order) => {
+          return (order.slots || []).map((s) => {
+            const serviceObj = servicesData.find(
+              (srv) => String(srv.id) === String(s.service_id) || srv.uuid === String(s.service_id)
+            );
+            const vendorObj = vendorsData.find(
+              (v) => String((v as any).id) === String(s.vendor_id) || v.uuid === String(s.vendor_id)
+            );
+            return {
+              ...s,
+              order_id: order.id,
+              order_uuid: order.uuid,
+              property_address: order.property_address || "",
+              agent_name: order.agent ? `${order.agent.first_name} ${order.agent.last_name}` : "N/A",
+              service_name: serviceObj?.name || (s as any).service?.name || "Service",
+              vendor_name: vendorObj ? `${vendorObj.first_name} ${vendorObj.last_name}` : (s as any).vendor ? `${(s as any).vendor.first_name} ${(s as any).vendor.last_name}` : "N/A",
+            };
+          });
+        })
         .flat() || []
     );
-  }, [ordersData, orderIdParam, externalBookedSlots]);
+  }, [ordersData, orderIdParam, externalBookedSlots, servicesData, vendorsData]);
 
   const computedEvents = useMemo(() => {
     const date = currentDate;
@@ -1658,9 +1683,7 @@ export default function OneDayCalendar({
       (s: Slot) => s.service_id !== service.uuid && s.date === date,
     );
 
-    const squareFootageForSlots =
-      tempPropertyData?.square_footage ||
-      selectedCurrentListing?.square_footage;
+    const squareFootageForSlots = activeSquareFootage;
     const productOptionForSlots =
       currentServiceDataForSlots?.product_options?.find(
         (option) =>
@@ -1927,9 +1950,7 @@ export default function OneDayCalendar({
           const productOption = currentServiceData?.product_options?.find(
             (option) => option.uuid === service.option_id,
           );
-          const squareFootage =
-            tempPropertyData?.square_footage ||
-            selectedCurrentListing?.square_footage;
+          const squareFootage = activeSquareFootage;
           const requiredDuration = getEffectiveServiceDuration(
             productOption,
             currentServiceData,
@@ -2037,8 +2058,7 @@ export default function OneDayCalendar({
     scheduleOverride,
     twilightData,
     servicesData,
-    tempPropertyData,
-    selectedCurrentListing,
+    activeSquareFootage,
     portalSettings?.allow_booking_through_lunch,
     destinationAddress,
     unbookedSlotsKeys,
@@ -2147,8 +2167,7 @@ export default function OneDayCalendar({
     servicesData,
     scheduleOverride,
     portalSettings?.allow_booking_through_lunch,
-    tempPropertyData?.square_footage,
-    selectedCurrentListing?.square_footage,
+    activeSquareFootage,
     destinationAddress,
     masterDate,
   ]);
@@ -2178,9 +2197,7 @@ export default function OneDayCalendar({
     const productOptionForHover = currentServiceForHover?.product_options?.find(
       (opt) => opt.uuid === service.option_id,
     );
-    const squareFootageForHover =
-      tempPropertyData?.square_footage ||
-      selectedCurrentListing?.square_footage;
+    const squareFootageForHover = activeSquareFootage;
     const requiredDurationForHover = getEffectiveServiceDuration(
       productOptionForHover,
       currentServiceForHover,
@@ -2225,8 +2242,7 @@ export default function OneDayCalendar({
     service.uuid,
     service.option_id,
     servicesData,
-    tempPropertyData,
-    selectedCurrentListing,
+    activeSquareFootage,
     selectedSlots,
   ]);
 
@@ -2442,9 +2458,7 @@ export default function OneDayCalendar({
         (service.option_id && option.uuid === service.option_id) ||
         (service.option_id && String(option.id) === String(service.option_id)),
     );
-    const squareFootage =
-      tempPropertyData?.square_footage ||
-      selectedCurrentListing?.square_footage;
+    const squareFootage = activeSquareFootage;
     const requiredDuration = getEffectiveServiceDuration(
       productOption,
       currentService,
@@ -2849,8 +2863,7 @@ export default function OneDayCalendar({
         ?.find((s) => s.uuid === service.uuid)
         ?.product_options?.find((option) => option.uuid === service.option_id)
         ?.service_duration,
-      tempPropertyData?.square_footage ||
-        selectedCurrentListing?.square_footage,
+      activeSquareFootage,
     );
     const requiredSlots = Math.ceil(requiredDuration / 15);
 
@@ -2997,9 +3010,7 @@ export default function OneDayCalendar({
     const productOption = currentService?.product_options?.find(
       (option) => option.uuid === service.option_id,
     );
-    const squareFootage =
-      tempPropertyData?.square_footage ||
-      selectedCurrentListing?.square_footage;
+    const squareFootage = activeSquareFootage;
     const requiredDuration = getEffectiveServiceDuration(
       productOption?.service_duration,
       squareFootage,
@@ -3116,7 +3127,7 @@ export default function OneDayCalendar({
     <>
       <div
         ref={containerRef}
-        className="mt-[20px] relative custom-scroll"
+        className={`mt-[20px] relative custom-scroll ${className || ""}`}
         style={{
           border: isUnderScheduled
             ? "3px solid #EF4444"
@@ -3243,32 +3254,93 @@ export default function OneDayCalendar({
                     </div>
                   </TooltipProvider>
                 ) : eventInfo.event.classNames.includes("slot-booked") ? (
-                  <div className="flex items-center justify-between w-full px-1">
-                    <span className="fc-event-title text-[9px] text-[#64748B] font-medium truncate">
-                      {eventInfo.event.title}
-                    </span>
-                    {(userType === "admin" || (userType as string)?.toLowerCase() === "admin" || !userType) && (eventInfo.event.extendedProps?.isFirstOfGroup || eventInfo.event.extendedProps?.isLastOfGroup) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setPendingUnbookSlot({
-                            booking: eventInfo.event.extendedProps?.booking,
-                            isFirstOfGroup: eventInfo.event.extendedProps?.isFirstOfGroup,
-                            isLastOfGroup: eventInfo.event.extendedProps?.isLastOfGroup,
-                            slotStart: eventInfo.event.start,
-                            slotEnd: eventInfo.event.end,
-                          });
-                          setShowConfirmUnbookSlot(true);
-                        }}
-                        className="w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm ml-1"
-                        title="Trim/Unselect this slot"
-                      >
-                        <X className="w-2.5 h-2.5 stroke-[3]" />
-                      </button>
-                    )}
-                  </div>
+                  (() => {
+                    const isAdmin = userType === "admin" || (userType as string)?.toLowerCase() === "admin" || !userType;
+                    const booking = eventInfo.event.extendedProps?.booking;
+
+                    const format12h = (timeStr?: string) => {
+                      if (!timeStr) return "";
+                      const parts = timeStr.split(":");
+                      if (parts.length < 2) return timeStr;
+                      const h = parseInt(parts[0], 10);
+                      const m = parts[1];
+                      const meridian = h >= 12 ? "PM" : "AM";
+                      const displayHour = h % 12 || 12;
+                      return `${String(displayHour).padStart(2, "0")}:${m} ${meridian}`;
+                    };
+
+                    const eventInner = (
+                      <div className="flex items-center justify-between w-full px-1">
+                        <span className="fc-event-title text-[9px] text-[#64748B] font-medium truncate">
+                          {eventInfo.event.title}
+                        </span>
+                        {isAdmin && (eventInfo.event.extendedProps?.isFirstOfGroup || eventInfo.event.extendedProps?.isLastOfGroup) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setPendingUnbookSlot({
+                                booking: eventInfo.event.extendedProps?.booking,
+                                isFirstOfGroup: eventInfo.event.extendedProps?.isFirstOfGroup,
+                                isLastOfGroup: eventInfo.event.extendedProps?.isLastOfGroup,
+                                slotStart: eventInfo.event.start,
+                                slotEnd: eventInfo.event.end,
+                              });
+                              setShowConfirmUnbookSlot(true);
+                            }}
+                            className="w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm ml-1"
+                            title="Trim/Unselect this slot"
+                          >
+                            <X className="w-2.5 h-2.5 stroke-[3]" />
+                          </button>
+                        )}
+                      </div>
+                    );
+
+                    if (isAdmin && booking) {
+                      return (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="w-full h-full cursor-pointer">{eventInner}</div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-white border border-gray-200 shadow-xl p-3 text-xs text-gray-700 space-y-1.5 font-alexandria rounded-md z-[999] min-w-[220px]"
+                            >
+                              <div className="font-semibold text-gray-800 border-b border-gray-100 pb-1 flex items-center justify-between gap-4">
+                                <span>Order #{booking.order_id || "N/A"}</span>
+                                <span className="text-[10px] text-gray-400 font-normal">
+                                  {format12h(booking.start_time)} - {format12h(booking.end_time)}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="truncate">
+                                  <span className="font-medium text-gray-400">Service:</span>{" "}
+                                  {booking.service_name || "N/A"}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-medium text-gray-400">Vendor:</span>{" "}
+                                  {booking.vendor_name || "N/A"}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-medium text-gray-400">Address:</span>{" "}
+                                  {booking.property_address || "N/A"}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-medium text-gray-400">Agent:</span>{" "}
+                                  {booking.agent_name || "N/A"}
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+
+                    return eventInner;
+                  })()
                 ) : (
                   <div
                     className="fc-event-title fc-sticky text-center"
@@ -3446,9 +3518,7 @@ export default function OneDayCalendar({
                                 s.service_id !== service.uuid &&
                                 s.date === selectedDateForModal,
                             );
-                            const squareFootageForModal =
-                              tempPropertyData?.square_footage ||
-                              selectedCurrentListing?.square_footage;
+                            const squareFootageForModal = activeSquareFootage;
                             const productOptionForModal =
                               currentServiceDataForModal?.product_options?.find(
                                 (option) =>
