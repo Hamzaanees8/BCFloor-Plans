@@ -100,6 +100,7 @@ interface CalendarProps {
   targetDate?: string;
   currentOrderId?: number | string;
   squareFootage?: number | string;
+  hideStatusBorder?: boolean;
 }
 
 interface MinimalSlot {
@@ -989,6 +990,7 @@ export default function OneDayCalendar({
   twilightData: externalTwilightData,
   className,
   squareFootage,
+  hideStatusBorder,
 }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
@@ -1400,11 +1402,12 @@ export default function OneDayCalendar({
   }, [masterDate, setSelectedDate]);
 
   useEffect(() => {
+    if (externalSetSelectedSlots) return;
     const selectedServiceIds = selectedServices.map((s) => s.uuid);
     setSelectedSlots((prev: Slot[]) =>
       prev.filter((slot: Slot) => selectedServiceIds.includes(slot.service_id)),
     );
-  }, [selectedServices, setSelectedSlots]);
+  }, [selectedServices, setSelectedSlots, externalSetSelectedSlots]);
 
   const destinationAddress = selectedCurrentListing
     ? `${selectedCurrentListing.address},${selectedCurrentListing.city},${selectedCurrentListing.country}`
@@ -1453,7 +1456,8 @@ export default function OneDayCalendar({
     const selectedSlotsOnCurrentDate = selectedSlots.filter((s: Slot) => {
       const sidMatch =
         s.service_id === service.uuid ||
-        String(s.service_id) === String(service.id);
+        String(s.service_id) === String(service.id) ||
+        (service.uuid && String(s.service_id) === String(service.uuid));
       return sidMatch && s.date === date;
     });
 
@@ -1605,15 +1609,30 @@ export default function OneDayCalendar({
         .filter((s) => {
           const slotVendorUuid =
             s?.vendor?.uuid ||
+            (s as any).vendor_uuid ||
             vendorsData.find(
               (v) => v.uuid === s?.vendor_id || String((v as any).id) === String(s?.vendor_id),
             )?.uuid ||
             s?.vendor_id;
-          return (slotVendorUuid === vId || s?.vendor_id === vId) && s?.date === date;
+          const isSameVendor =
+            slotVendorUuid === vId ||
+            String(slotVendorUuid) === String(vId) ||
+            String(s?.vendor_id) === String(vId) ||
+            ((vendor as any).id && String(s?.vendor_id) === String((vendor as any).id));
+          return isSameVendor && s?.date === date;
         })
         .map((s) => {
-          let bStart = dayjs(`${s.date}T${s.start_time}`);
-          let bEnd = dayjs(`${s.date}T${s.end_time}`);
+          const parseDateTime = (d: string, t: string) => {
+            if (!t) return dayjs(d);
+            const cleanT = String(t).trim();
+            if (cleanT.includes("T") || cleanT.includes(" ")) {
+              return dayjs(cleanT);
+            }
+            return dayjs(`${d}T${cleanT}`);
+          };
+
+          let bStart = parseDateTime(s.date, s.start_time);
+          let bEnd = parseDateTime(s.date, s.end_time);
 
           fullDaySlots.forEach((slot) => {
             const slotStart = dayjs(slot.start);
@@ -3104,6 +3123,17 @@ export default function OneDayCalendar({
       font-weight: 600;
       cursor: not-allowed !important;
     }
+    .slot-booked .fc-event-main-frame,
+    .slot-booked .fc-event-main,
+    .slot-booked .fc-event-title-container,
+    .slot-booked .fc-event-title {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      width: 100% !important;
+      margin: 0 auto !important;
+    }
     .slot-travel-adjustment {
       background-color: #FEF3C7 !important;
       color: #B45309 !important;
@@ -3129,11 +3159,13 @@ export default function OneDayCalendar({
         ref={containerRef}
         className={`mt-[20px] relative custom-scroll ${className || ""}`}
         style={{
-          border: isUnderScheduled
-            ? "3px solid #EF4444"
-            : hasSelectedSlotsForBorder
-              ? "3px solid #6bae41"
-              : "2px solid #BBBBBB",
+          border: hideStatusBorder
+            ? "2px solid #BBBBBB"
+            : isUnderScheduled
+              ? "3px solid #EF4444"
+              : hasSelectedSlotsForBorder
+                ? "3px solid #6bae41"
+                : "2px solid #BBBBBB",
           borderRadius: "6px",
           maxHeight: 430,
           height: 430,
@@ -3270,9 +3302,9 @@ export default function OneDayCalendar({
                     };
 
                     const eventInner = (
-                      <div className="flex items-center justify-between w-full px-1">
-                        <span className="fc-event-title text-[9px] text-[#64748B] font-medium truncate">
-                          {eventInfo.event.title}
+                      <div className="flex items-center justify-center w-full h-full px-1 text-center relative">
+                        <span className="fc-event-title text-[9px] text-[#64748B] font-semibold text-center w-full truncate">
+                          Booked
                         </span>
                         {isAdmin && (eventInfo.event.extendedProps?.isFirstOfGroup || eventInfo.event.extendedProps?.isLastOfGroup) && (
                           <button
@@ -3289,7 +3321,7 @@ export default function OneDayCalendar({
                               });
                               setShowConfirmUnbookSlot(true);
                             }}
-                            className="w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm ml-1"
+                            className="absolute right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm"
                             title="Trim/Unselect this slot"
                           >
                             <X className="w-2.5 h-2.5 stroke-[3]" />
@@ -3298,39 +3330,41 @@ export default function OneDayCalendar({
                       </div>
                     );
 
-                    if (isAdmin && booking) {
+                    if (booking) {
                       return (
-                        <TooltipProvider delayDuration={200}>
+                        <TooltipProvider delayDuration={150}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="w-full h-full cursor-pointer">{eventInner}</div>
+                              <div className="w-full h-full cursor-pointer flex items-center justify-center">{eventInner}</div>
                             </TooltipTrigger>
                             <TooltipContent
                               side="top"
                               className="bg-white border border-gray-200 shadow-xl p-3 text-xs text-gray-700 space-y-1.5 font-alexandria rounded-md z-[999] min-w-[220px]"
                             >
                               <div className="font-semibold text-gray-800 border-b border-gray-100 pb-1 flex items-center justify-between gap-4">
-                                <span>Order #{booking.order_id || "N/A"}</span>
-                                <span className="text-[10px] text-gray-400 font-normal">
-                                  {format12h(booking.start_time)} - {format12h(booking.end_time)}
-                                </span>
+                                <span>Order #{booking.order_id || booking.order?.id || "N/A"}</span>
+                                {(booking.start_time || booking.end_time) && (
+                                  <span className="text-[10px] text-gray-400 font-normal">
+                                    {format12h(booking.start_time)} - {format12h(booking.end_time)}
+                                  </span>
+                                )}
                               </div>
                               <div className="space-y-1">
                                 <p className="truncate">
                                   <span className="font-medium text-gray-400">Service:</span>{" "}
-                                  {booking.service_name || "N/A"}
+                                  {booking.service_name || booking.service?.name || "N/A"}
                                 </p>
                                 <p className="truncate">
                                   <span className="font-medium text-gray-400">Vendor:</span>{" "}
-                                  {booking.vendor_name || "N/A"}
+                                  {booking.vendor_name || (booking.vendor ? `${booking.vendor.first_name} ${booking.vendor.last_name}` : "N/A")}
                                 </p>
                                 <p className="truncate">
                                   <span className="font-medium text-gray-400">Address:</span>{" "}
-                                  {booking.property_address || "N/A"}
+                                  {booking.property_address || booking.address || booking.order?.property_address || "N/A"}
                                 </p>
                                 <p className="truncate">
                                   <span className="font-medium text-gray-400">Agent:</span>{" "}
-                                  {booking.agent_name || "N/A"}
+                                  {booking.agent_name || (booking.agent ? `${booking.agent.first_name} ${booking.agent.last_name}` : "N/A")}
                                 </p>
                               </div>
                             </TooltipContent>
