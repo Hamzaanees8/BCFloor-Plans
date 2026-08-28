@@ -99,6 +99,8 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
 
     if (boxRef.current) {
       const container =
+        boxRef.current.closest('[data-drag-container="true"]') ||
+        boxRef.current.closest('[data-section-container="true"]') ||
         boxRef.current.closest('[data-safezone-container="true"]') ||
         boxRef.current.parentElement;
       if (container) {

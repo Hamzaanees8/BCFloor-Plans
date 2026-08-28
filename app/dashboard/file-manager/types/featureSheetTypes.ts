@@ -316,6 +316,8 @@ export interface DraggingState {
 
 export interface PrintRequestData {
     copies: number;
+    option_id?: string;
+    amount?: number;
     with_bleed: boolean;
     additional_info?: string;
     agent_id: string;

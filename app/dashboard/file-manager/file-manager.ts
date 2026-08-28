@@ -1019,13 +1019,21 @@ export async function createPayment(
     const data = await response.json();
 
     if (data.success && data.url) {
-      window.open(data.url, "_blank");
+      const currentHost = typeof window !== "undefined" ? window.location.host : "";
+      const isSelfUrl = currentHost && (data.url.includes(currentHost) || data.url === "/" || data.url === window.location.href);
+
+      if (!isSelfUrl && (data.url.startsWith("http://") || data.url.startsWith("https://"))) {
+        window.open(data.url, "_blank");
+      } else {
+        console.warn("Payment session URL returned application origin instead of external checkout gateway:", data.url);
+      }
     } else {
       throw new Error(data.message || "Failed to create payment session");
     }
   } catch (error) {
     console.error("Payment Error:", error);
-    alert(error instanceof Error ? error.message : "Something went wrong while creating payment. Please try again.");
+    toast.error(error instanceof Error ? error.message : "Something went wrong while creating payment. Please try again.");
+    throw error;
   }
 }
 

@@ -169,9 +169,18 @@ export default function PrintRequestModal({
         }
       }
 
+      const selectedOption = featureSheetsService?.product_options?.find((o: any) => o.uuid === selectedOptionUuid);
+      const sheetLabel = getTemplateLabel(templateKey || "") || templateKey || "Feature Sheet";
+      const optionTitle = selectedOption?.title
+        ? (selectedOption.title.toLowerCase().includes("copies") ? selectedOption.title : `${selectedOption.title} Copies`)
+        : `${copies} Copies`;
+      const sheetCustomName = `Feature Sheet (${sheetLabel}) - ${optionTitle}`;
+
       // 1. Send print request first
       await featureSheetService.requestPrint(featureSheetUuid, {
         copies,
+        option_id: selectedOptionUuid,
+        amount: Number(selectedOption?.amount ?? 0),
         with_bleed: withBleed,
         additional_info: additionalInfo,
         agent_id: agentId,
@@ -182,9 +191,6 @@ export default function PrintRequestModal({
       // 2. Add/update the Feature Sheets service in the order
       let updatedOrder = orderData;
       const token = localStorage.getItem("token") || "";
-      const selectedOption = featureSheetsService.product_options.find((o: any) => o.uuid === selectedOptionUuid);
-      const sheetLabel = getTemplateLabel(templateKey || "") || templateKey || "Feature Sheet";
-      const sheetCustomName = `Feature Sheet (${sheetLabel})`;
 
       if (orderData) {
         // Build all existing services list from the order
@@ -193,7 +199,9 @@ export default function PrintRequestModal({
           option_id: orderService.option.uuid,
           amount: Number(orderService.amount),
           uuid: orderService.uuid,
-          custom: (orderService as any).custom
+          custom: (orderService as any).custom,
+          feature_sheet_uuid: (orderService as any).feature_sheet_uuid || (orderService as any).feature_sheet?.uuid,
+          feature_sheet_id: (orderService as any).feature_sheet_id || (orderService as any).feature_sheet?.id,
         }));
 
         // Find an existing UNPAID feature sheet service on the order that can be updated
@@ -208,13 +216,14 @@ export default function PrintRequestModal({
         });
 
         if (existingUnpaidIndex !== -1) {
-          // Update the existing unpaid print service item with new option & amount
+          // Update the existing unpaid print service item with new option & amount & feature_sheet_uuid
           allServices[existingUnpaidIndex] = {
             service_id: featureSheetsService.uuid,
             option_id: selectedOptionUuid,
             amount: Number(selectedOption?.amount ?? 0),
             uuid: orderData.services[existingUnpaidIndex].uuid,
-            custom: sheetCustomName
+            custom: sheetCustomName,
+            feature_sheet_uuid: featureSheetUuid,
           };
         } else {
           // Append a NEW service line item to the order for this print request
@@ -222,7 +231,8 @@ export default function PrintRequestModal({
             service_id: featureSheetsService.uuid,
             option_id: selectedOptionUuid,
             amount: Number(selectedOption?.amount ?? 0),
-            custom: sheetCustomName
+            custom: sheetCustomName,
+            feature_sheet_uuid: featureSheetUuid,
           });
         }
 
@@ -240,15 +250,24 @@ export default function PrintRequestModal({
 
       // 3. Automatically initiate invoice generation and payment checkout
       if (updatedOrder && token) {
-        toast.info("Opening payment checkout...");
-        await createPayment(updatedOrder, token, window.location.href, {
-          serviceId: featureSheetsService.uuid,
-          paymentType: "service",
-          serviceName: `${sheetCustomName} - ${selectedOption?.title || `${copies} Copies`}`,
-          amount: Number(selectedOption?.amount ?? 0),
-        });
-      } else {
-        window.location.reload();
+        try {
+          const bookedServiceItem = (updatedOrder.services || []).find((os: any) =>
+            (os.feature_sheet_uuid && os.feature_sheet_uuid === featureSheetUuid) ||
+            (os.service?.uuid && os.service.uuid === featureSheetsService?.uuid) ||
+            (os.service_id && os.service_id === featureSheetsService?.uuid)
+          );
+          const serviceUuidForInvoice = bookedServiceItem?.uuid || featureSheetsService?.uuid;
+
+          toast.info("Opening payment checkout...");
+          await createPayment(updatedOrder, token, window.location.href, {
+            serviceId: serviceUuidForInvoice,
+            paymentType: "service",
+            serviceName: sheetCustomName,
+            amount: Number(selectedOption?.amount ?? 0),
+          });
+        } catch (payErr) {
+          console.error("Payment checkout error:", payErr);
+        }
       }
     } catch (error) {
       console.error("Print request failed:", error);

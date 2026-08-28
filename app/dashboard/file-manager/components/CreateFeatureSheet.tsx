@@ -746,9 +746,13 @@ const CreateFeatureSheet = forwardRef<
           );
         } else {
           result = await featureSheetService.uploadFeatureSheet(payload);
-          setSelectedSheetUuid(result.uuid);
-          // Add to local state list
+          // Add to local state list first
           setFeatureSheets((prev) => [...prev, result]);
+          setSelectedSheetUuid(result.uuid);
+        }
+
+        if (activeStandardRef.current?.importFromPayload && result) {
+          activeStandardRef.current.importFromPayload(result);
         }
 
         toast.success("Feature sheet saved successfully!");
@@ -1081,8 +1085,11 @@ const CreateFeatureSheet = forwardRef<
           activeStandardRef.current.importFromPayload(sheetData);
         }
       }, 0);
+    } else if (selectedSheetUuid) {
+      // Saved sheet UUID is set, but featureSheets list hasn't updated in state closure yet — DO NOT WIPE FORM DATA!
+      return;
     } else {
-      // If no saved sheet data is found for this template, reset to clean initialFormData
+      // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData
       updateFormData({
         ...initialFormData,
         avatar_url: orderData?.agent.avatar_url || "",
@@ -2702,6 +2709,8 @@ const CreateFeatureSheet = forwardRef<
                                 key={selectedSheetUuid || "new-BCFPStandard18"}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard19" && (
