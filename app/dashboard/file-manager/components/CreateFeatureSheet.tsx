@@ -209,7 +209,13 @@ const CreateFeatureSheet = forwardRef<
   CreateFeatureSheetRef,
   CreateFeatureSheetProps
 >(function CreateFeatureSheet(
-  { orderData, isReadonly = false, previewSheetUuid, onRefreshOrder, onOpenInvoice },
+  {
+    orderData,
+    isReadonly = false,
+    previewSheetUuid,
+    onRefreshOrder,
+    onOpenInvoice,
+  },
   ref,
 ) {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -340,7 +346,10 @@ const CreateFeatureSheet = forwardRef<
     if (!selectedSheetUuid && !selectedTemplate) return false;
 
     if (currentSheet) {
-      const statusInfo = getSheetBookingAndInvoiceStatus(currentSheet, orderData);
+      const statusInfo = getSheetBookingAndInvoiceStatus(
+        currentSheet,
+        orderData,
+      );
       if (statusInfo.isBooked) return true;
     }
 
@@ -358,7 +367,8 @@ const CreateFeatureSheet = forwardRef<
   ]);
 
   const bookedFeatureSheetsService = useMemo(() => {
-    if (!orderData?.services || !isCurrentSheetPrinted || !currentSheet) return null;
+    if (!orderData?.services || !isCurrentSheetPrinted || !currentSheet)
+      return null;
     const statusInfo = getSheetBookingAndInvoiceStatus(currentSheet, orderData);
     return statusInfo.orderService || null;
   }, [orderData, isCurrentSheetPrinted, currentSheet]);
@@ -753,7 +763,9 @@ const CreateFeatureSheet = forwardRef<
     }
   };
 
-  const handleSaveFeatureSheet = async (): Promise<FeatureSheetResponse | undefined> => {
+  const handleSaveFeatureSheet = async (): Promise<
+    FeatureSheetResponse | undefined
+  > => {
     setIsSaving(true);
     try {
       if (activeStandardRef.current) {
@@ -1446,7 +1458,8 @@ const CreateFeatureSheet = forwardRef<
                                     e.stopPropagation();
                                     if (onOpenInvoice) {
                                       onOpenInvoice(
-                                        statusInfo.orderService?.custom || "Feature Sheets",
+                                        statusInfo.orderService?.custom ||
+                                          "Feature Sheets",
                                         statusInfo.orderService?.uuid,
                                         sheet.uuid,
                                         sheet.id,
@@ -1516,9 +1529,13 @@ const CreateFeatureSheet = forwardRef<
                                 onClick={(e) => {
                                   if (isSheetBookedUnpaid) {
                                     e.stopPropagation();
-                                    if (onOpenInvoice && statusInfo.orderService) {
+                                    if (
+                                      onOpenInvoice &&
+                                      statusInfo.orderService
+                                    ) {
                                       onOpenInvoice(
-                                        statusInfo.orderService.custom || "Feature Sheets",
+                                        statusInfo.orderService.custom ||
+                                          "Feature Sheets",
                                         statusInfo.orderService.uuid,
                                         sheet.uuid,
                                         sheet.id,
@@ -1529,20 +1546,24 @@ const CreateFeatureSheet = forwardRef<
                                     }
                                   }
                                 }}
-                                title={isSheetBookedUnpaid ? "Click to view invoice / pay print request" : undefined}
+                                title={
+                                  isSheetBookedUnpaid
+                                    ? "Click to view invoice / pay print request"
+                                    : undefined
+                                }
                                 className={`absolute top-2 right-2 text-white text-xs px-2.5 py-1 rounded z-20 font-medium ${
                                   isSheetPaid
                                     ? "bg-[#6BAE41]"
                                     : isSheetBookedUnpaid
-                                    ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
-                                    : `${userType}-bg`
+                                      ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                      : `${userType}-bg`
                                 }`}
                               >
                                 {isSheetPaid
                                   ? "Paid"
                                   : isSheetBookedUnpaid
-                                  ? "Booked (Unpaid)"
-                                  : "Saved"}
+                                    ? "Booked (Unpaid)"
+                                    : "Saved"}
                               </div>
                             </FeatureSheetThumbnail>
                           </div>
@@ -1702,10 +1723,14 @@ const CreateFeatureSheet = forwardRef<
                                 </span>
                                 <span
                                   onClick={() => {
-                                    if (bookedFeatureSheetsService?.payment_status !== "PAID") {
+                                    if (
+                                      bookedFeatureSheetsService?.payment_status !==
+                                      "PAID"
+                                    ) {
                                       if (onOpenInvoice) {
                                         onOpenInvoice(
-                                          bookedFeatureSheetsService.custom || "Feature Sheets",
+                                          bookedFeatureSheetsService.custom ||
+                                            "Feature Sheets",
                                           bookedFeatureSheetsService.uuid,
                                           currentSheet?.uuid,
                                           currentSheet?.id,
@@ -1716,7 +1741,8 @@ const CreateFeatureSheet = forwardRef<
                                     }
                                   }}
                                   title={
-                                    bookedFeatureSheetsService?.payment_status !== "PAID"
+                                    bookedFeatureSheetsService?.payment_status !==
+                                    "PAID"
                                       ? "Click to view invoice / pay print request"
                                       : "Paid"
                                   }

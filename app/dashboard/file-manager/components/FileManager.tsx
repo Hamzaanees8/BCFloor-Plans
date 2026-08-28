@@ -16,6 +16,7 @@ import CreateFeatureSheet, {
   CreateFeatureSheetRef,
 } from "./CreateFeatureSheet";
 import QuoteServiceTab from "./QuoteServiceTab";
+import PrintServiceTab from "./PrintServiceTab";
 import DownloadTab from "./DownloadTab";
 import HiddenMediaModal from "./HiddenMediaModal";
 import PackageLimitWarningModal from "./PackageLimitWarningModal";
@@ -78,6 +79,15 @@ const FileManager = () => {
         os.service?.name?.toLowerCase() === "feature sheets" ||
         (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
       if (isFS) return;
+
+      // Handle Print category services:
+      const catName = (os.service as any)?.category?.name?.toLowerCase();
+      const serviceType = (os.service as any)?.type?.toLowerCase();
+      // If service is in category "Print", only include it if type === "design_and_print"
+      // (Flyer and Tabloid DIY print requests are handled under the "Feature Sheets" tab)
+      if (catName === "print" && serviceType !== "design_and_print") {
+        return;
+      }
 
       const key = os.service?.uuid;
       if (!key) return;
@@ -1224,6 +1234,20 @@ const FileManager = () => {
             currentBookedService={currentBookedService}
             onOpenInvoice={handleOpenInvoice}
             onSave={handleSave}
+          />
+        );
+      case "Print":
+      case "print":
+        return (
+          <PrintServiceTab
+            orderData={orderData}
+            currentService={activeService}
+            currentBookedService={currentBookedService}
+            onOpenInvoice={handleOpenInvoice}
+            onSave={handleSave}
+            gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "Standard Photos":

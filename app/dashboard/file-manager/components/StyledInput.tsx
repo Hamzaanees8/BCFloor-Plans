@@ -660,6 +660,7 @@ export default function StyledInput({
         (f) => f.name.toLowerCase() === activeFontFolder.toLowerCase(),
       )
     : undefined;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const customFonts = folderConfig?.fonts || [];
 
   // FieldPanel context – optional; graceful no-op when not inside a provider
@@ -673,7 +674,9 @@ export default function StyledInput({
   const effectiveFieldLabel =
     fieldLabel ||
     draggableBox?.label ||
-    (draggableBox?.id ? draggableBox.id.charAt(0).toUpperCase() + draggableBox.id.slice(1) : "Text Field");
+    (draggableBox?.id
+      ? draggableBox.id.charAt(0).toUpperCase() + draggableBox.id.slice(1)
+      : "Text Field");
 
   const [fontWeight, setFontWeight] = useState("font-normal");
   const [fontSize, setFontSize] = useState<string>("16px");
@@ -977,7 +980,15 @@ export default function StyledInput({
         alignContent: alignContentStr as any,
       });
     },
-    [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign, verticalAlign],
+    [
+      onChangeStyle,
+      fontWeight,
+      fontSize,
+      fontFamily,
+      textAlign,
+      verticalAlign,
+      customFonts,
+    ],
   );
 
   // ─── Input handler ────────────────────────────────────────────────
@@ -1056,11 +1067,15 @@ export default function StyledInput({
           if (style.fontWeight !== undefined) {
             const fw = String(style.fontWeight);
             const cls =
-              fw === "100" ? "font-thin" :
-              fw === "500" ? "font-medium" :
-              fw === "700" ? "font-bold" :
-              fw === "800" ? "font-extrabold" :
-              "font-normal";
+              fw === "100"
+                ? "font-thin"
+                : fw === "500"
+                  ? "font-medium"
+                  : fw === "700"
+                    ? "font-bold"
+                    : fw === "800"
+                      ? "font-extrabold"
+                      : "font-normal";
             setFontWeight(cls);
           }
           if (style.fontFamily) {
@@ -1068,8 +1083,10 @@ export default function StyledInput({
           }
           if (style.textAlign) setTextAlign(style.textAlign);
           if (style.verticalAlign) setVerticalAlign(style.verticalAlign);
-          if (style.fontStyle !== undefined) setItalic(style.fontStyle === "italic");
-          if (style.textDecoration !== undefined) setUnderline(style.textDecoration === "underline");
+          if (style.fontStyle !== undefined)
+            setItalic(style.fontStyle === "italic");
+          if (style.textDecoration !== undefined)
+            setUnderline(style.textDecoration === "underline");
 
           if (onChangeStyle) onChangeStyle(style);
         },
@@ -1091,7 +1108,6 @@ export default function StyledInput({
       setActiveDropdown(null);
     }
   };
-
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

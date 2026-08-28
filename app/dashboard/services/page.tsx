@@ -232,11 +232,29 @@ const Page = () => {
     {
       accessorKey: "category.name",
       header: "Category",
-      cell: ({ row }) => (
-        <div className="text-[15px] font-[400]" style={{ color: roleSettings.pageText }}>
-          {row.original.category?.name}
-        </div>
-      )
+      cell: ({ row }) => {
+        const catName = row.original.category?.name || "";
+        const isPrint = catName.toLowerCase() === "print";
+        const serviceType = row.original.type;
+        const typeLabels: Record<string, string> = {
+          flyer: "Flyer",
+          tabloid: "Tabloid",
+          design_and_print: "Design & Print",
+        };
+
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <span className="text-[15px] font-[400]" style={{ color: roleSettings.pageText }}>
+              {catName}
+            </span>
+            {isPrint && serviceType && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                {typeLabels[serviceType] || serviceType}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: "Color",
