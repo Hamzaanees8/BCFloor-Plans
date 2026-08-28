@@ -93,10 +93,17 @@ interface CreateFeatureSheetProps {
   orderData: Order | null;
   isReadonly?: boolean;
   previewSheetUuid?: string;
+  onRefreshOrder?: () => Promise<void>;
+  onOpenInvoice?: (
+    serviceName?: string,
+    orderServiceUuid?: string,
+    featureSheetUuid?: string,
+    featureSheetId?: number,
+  ) => void;
 }
 
 export interface CreateFeatureSheetRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<FeatureSheetResponse | void>;
 }
 
 /**
@@ -108,7 +115,7 @@ function FieldSidePanelConsumer({
   isSaving,
   userType,
 }: {
-  handleSaveFeatureSheet: () => Promise<void>;
+  handleSaveFeatureSheet: () => Promise<FeatureSheetResponse | void>;
   isSaving: boolean;
   userType: string;
 }) {
@@ -130,11 +137,79 @@ function FieldSidePanelConsumer({
   );
 }
 
+export const getSheetBookingAndInvoiceStatus = (
+  sheet: any,
+  orderData: Order | null,
+) => {
+  if (!sheet || !orderData) {
+    return {
+      isBooked: false,
+      paymentStatus: null,
+      invoice: null,
+      orderService: null,
+    };
+  }
+
+  // 1. Find matching order service line item in orderData.services.
+  //    Priority: direct feature_sheet_id / feature_sheet_uuid match first,
+  //    then custom-string match, then isFS-only fallback.
+  //    We intentionally do NOT gate on isFS first because the nested `service`
+  //    object is not always hydrated (category.name may be missing), which
+  //    would silently drop perfectly valid matches.
+  const matchingOrderService = (orderData.services || []).find((os: any) => {
+    const osFsId = os.feature_sheet_id || os.feature_sheet?.id;
+    const osFsUuid = os.feature_sheet_uuid || os.feature_sheet?.uuid;
+
+    // Direct ID match — most reliable, no isFS check needed
+    if (osFsId && sheet.id && Number(osFsId) === Number(sheet.id)) return true;
+    if (osFsUuid && sheet.uuid && osFsUuid === sheet.uuid) return true;
+
+    // Custom string contains sheet UUID
+    const customStr = (os.custom || "").toLowerCase();
+    if (sheet.uuid && customStr.includes(sheet.uuid.toLowerCase())) return true;
+
+    return false;
+  });
+
+  const isBackendRequested =
+    Boolean(sheet.print_request) ||
+    Boolean(sheet.is_print_requested) ||
+    (Array.isArray(sheet.print_requests) && sheet.print_requests.length > 0);
+
+  if (!matchingOrderService) {
+    return {
+      isBooked: isBackendRequested,
+      paymentStatus: isBackendRequested ? "UNPAID" : null,
+      invoice: null,
+      orderService: null,
+    };
+  }
+
+  // 2. Find matching invoice in orderData.invoices (or orderData invoices array)
+  const matchingInvoice = (orderData as any).invoices?.find((inv: any) =>
+    inv.items?.some(
+      (item: any) =>
+        item.order_service_id === matchingOrderService.id ||
+        item.order_service?.id === matchingOrderService.id ||
+        item.order_service?.uuid === matchingOrderService.uuid,
+    ),
+  );
+
+  return {
+    isBooked: true,
+    paymentStatus:
+      matchingOrderService.payment_status ||
+      (matchingInvoice?.status === "paid" ? "PAID" : "UNPAID"),
+    invoice: matchingInvoice || null,
+    orderService: matchingOrderService,
+  };
+};
+
 const CreateFeatureSheet = forwardRef<
   CreateFeatureSheetRef,
   CreateFeatureSheetProps
 >(function CreateFeatureSheet(
-  { orderData, isReadonly = false, previewSheetUuid },
+  { orderData, isReadonly = false, previewSheetUuid, onRefreshOrder, onOpenInvoice },
   ref,
 ) {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -242,6 +317,8 @@ const CreateFeatureSheet = forwardRef<
       }
       return updated;
     });
+    // Refresh the order data so the new service record appears immediately
+    onRefreshOrder?.();
   };
 
   const currentSheet = useMemo(() => {
@@ -262,56 +339,13 @@ const CreateFeatureSheet = forwardRef<
   const isCurrentSheetPrinted = useMemo(() => {
     if (!selectedSheetUuid && !selectedTemplate) return false;
 
-    // Check backend feature sheet object flags
     if (currentSheet) {
-      const s = currentSheet as any;
-      if (
-        s.print_request ||
-        s.is_print_requested ||
-        (Array.isArray(s.print_requests) && s.print_requests.length > 0)
-      ) {
-        return true;
-      }
+      const statusInfo = getSheetBookingAndInvoiceStatus(currentSheet, orderData);
+      if (statusInfo.isBooked) return true;
     }
 
-    // Check if this sheet UUID was recorded in printedSheetUuids
     if (selectedSheetUuid && printedSheetUuids.includes(selectedSheetUuid)) {
       return true;
-    }
-
-    // Check if orderData.services has a service item under Print or feature_sheets category
-    if (orderData?.services && orderData.services.length > 0) {
-      const label = getTemplateLabel(selectedTemplate);
-      const matchesCustom = orderData.services.some((os: any) => {
-        const isFS =
-          os.service?.category?.name?.toLowerCase() === "print" ||
-          os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
-          os.service?.category?.name?.toLowerCase() === "feature sheets" ||
-          os.service?.name?.toLowerCase() === "feature sheets" ||
-          os.service?.name?.toLowerCase() === "print";
-        if (!isFS) return false;
-        const customStr = (os.custom || "").toLowerCase();
-        if (!customStr) return true; // If no custom label specified, assume it applies to feature sheet
-        if (
-          selectedSheetUuid &&
-          customStr.includes(selectedSheetUuid.toLowerCase())
-        )
-          return true;
-        if (label && customStr.includes(label.toLowerCase())) return true;
-        if (
-          selectedTemplate &&
-          customStr.includes(selectedTemplate.toLowerCase())
-        )
-          return true;
-        if (
-          customStr.includes("feature sheet") ||
-          customStr.includes("feature_sheet") ||
-          customStr.includes("print")
-        )
-          return true;
-        return false;
-      });
-      if (matchesCustom) return true;
     }
 
     return false;
@@ -320,22 +354,14 @@ const CreateFeatureSheet = forwardRef<
     selectedSheetUuid,
     selectedTemplate,
     printedSheetUuids,
-    orderData?.services,
+    orderData,
   ]);
 
   const bookedFeatureSheetsService = useMemo(() => {
-    if (!orderData?.services || !isCurrentSheetPrinted) return null;
-    return (
-      orderData.services.find(
-        (os: any) =>
-          os.service?.category?.name?.toLowerCase() === "print" ||
-          os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
-          os.service?.category?.name?.toLowerCase() === "feature sheets" ||
-          os.service?.name?.toLowerCase() === "feature sheets" ||
-          os.service?.name?.toLowerCase() === "print",
-      ) || null
-    );
-  }, [orderData?.services, isCurrentSheetPrinted]);
+    if (!orderData?.services || !isCurrentSheetPrinted || !currentSheet) return null;
+    const statusInfo = getSheetBookingAndInvoiceStatus(currentSheet, orderData);
+    return statusInfo.orderService || null;
+  }, [orderData, isCurrentSheetPrinted, currentSheet]);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [featureSheetsFullService, setFeatureSheetsFullService] = useState<
@@ -727,7 +753,7 @@ const CreateFeatureSheet = forwardRef<
     }
   };
 
-  const handleSaveFeatureSheet = async () => {
+  const handleSaveFeatureSheet = async (): Promise<FeatureSheetResponse | undefined> => {
     setIsSaving(true);
     try {
       if (activeStandardRef.current) {
@@ -756,6 +782,7 @@ const CreateFeatureSheet = forwardRef<
         }
 
         toast.success("Feature sheet saved successfully!");
+        return result;
       } else {
         toast.error(
           "Save functionality is not available for this template yet.",
@@ -1395,12 +1422,44 @@ const CreateFeatureSheet = forwardRef<
                       return template?.type === activeTab;
                     })
                     .map((sheet) => {
+                      const statusInfo = getSheetBookingAndInvoiceStatus(
+                        sheet,
+                        orderData,
+                      );
+                      const isSheetPaid =
+                        statusInfo.isBooked &&
+                        statusInfo.paymentStatus === "PAID";
+                      const isSheetBookedUnpaid =
+                        statusInfo.isBooked &&
+                        statusInfo.paymentStatus !== "PAID";
+
                       return (
                         <div key={sheet.uuid} className="flex flex-col gap-2">
                           <div className="text-start">
-                            <p className="text-[24px] text-[#666666]">
-                              {getTemplateLabel(sheet.template_key)}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[24px] text-[#666666]">
+                                {getTemplateLabel(sheet.template_key)}
+                              </p>
+                              {statusInfo.invoice && (
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onOpenInvoice) {
+                                      onOpenInvoice(
+                                        statusInfo.orderService?.custom || "Feature Sheets",
+                                        statusInfo.orderService?.uuid,
+                                        sheet.uuid,
+                                        sheet.id,
+                                      );
+                                    }
+                                  }}
+                                  className="text-[11px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-200 cursor-pointer"
+                                  title="Click to view invoice"
+                                >
+                                  {statusInfo.invoice.invoice_number}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[12px] text-[#888888]">
                               Last updated:{" "}
                               {new Date(sheet.updated_at).toLocaleDateString()}
@@ -1454,9 +1513,36 @@ const CreateFeatureSheet = forwardRef<
                               className="w-full h-[400px]"
                             >
                               <div
-                                className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded z-20`}
+                                onClick={(e) => {
+                                  if (isSheetBookedUnpaid) {
+                                    e.stopPropagation();
+                                    if (onOpenInvoice && statusInfo.orderService) {
+                                      onOpenInvoice(
+                                        statusInfo.orderService.custom || "Feature Sheets",
+                                        statusInfo.orderService.uuid,
+                                        sheet.uuid,
+                                        sheet.id,
+                                      );
+                                    } else {
+                                      setSelectedSheetUuid(sheet.uuid);
+                                      setIsPaymentModalOpen(true);
+                                    }
+                                  }
+                                }}
+                                title={isSheetBookedUnpaid ? "Click to view invoice / pay print request" : undefined}
+                                className={`absolute top-2 right-2 text-white text-xs px-2.5 py-1 rounded z-20 font-medium ${
+                                  isSheetPaid
+                                    ? "bg-[#6BAE41]"
+                                    : isSheetBookedUnpaid
+                                    ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                    : `${userType}-bg`
+                                }`}
                               >
-                                Saved
+                                {isSheetPaid
+                                  ? "Paid"
+                                  : isSheetBookedUnpaid
+                                  ? "Booked (Unpaid)"
+                                  : "Saved"}
                               </div>
                             </FeatureSheetThumbnail>
                           </div>
@@ -1615,11 +1701,30 @@ const CreateFeatureSheet = forwardRef<
                                   Printed
                                 </span>
                                 <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                  onClick={() => {
+                                    if (bookedFeatureSheetsService?.payment_status !== "PAID") {
+                                      if (onOpenInvoice) {
+                                        onOpenInvoice(
+                                          bookedFeatureSheetsService.custom || "Feature Sheets",
+                                          bookedFeatureSheetsService.uuid,
+                                          currentSheet?.uuid,
+                                          currentSheet?.id,
+                                        );
+                                      } else {
+                                        setIsPaymentModalOpen(true);
+                                      }
+                                    }
+                                  }}
+                                  title={
+                                    bookedFeatureSheetsService?.payment_status !== "PAID"
+                                      ? "Click to view invoice / pay print request"
+                                      : "Paid"
+                                  }
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase transition-colors ${
                                     bookedFeatureSheetsService.payment_status ===
                                     "PAID"
                                       ? "bg-green-100 text-green-700 border border-green-300"
-                                      : "bg-gray-100 text-gray-700 border border-gray-300"
+                                      : "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer shadow-sm"
                                   }`}
                                 >
                                   {bookedFeatureSheetsService.payment_status ===
@@ -2812,6 +2917,7 @@ const CreateFeatureSheet = forwardRef<
           open={isPrintModalOpen}
           onClose={() => setIsPrintModalOpen(false)}
           featureSheetUuid={selectedSheetUuid}
+          featureSheetId={currentSheet?.id}
           templateKey={selectedTemplate}
           agentId={
             orderData?.agent?.uuid ||
@@ -2831,7 +2937,18 @@ const CreateFeatureSheet = forwardRef<
             open={isPaymentModalOpen}
             onClose={() => setIsPaymentModalOpen(false)}
             orderData={orderData}
-            currentService={null}
+            currentService={
+              bookedFeatureSheetsService
+                ? {
+                    uuid: bookedFeatureSheetsService.uuid,
+                    name:
+                      bookedFeatureSheetsService.custom ||
+                      bookedFeatureSheetsService.service?.name ||
+                      "Feature Sheets",
+                    amount: Number(bookedFeatureSheetsService.amount) || 0,
+                  }
+                : null
+            }
             activeTab="feature_sheets"
             userType={userType}
             url={typeof window !== "undefined" ? window.location.href : ""}
@@ -2850,7 +2967,11 @@ const CreateFeatureSheet = forwardRef<
             currentBookedService={bookedFeatureSheetsService || undefined}
             onSuccess={() => {
               toast.success("Print plan upgraded successfully!");
-              window.location.reload();
+              if (onRefreshOrder) {
+                onRefreshOrder();
+              } else if (typeof window !== "undefined") {
+                window.location.reload();
+              }
             }}
           />
         )}

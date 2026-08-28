@@ -102,8 +102,8 @@ export default function UpgradeServicePopup({
                     }
                 }
                 return {
-                    service_id: orderService.service.uuid,
-                    option_id: orderService.option.uuid,
+                    service_id: orderService.service?.uuid || (orderService as any).service_id || String(orderService.service_id || ""),
+                    option_id: orderService.option?.uuid || (orderService as any).option_id || (orderService.option_id ? String(orderService.option_id) : undefined),
                     amount: Number(orderService.amount),
                     uuid: orderService.uuid,
                     custom: customName,

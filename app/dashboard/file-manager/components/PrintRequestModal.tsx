@@ -25,6 +25,7 @@ interface PrintRequestModalProps {
   open: boolean;
   onClose: () => void;
   featureSheetUuid: string | null;
+  featureSheetId?: number | null;
   templateKey?: string;
   agentId?: string;
   propertyId?: string;
@@ -32,7 +33,7 @@ interface PrintRequestModalProps {
   orderUuid?: string;
   orderData?: Order | null;
   onTourCreated?: (tourData: any) => void;
-  onSaveSheet?: () => Promise<void>;
+  onSaveSheet?: () => Promise<any>;
   onRequestSuccess?: (sheetUuid: string) => void;
 }
 
@@ -40,6 +41,7 @@ export default function PrintRequestModal({
   open,
   onClose,
   featureSheetUuid,
+  featureSheetId,
   templateKey,
   agentId,
   propertyId,
@@ -82,15 +84,17 @@ export default function PrintRequestModal({
 
           if (fsService && fsService.product_options && fsService.product_options.length > 0) {
             // Find if order already has an option for this service and pre-select it, or fallback to first option
-            const existingBilledService = orderData?.services?.find(
-              (os: any) =>
-                (os.service as any)?.category?.name?.toLowerCase() === "print" ||
-                (os.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
-                (os.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
-                os.service?.name?.toLowerCase() === "feature sheets" ||
-                os.service?.name?.toLowerCase() === "print"
-            );
-            
+          // Pre-select the option already booked for THIS specific sheet (by feature_sheet_id or feature_sheet_uuid)
+          const existingBilledService = orderData?.services?.find(
+            (os: any) => {
+              const osFsId = (os as any).feature_sheet_id || (os as any).feature_sheet?.id;
+              const osFsUuid = (os as any).feature_sheet_uuid || (os as any).feature_sheet?.uuid;
+              // Match this sheet specifically
+              if (featureSheetId && osFsId && Number(osFsId) === Number(featureSheetId)) return true;
+              if (featureSheetUuid && osFsUuid && osFsUuid === featureSheetUuid) return true;
+              return false;
+            }
+          );
             const initialOption = fsService.product_options.find((opt: any) => opt.uuid === existingBilledService?.option?.uuid) || fsService.product_options[0];
             
             setSelectedOptionUuid(initialOption.uuid);
@@ -141,11 +145,15 @@ export default function PrintRequestModal({
 
     setIsSubmitting(true);
     try {
-      // 0. Auto-save any latest feature sheet edits before purchasing/booking
+      // 0. Auto-save any latest feature sheet edits before purchasing/booking to get updated ID & UUID
+      let savedSheetData: any = null;
       if (onSaveSheet) {
         toast.info("Saving latest sheet changes...");
-        await onSaveSheet();
+        savedSheetData = await onSaveSheet();
       }
+
+      const resolvedFsId = savedSheetData?.id || featureSheetId;
+      const targetFeatureSheetId = resolvedFsId ? Number(resolvedFsId) : undefined;
 
       let activeTourId = tourId;
 
@@ -193,10 +201,10 @@ export default function PrintRequestModal({
       const token = localStorage.getItem("token") || "";
 
       if (orderData) {
-        // Build all existing services list from the order
+        // Build all existing services list from the order safely with optional chaining
         const allServices: OrderServiceItem[] = (orderData.services || []).map(orderService => ({
-          service_id: orderService.service.uuid,
-          option_id: orderService.option.uuid,
+          service_id: orderService.service?.uuid || (orderService as any).service_id || String(orderService.service_id || ""),
+          option_id: orderService.option?.uuid || (orderService as any).option_id || (orderService.option_id ? String(orderService.option_id) : undefined),
           amount: Number(orderService.amount),
           uuid: orderService.uuid,
           custom: (orderService as any).custom,
@@ -204,25 +212,40 @@ export default function PrintRequestModal({
           feature_sheet_id: (orderService as any).feature_sheet_id || (orderService as any).feature_sheet?.id,
         }));
 
-        // Find an existing UNPAID feature sheet service on the order that can be updated
+        // Find an existing UNPAID feature sheet service on the order specifically for this sheet (or unlinked)
         const existingUnpaidIndex = (orderData.services || []).findIndex(orderService => {
-          const isFS =
-            (orderService.service as any)?.category?.name?.toLowerCase() === "print" ||
-            (orderService.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
-            (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
-            orderService.service?.name?.toLowerCase() === "feature sheets" ||
-            orderService.service?.name?.toLowerCase() === "print";
-          return isFS && orderService.payment_status !== "PAID";
+          const osFsId = (orderService as any).feature_sheet_id || (orderService as any).feature_sheet?.id;
+          const osFsUuid = (orderService as any).feature_sheet_uuid || (orderService as any).feature_sheet?.uuid;
+
+          if (orderService.payment_status === "PAID") return false;
+
+          // Direct feature-sheet ID match (most reliable — no service-object hydration needed)
+          if (targetFeatureSheetId && osFsId && Number(osFsId) === Number(targetFeatureSheetId)) return true;
+          if (featureSheetUuid && osFsUuid && osFsUuid === featureSheetUuid) return true;
+
+          // Unlinked existing FS service (no sheet IDs attached) — only match if this sheet also has no ID yet
+          if (!osFsId && !osFsUuid && !targetFeatureSheetId && !featureSheetUuid) {
+            const isFS =
+              (orderService.service as any)?.category?.name?.toLowerCase() === "print" ||
+              (orderService.service as any)?.category?.name?.toLowerCase() === "feature_sheets" ||
+              (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets" ||
+              orderService.service?.name?.toLowerCase() === "feature sheets" ||
+              orderService.service?.name?.toLowerCase() === "print";
+            return isFS;
+          }
+
+          return false;
         });
 
         if (existingUnpaidIndex !== -1) {
-          // Update the existing unpaid print service item with new option & amount & feature_sheet_uuid
+          // Update the existing unpaid print service item with new option & amount & feature_sheet_id & feature_sheet_uuid
           allServices[existingUnpaidIndex] = {
             service_id: featureSheetsService.uuid,
             option_id: selectedOptionUuid,
             amount: Number(selectedOption?.amount ?? 0),
             uuid: orderData.services[existingUnpaidIndex].uuid,
             custom: sheetCustomName,
+            feature_sheet_id: targetFeatureSheetId,
             feature_sheet_uuid: featureSheetUuid,
           };
         } else {
@@ -232,6 +255,7 @@ export default function PrintRequestModal({
             option_id: selectedOptionUuid,
             amount: Number(selectedOption?.amount ?? 0),
             custom: sheetCustomName,
+            feature_sheet_id: targetFeatureSheetId,
             feature_sheet_uuid: featureSheetUuid,
           });
         }

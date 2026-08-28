@@ -455,8 +455,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             setMlsNumber(orderData.property.mls_number);
           if (orderData.property.suite) {
             setAddressCode(orderData.property.suite);
-            setRoadName(orderData.property.suite);
-          } else if (orderData.property.address) {
+          }
+          if (orderData.property.address) {
             setRoadName(orderData.property.address);
           }
 
@@ -594,10 +594,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               }
             : {})}
           className={`relative overflow-hidden group cursor-pointer ${containerClassName} ${
-            isLogoSlot && !hasImage
-              ? "bg-white border border-gray-200"
+            isLogoSlot || key === "image6"
+              ? ""
               : hasImage
-                ? "bg-transparent"
+                ? "bg-transparent shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
                 : ""
           }`}
           onMouseEnter={() => setHoveredSlot(key)}
@@ -642,9 +642,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       scale={scale[key]}
                       position={position[key]}
                       rotation={rotation[key]}
-                      objectFit={
-                        isLogoSlot || key === "image6" ? "contain" : "cover"
-                      }
+                      objectFit="contain"
                     />
                   </div>
 
@@ -1201,7 +1199,6 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       marginLeft: showBleed ? "-0.375in" : "-0.25in",
       marginRight: showBleed ? "-0.375in" : "-0.25in",
       marginTop: showBleed ? "-0.375in" : "-0.25in",
-      paddingTop: showBleed ? "0.375in" : "0.25in",
       width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
       height: showBleed ? "calc(180px + 0.375in)" : "calc(180px + 0.25in)",
     };
@@ -1287,7 +1284,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 {/* Address & Logo Header Bar (Overlay on Top Edge of Main Image) */}
                 <div
                   data-drag-container="true"
-                  className={`absolute top-0 left-0 right-0 h-[42px] px-[36px] flex items-center justify-between z-20 shrink-0 border-b border-gray-300/60 font-serif transition-all duration-150 group/sec border border-transparent bg-[#DDD8D3]/85 backdrop-blur-sm ${
+                  className={`absolute top-0 left-0 right-0 h-[42px] px-[36px] flex items-center justify-between z-20 shrink-0 border-b font-serif transition-all duration-150 group/sec border border-transparent bg-[#DDD8D3]/85 backdrop-blur-sm ${
                     lockedSections.headerBar
                       ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                       : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -1464,7 +1461,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 {/* Specs Summary Row (Overlay on Bottom Edge of Main Image) */}
                 <div
                   data-drag-container="true"
-                  className={`absolute bottom-0 left-0 right-0 py-2 px-[36px] text-nowrap flex items-center justify-between text-[14.5px] font-medium text-[#444444] tracking-wider uppercase z-20 border-t border-gray-300/60 transition-all duration-150 group/sec border border-transparent bg-[#DCD8D4]/85 backdrop-blur-sm ${
+                  className={`absolute bottom-0 left-0 right-0 py-2 px-[36px] text-nowrap flex items-center justify-between text-[14.5px] font-medium text-[#444444] tracking-wider uppercase z-20 border-t transition-all duration-150 group/sec border border-transparent bg-[#DCD8D4]/85 backdrop-blur-sm ${
                     lockedSections.specsBar
                       ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                       : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -2255,12 +2252,17 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               {/* Bottom Swooping White Contact Card Footer (Expanded to Bleed Edge) */}
               <div
                 data-drag-container="true"
-                className={`absolute bottom-0 left-0 right-0 h-[175px] z-20 pointer-events-none flex flex-col justify-end transition-all duration-150 group/sec border border-transparent ${
+                className={`absolute h-[175px] z-20 pointer-events-none flex flex-col justify-end transition-all duration-150 group/sec border border-transparent ${
                   lockedSections.contactCard
                     ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                     : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
                 }`}
-                style={bottomBleedStyle}
+                style={{
+                  left: showBleed ? "-0.375in" : "-0.25in",
+                  right: showBleed ? "-0.375in" : "-0.25in",
+                  bottom: showBleed ? "-0.375in" : "-0.25in",
+                  width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
+                }}
               >
                 <button
                   type="button"
@@ -2543,7 +2545,15 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 viewBox="0 0 816 1056"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="absolute inset-0 w-full h-full pointer-events-none z-0"
+                className="absolute pointer-events-none z-0"
+                style={{
+                  top: showBleed ? "-0.375in" : "-0.25in",
+                  bottom: showBleed ? "-0.375in" : "-0.25in",
+                  left: showBleed ? "-0.375in" : "-0.25in",
+                  right: showBleed ? "-0.375in" : "-0.25in",
+                  width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
+                  height: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
+                }}
                 preserveAspectRatio="none"
               >
                 {/* Metallic Curve Bottom Background */}
@@ -2592,3 +2602,4 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
 BcfpStandard18.displayName = "BcfpStandard18";
 
+export default BcfpStandard18;

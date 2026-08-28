@@ -895,59 +895,156 @@ const FileManager = () => {
   const handleOpenInvoice = async (
     serviceName?: string,
     orderServiceUuid?: string,
+    featureSheetUuid?: string,
+    featureSheetId?: number,
   ) => {
-    let serviceInv;
-
-    if (orderServiceUuid) {
-      const matchedBooking = services.find((s) => s.uuid === orderServiceUuid);
-      const bookingId = matchedBooking?.id;
-
-      serviceInv = invoices.find((inv) => {
-        const isConsolidated = inv.notes
-          ?.toLowerCase()
-          .includes("consolidated");
-        if (isConsolidated) return false;
-        return inv.items?.some((i: any) => {
-          const os = i.order_service || i.orderService;
-          if (os?.uuid === orderServiceUuid) return true;
-          if (
-            bookingId &&
-            (Number(os?.id) === Number(bookingId) ||
-              Number(i.order_service_id) === Number(bookingId) ||
-              Number(i.orderServiceId) === Number(bookingId))
-          ) {
-            return true;
-          }
-          return false;
-        });
-      });
-    }
-
-    if (!serviceInv && serviceName) {
-      serviceInv = invoices.find((inv) => {
-        const isConsolidated = inv.notes
-          ?.toLowerCase()
-          .includes("consolidated");
-        if (isConsolidated) return false;
-        return inv.items?.some((i: any) => {
-          const desc = i.description?.toLowerCase() || "";
-          const sName = serviceName.toLowerCase();
-          return desc.includes(sName) || sName.includes(desc);
-        });
-      });
-    }
-
-    const finalInv = serviceInv || invoices[0];
-
-    if (finalInv) {
+    // Refresh latest invoices list from API if orderData exists
+    let allInvoices = invoices;
+    if (orderData?.uuid) {
       try {
-        const synced = await syncExtraItemsToInvoice(finalInv);
+        const res = await GetInvoicesByOrder(orderData.uuid);
+        if (res && res.data && Array.isArray(res.data)) {
+          allInvoices = res.data;
+          setInvoices(allInvoices);
+        }
+      } catch (e) {
+        console.error("Failed to refresh invoices:", e);
+      }
+    }
+
+    const isSpecificServiceRequested = Boolean(
+      orderServiceUuid || featureSheetUuid || featureSheetId || serviceName,
+    );
+
+    // Find target order service in orderData or services state
+    const matchedBooking = (orderData?.services || services || []).find(
+      (s: any) =>
+        (orderServiceUuid && s.uuid === orderServiceUuid) ||
+        (featureSheetUuid &&
+          (s.feature_sheet_uuid === featureSheetUuid ||
+            s.feature_sheet?.uuid === featureSheetUuid)) ||
+        (featureSheetId &&
+          (Number(s.feature_sheet_id) === Number(featureSheetId) ||
+            Number(s.feature_sheet?.id) === Number(featureSheetId))),
+    );
+
+    const targetServiceUuid = matchedBooking?.uuid || orderServiceUuid;
+    const targetServiceId = matchedBooking?.id;
+    const targetFsUuid =
+      (matchedBooking as any)?.feature_sheet_uuid ||
+      (matchedBooking as any)?.feature_sheet?.uuid ||
+      featureSheetUuid;
+    const targetFsId =
+      (matchedBooking as any)?.feature_sheet_id ||
+      (matchedBooking as any)?.feature_sheet?.id ||
+      featureSheetId;
+
+    const isItemMatch = (i: any) => {
+      const os = i.order_service || i.orderService;
+      const osId = i.order_service_id || i.orderServiceId || os?.id;
+      const osUuid = os?.uuid || i.order_service_uuid;
+
+      if (targetServiceUuid && osUuid === targetServiceUuid) return true;
+      if (
+        targetServiceId &&
+        osId &&
+        Number(osId) === Number(targetServiceId)
+      )
+        return true;
+      if (
+        targetFsUuid &&
+        (os?.feature_sheet_uuid === targetFsUuid ||
+          i.feature_sheet_uuid === targetFsUuid)
+      )
+        return true;
+      if (
+        targetFsId &&
+        (Number(os?.feature_sheet_id) === Number(targetFsId) ||
+          Number(i.feature_sheet_id) === Number(targetFsId))
+      )
+        return true;
+      if (serviceName) {
+        const desc = (i.description || "").toLowerCase();
+        const custom = (i.custom || "").toLowerCase();
+        const sName = serviceName.toLowerCase();
+        if (
+          desc.includes(sName) ||
+          sName.includes(desc) ||
+          custom.includes(sName)
+        )
+          return true;
+      }
+      return false;
+    };
+
+    // Find all invoices that contain a matching item
+    const matchingInvoices = allInvoices.filter((inv: any) => {
+      const isConsolidated = inv.notes
+        ?.toLowerCase()
+        .includes("consolidated");
+      if (isConsolidated && allInvoices.length > 1) return false;
+      return inv.items?.some(isItemMatch);
+    });
+
+    // Pick the most specific invoice (e.g. smallest item count) or the first matching invoice
+    const serviceInv: any =
+      matchingInvoices.sort(
+        (a: any, b: any) =>
+          (a.items?.length || 0) - (b.items?.length || 0),
+      )[0] || null;
+
+    if (serviceInv) {
+      // If a specific service was requested, scope the invoice items to show ONLY this specific sheet/service
+      if (
+        isSpecificServiceRequested &&
+        serviceInv.items &&
+        serviceInv.items.length > 0
+      ) {
+        const scopedItems = serviceInv.items.filter(isItemMatch);
+        if (scopedItems.length > 0) {
+          const subtotal = scopedItems.reduce(
+            (acc: number, item: any) =>
+              acc +
+              (parseFloat(item.amount) ||
+                parseFloat(item.quantity || "1") *
+                  parseFloat(item.unit_price || "0") ||
+                0),
+            0,
+          );
+          const taxRate = parseFloat(serviceInv.tax_rate || "0") / 100;
+          const taxAmount = subtotal * taxRate;
+          const total = subtotal + taxAmount;
+
+          const scopedInvoice = {
+            ...serviceInv,
+            items: scopedItems,
+            subtotal: subtotal.toFixed(2),
+            tax_amount: taxAmount.toFixed(2),
+            total: total.toFixed(2),
+            _original_items: serviceInv.items,
+          };
+
+          setViewingInvoice(scopedInvoice);
+          return;
+        }
+      }
+
+      try {
+        const synced = await syncExtraItemsToInvoice(serviceInv);
         setViewingInvoice(synced);
       } catch (err) {
         console.error("Failed to sync extra items:", err);
+        setViewingInvoice(serviceInv);
       }
+    } else if (isSpecificServiceRequested) {
+      toast.info("Invoice for this specific print request is not available.");
     } else {
-      setShowInvoicesModal(true);
+      const fallbackInv = allInvoices[0];
+      if (fallbackInv) {
+        setViewingInvoice(fallbackInv);
+      } else {
+        setShowInvoicesModal(true);
+      }
     }
   };
 
@@ -980,6 +1077,8 @@ const FileManager = () => {
         <CreateFeatureSheet
           ref={featureSheetRef}
           orderData={orderData}
+          onRefreshOrder={fetchOrder}
+          onOpenInvoice={handleOpenInvoice}
           previewSheetUuid={sheetUuid || undefined}
         />
       );
@@ -2600,7 +2699,7 @@ const FileManager = () => {
                   Tour
                 </div>
                 {userType !== "vendor" && (() => {
-                  const featureSheetBooking = orderData?.services?.find(
+                  const featureSheetBookings = (orderData?.services || []).filter(
                     (os: any) =>
                       os.service?.category?.name?.toLowerCase() === "print" ||
                       os.service?.category?.name?.toLowerCase() === "feature_sheets" ||
@@ -2608,8 +2707,7 @@ const FileManager = () => {
                       os.service?.name?.toLowerCase() === "feature sheets" ||
                       os.service?.name?.toLowerCase() === "print"
                   );
-                  const isPaid = featureSheetBooking?.payment_status === "PAID";
-                  const isBooked = !!featureSheetBooking;
+                  const isBooked = featureSheetBookings.length > 0;
 
                   return (
                     <div
@@ -2622,16 +2720,12 @@ const FileManager = () => {
                       } ${
                         activeTab === "CreateFeatureSheet"
                           ? `${userType}-bg text-white ${userType}-border`
-                          : isPaid
-                          ? "bg-[#6BAE41] text-white border-[#6BAE41] font-semibold"
                           : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
                       }`}
                       style={{
                         backgroundColor:
                           activeTab === "CreateFeatureSheet"
                             ? undefined
-                            : isPaid
-                            ? "#6BAE41"
                             : `var(--${userType}-page-bg, #F2F2F2)`,
                       }}
                     >

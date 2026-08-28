@@ -346,6 +346,12 @@ export async function UpdateOrderService(
     if (service.custom) {
       formData.append(`services[${index}][custom]`, service.custom);
     }
+    if (service.feature_sheet_id !== undefined && service.feature_sheet_id !== null) {
+      formData.append(`services[${index}][feature_sheet_id]`, String(service.feature_sheet_id));
+    }
+    if (service.feature_sheet_uuid) {
+      formData.append(`services[${index}][feature_sheet_uuid]`, service.feature_sheet_uuid);
+    }
   });
 
   const response = await fetch(`${API_URL}/orders/${orderUuid}`, {
