@@ -23,6 +23,8 @@ import {
 } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
+import { Button } from "./ui/button";
+
 import {
     Popover,
     PopoverContent,
@@ -64,7 +66,17 @@ type TourDefaultsType = {
     require_payment_before_download: boolean;
     enable_matterport_default_expiry?: boolean;
     matterport_default_expiry_days?: number;
+    matterport_renewal_plans?: { id: string; months: number; label: string; price: number }[];
+    matterport_auto_invoice_enabled?: boolean;
+    matterport_auto_invoice_days?: number;
+    matterport_reminder_intervals?: number[];
 };
+
+const defaultRenewalPlans = [
+    { id: "3_months", months: 3, label: "3 Months", price: 35 },
+    { id: "6_months", months: 6, label: "6 Months", price: 60 },
+    { id: "12_months", months: 12, label: "1 Year (12 Months)", price: 100 },
+];
 
 const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object>((props, ref) => {
     const { userType } = useAppContext();
@@ -93,9 +105,14 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
         allow_print_download: true,
         allow_client_upload: true,
         require_payment_before_download: false,
-        enable_matterport_default_expiry: false,
-        matterport_default_expiry_days: 30,
+        enable_matterport_default_expiry: true,
+        matterport_default_expiry_days: 90,
+        matterport_renewal_plans: defaultRenewalPlans,
+        matterport_auto_invoice_enabled: true,
+        matterport_auto_invoice_days: 14,
+        matterport_reminder_intervals: [30, 14, 7, 1],
     });
+
 
     const transitionOptions = [
         { label: 'Ken Burns', value: 'kenburns' },
@@ -438,17 +455,128 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                     </div>
                                     
                                     {tourDefaults.enable_matterport_default_expiry && (
-                                        <div className="space-y-2">
-                                            <Label className="text-[#666666] font-semibold">Matterport Default Expiry (Days)</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                value={tourDefaults.matterport_default_expiry_days || 0}
-                                                onChange={(e) => handleTourDefaultChange('matterport_default_expiry_days', parseInt(e.target.value) || 0)}
-                                                className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]"
-                                            />
+                                        <div className="space-y-4 pt-2 border-t border-gray-200">
+                                            <div className="space-y-2">
+                                                <Label className="text-[#666666] font-semibold">Initial Free Hosting Period (Days)</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    value={tourDefaults.matterport_default_expiry_days || 90}
+                                                    onChange={(e) => handleTourDefaultChange('matterport_default_expiry_days', parseInt(e.target.value) || 0)}
+                                                    className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]"
+                                                />
+                                            </div>
+
+                                            {/* Renewal Pricing Tiers */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[#666666] font-semibold">Matterport Renewal Plans (Pricing Tiers)</Label>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const current = tourDefaults.matterport_renewal_plans || defaultRenewalPlans;
+                                                            const nextId = `custom_${Date.now()}`;
+                                                            handleTourDefaultChange('matterport_renewal_plans', [
+                                                                ...current,
+                                                                { id: nextId, months: 6, label: "6 Months Extension", price: 50 }
+                                                            ]);
+                                                        }}
+                                                        className="text-xs h-7 border-[#4290E9] text-[#4290E9]"
+                                                    >
+                                                        + Add Renewal Plan
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {(tourDefaults.matterport_renewal_plans || defaultRenewalPlans).map((plan, idx) => (
+                                                        <div key={plan.id || idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md border border-gray-200">
+                                                            <Input
+                                                                type="text"
+                                                                placeholder="Plan Label (e.g. 6 Months)"
+                                                                value={plan.label}
+                                                                onChange={(e) => {
+                                                                    const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                    updated[idx] = { ...updated[idx], label: e.target.value };
+                                                                    handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                }}
+                                                                className="h-9 text-xs bg-white flex-1"
+                                                            />
+                                                            <div className="flex items-center gap-1 w-28">
+                                                                <Input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    placeholder="Months"
+                                                                    value={plan.months}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                        updated[idx] = { ...updated[idx], months: parseInt(e.target.value) || 1 };
+                                                                        handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                    }}
+                                                                    className="h-9 text-xs bg-white"
+                                                                />
+                                                                <span className="text-[11px] text-gray-500">mos</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 w-28">
+                                                                <span className="text-xs text-gray-500">$</span>
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="CAD"
+                                                                    value={plan.price}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                        updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
+                                                                        handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                    }}
+                                                                    className="h-9 text-xs bg-white"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    const updated = (tourDefaults.matterport_renewal_plans || defaultRenewalPlans).filter((_, i) => i !== idx);
+                                                                    handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                }}
+                                                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            >
+                                                                ✕
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Auto-Draft Invoicing */}
+                                            <div className="space-y-3 pt-2 border-t border-gray-200">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[#666666] font-semibold">Auto-Generate Draft Renewal Invoice</Label>
+                                                    <Switch
+                                                        checked={tourDefaults.matterport_auto_invoice_enabled ?? true}
+                                                        onCheckedChange={(val) => handleTourDefaultChange('matterport_auto_invoice_enabled', val)}
+                                                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                                    />
+                                                </div>
+                                                {(tourDefaults.matterport_auto_invoice_enabled ?? true) && (
+                                                    <div className="space-y-1">
+                                                        <Label className="text-xs text-gray-500">Days Before Expiry to Generate Draft Invoice</Label>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            max="60"
+                                                            value={tourDefaults.matterport_auto_invoice_days || 14}
+                                                            onChange={(e) => handleTourDefaultChange('matterport_auto_invoice_days', parseInt(e.target.value) || 14)}
+                                                            className="w-full h-[38px] bg-[#EEEEEE] border-[#BBBBBB] text-xs"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
+
                                 </div>
                             </div>
                         </div>

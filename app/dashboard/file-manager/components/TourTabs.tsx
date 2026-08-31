@@ -203,25 +203,42 @@ export default function TourTabs({
             : `${isListing ? "top-[230px] h-[60px]" : "top-[170px] h-[60px]"}`
         }`}
       >
-        <div className="flex border-gray-300 gap-[10px] shrink-0">
-          {visibleTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabClick(tab)}
-              className={`text-center flex items-center justify-center shrink-0 transition-all duration-300 rounded-[6px] ${
-                isScrolled
-                  ? "h-[26px] w-auto min-w-[80px] md:w-[130px] text-[10px] md:text-[11px] px-2 py-1"
-                  : "h-[32px] w-auto min-w-[100px] md:w-[180px] text-[13px] px-4 py-2"
-              } ${
-                activeTab === tab
-                  ? `${userType ? `${userType}-bg` : "bg-[#4290E9]"} text-white font-[500]`
-                  : "text-[#666666] hover:text-[#666666] font-[700]"
-              }`}
-            >
-              {tab.toUpperCase()}
-            </button>
-          ))}
-        </div>
+          {visibleTabs.map((tab) => {
+            const isTabExpired = tab === "Matterport" && (() => {
+              const link = filesData?.links?.find((l: any) => l.expiry_date);
+              if (!link?.expiry_date) return false;
+              const expiry = new Date(link.expiry_date);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return expiry < today;
+            })();
+
+            return (
+              <button
+                key={tab}
+                onClick={() => handleTabClick(tab)}
+                className={`text-center flex items-center justify-center shrink-0 transition-all duration-300 rounded-[6px] ${
+                  isScrolled
+                    ? "h-[26px] w-auto min-w-[80px] md:w-[130px] text-[10px] md:text-[11px] px-2 py-1"
+                    : "h-[32px] w-auto min-w-[100px] md:w-[180px] text-[13px] px-4 py-2"
+                } ${
+                  activeTab === tab
+                    ? `${userType ? `${userType}-bg` : "bg-[#4290E9]"} text-white font-[500]`
+                    : "text-[#666666] hover:text-[#666666] font-[700]"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {tab.toUpperCase()}
+                  {isTabExpired && (
+                    <span className="px-1 py-0.2 bg-red-500 text-white rounded text-[9px] font-bold">
+                      EXPIRED
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">
         <div

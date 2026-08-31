@@ -99,7 +99,6 @@ const ServicesFrom = () => {
   const [categoryObject, setCategoryObject] = useState<CategoriesData | null>(
     null,
   );
-  const [serviceType, setServiceType] = useState<string>("");
   const [border, setBorder] = useState("000000");
   const [serviceName, setServiceName] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -537,7 +536,6 @@ const ServicesFrom = () => {
           const data = res.data;
           setCurrentService(data);
           setCategory(data.category_id);
-          setServiceType(data.type || "");
           setServiceName(data.name);
           setBackground(data.background_color.replace(/^#/, ""));
           setBorder(data.border_color.replace(/^#/, ""));
@@ -794,18 +792,6 @@ const ServicesFrom = () => {
         const formattedBg = `#${safeBg.length === 6 ? safeBg : safeBg.padEnd(6, "0").slice(0, 6)}`;
         const formattedBorder = `#${safeBorder.length === 6 ? safeBorder : safeBorder.padEnd(6, "0").slice(0, 6)}`;
 
-        const isPrintCategory = categoryObject?.name?.toLowerCase() === "print";
-        if (isPrintCategory && !serviceType) {
-          toast.error("Please select a Service Type for Print category");
-          setFieldErrors((prev) => ({
-            ...prev,
-            type: ["The type field is required for Print category."],
-          }));
-          setIsLoading(false);
-          setOpen(false);
-          return;
-        }
-
         const payload = {
           name: serviceName,
           category_id: category,
@@ -828,7 +814,6 @@ const ServicesFrom = () => {
           base_sq_ft: baseSqFt !== "" ? Number(baseSqFt) : undefined,
           increment_duration_mins: incrementDurationMins !== "" ? Number(incrementDurationMins) : undefined,
           increment_sq_ft: incrementSqFt !== "" ? Number(incrementSqFt) : undefined,
-          ...(isPrintCategory && serviceType ? { type: serviceType } : {}),
         };
 
         if (ServiceId) {
@@ -980,12 +965,7 @@ const ServicesFrom = () => {
                             const selected = categoriesData?.find(
                               (cat) => cat.id.toString() === value,
                             );
-                            if (selected) {
-                              setCategoryObject(selected);
-                              if (selected.name.toLowerCase() !== "print") {
-                                setServiceType("");
-                              }
-                            }
+                            if (selected) setCategoryObject(selected);
                           }}
                         >
                           <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed">
@@ -1015,59 +995,6 @@ const ServicesFrom = () => {
                       {/* <p onClick={() => setOpenCaegoryDialog(true)} className='text-[#4290E9] text-[10px] font-semibold flex gap-[10px] cursor-pointer place-items-end pb-[10px]'><span className='flex bg-[#4290E9] w-[15px] h-[15px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span>Create New Category </p> */}
                     </div>
                   </div>
-
-                  {categoryObject?.name?.toLowerCase() === "print" && (
-                    <div className="col-span-2 flex flex-col">
-                      <label
-                        className="text-sm font-medium"
-                        style={{ color: roleSettings.pageText }}
-                      >
-                        Service Type <span className="text-red-500">*</span>
-                      </label>
-                      <Select
-                        value={serviceType}
-                        onValueChange={(value) => {
-                          setServiceType(value);
-                          if (fieldErrors.type) {
-                            setFieldErrors((prev) => {
-                              const newErrors = { ...prev };
-                              delete newErrors.type;
-                              return newErrors;
-                            });
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB] mt-[8px]">
-                          <SelectValue placeholder="Select Print Service Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="flyer">
-                            <div className="flex flex-col py-1">
-                              <span className="font-medium text-sm">DIY Feature Sheet / Flyer</span>
-                              <span className="text-xs text-gray-500">Letter (8.5&quot; x 11&quot;) with quantity options</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="tabloid">
-                            <div className="flex flex-col py-1">
-                              <span className="font-medium text-sm">DIY Tabloid Feature Sheet</span>
-                              <span className="text-xs text-gray-500">Tabloid (17&quot; x 11&quot;) with quantity options</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="design_and_print">
-                            <div className="flex flex-col py-1">
-                              <span className="font-medium text-sm">Managed Design & Print</span>
-                              <span className="text-xs text-gray-500">Order booking with quantity options & dedicated Media tab</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {fieldErrors.type && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {fieldErrors.type[0]}
-                        </p>
-                      )}
-                    </div>
-                  )}
                   <div ref={wrapperRef} className="relative w-full max-w-xs">
                     <label
                       htmlFor="bgcolor"

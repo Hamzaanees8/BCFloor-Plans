@@ -52,8 +52,6 @@ export interface OrderServiceItem {
   option_id?: string;
   amount: number;
   custom?: string;
-  feature_sheet_id?: number;
-  feature_sheet_uuid?: string;
   add_ons?: { uuid?: string; title: string; amount: number }[];
 }
 export type AgentNote = {
@@ -345,12 +343,6 @@ export async function UpdateOrderService(
     }
     if (service.custom) {
       formData.append(`services[${index}][custom]`, service.custom);
-    }
-    if (service.feature_sheet_id !== undefined && service.feature_sheet_id !== null) {
-      formData.append(`services[${index}][feature_sheet_id]`, String(service.feature_sheet_id));
-    }
-    if (service.feature_sheet_uuid) {
-      formData.append(`services[${index}][feature_sheet_uuid]`, service.feature_sheet_uuid);
     }
   });
 

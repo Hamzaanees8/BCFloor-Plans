@@ -270,10 +270,20 @@ const PublicTour = () => {
       return dateA - dateB;
     });
   }, [orderData, isPreview]);
-  const matterportLinks = useMemo(
-    () => orderData?.tours?.[0]?.links || [],
-    [orderData],
-  );
+  const matterportLinks = useMemo(() => {
+    const rawLinks = orderData?.tours?.[0]?.links || [];
+    return rawLinks.filter((l) => {
+      if (!l.link) return false;
+      if (l.expiry_date) {
+        const expiry = new Date(l.expiry_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expiry < today) return false;
+      }
+      return true;
+    });
+  }, [orderData]);
+
 
   const visibleTabs = useMemo(() => {
     const tabs = ["Home", "Overview", "Contact"];

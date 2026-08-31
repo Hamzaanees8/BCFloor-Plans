@@ -153,7 +153,7 @@ function payloadToFormData(payload: VendorPayload): FormData {
                 uuid?: string;
                 option_uuid: string;
                 vendor_price: number;
-                adjustment_time: number | string;
+                adjustment_time: string;
               },
               optIndex: number
             ) => {
@@ -165,16 +165,9 @@ function payloadToFormData(payload: VendorPayload): FormData {
                 `services[${index}][options][${optIndex}][vendor_price]`,
                 String(opt.vendor_price)
               );
-              const adjTime =
-                opt.adjustment_time !== undefined &&
-                opt.adjustment_time !== null &&
-                opt.adjustment_time !== "no adjustment" &&
-                (opt.adjustment_time as any) !== ""
-                  ? String(opt.adjustment_time)
-                  : "0";
               formData.append(
                 `services[${index}][options][${optIndex}][adjustment_time]`,
-                adjTime
+                String(opt.adjustment_time)
               );
             }
           );

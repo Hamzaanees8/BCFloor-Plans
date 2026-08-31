@@ -21,6 +21,7 @@ export interface ServiceItem {
 }
 
 export interface OrderSlots {
+  service_id?: number;
   slot_date: string;
   start_time: string;
   end_time: string;
@@ -50,6 +51,7 @@ export interface BillingItem {
   agent_uuid: string | null;
   total_amount: number;
   total_paid: number;
+  total_refunded?: number;
   remaining_amount: number;
   status: string;
   services: ServiceItem[];

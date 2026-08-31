@@ -93,7 +93,9 @@ export interface OrderData {
             uuid?: string;
             link: string;
             type: 'branded' | 'unbranded';
+            expiry_date?: string | null;
         }>;
+
         snapshots: Snapshoots[];
     }>;
     agent: {

@@ -46,16 +46,6 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showManualPaymentDialog, setShowManualPaymentDialog] = useState(false);
 
-  React.useEffect(() => {
-    if (open) {
-      if (currentService && ("amount" in currentService) && (Number(currentService.amount) || 0) > 0) {
-        setPaymentType("service");
-      } else {
-        setPaymentType("full");
-      }
-    }
-  }, [open, currentService]);
-
   // Safely calculate amounts - ensure they are numbers
   const fullAmount = Number(orderData?.amount) || 0;
 

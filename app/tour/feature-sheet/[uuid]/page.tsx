@@ -59,21 +59,12 @@ const FeatureSheetPreviewPage = () => {
           throw new Error("Feature sheet not found");
         }
         
-        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-        const isPreview = searchParams?.get("preview") === "true";
-
-        if (!sheet.is_published && !token && !isPreview) {
-          setError("This feature sheet is not published for public view.");
-          setFeatureSheet(null);
-          return;
-        }
-
         setFeatureSheet(sheet);
 
         // 2. Fetch order data (needed for templates)
         if (sheet.order_id) {
           let order = null;
+          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
           if (token) {
             try {
@@ -115,6 +106,20 @@ const FeatureSheetPreviewPage = () => {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-50 gap-4">
         <p className="text-xl font-semibold text-gray-700">{error || "Feature sheet not found"}</p>
+      </div>
+    );
+  }
+
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("agentToken")) : null;
+  const isDraft = !featureSheet.is_published;
+
+  if (isDraft && !token) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-50 gap-4 p-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-md text-center shadow-sm">
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Feature Sheet Not Published</h2>
+          <p className="text-gray-600">This feature sheet is currently in draft mode and not viewable on the public tour.</p>
+        </div>
       </div>
     );
   }

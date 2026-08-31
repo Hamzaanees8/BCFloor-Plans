@@ -77,6 +77,7 @@ import { useOptionalWhiteLabel } from "@/app/context/Whitelabel";
 import { PublishTour, featureSheetService } from "../file-manager";
 import {
   FeatureSheetResponse,
+  templateImages,
 } from "../types/featureSheetTypes";
 import { toast } from "sonner";
 import { getGlobalPhotoOrder } from "../utils/sortOrderUtils";
@@ -409,13 +410,20 @@ const TourConfirm = ({
   useEffect(() => {
     const fetchFeatureSheets = async () => {
       if (!orderData?.uuid) return;
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("agentToken");
-      if (!token && !isPublicView) return;
+      // If orderData already has published featureSheets, use them
+      if ((orderData as any).feature_sheets || (orderData as any).featureSheets) {
+        const preloaded = (orderData as any).feature_sheets || (orderData as any).featureSheets;
+        if (Array.isArray(preloaded) && preloaded.length > 0) {
+          setFeatureSheets(preloaded);
+          return;
+        }
+      }
+
       try {
         setIsLoadingSheets(true);
         const response = await featureSheetService.getFeatureSheetsByOrder(
           orderData.uuid,
+          isPublicView,
         );
         const dataArray = Array.isArray(response)
           ? response
@@ -429,7 +437,7 @@ const TourConfirm = ({
       }
     };
     fetchFeatureSheets();
-  }, [orderData?.uuid, isPublicView]);
+  }, [orderData, isPublicView]);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -1286,52 +1294,103 @@ const TourConfirm = ({
                       <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 justify-start">
                         {(() => {
                           const publishedSheets = featureSheets.filter(
-                            (sheet) =>
-                              sheet.is_published === true ||
-                              (sheet as any).is_published === 1 ||
-                              (sheet as any).is_published === "true",
+                            (sheet) => sheet.is_published,
                           );
-
-                          // In public view, show first published sheet. In admin view, show first published or first created sheet.
-                          const targetSheet =
-                            publishedSheets[0] ||
-                            (!isPublicView && featureSheets.length > 0
-                              ? featureSheets[0]
-                              : null);
-
-                          if (!targetSheet) return null;
-
+                          const listingSheets = publishedSheets.filter(
+                            (sheet) => {
+                              const template = templateImages.find(
+                                (t) => t.id === sheet.template_key,
+                              );
+                              return (
+                                template?.type === "listing" ||
+                                (!template &&
+                                  sheet.type === "pdf" &&
+                                  sheet.template_key
+                                    ?.toLowerCase()
+                                    ?.includes("flyer"))
+                              );
+                            },
+                          );
+                          const tabloidSheets = publishedSheets.filter(
+                            (sheet) => {
+                              const template = templateImages.find(
+                                (t) => t.id === sheet.template_key,
+                              );
+                              return (
+                                template?.type === "tabloid" ||
+                                (!template &&
+                                  sheet.type === "pdf" &&
+                                  sheet.template_key
+                                    ?.toLowerCase()
+                                    ?.includes("tabloid"))
+                              );
+                            },
+                          );
                           return (
-                            <Button
-                              className="w-max hover:opacity-90 text-white rounded-xl shadow-sm"
-                              style={{
-                                backgroundColor: roleSettings.pageTabColor,
-                              }}
-                              onClick={() => {
-                                if (
-                                  targetSheet.type === "pdf" &&
-                                  targetSheet.pdf_url
-                                ) {
-                                  window.open(
-                                    featureSheetService.buildStorageUrl(
-                                      targetSheet.pdf_url,
-                                    ) || "",
-                                    "_blank",
-                                  );
-                                } else {
-                                  window.open(
-                                    `/tour/feature-sheet/${targetSheet.uuid}`,
-                                    "_blank",
-                                  );
-                                }
-                              }}
-                              disabled={isLoadingSheets}
-                            >
-                              {isLoadingSheets ? (
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                              ) : null}
-                              Feature Sheet
-                            </Button>
+                            <>
+                              {listingSheets.length > 0 && (
+                                <Button
+                                  className="w-max hover:opacity-90 text-white rounded-xl shadow-sm"
+                                  style={{
+                                    backgroundColor: roleSettings.pageTabColor,
+                                  }}
+                                  onClick={() => {
+                                    const sheet =
+                                      listingSheets[listingSheets.length - 1];
+                                    if (sheet.type === "pdf" && sheet.pdf_url) {
+                                      window.open(
+                                        featureSheetService.buildStorageUrl(
+                                          sheet.pdf_url,
+                                        ) || "",
+                                        "_blank",
+                                      );
+                                    } else {
+                                      window.open(
+                                        `/tour/feature-sheet/${sheet.uuid}`,
+                                        "_blank",
+                                      );
+                                    }
+                                  }}
+                                  disabled={isLoadingSheets}
+                                >
+                                  {isLoadingSheets ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Listing Flyer
+                                </Button>
+                              )}
+                              {tabloidSheets.length > 0 && (
+                                <Button
+                                  className="w-max hover:opacity-90 text-white rounded-xl shadow-sm"
+                                  style={{
+                                    backgroundColor: roleSettings.pageTabColor,
+                                  }}
+                                  onClick={() => {
+                                    const sheet =
+                                      tabloidSheets[tabloidSheets.length - 1];
+                                    if (sheet.type === "pdf" && sheet.pdf_url) {
+                                      window.open(
+                                        featureSheetService.buildStorageUrl(
+                                          sheet.pdf_url,
+                                        ) || "",
+                                        "_blank",
+                                      );
+                                    } else {
+                                      window.open(
+                                        `/tour/feature-sheet/${sheet.uuid}`,
+                                        "_blank",
+                                      );
+                                    }
+                                  }}
+                                  disabled={isLoadingSheets}
+                                >
+                                  {isLoadingSheets ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Tabloid Sheet
+                                </Button>
+                              )}
+                            </>
                           );
                         })()}
                       </div>

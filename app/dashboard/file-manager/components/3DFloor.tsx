@@ -11,6 +11,7 @@ import { useFileManagerContext } from '../FileManagerContext';
 import ManualPayment from './ManualPayment';
 import { useAppContext } from '@/app/context/AppContext';
 import { Order, OrderService } from '../../orders/page';
+import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import { CalendarIcon } from "lucide-react"
@@ -32,6 +33,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
     const [, setSuccess] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [openUpgrade, setOpenUpgrade] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [copiedField, setCopiedField] = useState<'branded' | 'unbranded' | null>(null);
     const dragCounter = useRef(0);
@@ -448,6 +450,26 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                             </div>
                         )}
+                        {userType !== 'agent' && userType !== 'vendor' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center border-none text-[11px] md:text-sm`}
+                            >
+                                Upgrade Plan
+                            </Button>
+                        )}
+                        <UpgradeServicePopup
+                            open={openUpgrade}
+                            setOpen={setOpenUpgrade}
+                            currentService={currentService}
+                            currentOption={bookingToUse?.option}
+                            orderData={orderData}
+                            currentBookedService={currentBookedService}
+                            onSuccess={() => {
+                                window.location.reload()
+                            }}
+                        />
                     </div>
                 </div>
             )}
@@ -471,6 +493,17 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 </span>
                                 <span className="text-[12px] text-[#666666] mt-1">Available</span>
                             </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
+                                style={{ 
+                                    borderColor: `var(--${userType}-page-tab-color)`, 
+                                    color: `var(--${userType}-page-tab-color)` 
+                                }}
+                            >
+                                Upgrade Plan
+                            </Button>
                         </div>
                     )} */}
                 </div>

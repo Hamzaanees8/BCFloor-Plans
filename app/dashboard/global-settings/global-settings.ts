@@ -592,11 +592,15 @@ export interface MediaSettingsPayload {
     autoplay_enabled: boolean;
     allow_print_download: boolean;
     allow_client_upload: boolean;
-    require_payment_before_download: boolean;
     enable_matterport_default_expiry?: boolean;
     matterport_default_expiry_days?: number;
+    matterport_renewal_plans?: { id: string; months: number; label: string; price: number }[];
+    matterport_auto_invoice_enabled?: boolean;
+    matterport_auto_invoice_days?: number;
+    matterport_reminder_intervals?: number[];
   };
 }
+
 export async function CreateMediaSettings(payload: Omit<MediaSettingsPayload, 'tour_defaults'>) {
 
   const response = await api.post(

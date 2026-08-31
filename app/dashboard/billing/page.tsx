@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import BillingDialog from "@/components/BillingDialog";
+import RefundReceiptModal from "../invoice/components/RefundReceiptModal";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import {
@@ -40,7 +41,6 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { OrderSlots } from "./billing";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -170,6 +170,9 @@ const Page = () => {
   const [rowInvoicesLoading, setRowInvoicesLoading] = useState<{
     [orderUuid: string]: boolean;
   }>({});
+  const [selectedRefundPayment, setSelectedRefundPayment] = useState<any>(null);
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<any>(null);
+  const [isRefundReceiptOpen, setIsRefundReceiptOpen] = useState(false);
 
   // Tracks which service IDs have at least one media file, keyed by orderUuid
   const [rowServiceMedia, setRowServiceMedia] = useState<{
@@ -602,6 +605,37 @@ const Page = () => {
     }
   };
 
+  const handleViewRefundReceipt = (txn: any, billing: any) => {
+    const mockPayment = {
+      id: txn.payment_id || Math.floor(Math.random() * 1000),
+      amount: txn.amount,
+      paid_at: txn.paid_at,
+      payment_method: txn.payment_method || "manual",
+      meta: {
+        notes: txn.notes || "Refund processed manually.",
+      },
+    };
+
+    const mockInvoice = {
+      invoice_number: `ORDER-${billing.order_id}`,
+      id: billing.order_id,
+      agent: {
+        first_name: billing.agent_name?.split(" ")[0] || "",
+        last_name: billing.agent_name?.split(" ").slice(1).join(" ") || "Agent",
+        email: "",
+      },
+      order: {
+        property: {
+          address: billing.property_address || "—",
+        },
+      },
+    };
+
+    setSelectedRefundPayment(mockPayment);
+    setSelectedReceiptInvoice(mockInvoice);
+    setIsRefundReceiptOpen(true);
+  };
+
   const loadBillings = useCallback(async () => {
     try {
       setLoading(true);
@@ -759,35 +793,9 @@ const Page = () => {
     return null;
   };
 
-  const formatTime = (timeStr: string) => {
-    if (!timeStr) return "—";
-    return timeStr.slice(0, 5);
-  };
 
-  const computeCombinedTime = (slots: OrderSlots[]) => {
-    if (!slots || slots.length === 0) return "—";
 
-    const sorted = [...slots].sort(
-      (a, b) =>
-        new Date(`1970-01-01T${a.start_time}`).getTime() -
-        new Date(`1970-01-01T${b.start_time}`).getTime(),
-    );
 
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-
-    const start = formatTime(first.start_time);
-    const end = formatTime(last.end_time);
-
-    const startDate = new Date(`1970-01-01T${first.start_time}`);
-    const endDate = new Date(`1970-01-01T${last.end_time}`);
-    const diffMin = Math.max(
-      0,
-      Math.round((endDate.getTime() - startDate.getTime()) / 60000),
-    );
-
-    return `${start} - ${end} (${diffMin} minutes)`;
-  };
 
   const handlePay = async (
     order_uuid: number,
@@ -1031,9 +1039,9 @@ const Page = () => {
                   Organization
                 </TableHead>
               )}
-              {/* <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+              <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Address
-              </TableHead> */}
+              </TableHead>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Total Amount
               </TableHead>
@@ -1140,7 +1148,7 @@ const Page = () => {
                           {billing.organization?.name || "Global / None"}
                         </TableCell>
                       )}
-                      <TableCell className="text-[15px] py-[19px] font-[400] hidden text-[#7D7D7D]">
+                      <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                         {address}
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
@@ -1274,13 +1282,15 @@ const Page = () => {
                         const subtotalVal = billing.total_amount;
                         const taxAmount = subtotalVal * (taxRate / 100);
                         const grandTotalVal = subtotalVal + taxAmount;
+                        const totalRefunded = billing.total_refunded || 0;
+                        const effectiveGrandTotal = Math.max(0, grandTotalVal - totalRefunded);
                         const displayRemaining =
                           isOrderPaid ||
                           (actualOrderCancelled && !hasCancellationFee)
                             ? 0
                             : Math.max(
                                 0,
-                                grandTotalVal - (billing.total_paid || 0),
+                                effectiveGrandTotal - (billing.total_paid || 0),
                               );
                         // Agent media restriction: for Pay All, ALL services must have media
                         const serviceMediaSet = rowServiceMedia[billing.order_uuid];
@@ -1577,10 +1587,11 @@ const Page = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                       <div>
                                         <p className="text-gray-600">
-                                          Service Time
+                                          Property Address
                                         </p>
                                         <p className="font-medium">
-                                          {computeCombinedTime(billing.slots)}
+                                          {billing.property_address || "—"}
+                                          {billing.property_location ? `, ${billing.property_location}` : ""}
                                         </p>
                                       </div>
                                       {role !== "agent" && (
@@ -1618,7 +1629,8 @@ const Page = () => {
                                         </span>
                                       </div>
                                     ) : hasInvoice ? (
-                                      <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
+                                      <>
+                                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
                                         <div className="flex gap-6">
                                           <div>
                                             <span className="text-gray-500 block text-xs">
@@ -1678,6 +1690,22 @@ const Page = () => {
                                               )}
                                             </span>
                                           </div>
+                                          {totalRefunded > 0 && (
+                                            <div>
+                                              <span className="text-gray-500 block text-xs">
+                                                Total Refunded
+                                              </span>
+                                              <span className="font-semibold text-red-500">
+                                                {totalRefunded.toLocaleString(
+                                                  "en-US",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "USD",
+                                                  },
+                                                )}
+                                              </span>
+                                            </div>
+                                          )}
                                           <div>
                                             <span className="text-gray-500 block text-xs">
                                               Balance Due
@@ -1694,6 +1722,77 @@ const Page = () => {
                                           </div>
                                         </div>
                                       </div>
+
+                                      {/* Transaction History & Receipts */}
+                                      {billing.invoices && billing.invoices.length > 0 && (
+                                        <div className="mt-6 pt-4 border-t border-gray-100">
+                                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                                            Transaction History
+                                          </h4>
+                                          <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-100 text-xs">
+                                              <thead>
+                                                <tr className="text-left text-gray-500 font-semibold uppercase tracking-wider">
+                                                  <th className="pb-2">Date</th>
+                                                  <th className="pb-2">Type</th>
+                                                  <th className="pb-2">Method</th>
+                                                  <th className="pb-2 text-right">Amount</th>
+                                                  <th className="pb-2 text-center">Receipt</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-50 text-gray-600">
+                                                {billing.invoices.map((txn: any, idx: number) => {
+                                                  const isRefund = txn.status === 'refunded' || parseFloat(txn.amount) < 0;
+                                                  const displayAmount = Math.abs(parseFloat(txn.amount));
+                                                  return (
+                                                    <tr key={idx}>
+                                                      <td className="py-2">
+                                                        {txn.paid_at ? new Date(txn.paid_at).toLocaleDateString() : '—'}
+                                                      </td>
+                                                      <td className="py-2 font-semibold">
+                                                        {isRefund ? (
+                                                          <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Refund</span>
+                                                        ) : (
+                                                          <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Payment</span>
+                                                        )}
+                                                      </td>
+                                                      <td className="py-2 capitalize">
+                                                        {txn.payment_method || 'manual'}
+                                                      </td>
+                                                      <td className={`py-2 text-right font-semibold ${isRefund ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {isRefund ? '-' : ''}${displayAmount.toFixed(2)}
+                                                      </td>
+                                                      <td className="py-2 text-center">
+                                                        {isRefund ? (
+                                                          <Button
+                                                            variant="link"
+                                                            className="text-blue-600 hover:text-blue-800 p-0 h-auto text-xs font-medium"
+                                                            onClick={() => handleViewRefundReceipt(txn, billing)}
+                                                          >
+                                                            View Receipt
+                                                          </Button>
+                                                        ) : (
+                                                          txn.invoice_url ? (
+                                                            <a
+                                                              href={txn.invoice_url}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="text-blue-600 hover:underline"
+                                                            >
+                                                              Stripe
+                                                            </a>
+                                                          ) : '—'
+                                                        )}
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      )}
+                                      </>
                                     ) : (
                                       <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
                                         <div className="flex gap-6">
@@ -1764,18 +1863,8 @@ const Page = () => {
                                           serviceUuid,
                                         );
 
-                                      const isServiceRefunded =
-                                        isRefunded(service.status) ||
-                                        isRefunded(
-                                          serviceTargetInvoice?.status,
-                                        );
-                                      const isServicePaid =
-                                        (service.status === "paid" ||
-                                          isPaidOrSucceeded(
-                                            serviceTargetInvoice?.status,
-                                          ) ||
-                                          billing.status === "paid") &&
-                                        !isServiceRefunded;
+                                      const isServiceRefunded = isRefunded(service.status);
+                                      const isServicePaid = (isPaidOrSucceeded(service.status) || billing.status === "paid") && !isServiceRefunded;
                                       const isServiceVoid =
                                         serviceTargetInvoice === null;
 
@@ -2119,6 +2208,20 @@ const Page = () => {
                                                 ) : null}
                                               </div>
 
+                                               {(() => {
+                                                 const serviceSlot = billing.slots.find(
+                                                   (s) => s.service_id === service.service_id,
+                                                 );
+                                                 if (!serviceSlot) return null;
+                                                 return (
+                                                   <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
+                                                     <div>
+                                                       <span className="font-semibold">Scheduled:</span> {new Date(serviceSlot.slot_date).toLocaleDateString()} at {serviceSlot.start_time} - {serviceSlot.end_time}
+                                                     </div>
+                                                   </div>
+                                                 );
+                                               })()}
+
                                               {/* Service-specific invoices */}
                                               {service.related_invoices &&
                                                 service.related_invoices
@@ -2260,6 +2363,13 @@ const Page = () => {
         isOpen={isInvoiceModalOpen}
         onClose={() => setIsInvoiceModalOpen(false)}
         uuid={selectedOrderUuid}
+      />
+
+      <RefundReceiptModal
+        isOpen={isRefundReceiptOpen}
+        onClose={() => setIsRefundReceiptOpen(false)}
+        payment={selectedRefundPayment}
+        invoice={selectedReceiptInvoice}
       />
 
       {/* Multiple Invoices Modal for Split Invoices */}
