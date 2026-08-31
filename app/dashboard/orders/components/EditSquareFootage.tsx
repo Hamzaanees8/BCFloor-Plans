@@ -10,11 +10,14 @@ import { SquareFootageTitles, defaultTitles } from '../../calendar/components/Sq
 import { GetTourSettings } from '../../global-settings/global-settings';
 import { useAppContext } from '@/app/context/AppContext';
 
+import { calculateAreaMetrics } from '@/lib/pricingUtils';
+
 interface TourSetting {
   uuid: string;
   area: string;
   type: string;
   status: boolean;
+  charge?: number;
 }
 
 interface Field {
@@ -143,6 +146,19 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
   const grandTotal = total(finishedAreas) + total(subtotalAreas) + total(otherAreas);
 
+  const areaInputs = [...finishedAreas, ...subtotalAreas, ...otherAreas].map(f => ({
+    type: f.category,
+    footage: f.value,
+    custom_title: f.label
+  }));
+
+  const metrics = calculateAreaMetrics(areaInputs, tourSettings.map(s => ({
+    area: s.area,
+    type: s.type,
+    charge: s.charge ?? 0,
+    status: s.status
+  })));
+
   const handleAddExtra = (label: string, sqft: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => {
     const newField: Field = {
       id: uniqueId++,
@@ -266,6 +282,23 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
       <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded my-2">
         <span className="font-bold pl-2">Grand Total</span>
         <span className="font-bold">{grandTotal} Sq.ft</span>
+      </div>
+
+      <div className="flex flex-col gap-1 px-4 py-3 bg-white border border-gray-200 rounded my-2 text-xs text-gray-700 max-w-[400px]">
+        <div className="flex justify-between font-semibold">
+          <span>Billable Sq. Ft. (Service Pricing):</span>
+          <span className="text-[#4290E9]">{metrics.totalBillableSqft} Sq.ft</span>
+        </div>
+        <div className="flex justify-between text-gray-500">
+          <span>Free Allowance Used ($0 Other Areas):</span>
+          <span>{metrics.freeAllowanceUsed} / {metrics.freeAllowanceLimit} Sq.ft</span>
+        </div>
+        {metrics.customOtherFootage > 0 && (
+          <div className="flex justify-between text-gray-500">
+            <span>Charged Other Areas (Excluded from Free Allowance):</span>
+            <span>{metrics.customOtherFootage} Sq.ft (${metrics.customOtherCharges.toFixed(2)})</span>
+          </div>
+        )}
       </div>
 
       {renderSection('other', otherAreas, setOtherAreas)}

@@ -22,23 +22,23 @@ import { CurrentUser, SelectedService, Services } from "./WorkHours";
 import { toast } from "sonner";
 
 const timeNeededOptions = [
-  { label: "no adjustment", value: 0 },
-  { label: "less than 15 minutes", value: -15 },
-  { label: "more than 15 minutes", value: 15 },
-  { label: "less than 30 minutes", value: -30 },
-  { label: "more than 30 minutes", value: 30 },
-  { label: "less than 45 minutes", value: -45 },
-  { label: "more than 45 minutes", value: 45 },
-  { label: "less than 60 minutes", value: -60 },
-  { label: "more than 60 minutes", value: 60 },
-  { label: "less than 75 minutes", value: -75 },
-  { label: "more than 75 minutes", value: 75 },
-  { label: "less than 90 minutes", value: -90 },
-  { label: "more than 90 minutes", value: 90 },
-  { label: "less than 105 minutes", value: -105 },
-  { label: "more than 105 minutes", value: 105 },
-  { label: "less than 120 minutes", value: -120 },
-  { label: "more than 120 minutes", value: 120 },
+  "no adjustment",
+  "less than 15 minutes",
+  "more than 15 minutes",
+  "less than 30 minutes",
+  "more than 30 minutes",
+  "less than 45 minutes",
+  "more than 45 minutes",
+  "less than 60 minutes",
+  "more than 60 minutes",
+  "less than 75 minutes",
+  "more than 75 minutes",
+  "less than 90 minutes",
+  "more than 90 minutes",
+  "less than 105 minutes",
+  "more than 105 minutes",
+  "less than 120 minutes",
+  "more than 120 minutes",
 ];
 
 interface ServiceItemProps {
@@ -288,47 +288,29 @@ const ServiceItem = ({
                       >
                         Time Adjustment <span className="text-red-500">*</span>
                       </Label>
-                      {(() => {
-                        const rawVal = optionData?.adjustment_time;
-                        let stringVal = "0";
-                        if (
-                          rawVal !== undefined &&
-                          rawVal !== null &&
-                          rawVal !== "no adjustment" &&
-                          rawVal !== ""
-                        ) {
-                          stringVal = String(rawVal);
+                      <Select
+                        value={optionData?.adjustment_time !== null && optionData?.adjustment_time !== undefined ? String(optionData.adjustment_time) : "no adjustment"}
+                        onValueChange={(value) =>
+                          handleOptionChange(option.uuid ?? "", "adjustment_time", value)
                         }
-                        return (
-                          <Select
-                            value={stringVal}
-                            onValueChange={(value) =>
-                              handleOptionChange(
-                                option.uuid ?? "",
-                                "adjustment_time",
-                                Number(value)
-                              )
-                            }
-                            disabled={isVendor}
-                          >
-                            <SelectTrigger
-                              className="h-[38px] w-full border text-xs border-gray-300"
-                              style={{
-                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                              }}
-                            >
-                              <SelectValue placeholder="Select Time Adjustment" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {timeNeededOptions.map((opt) => (
-                                <SelectItem key={opt.value} value={String(opt.value)}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        );
-                      })()}
+                        disabled={isVendor}
+                      >
+                        <SelectTrigger
+                          className="h-[38px] w-full border text-xs border-gray-300"
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
+                        >
+                          <SelectValue placeholder="Select Time Adjustment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeNeededOptions.map((opt, idx) => (
+                            <SelectItem key={idx} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </AccordionContent>
                 </AccordionItem>

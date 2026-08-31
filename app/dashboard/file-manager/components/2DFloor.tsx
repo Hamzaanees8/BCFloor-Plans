@@ -25,6 +25,7 @@ import { Files, SelectedFiles, useFileManagerContext } from "../FileManagerConte
 import { DownloadIcon } from '@/components/Icons';
 import { useAppContext } from '@/app/context/AppContext';
 import ManualPayment from './ManualPayment';
+import UpgradeServicePopup from './UpgradeServicePopup';
 import PhotoPreviewModal from './PhotoPreviewModal';
 import DownloadModal from './DownloadModal';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const [isHiding, setIsHiding] = useState(false);
+    const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -982,6 +984,19 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 </div>
                             ) : null}
                             <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
+                            <UpgradeServicePopup
+                                open={openUpgrade}
+                                setOpen={setOpenUpgrade}
+                                currentService={currentService}
+                                currentOption={bookingToUse?.option}
+                                orderData={orderData}
+                                currentBookedService={currentBookedService}
+                                onSuccess={() => {
+                                    // Refresh the page to get updated order data
+                                    window.location.reload()
+                                }}
+                            />
+
                         </div>
                         <input
                             type="file"
@@ -1035,6 +1050,15 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </span>
                             <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Total Files</span>
                         </div>
+                        {userType !== 'vendor' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center ml-2 border-none text-[11px] md:text-sm`}
+                            >
+                                Upgrade Plan
+                            </Button>
+                        )}
                     </div>
                 </div>}
             <div className='w-full px-4 md:px-[200px] pt-6 md:pt-[54px]'>

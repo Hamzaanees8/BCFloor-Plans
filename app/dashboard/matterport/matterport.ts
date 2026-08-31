@@ -62,34 +62,57 @@ export interface MatterportApiResponse {
 }
 export enum MatterportStatus {
   ACTIVE = "ACTIVE",
+  EXPIRING_SOON = "EXPIRING_SOON",
+  EXPIRED = "EXPIRED",
   INACTIVE = "INACTIVE",
 }
 
 export enum MatterportRenewalAction {
   RENEW = "RENEW",
 }
+
+export interface RenewalPlan {
+  id: string;
+  months: number;
+  label: string;
+  price: number;
+}
+
 export interface MatterportAd {
+  tourUuid: string;
+  tourId: number;
   agentName: string;
-  orderNumber: `#${string}` | string; // enforces #0001 format or fallback
+  agentEmail?: string;
+  orderNumber: `#${string}` | string;
   propertyuuid: string;
   orderuud: string;
   address: string;
-  reminderDate: string; // formatted date string
-  renewalDate: string; // formatted date string
+  reminderDate: string;
+  renewalDate: string;
+  rawExpiryDate: string | null;
+  daysRemaining: number | null;
   status: MatterportStatus;
   renewal: MatterportRenewalAction;
   organizationName?: string;
   organizationId?: number;
   brandedLink?: string;
   unbrandedLink?: string;
+  propertyThumbnail?: string;
 }
 
-export async function GetMatterPort(token: string) {
-
+export async function GetMatterPort(token: string, status = "all", search = "") {
   try {
-    const response = await api.get(`/matterport`, {
+    const params = new URLSearchParams();
+    if (status && status !== "Show All" && status !== "all") {
+      params.append("status", status.toLowerCase());
+    }
+    if (search) {
+      params.append("search", search);
+    }
+
+    const response = await api.get(`/matterport?${params.toString()}`, {
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -97,64 +120,127 @@ export async function GetMatterPort(token: string) {
       throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    const adminData = await response.data;
-    return adminData;
+    return response.data;
   } catch (error) {
     console.error("Failed to fetch admin data:", error);
     throw error;
   }
 }
 
+export async function RenewMatterport(
+  token: string,
+  tourUuid: string,
+  payload: {
+    duration_months: number;
+    amount: number;
+    payment_method: string;
+    notes?: string;
+  }
+) {
+  try {
+    const response = await api.post(`/matterport/${tourUuid}/renew`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to renew Matterport hosting:", error);
+    throw error;
+  }
+}
+
+export async function SendRenewalReminder(token: string, tourUuid: string) {
+  try {
+    const response = await api.post(`/matterport/${tourUuid}/send-reminder`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to send renewal reminder:", error);
+    throw error;
+  }
+}
+
 export const mapMatterportApiToAd = (
-  api: MatterportApiResponse
+  apiItem: any
 ): MatterportAd => {
-  const orderObj = api.orders || api.order;
-  const org = (orderObj as any)?.organization;
+  const orderObj = apiItem.orders || apiItem.order;
+  const org = orderObj?.organization;
   
   // Find branded and unbranded links in the tour links array
-  const brandedLinkObj = api.links?.find((l) => l.type === "branded");
-  const unbrandedLinkObj = api.links?.find((l) => l.type === "unbranded");
+  const brandedLinkObj = apiItem.links?.find((l: any) => l.type === "branded");
+  const unbrandedLinkObj = apiItem.links?.find((l: any) => l.type === "unbranded");
   
-  const actualExpiry = brandedLinkObj?.expiry_date || unbrandedLinkObj?.expiry_date;
+  const actualExpiry = apiItem.computed_expiry_date || brandedLinkObj?.expiry_date || unbrandedLinkObj?.expiry_date;
   
-  let formattedExpiry = "";
+  let formattedExpiry = "N/A";
+  let rawExpiry: string | null = null;
+
   if (actualExpiry) {
+    rawExpiry = actualExpiry;
     formattedExpiry = new Date(actualExpiry).toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
     });
-  } else {
-    // If no expiry exists, default to 90 days from the Tour creation date (api.created_at)
-    const baseDate = api.created_at ? new Date(api.created_at) : new Date();
+  } else if (apiItem.created_at) {
+    const baseDate = new Date(apiItem.created_at);
     const defaultExpiry = new Date(baseDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+    rawExpiry = defaultExpiry.toISOString().split("T")[0];
     formattedExpiry = defaultExpiry.toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
-    }) + " (Default 90 days)";
+    });
+  }
+
+  // Calculate days remaining and hosting status
+  let daysRemaining: number | null = apiItem.days_remaining ?? null;
+  if (daysRemaining === null && rawExpiry) {
+    const expiryTime = new Date(rawExpiry).setHours(0, 0, 0, 0);
+    const nowTime = new Date().setHours(0, 0, 0, 0);
+    daysRemaining = Math.round((expiryTime - nowTime) / (1000 * 60 * 60 * 24));
+  }
+
+  let status = MatterportStatus.ACTIVE;
+  if (apiItem.hosting_status) {
+    status = apiItem.hosting_status as MatterportStatus;
+  } else if (daysRemaining !== null) {
+    if (daysRemaining < 0) {
+      status = MatterportStatus.EXPIRED;
+    } else if (daysRemaining <= 30) {
+      status = MatterportStatus.EXPIRING_SOON;
+    } else {
+      status = MatterportStatus.ACTIVE;
+    }
   }
 
   return {
+    tourUuid: apiItem.uuid,
+    tourId: apiItem.id,
     agentName: `${orderObj?.agent?.first_name ?? "N/A"} ${orderObj?.agent?.last_name ?? ""}`.trim(),
+    agentEmail: orderObj?.agent?.email,
     orderNumber: orderObj?.id ? `#${orderObj.id}` : "",
     orderuud: orderObj?.uuid ?? "",
     propertyuuid: orderObj?.property?.uuid ?? "",
     address: orderObj ? `${orderObj.property_address || ""}, ${orderObj.property_location || ""}`.trim() : "N/A",
     organizationName: org?.name || "Global / None",
     organizationId: org?.id ?? undefined,
-    reminderDate: api.created_at ? new Date(api.created_at).toLocaleDateString("en-US", {
+    reminderDate: apiItem.created_at ? new Date(apiItem.created_at).toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
     }) : "N/A",
     renewalDate: formattedExpiry,
-    status:
-      orderObj?.payment_status === "PAID"
-        ? MatterportStatus.ACTIVE
-        : MatterportStatus.INACTIVE,
+    rawExpiryDate: rawExpiry,
+    daysRemaining: daysRemaining,
+    status: status,
     renewal: MatterportRenewalAction.RENEW,
     brandedLink: brandedLinkObj?.link,
     unbrandedLink: unbrandedLinkObj?.link,
   };
 };
+

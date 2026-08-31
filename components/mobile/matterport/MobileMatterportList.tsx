@@ -136,14 +136,24 @@ export default function MobileMatterportList({
                     </p>
                   )}
 
-                  {/* Status */}
-                  <div className="mt-2.5">
-                    <Badge className={`text-[10px] px-2 py-0.5 ${tour.status === 'ACTIVE' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-orange-100 text-orange-700 hover:bg-orange-100'}`}>
+                  {/* Status & Expiry */}
+                  <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                    <Badge className={`text-[10px] px-2 py-0.5 ${
+                      tour.status === 'EXPIRED' 
+                        ? 'bg-red-100 text-red-700 hover:bg-red-100' 
+                        : tour.status === 'EXPIRING_SOON'
+                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-100'
+                        : 'bg-green-100 text-green-700 hover:bg-green-100'
+                    }`}>
                       <Globe className="w-3 h-3 mr-1" />
                       {tour.status}
                     </Badge>
+                    <span className="text-[11px] text-gray-500">
+                      Exp: <strong className="text-gray-700">{tour.renewalDate}</strong>
+                    </span>
                   </div>
                 </div>
+
 
                 {/* Dropdown Options */}
                 <DropdownMenu>

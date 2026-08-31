@@ -1019,21 +1019,13 @@ export async function createPayment(
     const data = await response.json();
 
     if (data.success && data.url) {
-      const currentHost = typeof window !== "undefined" ? window.location.host : "";
-      const isSelfUrl = currentHost && (data.url.includes(currentHost) || data.url === "/" || data.url === window.location.href);
-
-      if (!isSelfUrl && (data.url.startsWith("http://") || data.url.startsWith("https://"))) {
-        window.open(data.url, "_blank");
-      } else {
-        console.warn("Payment session URL returned application origin instead of external checkout gateway:", data.url);
-      }
+      window.open(data.url, "_blank");
     } else {
       throw new Error(data.message || "Failed to create payment session");
     }
   } catch (error) {
     console.error("Payment Error:", error);
-    toast.error(error instanceof Error ? error.message : "Something went wrong while creating payment. Please try again.");
-    throw error;
+    alert(error instanceof Error ? error.message : "Something went wrong while creating payment. Please try again.");
   }
 }
 
@@ -1596,6 +1588,7 @@ export class FeatureSheetService {
     templateKey: string;
     uploadedBy?: "admin" | "agent" | "vendor";
     type?: "template" | "custom";
+    is_published?: boolean;
 
     // Theme
     primaryColor: string;
@@ -1647,6 +1640,7 @@ export class FeatureSheetService {
       type: params.type || "template",
       uploaded_by: params.uploadedBy || "admin",
       template_key: params.templateKey,
+      is_published: params.is_published,
       theme: {
         primaryColor: params.primaryColor,
         backgroundColor: params.backgroundColor,
@@ -2022,15 +2016,13 @@ export class FeatureSheetService {
     console.log("[FeatureSheet] uploadFeatureSheet called");
 
     // Step 1: Create the feature sheet record FIRST to get a UUID
-    const createPayload: Record<string, unknown> = {
+    const createPayload = {
       order_uuid: orderUuid,
       type: payload.type,
       uploaded_by: payload.uploaded_by,
       template_key: payload.template_key,
+      is_published: payload.is_published ?? false,
     };
-    if (payload.is_published !== undefined) {
-      createPayload.is_published = payload.is_published;
-    }
 
     const createResponse = await api.post(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
@@ -2068,6 +2060,7 @@ export class FeatureSheetService {
       theme: payload.theme,
       content: payload.content,
     };
+
     if (payload.is_published !== undefined) {
       updatePayload.is_published = payload.is_published;
     }
@@ -2123,6 +2116,7 @@ export class FeatureSheetService {
       theme: payload.theme,
       content: payload.content,
     };
+
     if (payload.is_published !== undefined) {
       apiPayload.is_published = payload.is_published;
     }
@@ -2154,6 +2148,7 @@ export class FeatureSheetService {
     orderUuid: string,
     pdfFile: File,
     uploadedBy: UploadedBy = "admin",
+    isPublished: boolean = false,
   ): Promise<FeatureSheetResponse> {
     // Step 1: Get presigned URL
     const presignedResponse = await S3UploadService.getPresignedUrls({
@@ -2187,11 +2182,36 @@ export class FeatureSheetService {
         type: "pdf",
         uploaded_by: uploadedBy,
         pdf_s3_key: upload.s3_key,
+        is_published: isPublished,
       },
     );
 
     if (response.status !== 200 && response.status !== 201) {
       throw new Error("Failed to create PDF feature sheet record");
+    }
+
+    return response.data.data || response.data;
+  }
+
+  /**
+   * Toggle or set the publish state of a feature sheet
+   */
+  async togglePublishFeatureSheet(
+    uuid: string,
+    isPublished?: boolean,
+  ): Promise<FeatureSheetResponse> {
+    const payload: Record<string, unknown> = {};
+    if (isPublished !== undefined) {
+      payload.is_published = isPublished;
+    }
+
+    const response = await api.patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}/toggle-publish`,
+      payload,
+    );
+
+    if (response.status !== 200) {
+      throw new Error("Failed to update feature sheet publish status");
     }
 
     return response.data.data || response.data;
@@ -2216,35 +2236,24 @@ export class FeatureSheetService {
       throw new Error("Failed to fetch feature sheet");
     }
 
-    return response.data;
+    return response.data.data || response.data;
   }
 
   async getFeatureSheetsByOrder(
     orderUuid: string,
+    publishedOnly: boolean = false,
   ): Promise<FeatureSheetResponse[]> {
-    try {
-      const response = await api.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
-      );
+    const query = publishedOnly ? "?published_only=true" : "";
+    const response = await api.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}${query}`,
+    );
 
-      if (response.status === 200) {
-        return response.data.data || response.data;
-      }
-    } catch (err) {
-      console.warn("api.get failed for feature sheets by order, attempting fetch fallback:", err);
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
-        );
-        if (res.ok) {
-          const json = await res.json();
-          return json.data || json;
-        }
-      } catch (fetchErr) {
-        console.error("Failed to fetch feature sheets by order fallback:", fetchErr);
-      }
+    if (response.status !== 200) {
+      throw new Error("Failed to fetch feature sheets for order");
     }
-    return [];
+
+    // Backend returns { data: [...] }
+    return response.data.data || response.data;
   }
 
   /**

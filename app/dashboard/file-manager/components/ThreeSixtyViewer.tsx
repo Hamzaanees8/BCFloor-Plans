@@ -40,6 +40,8 @@ const FRAGMENT_SHADER = `
   uniform float u_pitch;
   uniform float u_fov;
   uniform float u_aspect;
+  uniform int u_isCylinder;
+  uniform float u_vCoverage;
 
   #define PI 3.1415926535897932384626433832795
 
@@ -48,7 +50,7 @@ const FRAGMENT_SHADER = `
     vec2 ndc = (v_uv - 0.5) * 2.0;
     ndc.x *= u_aspect;
 
-    // Camera ray direction based on FOV
+    // Perspective camera ray direction based on FOV
     float tanHalfFov = tan(radians(u_fov) * 0.5);
     vec3 ray = normalize(vec3(ndc.x * tanHalfFov, ndc.y * tanHalfFov, -1.0));
 
@@ -72,12 +74,29 @@ const FRAGMENT_SHADER = `
     );
     ray = rotY * ray;
 
-    // Equirectangular mapping
-    float phi = atan(ray.x, -ray.z); // [-PI, PI]
-    float theta = asin(clamp(ray.y, -1.0, 1.0)); // [-PI/2, PI/2]
+    // Horizontal angle phi in [-PI, PI]
+    float phi = atan(ray.x, -ray.z);
+    // Seamless infinite continuous 360 wrap around cylinder/sphere
+    float u = fract(phi / (2.0 * PI) + 0.5);
 
-    float u = phi / (2.0 * PI) + 0.5;
-    float v = theta / PI + 0.5;
+    float v = 0.5;
+
+    if (u_isCylinder == 1) {
+      // 3D Cylindrical perspective projection
+      float r = length(vec2(ray.x, ray.z));
+      float y_cyl = ray.y / max(0.0001, r);
+      v = (y_cyl / u_vCoverage) + 0.5;
+
+      // Soft clamp for cylinder vertical bounds
+      if (v < 0.0 || v > 1.0) {
+        gl_FragColor = vec4(0.08, 0.08, 0.10, 1.0);
+        return;
+      }
+    } else {
+      // 3D Equirectangular spherical perspective projection
+      float theta = asin(clamp(ray.y, -1.0, 1.0)); // [-PI/2, PI/2]
+      v = theta / PI + 0.5;
+    }
 
     gl_FragColor = texture2D(u_texture, vec2(u, v));
   }
@@ -125,27 +144,22 @@ export default function ThreeSixtyViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasWebGlError, setHasWebGlError] = useState(false);
+  const [isCylinderMode, setIsCylinderMode] = useState(false);
 
   const currentPano = files && files.length > 0 ? files[currentIndex] : null;
 
-  // View mode: 'sphere' (360 WebGL) or 'flat' (180 wide pan scroll)
-  const is180Pano = currentPano?.subtype === 'panorama_180';
-  const [viewMode, setViewMode] = useState<'sphere' | 'flat'>(is180Pano ? 'flat' : 'sphere');
-
-  // Flat view pan state
-  const flatContainerRef = useRef<HTMLDivElement | null>(null);
-  const [flatScale, setFlatScale] = useState(1);
-  const [isFlatDragging, setIsFlatDragging] = useState(false);
-  const flatDragStartRef = useRef({ x: 0, y: 0 });
-  const flatScrollStartRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    if (currentPano?.subtype === 'panorama_180') {
-      setViewMode('flat');
-    } else if (currentPano?.subtype === 'panorama_360') {
-      setViewMode('sphere');
-    }
-  }, [currentIndex, currentPano]);
+  // Image projection metadata
+  const imageMetaRef = useRef<{
+    aspect: number;
+    isCylinder: boolean;
+    vCoverage: number;
+    maxPitch: number;
+  }>({
+    aspect: 2.0,
+    isCylinder: false,
+    vCoverage: Math.PI,
+    maxPitch: Math.PI / 2.1,
+  });
 
   // View state refs for high-frequency render loop
   const yawRef = useRef(0);
@@ -232,6 +246,8 @@ export default function ThreeSixtyViewer({
         pitch: gl.getUniformLocation(program, 'u_pitch'),
         fov: gl.getUniformLocation(program, 'u_fov'),
         aspect: gl.getUniformLocation(program, 'u_aspect'),
+        isCylinder: gl.getUniformLocation(program, 'u_isCylinder'),
+        vCoverage: gl.getUniformLocation(program, 'u_vCoverage'),
       },
     };
 
@@ -258,6 +274,8 @@ export default function ThreeSixtyViewer({
         gl.uniform1f(uniforms.pitch, pitchRef.current);
         gl.uniform1f(uniforms.fov, fovRef.current);
         gl.uniform1f(uniforms.aspect, width / Math.max(1, height));
+        gl.uniform1i(uniforms.isCylinder, imageMetaRef.current.isCylinder ? 1 : 0);
+        gl.uniform1f(uniforms.vCoverage, imageMetaRef.current.vCoverage);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, textureRef.current);
@@ -304,6 +322,24 @@ export default function ThreeSixtyViewer({
       img.onload = () => {
         if (!glRef.current) return;
         const gl = glRef.current;
+
+        const aspect = (img.naturalWidth || 1) / Math.max(1, img.naturalHeight || 1);
+        const isCyl = currentPano?.subtype === 'panorama_180' || aspect > 2.2;
+        const vCoverage = isCyl ? (2.0 * Math.PI) / aspect : Math.PI;
+        const maxPitch = isCyl
+          ? Math.max(0.18, Math.min(Math.PI / 2.8, vCoverage * 0.46))
+          : (Math.PI / 2.1);
+
+        imageMetaRef.current = {
+          aspect,
+          isCylinder: isCyl,
+          vCoverage,
+          maxPitch,
+        };
+        setIsCylinderMode(isCyl);
+
+        // Clamp existing pitch within the new photo bounds
+        pitchRef.current = Math.max(-maxPitch, Math.min(maxPitch, pitchRef.current));
 
         if (textureRef.current) {
           gl.deleteTexture(textureRef.current);
@@ -356,9 +392,10 @@ export default function ThreeSixtyViewer({
 
     const sensitivity = (fovRef.current / 75) * 0.0035;
     yawRef.current -= dx * sensitivity;
+    const maxPitch = imageMetaRef.current.maxPitch;
     pitchRef.current = Math.max(
-      -Math.PI / 2.2,
-      Math.min(Math.PI / 2.2, pitchRef.current + dy * sensitivity)
+      -maxPitch,
+      Math.min(maxPitch, pitchRef.current + dy * sensitivity)
     );
   };
 
@@ -372,11 +409,11 @@ export default function ThreeSixtyViewer({
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const zoomDelta = e.deltaY * 0.05;
-    fovRef.current = Math.max(30, Math.min(100, fovRef.current + zoomDelta));
+    fovRef.current = Math.max(35, Math.min(95, fovRef.current + zoomDelta));
   };
 
   const handleZoom = (delta: number) => {
-    fovRef.current = Math.max(30, Math.min(100, fovRef.current + delta));
+    fovRef.current = Math.max(35, Math.min(95, fovRef.current + delta));
   };
 
   const handleReset = () => {
@@ -410,84 +447,33 @@ export default function ThreeSixtyViewer({
         isEmbedded ? 'rounded-2xl shadow-xl aspect-[16/9] max-h-[75vh]' : 'h-full min-h-[500px]'
       }`}
     >
-      {/* Viewer Viewport: 180 Wide Pan vs 360 Sphere */}
-      {viewMode === 'flat' ? (
-        <div
-          ref={flatContainerRef}
-          className="w-full h-full overflow-x-auto overflow-y-hidden select-none flex items-center justify-start cursor-grab active:cursor-grabbing scrollbar-none"
-          onMouseDown={(e) => {
-            setIsFlatDragging(true);
-            flatDragStartRef.current = { x: e.clientX, y: e.clientY };
-            flatScrollStartRef.current = {
-              x: flatContainerRef.current?.scrollLeft ?? 0,
-              y: flatContainerRef.current?.scrollTop ?? 0,
-            };
-          }}
-          onMouseMove={(e) => {
-            if (!isFlatDragging || !flatContainerRef.current) return;
-            flatContainerRef.current.scrollLeft = flatScrollStartRef.current.x + (flatDragStartRef.current.x - e.clientX);
-          }}
-          onMouseUp={() => setIsFlatDragging(false)}
-          onMouseLeave={() => setIsFlatDragging(false)}
-          onTouchStart={(e) => {
-            setIsFlatDragging(true);
-            flatDragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            flatScrollStartRef.current = {
-              x: flatContainerRef.current?.scrollLeft ?? 0,
-              y: flatContainerRef.current?.scrollTop ?? 0,
-            };
-          }}
-          onTouchMove={(e) => {
-            if (!isFlatDragging || !flatContainerRef.current) return;
-            flatContainerRef.current.scrollLeft = flatScrollStartRef.current.x + (flatDragStartRef.current.x - e.touches[0].clientX);
-          }}
-          onTouchEnd={() => setIsFlatDragging(false)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={getPanoUrl(currentPano)}
-            alt={currentPano?.name || 'Panorama'}
-            className="h-full w-auto max-w-none object-cover pointer-events-none transition-transform duration-100"
-            style={{ transform: `scale(${flatScale})`, transformOrigin: 'center center' }}
-            onLoad={() => setIsLoading(false)}
-          />
-        </div>
-      ) : (
-        /* WebGL 360 Canvas */
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full block cursor-grab active:cursor-grabbing touch-none"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onWheel={handleWheel}
-        />
-      )}
+      {/* 3D WebGL Canvas */}
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block cursor-grab active:cursor-grabbing touch-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+      />
 
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white z-20">
           <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-sm font-medium tracking-wide">Loading Panorama...</p>
+          <p className="text-sm font-medium tracking-wide">Loading 360° View...</p>
         </div>
       )}
 
-      {/* Fallback if WebGL unavailable and in sphere mode */}
-      {hasWebGlError && viewMode === 'sphere' && (
+      {/* Fallback if WebGL unavailable */}
+      {hasWebGlError && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 text-center z-30">
           <Compass size={40} className="mb-3 text-red-400" />
           <h4 className="font-bold text-lg mb-1">WebGL Acceleration Required</h4>
-          <p className="text-sm text-gray-300 max-w-md mb-4">
-            Please enable hardware acceleration in your browser or switch to Flat Panoramic View.
+          <p className="text-sm text-gray-300 max-w-md">
+            Please enable hardware acceleration or WebGL in your browser settings to explore the interactive 360° tour.
           </p>
-          <button
-            type="button"
-            onClick={() => setViewMode('flat')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
-          >
-            Switch to Flat View
-          </button>
         </div>
       )}
 
@@ -496,8 +482,13 @@ export default function ThreeSixtyViewer({
         <div className="bg-black/65 backdrop-blur-md px-4 py-2 rounded-xl text-white border border-white/10 shadow-lg pointer-events-auto flex items-center gap-2.5">
           <Compass size={18} className="text-amber-400 animate-pulse shrink-0" />
           <div>
-            <div className="font-bold text-xs md:text-sm tracking-wide leading-tight truncate max-w-[140px] sm:max-w-[240px]">
-              {currentPano?.name || `${viewMode === 'sphere' ? '360° View' : 'Wide Panorama'} ${currentIndex + 1}`}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs md:text-sm tracking-wide leading-tight truncate max-w-[140px] sm:max-w-[240px]">
+                {currentPano?.name || `360° View ${currentIndex + 1}`}
+              </span>
+              <span className="text-[10px] bg-white/15 text-amber-300 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                {isCylinderMode ? '360° Panorama' : '360° Sphere'}
+              </span>
             </div>
             {files.length > 1 && (
               <div className="text-[10px] text-gray-300 font-medium">
@@ -509,39 +500,29 @@ export default function ThreeSixtyViewer({
 
         {/* Top-Right Control Buttons */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Mode Switcher Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onToggleFlatView) {
-                onToggleFlatView();
-              } else {
-                setViewMode(viewMode === 'sphere' ? 'flat' : 'sphere');
-              }
-            }}
-            className="px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/85 text-white text-xs font-alexandria font-medium backdrop-blur-md border border-white/15 transition shadow-md cursor-pointer hover:scale-105"
-            title={viewMode === 'sphere' ? 'Switch to Flat Panoramic Pan' : 'Switch to 360° Sphere View'}
-          >
-            {viewMode === 'sphere' ? '↔ Wide Pan View' : '⬡ 360° Sphere View'}
-          </button>
-
-          {viewMode === 'sphere' && (
+          {onToggleFlatView && (
             <button
               type="button"
-              onClick={() => setIsAutoRotating(!isAutoRotating)}
-              className="w-9 h-9 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/15 flex items-center justify-center transition-all shadow-md cursor-pointer hover:scale-105"
-              title={isAutoRotating ? 'Pause Auto-Rotation' : 'Start Auto-Rotation'}
+              onClick={onToggleFlatView}
+              className="px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/85 text-white text-xs font-alexandria font-medium backdrop-blur-md border border-white/15 transition shadow-md cursor-pointer hover:scale-105"
+              title="Toggle View"
             >
-              {isAutoRotating ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+              Toggle
             </button>
           )}
 
           <button
             type="button"
-            onClick={viewMode === 'sphere' ? handleReset : () => {
-              setFlatScale(1);
-              if (flatContainerRef.current) flatContainerRef.current.scrollLeft = 0;
-            }}
+            onClick={() => setIsAutoRotating(!isAutoRotating)}
+            className="w-9 h-9 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/15 flex items-center justify-center transition-all shadow-md cursor-pointer hover:scale-105"
+            title={isAutoRotating ? 'Pause Auto-Rotation' : 'Start Auto-Rotation'}
+          >
+            {isAutoRotating ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReset}
             className="w-9 h-9 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/15 flex items-center justify-center transition-all shadow-md cursor-pointer hover:scale-105"
             title="Reset View"
           >

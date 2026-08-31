@@ -1,6 +1,85 @@
-// ---------------------------------------------------------------------------
-// SqFt (Area) pricing helpers
-// ---------------------------------------------------------------------------
+export interface AreaItemInput {
+  type: string;
+  footage: number;
+  custom_title?: string;
+}
+
+export interface AreaSettingDefinition {
+  area: string;
+  type: string;
+  charge: number;
+  status: boolean;
+}
+
+/**
+ * Calculates billable square footage and area charges according to business rules:
+ * 1. Finished & Sub Areas: Always included in billable sqft.
+ * 2. Other Areas ($0 charge rate): Pooled into Free Allowance limit (default 2000 sq ft).
+ *    - Footage up to limit = $0 (free)
+ *    - Excess footage above limit = Added to billable sqft / charged at rate above allowance.
+ * 3. Other Areas (> $0 charge rate): Excluded from Free Allowance pool.
+ *    - Charged directly per sq. ft. from sq. ft. 1 based on defined charge rate.
+ */
+export const calculateAreaMetrics = (
+  areas: AreaItemInput[],
+  tourSettings: AreaSettingDefinition[] = [],
+  freeAllowanceLimit: number = 2000,
+  rateAboveAllowance: number = 0
+) => {
+  const tourSettingMap = new Map<string, AreaSettingDefinition>();
+  (tourSettings || []).forEach((setting) => {
+    if (setting.status) {
+      tourSettingMap.set(setting.area.trim().toLowerCase(), setting);
+    }
+  });
+
+  let finishedSubFootage = 0;
+  let zeroChargeOtherFootage = 0;
+  let customOtherFootage = 0;
+  let customOtherCharges = 0;
+
+  (areas || []).forEach((area) => {
+    const footage = Number(area.footage) || 0;
+    if (footage <= 0) return;
+
+    const type = (area.type || 'other').trim().toLowerCase();
+    const customTitle = (area.custom_title || area.type || '').trim().toLowerCase();
+
+    const setting = tourSettingMap.get(customTitle) || tourSettingMap.get(type);
+    const definedCharge = setting ? Number(setting.charge) || 0 : 0;
+
+    if (type.includes('finished') || type.includes('sub') || type.includes('subtotal')) {
+      finishedSubFootage += footage;
+    } else {
+      if (definedCharge > 0) {
+        customOtherCharges += footage * definedCharge;
+        customOtherFootage += footage;
+      } else {
+        zeroChargeOtherFootage += footage;
+      }
+    }
+  });
+
+  const excessOtherFootage = Math.max(0, zeroChargeOtherFootage - freeAllowanceLimit);
+  const excessOtherCharge = excessOtherFootage * rateAboveAllowance;
+  const freeAllowanceUsed = Math.min(zeroChargeOtherFootage, freeAllowanceLimit);
+
+  const totalBillableSqft = finishedSubFootage + excessOtherFootage;
+  const totalAreaCharges = customOtherCharges + excessOtherCharge;
+
+  return {
+    finishedSubFootage,
+    zeroChargeOtherFootage,
+    freeAllowanceLimit,
+    freeAllowanceUsed,
+    excessOtherFootage,
+    excessOtherCharge,
+    customOtherFootage,
+    customOtherCharges,
+    totalBillableSqft,
+    totalAreaCharges,
+  };
+};
 
 /**
  * Method A – return the explicit sq_ft_rate from an option, if one exists.
