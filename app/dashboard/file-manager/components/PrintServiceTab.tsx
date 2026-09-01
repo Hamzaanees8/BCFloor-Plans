@@ -28,6 +28,7 @@ import {
   Plus,
   Check,
   History,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
@@ -42,6 +43,7 @@ interface PrintServiceTabProps {
   gstRate?: number;
   isScrolled?: boolean;
   stickyOffset?: number;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -65,6 +67,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   gstRate = 0,
   isScrolled = false,
   stickyOffset = 0,
+  onNavigateToTab,
 }) => {
   const { userType } = useAppContext();
   const { filesData, setFilesData, setChangedFileUuids } =
@@ -147,17 +150,17 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
     "UNPAID";
   const isPaid = paymentStatus === "PAID";
   const isRefunded = paymentStatus === "REFUNDED";
-  const isFree = price === 0;
-  const hasAccess =
-    userType === "admin" || userType === "vendor" || isFree || isPaid;
+  // Payment verification bypassed for print PDF proof viewing/downloading for now
+  const hasAccess = true;
 
   // Extract quantity/copies from option or custom fields
   const optionTitle = currentBookedService?.option?.title || "";
   const rawQuantity =
     currentBookedService?.option?.quantity ||
+    currentBookedService?.quantity ||
+    currentBookedService?.copies ||
     (optionTitle ? parseInt(optionTitle.match(/\d+/)?.[0] || "0", 10) : 0);
-  const copiesCount =
-    rawQuantity > 0 ? rawQuantity : currentBookedService?.quantity || null;
+  const copiesCount = rawQuantity > 0 ? rawQuantity : null;
 
   // Handle Toggle Approval (Agent only)
   const handleToggleApproval = async (targetFile?: any) => {
@@ -571,7 +574,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
 
       {/* Main Body Content */}
       <div className="w-full py-8 px-4 md:px-8 max-w-5xl mx-auto space-y-6">
-        {!hasAccess ? (
+        {currentPdf && !hasAccess ? (
           /* Payment Required Lock Screen for Agents */
           <div className="bg-white rounded-[12px] border border-amber-200 bg-amber-50/50 p-8 text-center flex flex-col items-center justify-center shadow-sm">
             <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
@@ -618,6 +621,16 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                       ? "Upload, replace, or manage the high-resolution print PDF document for this order."
                       : "View, approve, and download your finalized print PDF proof."}
                   </p>
+                  {onNavigateToTab && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToTab("CreateFeatureSheet")}
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer mt-1"
+                    >
+                      <span>Access DIY print material creation tool</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Approved for Printing Badge / Action for Current PDF */}
@@ -793,16 +806,29 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                 </div>
               ) : (
                 userType !== "admin" && (
-                  <div className="text-center py-10 px-4 bg-gray-50 rounded-[10px] border border-gray-200 text-gray-500">
-                    <Printer className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                    <p className="text-[14px] font-[500] text-gray-700">
-                      Print PDF in Preparation
+                  <div className="text-center py-10 px-6 bg-[#F9FBFD] rounded-[10px] border border-blue-100 text-gray-600 flex flex-col items-center justify-center space-y-3">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
+                      <Printer className="w-6 h-6" />
+                    </div>
+                    {copiesCount ? (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-blue-100/80 text-blue-800 rounded-full text-xs font-semibold border border-blue-200">
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Number of Copies Ordered: {copiesCount}</span>
+                      </div>
+                    ) : null}
+                    <p className="text-[14px] font-medium text-gray-700 max-w-xl mx-auto leading-relaxed">
+                      You will receive a proof once all the required materials and information have been received. Please email the office to specify which template you would like used and provide the information to be displayed.
                     </p>
-                    <p className="text-[12px] text-gray-500 mt-1 max-w-sm mx-auto">
-                      Our production team is working on your print file. The
-                      high-resolution PDF will appear here as soon as it is
-                      uploaded.
-                    </p>
+                    {onNavigateToTab && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToTab("CreateFeatureSheet")}
+                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer pt-1"
+                      >
+                        <span>Access DIY print material creation tool</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 )
               )}

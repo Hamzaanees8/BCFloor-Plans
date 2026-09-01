@@ -234,6 +234,7 @@ export interface FeatureSheetResponse {
     images: FeatureSheetImage[];
     pdf_path: string | null;
     pdf_url: string | null;
+    url?: string | null;
     uploaded_by: UploadedBy;
     is_published?: boolean;
     created_at: string;

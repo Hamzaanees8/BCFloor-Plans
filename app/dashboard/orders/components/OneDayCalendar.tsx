@@ -465,6 +465,11 @@ export function getVendorValidStartSlots(
       daySchedule.is_twilight === 1 ||
       daySchedule.is_twilight === true);
 
+  // For a twilight service, vendor MUST have is_twilight enabled for this day
+  if (isTwilightService && !isTwilightChecked) {
+    return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
+  }
+
   // If vendor has work_days and is off today, return no slots (unless twilight checked and it's a twilight service)
   if (
     daySchedule &&
@@ -830,6 +835,7 @@ export function getVendorDayBounds(
   twilightData: TwilightResponse | null,
   selectedSlotsOnDate: Slot[] = [],
   scheduleOverride: number = 0,
+  requiredSlotsCount: number = 1,
 ): { startTime: string; endTime: string } {
   let earliestMinutes = 24 * 60;
   let latestMinutes = 0;
@@ -874,6 +880,11 @@ export function getVendorDayBounds(
         daySchedule.is_off === 1 ||
         daySchedule.is_off === true);
 
+    // For a twilight service, vendor MUST have is_twilight enabled for this day
+    if (isTwilightService && !isTwilightChecked) {
+      return;
+    }
+
     if (isOff && (!isTwilightService || !isTwilightChecked)) {
       return;
     }
@@ -884,6 +895,8 @@ export function getVendorDayBounds(
     if (isTwilightService && isTwilightChecked) {
       if (twilightData?.sunset) {
         let windowEndStr = "21:00:00";
+        let windowStartStr = "19:00:00";
+
         if ((twilightData as any).window_end) {
           windowEndStr = (twilightData as any).window_end;
         } else {
@@ -894,8 +907,29 @@ export function getVendorDayBounds(
           const twEnd = dayjs(`${date}T${sunsetLocalStr}`).add(30, "minute");
           windowEndStr = twEnd.format("HH:mm:ss");
         }
-        if (endTimeStr && windowEndStr > endTimeStr) {
-          endTimeStr = windowEndStr;
+
+        if ((twilightData as any).window_start) {
+          windowStartStr = (twilightData as any).window_start;
+        } else {
+          const sunsetLocalStr = convertUTCToTimezone(
+            twilightData.sunset,
+            targetTimezone,
+          );
+          const twStart = dayjs(`${date}T${sunsetLocalStr}`).subtract(45, "minute");
+          windowStartStr = twStart.format("HH:mm:ss");
+        }
+
+        const coreStart = dayjs(`${date}T${windowStartStr}`);
+        const coreEnd = dayjs(`${date}T${windowEndStr}`);
+        const windowMinutes = coreEnd.diff(coreStart, "minute");
+        const windowSlots = Math.max(1, Math.round(windowMinutes / 15));
+        const overflowSlots = Math.max(0, requiredSlotsCount - windowSlots);
+        const extraEnd = Math.floor(overflowSlots / 2);
+        const expandedEnd = coreEnd.add(extraEnd * 15, "minute");
+        const expandedEndStr = expandedEnd.format("HH:mm:ss");
+
+        if (!endTimeStr || expandedEndStr > endTimeStr) {
+          endTimeStr = expandedEndStr;
         }
       } else {
         endTimeStr = "22:00:00";
@@ -1476,6 +1510,24 @@ export default function OneDayCalendar({
       service?.title?.includes("Twilight") ||
       (service as any)?.is_twilight === true;
 
+    const squareFootageForSlots = activeSquareFootage;
+    const productOptionForSlots =
+      currentServiceDataForSlots?.product_options?.find(
+        (option) =>
+          (service.option_id && option.uuid === service.option_id) ||
+          (service.option_id &&
+            String(option.id) === String(service.option_id)),
+      );
+    const requiredDurationForSlots = getEffectiveServiceDuration(
+      productOptionForSlots,
+      currentServiceDataForSlots,
+      squareFootageForSlots,
+    );
+    const requiredSlotsCountForService = Math.max(
+      1,
+      Math.ceil(requiredDurationForSlots / 15),
+    );
+
     const { startTime: dayStartTime, endTime: dayEndTime } = getVendorDayBounds(
       date,
       filteredVendors,
@@ -1484,6 +1536,7 @@ export default function OneDayCalendar({
       twilightData,
       selectedSlotsOnCurrentDate,
       scheduleOverride,
+      requiredSlotsCountForService,
     );
 
     // When filteredVendors is empty but there are selected slots to display,
@@ -1702,23 +1755,6 @@ export default function OneDayCalendar({
       (s: Slot) => s.service_id !== service.uuid && s.date === date,
     );
 
-    const squareFootageForSlots = activeSquareFootage;
-    const productOptionForSlots =
-      currentServiceDataForSlots?.product_options?.find(
-        (option) =>
-          (service.option_id && option.uuid === service.option_id) ||
-          (service.option_id &&
-            String(option.id) === String(service.option_id)),
-      );
-    const requiredDurationForSlots = getEffectiveServiceDuration(
-      productOptionForSlots,
-      currentServiceDataForSlots,
-      squareFootageForSlots,
-    );
-    const requiredSlotsCountForService = Math.max(
-      1,
-      Math.ceil(requiredDurationForSlots / 15),
-    );
     const isFloorPlan = isFloorPlanService(
       service.title,
       service.uuid,
@@ -1840,6 +1876,53 @@ export default function OneDayCalendar({
       }
     });
 
+    // --- Twilight Window Calculation with Symmetrical Overflow Distribution ---
+    let twilightWindowStart: dayjs.Dayjs | null = null;
+    let twilightWindowEnd: dayjs.Dayjs | null = null;
+    let expandedWindowStart: dayjs.Dayjs | null = null;
+    let expandedWindowEnd: dayjs.Dayjs | null = null;
+
+    const currentServiceDataForTwilight = servicesData.find(
+      (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
+    );
+    const isTwilightServiceForCalc =
+      currentServiceDataForTwilight?.category?.name === "Twilight Photos" ||
+      service?.title?.includes("Twilight") ||
+      (service as any)?.is_twilight === true;
+
+    if (isTwilightServiceForCalc && twilightData?.sunset) {
+      if (
+        (twilightData as any).window_start &&
+        (twilightData as any).window_end
+      ) {
+        twilightWindowStart = dayjs(`${date}T${(twilightData as any).window_start}`);
+        twilightWindowEnd = dayjs(`${date}T${(twilightData as any).window_end}`);
+      } else {
+        const targetTimezone = propertyTimezone || "America/Vancouver";
+        const sunsetLocalTimeStr = convertUTCToTimezone(
+          twilightData.sunset,
+          targetTimezone,
+        );
+        const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
+        twilightWindowStart = twilightTime.subtract(45, "minute");
+        twilightWindowEnd = twilightTime.add(15, "minute");
+      }
+
+      const windowMinutes = twilightWindowEnd.diff(twilightWindowStart, "minute");
+      const windowSlots = Math.max(1, Math.round(windowMinutes / 15));
+      const overflowSlots = Math.max(0, requiredSlotsCountForService - windowSlots);
+
+      if (overflowSlots > 0) {
+        const extraEnd = Math.floor(overflowSlots / 2);
+        const extraStart = overflowSlots - extraEnd; // odd -> extra slot goes to start
+        expandedWindowStart = twilightWindowStart.subtract(extraStart * 15, "minute");
+        expandedWindowEnd = twilightWindowEnd.add(extraEnd * 15, "minute");
+      } else {
+        expandedWindowStart = twilightWindowStart;
+        expandedWindowEnd = twilightWindowEnd;
+      }
+    }
+
     let availableSlotsCount = 0;
     const finalSlots = fullDaySlots.map((slot) => {
       const key = `${slot.start}_${slot.end}`;
@@ -1854,31 +1937,11 @@ export default function OneDayCalendar({
         service?.title?.includes("Twilight") ||
         (service as any)?.is_twilight === true;
 
-      if (isTwilightServiceForSlot && twilightData?.sunset) {
-        let windowStart: dayjs.Dayjs;
-        let windowEnd: dayjs.Dayjs;
-
-        if (
-          (twilightData as any).window_start &&
-          (twilightData as any).window_end
-        ) {
-          windowStart = dayjs(`${date}T${(twilightData as any).window_start}`);
-          windowEnd = dayjs(`${date}T${(twilightData as any).window_end}`);
-        } else {
-          const targetTimezone = propertyTimezone || "America/Vancouver";
-          const sunsetLocalTimeStr = convertUTCToTimezone(
-            twilightData.sunset,
-            targetTimezone,
-          );
-          const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
-          windowStart = twilightTime.subtract(45, "minute");
-          windowEnd = twilightTime.add(15, "minute");
-        }
-
+      if (isTwilightServiceForSlot && expandedWindowStart && expandedWindowEnd) {
         const slotStartTime = dayjs(slot.start);
         if (
-          slotStartTime.isBefore(windowStart) ||
-          slotStartTime.isAfter(windowEnd)
+          slotStartTime.isBefore(expandedWindowStart) ||
+          slotStartTime.isAfter(expandedWindowEnd)
         ) {
           isTwilightRestricted = true;
         }
@@ -1922,7 +1985,7 @@ export default function OneDayCalendar({
           className: `slot-selected vendor-${vendorId}${isRecommended ? " slot-recommended" : ""}`,
           extendedProps: {
             availableVendorIds: [],
-            twilightRecommended: isTwilightService && isRecommended,
+            twilightRecommended: Boolean(isTwilightService && isRecommended),
           },
         };
       }
@@ -2632,6 +2695,10 @@ export default function OneDayCalendar({
               },
             ],
           };
+          const isTwilightSvc =
+            currentService?.category?.name === "Twilight Photos" ||
+            service?.title?.includes("Twilight") ||
+            (service as any)?.is_twilight === true;
           validResult = getVendorValidStartSlots(
             vendor,
             selectedDate,
@@ -2646,7 +2713,7 @@ export default function OneDayCalendar({
             service.uuid,
             selectedSlots,
             15,
-            false,
+            isTwilightSvc,
             currentService?.is_travel_required !== false,
             destinationAddress,
           );
@@ -2661,6 +2728,10 @@ export default function OneDayCalendar({
             vendorTimezone,
             targetTimezone,
           );
+          const isTwilightSvc =
+            currentService?.category?.name === "Twilight Photos" ||
+            service?.title?.includes("Twilight") ||
+            (service as any)?.is_twilight === true;
           validResult = getVendorValidStartSlots(
             vendor,
             selectedDate,
@@ -2675,7 +2746,7 @@ export default function OneDayCalendar({
             service.uuid,
             selectedSlots,
             15,
-            false,
+            isTwilightSvc,
             currentService?.is_travel_required !== false,
             destinationAddress,
           );

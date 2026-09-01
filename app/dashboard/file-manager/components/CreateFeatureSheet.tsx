@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, FileText } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -35,6 +35,7 @@ import FeatureSheetThumbnail from "./FeatureSheetThumbnail";
 import { HexColorPicker } from "react-colorful";
 
 import { useFileManagerContext, initialFormData } from "../FileManagerContext";
+import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import BcfpStandard from "./BcfpStandard";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 
@@ -80,9 +81,40 @@ import InvoicePaymentDialog from "./invoicePaymentDialog";
 import UpgradeServicePopup from "./UpgradeServicePopup";
 import { GetServices } from "../../orders/orders";
 import { usePortalSettings } from "@/app/hooks/usePortalSettings";
-import DeletedFieldsPanel from "./DeletedFieldsPanel";
 import { FieldPanelProvider, useFieldPanel } from "./FieldPanelContext";
+
+const formatPdfName = (
+  name: string | undefined | null,
+  index: number = 0,
+): string => {
+  if (!name) return `Custom Sheet ${index + 1}`;
+  const trimmed = name.trim();
+
+  // If standard template label exists (e.g. Flyer 1, Tabloid 1), return it
+  const templateLabel = getTemplateLabel(trimmed);
+  if (templateLabel && templateLabel !== trimmed && !trimmed.includes("-")) {
+    return templateLabel;
+  }
+
+  // Check if string is a raw UUID (e.g. ab12b7c6-2983-4e27-aed4-29e08290690d) or long UUID key
+  const isUuid =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+      trimmed,
+    );
+  if (isUuid || (trimmed.length > 25 && trimmed.includes("-"))) {
+    return `Custom Sheet ${index + 1}`;
+  }
+
+  // If it's a PDF filename (e.g. "my_flyer.pdf"), clean it up
+  if (trimmed.toLowerCase().endsWith(".pdf")) {
+    const clean = trimmed.slice(0, -4).replace(/[-_]/g, " ").trim();
+    if (clean) return clean;
+  }
+
+  return trimmed;
+};
 import FieldSidePanel from "./FieldSidePanel";
+import DeletedFieldsPanel from "./DeletedFieldsPanel";
 
 interface FeatureSheetComponentRef {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -259,7 +291,6 @@ const CreateFeatureSheet = forwardRef<
   const realtorInputRef = useRef<HTMLInputElement | null>(null);
   const searchParams = useSearchParams();
   const listingId = searchParams.get("listingId");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [customPdf, setCustomPdf] = useState<{
     name: string;
     url: string;
@@ -267,6 +298,9 @@ const CreateFeatureSheet = forwardRef<
   const [uploadedPdfs, setUploadedPdfs] = useState<
     { name: string; url: string }[]
   >([]);
+  const { startUpload } = useGlobalFileUpload();
+  const [pdfViewerBlobUrl, setPdfViewerBlobUrl] = useState<string | null>(null);
+  const [isLoadingPdfViewerBlob, setIsLoadingPdfViewerBlob] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "listing" | "tabloid" | "my_sheets"
   >("listing");
@@ -910,8 +944,23 @@ const CreateFeatureSheet = forwardRef<
   };
 
   const handleMySheetClick = async (sheet: FeatureSheetResponse) => {
-    // 1. If no template is selected, we first need to "open" the template
-    // If one IS selected, we just apply the style to it.
+    if (sheet.type === "pdf") {
+      const key = sheet.template_key || sheet.uuid;
+      handleTemplateChange(key);
+      setSelectedSheetUuid(sheet.uuid);
+      const pdfUrl =
+        sheet.url ||
+        featureSheetService.buildStorageUrl(sheet.pdf_url) ||
+        featureSheetService.buildStorageUrl(sheet.pdf_path) ||
+        ((sheet as any).pdf_s3_key
+          ? featureSheetService.buildStorageUrl((sheet as any).pdf_s3_key)
+          : "");
+      setCustomPdf({
+        name: key,
+        url: pdfUrl || "",
+      });
+      return;
+    }
 
     if (!selectedTemplate) {
       // Open the template
@@ -1073,13 +1122,15 @@ const CreateFeatureSheet = forwardRef<
       if (previewSheetUuid) {
         const sheet = featureSheets.find((s) => s.uuid === previewSheetUuid);
         if (sheet) {
-          setSelectedTemplate(sheet.template_key);
+          setSelectedTemplate(sheet.template_key || sheet.uuid);
           setSelectedSheetUuid(sheet.uuid);
           return;
         }
       }
       if (isReadonly && featureSheets.length > 0) {
-        setSelectedTemplate(featureSheets[0].template_key);
+        setSelectedTemplate(
+          featureSheets[0].template_key || featureSheets[0].uuid,
+        );
         setSelectedSheetUuid(featureSheets[0].uuid);
       }
     }
@@ -1096,10 +1147,19 @@ const CreateFeatureSheet = forwardRef<
     if (sheetData) {
       console.log("Loading data for template:", selectedTemplate, sheetData);
       if (sheetData.type === "pdf") {
-        setCustomPdf({
-          name: sheetData.template_key,
-          url: featureSheetService.buildStorageUrl(sheetData.pdf_url) || "",
-        });
+        const resolvedUrl =
+          sheetData.url ||
+          featureSheetService.buildStorageUrl(sheetData.pdf_url) ||
+          featureSheetService.buildStorageUrl(sheetData.pdf_path) ||
+          ((sheetData as any).pdf_s3_key
+            ? featureSheetService.buildStorageUrl((sheetData as any).pdf_s3_key)
+            : "");
+        if (resolvedUrl) {
+          setCustomPdf({
+            name: sheetData.template_key || sheetData.uuid,
+            url: resolvedUrl,
+          });
+        }
       } else {
         setCustomPdf(null);
       }
@@ -1141,7 +1201,9 @@ const CreateFeatureSheet = forwardRef<
         deletedDetailFields: [],
         deletedStandardFieldIds: [],
       });
-      setCustomPdf(null);
+      if (!selectedTemplate || selectedTemplate.startsWith("BCFPStandard")) {
+        setCustomPdf(null);
+      }
     }
   }, [
     selectedTemplate,
@@ -1150,7 +1212,102 @@ const CreateFeatureSheet = forwardRef<
     updateFormData,
     orderData?.agent.avatar,
     orderData?.agent.avatar_url,
-    setCustomPdf,
+  ]);
+
+  // Fetch PDF with authentication header to bypass 403 Forbidden on protected storage URLs
+  useEffect(() => {
+    let currentBlobUrl: string | null = null;
+    let isCancelled = false;
+
+    const currentSheet =
+      featureSheets.find((s) => s.uuid === selectedSheetUuid) ||
+      featureSheets.find((s) => s.template_key === selectedTemplate);
+
+    const isPdf =
+      currentSheet?.type === "pdf" ||
+      customPdf !== null ||
+      (selectedTemplate && !selectedTemplate.startsWith("BCFPStandard"));
+
+    if (!isPdf) {
+      setPdfViewerBlobUrl(null);
+      setIsLoadingPdfViewerBlob(false);
+      return;
+    }
+
+    const rawUrl =
+      customPdf?.url ||
+      currentSheet?.url ||
+      uploadedPdfs.find((p) => p.name === selectedTemplate)?.url ||
+      (currentSheet
+        ? featureSheetService.buildStorageUrl(currentSheet.pdf_url) ||
+          featureSheetService.buildStorageUrl(currentSheet.pdf_path) ||
+          ((currentSheet as any).pdf_s3_key
+            ? featureSheetService.buildStorageUrl(
+                (currentSheet as any).pdf_s3_key,
+              )
+            : null)
+        : null);
+
+    if (!rawUrl) {
+      setPdfViewerBlobUrl(null);
+      setIsLoadingPdfViewerBlob(false);
+      return;
+    }
+
+    // If it's already a local blob URL or data URL, use it directly
+    if (rawUrl.startsWith("blob:") || rawUrl.startsWith("data:")) {
+      setPdfViewerBlobUrl(rawUrl);
+      setIsLoadingPdfViewerBlob(false);
+      return;
+    }
+
+    // Fetch PDF securely with Authorization Bearer token to eliminate 403 Forbidden
+    const loadPdfBlob = async () => {
+      setIsLoadingPdfViewerBlob(true);
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("token") || ""
+            : "";
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch(rawUrl, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to load PDF (${response.status})`);
+        }
+        const blob = await response.blob();
+        if (isCancelled) return;
+        const pdfBlob = new Blob([blob], { type: "application/pdf" });
+        currentBlobUrl = URL.createObjectURL(pdfBlob);
+        setPdfViewerBlobUrl(currentBlobUrl);
+      } catch (err) {
+        console.error("Error loading PDF blob with auth:", err);
+        if (!isCancelled) {
+          setPdfViewerBlobUrl(rawUrl);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingPdfViewerBlob(false);
+        }
+      }
+    };
+
+    loadPdfBlob();
+
+    return () => {
+      isCancelled = true;
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+    };
+  }, [
+    selectedTemplate,
+    selectedSheetUuid,
+    customPdf,
+    featureSheets,
+    uploadedPdfs,
   ]);
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1163,6 +1320,34 @@ const CreateFeatureSheet = forwardRef<
     }
 
     try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("token") || ""
+          : "";
+
+      // Trigger global uploading media popup overlay
+      const uploadItem = {
+        file,
+        type: "pdf",
+        service_id: orderData.uuid,
+      };
+
+      startUpload({
+        token,
+        orderUuid: orderData.uuid,
+        files: [uploadItem],
+        links: [],
+        droppedMarkers: [],
+        delay: 1000,
+        transition: "fade-in",
+        selectedAudioTrack: "none",
+        changedFiles: [],
+        isUpdate: false,
+        showToast: false,
+      });
+
+      const localUrl = URL.createObjectURL(file);
+
       // Upload to S3 and create feature sheet record via presigned URL workflow
       const newSheet = await featureSheetService.uploadPdfFeatureSheet(
         orderData.uuid,
@@ -1170,15 +1355,23 @@ const CreateFeatureSheet = forwardRef<
         (userType as "admin" | "agent" | "vendor") || "admin",
       );
 
+      const storageUrl =
+        newSheet.url ||
+        featureSheetService.buildStorageUrl(newSheet.pdf_url) ||
+        featureSheetService.buildStorageUrl(newSheet.pdf_path) ||
+        localUrl;
+
       // Update the UI with the new sheet
       const pdfData = {
-        name: file.name,
-        url: featureSheetService.buildStorageUrl(newSheet.pdf_url) || "",
+        name: newSheet.template_key || file.name,
+        url: storageUrl,
       };
       setCustomPdf(pdfData);
-      setSelectedTemplate(file.name);
+      setSelectedTemplate(newSheet.template_key || file.name);
       setUploadedPdfs((prev) => {
-        const exists = prev.find((pdf) => pdf.name === file.name);
+        const exists = prev.find(
+          (pdf) => pdf.name === (newSheet.template_key || file.name),
+        );
         if (!exists) return [...prev, pdfData];
         return prev;
       });
@@ -1193,13 +1386,35 @@ const CreateFeatureSheet = forwardRef<
     }
   };
   const handleTemplateChange = (template: string) => {
-    setSelectedTemplate(template);
+    if (!template) return;
 
-    // If it's one of the saved sheets, find its UUID
-    const savedSheet = featureSheets.find((s) => s.template_key === template);
+    const savedSheet = featureSheets.find(
+      (s) => s.template_key === template || s.uuid === template,
+    );
+
+    const effectiveKey = savedSheet
+      ? savedSheet.template_key || savedSheet.uuid
+      : template;
+
+    setSelectedTemplate(effectiveKey);
+
     if (savedSheet) {
       setSelectedSheetUuid(savedSheet.uuid);
-      // Data loading is handled by the useEffect[selectedTemplate, featureSheets]
+      if (savedSheet.type === "pdf") {
+        const pdfUrl =
+          savedSheet.url ||
+          featureSheetService.buildStorageUrl(savedSheet.pdf_url) ||
+          featureSheetService.buildStorageUrl(savedSheet.pdf_path) ||
+          ((savedSheet as any).pdf_s3_key
+            ? featureSheetService.buildStorageUrl(
+                (savedSheet as any).pdf_s3_key,
+              )
+            : "");
+        setCustomPdf({
+          name: effectiveKey,
+          url: pdfUrl || "",
+        });
+      }
     } else {
       setSelectedSheetUuid(null);
       // Reset form data for new template
@@ -1221,6 +1436,21 @@ const CreateFeatureSheet = forwardRef<
       const pdf = uploadedPdfs.find((pdf) => pdf.name === template);
       if (pdf) {
         setCustomPdf(pdf);
+      } else if (savedSheet && savedSheet.type === "pdf") {
+        const fallbackUrl =
+          savedSheet.url ||
+          featureSheetService.buildStorageUrl(savedSheet.pdf_url) ||
+          featureSheetService.buildStorageUrl(savedSheet.pdf_path) ||
+          ((savedSheet as any).pdf_s3_key
+            ? featureSheetService.buildStorageUrl(
+                (savedSheet as any).pdf_s3_key,
+              )
+            : "") ||
+          "";
+        setCustomPdf({
+          name: effectiveKey,
+          url: fallbackUrl,
+        });
       }
     } else {
       setCustomPdf(null);
@@ -1433,7 +1663,7 @@ const CreateFeatureSheet = forwardRef<
                       if (!template) return activeTab === "listing";
                       return template?.type === activeTab;
                     })
-                    .map((sheet) => {
+                    .map((sheet, sheetIndex) => {
                       const statusInfo = getSheetBookingAndInvoiceStatus(
                         sheet,
                         orderData,
@@ -1450,7 +1680,10 @@ const CreateFeatureSheet = forwardRef<
                           <div className="text-start">
                             <div className="flex items-center justify-between">
                               <p className="text-[24px] text-[#666666]">
-                                {getTemplateLabel(sheet.template_key)}
+                                {formatPdfName(
+                                  sheet.template_key || sheet.uuid,
+                                  sheetIndex,
+                                )}
                               </p>
                               {statusInfo.invoice && (
                                 <span
@@ -1481,7 +1714,9 @@ const CreateFeatureSheet = forwardRef<
                               <p
                                 className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
                                 onClick={() => {
-                                  setSelectedTemplate(sheet.template_key);
+                                  handleTemplateChange(
+                                    sheet.template_key || sheet.uuid,
+                                  );
                                   setSelectedSheetUuid(sheet.uuid);
                                 }}
                               >
@@ -1516,56 +1751,119 @@ const CreateFeatureSheet = forwardRef<
                           </div>
                           <div
                             onClick={() => {
-                              setSelectedTemplate(sheet.template_key);
+                              handleTemplateChange(
+                                sheet.template_key || sheet.uuid,
+                              );
                               setSelectedSheetUuid(sheet.uuid);
                             }}
                             className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === sheet.template_key && selectedSheetUuid === sheet.uuid ? `${userType}-border shadow-md` : "border-gray-300 shadow-md"} relative`}
                           >
-                            <FeatureSheetThumbnail
-                              images={getThumbnailUrls(sheet.template_key)}
-                              className="w-full h-[400px]"
-                            >
-                              <div
-                                onClick={(e) => {
-                                  if (isSheetBookedUnpaid) {
-                                    e.stopPropagation();
-                                    if (
-                                      onOpenInvoice &&
-                                      statusInfo.orderService
-                                    ) {
-                                      onOpenInvoice(
-                                        statusInfo.orderService.custom ||
-                                          "Feature Sheets",
-                                        statusInfo.orderService.uuid,
-                                        sheet.uuid,
-                                        sheet.id,
-                                      );
-                                    } else {
-                                      setSelectedSheetUuid(sheet.uuid);
-                                      setIsPaymentModalOpen(true);
+                            {sheet.type === "pdf" ? (
+                              <div className="w-full h-[400px] bg-gradient-to-br from-red-50/70 to-gray-50 border border-gray-200 rounded-lg flex flex-col items-center justify-center p-6 text-center group hover:border-red-300 transition-all relative">
+                                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-red-100 flex items-center justify-center text-red-500 mb-4 group-hover:scale-110 transition-transform">
+                                  <FileText className="w-8 h-8 text-red-600" />
+                                </div>
+                                <span className="text-sm font-bold text-gray-800 line-clamp-2 px-2 max-w-full break-words">
+                                  {formatPdfName(
+                                    sheet.template_key || sheet.uuid,
+                                    sheetIndex,
+                                  )}
+                                </span>
+                                <span className="text-xs text-gray-400 mt-1 font-semibold uppercase tracking-wider">
+                                  Uploaded PDF Feature Sheet
+                                </span>
+                                <div className="mt-4 px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5" />
+                                  PDF Document
+                                </div>
+                                <div
+                                  onClick={(e) => {
+                                    if (isSheetBookedUnpaid) {
+                                      e.stopPropagation();
+                                      if (
+                                        onOpenInvoice &&
+                                        statusInfo.orderService
+                                      ) {
+                                        onOpenInvoice(
+                                          statusInfo.orderService.custom ||
+                                            "Feature Sheets",
+                                          statusInfo.orderService.uuid,
+                                          sheet.uuid,
+                                          sheet.id,
+                                        );
+                                      } else {
+                                        setSelectedSheetUuid(sheet.uuid);
+                                        setIsPaymentModalOpen(true);
+                                      }
                                     }
+                                  }}
+                                  title={
+                                    isSheetBookedUnpaid
+                                      ? "Click to view invoice / pay print request"
+                                      : undefined
                                   }
-                                }}
-                                title={
-                                  isSheetBookedUnpaid
-                                    ? "Click to view invoice / pay print request"
-                                    : undefined
-                                }
-                                className={`absolute top-2 right-2 text-white text-xs px-2.5 py-1 rounded z-20 font-medium ${
-                                  isSheetPaid
-                                    ? "bg-[#6BAE41]"
+                                  className={`absolute top-2 right-2 text-white text-xs px-2.5 py-1 rounded z-20 font-medium ${
+                                    isSheetPaid
+                                      ? "bg-[#6BAE41]"
+                                      : isSheetBookedUnpaid
+                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                        : `${userType}-bg`
+                                  }`}
+                                >
+                                  {isSheetPaid
+                                    ? "Paid"
                                     : isSheetBookedUnpaid
-                                      ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
-                                      : `${userType}-bg`
-                                }`}
-                              >
-                                {isSheetPaid
-                                  ? "Paid"
-                                  : isSheetBookedUnpaid
-                                    ? "Booked (Unpaid)"
-                                    : "Saved"}
+                                      ? "Booked (Unpaid)"
+                                      : "PDF Sheet"}
+                                </div>
                               </div>
-                            </FeatureSheetThumbnail>
+                            ) : (
+                              <FeatureSheetThumbnail
+                                images={getThumbnailUrls(sheet.template_key)}
+                                className="w-full h-[400px]"
+                              >
+                                <div
+                                  onClick={(e) => {
+                                    if (isSheetBookedUnpaid) {
+                                      e.stopPropagation();
+                                      if (
+                                        onOpenInvoice &&
+                                        statusInfo.orderService
+                                      ) {
+                                        onOpenInvoice(
+                                          statusInfo.orderService.custom ||
+                                            "Feature Sheets",
+                                          statusInfo.orderService.uuid,
+                                          sheet.uuid,
+                                          sheet.id,
+                                        );
+                                      } else {
+                                        setSelectedSheetUuid(sheet.uuid);
+                                        setIsPaymentModalOpen(true);
+                                      }
+                                    }
+                                  }}
+                                  title={
+                                    isSheetBookedUnpaid
+                                      ? "Click to view invoice / pay print request"
+                                      : undefined
+                                  }
+                                  className={`absolute top-2 right-2 text-white text-xs px-2.5 py-1 rounded z-20 font-medium ${
+                                    isSheetPaid
+                                      ? "bg-[#6BAE41]"
+                                      : isSheetBookedUnpaid
+                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                        : `${userType}-bg`
+                                  }`}
+                                >
+                                  {isSheetPaid
+                                    ? "Paid"
+                                    : isSheetBookedUnpaid
+                                      ? "Booked (Unpaid)"
+                                      : "Saved"}
+                                </div>
+                              </FeatureSheetThumbnail>
+                            )}
                           </div>
                         </div>
                       );
@@ -1972,15 +2270,18 @@ const CreateFeatureSheet = forwardRef<
                                       );
                                     })}
 
-                                  {/* Uploaded Sheets */}
-                                  {uploadedPdfs.length > 0 && (
+                                  {/* Uploaded PDF Sheets */}
+                                  {(uploadedPdfs.length > 0 ||
+                                    featureSheets.some(
+                                      (s) => s.type === "pdf",
+                                    )) && (
                                     <>
-                                      <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
-                                        Uploaded Sheets
+                                      <div className="px-2 py-1.5 text-xs font-bold text-red-500 uppercase tracking-wider bg-red-50 sticky top-0 z-10 border-b border-red-100 mt-2">
+                                        Uploaded PDF Sheets
                                       </div>
-                                      {uploadedPdfs.map((pdf) => (
+                                      {uploadedPdfs.map((pdf, idx) => (
                                         <SelectItem
-                                          key={pdf.name}
+                                          key={`uploaded-${pdf.name || idx}`}
                                           value={pdf.name}
                                           className="cursor-pointer py-1.5"
                                         >
@@ -1989,11 +2290,44 @@ const CreateFeatureSheet = forwardRef<
                                               PDF
                                             </div>
                                             <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
-                                              {pdf.name}
+                                              {formatPdfName(pdf.name, idx)}
                                             </span>
                                           </div>
                                         </SelectItem>
                                       ))}
+                                      {featureSheets
+                                        .filter(
+                                          (s) =>
+                                            s.type === "pdf" &&
+                                            !uploadedPdfs.some(
+                                              (p) =>
+                                                p.name ===
+                                                (s.template_key || s.uuid),
+                                            ),
+                                        )
+                                        .map((sheet, idx) => {
+                                          const key =
+                                            sheet.template_key || sheet.uuid;
+                                          return (
+                                            <SelectItem
+                                              key={sheet.uuid || key}
+                                              value={key}
+                                              className="cursor-pointer py-1.5"
+                                            >
+                                              <div className="flex items-center gap-3">
+                                                <div className="w-7 h-9 bg-red-50 border border-red-200 rounded flex items-center justify-center text-[10px] font-bold text-red-600 shrink-0 shadow-sm">
+                                                  PDF
+                                                </div>
+                                                <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
+                                                  {formatPdfName(
+                                                    key,
+                                                    uploadedPdfs.length + idx,
+                                                  )}
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          );
+                                        })}
                                     </>
                                   )}
                                 </SelectContent>
@@ -2208,9 +2542,9 @@ const CreateFeatureSheet = forwardRef<
                                       <div className="px-2 py-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 z-10 border-b border-gray-100 mt-2">
                                         Uploaded Sheets
                                       </div>
-                                      {uploadedPdfs.map((pdf) => (
+                                      {uploadedPdfs.map((pdf, idx) => (
                                         <SelectItem
-                                          key={pdf.name}
+                                          key={pdf.name || idx}
                                           value={pdf.name}
                                           className="cursor-pointer py-1.5"
                                         >
@@ -2219,7 +2553,7 @@ const CreateFeatureSheet = forwardRef<
                                               PDF
                                             </div>
                                             <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
-                                              {pdf.name}
+                                              {formatPdfName(pdf.name, idx)}
                                             </span>
                                           </div>
                                         </SelectItem>
@@ -2240,115 +2574,107 @@ const CreateFeatureSheet = forwardRef<
                   value="FeatureSheetPreview"
                   className="feature-sheet-preview-item border-t-[1px] border-[#BBBBBB] relative z-[55]"
                 >
-                  <AccordionTrigger
-                    className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
-                  >
-                    <div className="flex items-center justify-between w-full pr-4">
+                  <div className="sticky top-0 z-[60] flex items-center justify-between w-full bg-[#E4E4E4] pr-4 border-b border-[#BBBBBB]">
+                    <AccordionTrigger
+                      className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] flex-1 ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
+                    >
                       <span className="flex items-center gap-2">
                         Feature Sheet Preview
                       </span>
-                      {!isReadonly && (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2.5 normal-case tracking-normal"
+                    </AccordionTrigger>
+                    {!isReadonly && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2.5 normal-case tracking-normal shrink-0 z-10"
+                      >
+                        {/* Save Feature Sheet button */}
+                        <button
+                          type="button"
+                          disabled={isSaving}
+                          onClick={handleSaveFeatureSheet}
+                          className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
                         >
-                          {/* Save Feature Sheet button */}
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={handleSaveFeatureSheet}
-                            className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50 disabled:opacity-50`}
-                          >
-                            {isSaving ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Saving...
-                              </>
-                            ) : (
-                              "Save Sheet"
-                            )}
-                          </button>
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Sheet"
+                          )}
+                        </button>
 
-                          {/* Download PDF Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                disabled={isDownloading}
-                                className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
-                              >
-                                {isDownloading ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Processing...
-                                  </>
-                                ) : (
-                                  "Download PDF"
-                                )}
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-[220px]"
+                        {/* Download PDF Dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={isDownloading}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
                             >
-                              <DropdownMenuItem
-                                onClick={() => handleDownload(false, false)}
-                                className="cursor-pointer"
-                              >
-                                Download (No Bleed)
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload(true, false)}
-                                className="cursor-pointer"
-                              >
-                                Download (With Bleed)
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-
-                          {/* Publish Check Toggle */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTogglePublish(!isPublished);
-                            }}
-                            className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-[13px] h-[32px] font-semibold rounded-[6px] border transition-all ${
-                              isPublished
-                                ? "bg-cyan-50 text-cyan-700 border-cyan-300 hover:bg-cyan-100 shadow-2xs"
-                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                            }`}
-                            title="Toggle publish status for public tour"
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                "Download PDF"
+                              )}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-[220px]"
                           >
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                isPublished
-                                  ? "bg-cyan-500 animate-pulse"
-                                  : "bg-gray-400"
-                              }`}
-                            />
-                            <span>
-                              {isPublished
-                                ? "Published in Tour"
-                                : "Publish to Tour"}
-                            </span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </AccordionTrigger>
+                            <DropdownMenuItem
+                              onClick={() => handleDownload(false, false)}
+                              className="cursor-pointer"
+                            >
+                              Download (No Bleed)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDownload(true, false)}
+                              className="cursor-pointer"
+                            >
+                              Download (With Bleed)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Publish Check Toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePublish(!isPublished);
+                          }}
+                          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-[13px] h-[32px] font-semibold rounded-[6px] border transition-all ${
+                            isPublished
+                              ? "bg-cyan-50 text-cyan-700 border-cyan-300 hover:bg-cyan-100 shadow-2xs"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                          title="Toggle publish status for public tour"
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isPublished
+                                ? "bg-cyan-500 animate-pulse"
+                                : "bg-gray-400"
+                            }`}
+                          />
+                          <span>
+                            {isPublished
+                              ? "Published in Tour"
+                              : "Publish to Tour"}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <AccordionContent className="grid gap-4 !overflow-visible !max-h-full preview-accordion-content">
                     <style>{`
                       .pdf-page {
                         scroll-margin-top: 140px;
-                      }
-                      /* Make AccordionTrigger Header sticky */
-                      .feature-sheet-preview-item > h3 {
-                        position: sticky !important;
-                        top: 0 !important;
-                        z-index: 60 !important;
-                        border-top: 1px solid #BBBBBB;
-                        border-bottom: 1px solid #BBBBBB;
                       }
                       /* Override Shadcn AccordionContent overflow */
                       .feature-sheet-preview-item > div {
@@ -2886,6 +3212,105 @@ const CreateFeatureSheet = forwardRef<
                                 orderData={orderData || null}
                               />
                             )}
+
+                            {/* Custom PDF Upload / Saved PDF Sheet Preview */}
+                            {(() => {
+                              const currentSheet =
+                                featureSheets.find(
+                                  (s) => s.uuid === selectedSheetUuid,
+                                ) ||
+                                featureSheets.find(
+                                  (s) => s.template_key === selectedTemplate,
+                                );
+
+                              const isPdf =
+                                currentSheet?.type === "pdf" ||
+                                customPdf !== null ||
+                                (selectedTemplate &&
+                                  !selectedTemplate.startsWith("BCFPStandard"));
+
+                              if (!isPdf) return null;
+
+                              const activePdfUrl =
+                                customPdf?.url ||
+                                currentSheet?.url ||
+                                uploadedPdfs.find(
+                                  (p) => p.name === selectedTemplate,
+                                )?.url ||
+                                (currentSheet
+                                  ? featureSheetService.buildStorageUrl(
+                                      currentSheet.pdf_url,
+                                    ) ||
+                                    featureSheetService.buildStorageUrl(
+                                      currentSheet.pdf_path,
+                                    ) ||
+                                    ((currentSheet as any).pdf_s3_key
+                                      ? featureSheetService.buildStorageUrl(
+                                          (currentSheet as any).pdf_s3_key,
+                                        )
+                                      : null)
+                                  : null);
+                              const rawPdfName =
+                                customPdf?.name ||
+                                currentSheet?.template_key ||
+                                selectedTemplate;
+                              const activePdfName = formatPdfName(
+                                rawPdfName,
+                                0,
+                              );
+
+                              const displayUrl =
+                                pdfViewerBlobUrl || activePdfUrl;
+
+                              return (
+                                <div className="w-full flex flex-col items-center p-4">
+                                  {/* PDF Header Info Banner */}
+                                  <div className="w-full max-w-[8.5in] flex items-center justify-between bg-white border border-gray-200 p-4 rounded-xl shadow-xs mb-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100">
+                                        <FileText className="w-6 h-6" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-bold text-gray-800">
+                                          {activePdfName}
+                                        </h4>
+                                        <p className="text-xs text-gray-500 font-medium">
+                                          Uploaded PDF Feature Sheet Document
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* PDF Viewer Container / Loading State */}
+                                  <div className="w-[8.5in] h-[11in] bg-white rounded-xl border border-gray-200 overflow-hidden shadow-md pointer-events-auto relative">
+                                    {isLoadingPdfViewerBlob ? (
+                                      <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400 bg-gray-50 p-8">
+                                        <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+                                        <p className="text-sm font-medium text-gray-600">
+                                          Loading PDF Document Preview...
+                                        </p>
+                                      </div>
+                                    ) : displayUrl ? (
+                                      <iframe
+                                        src={`${displayUrl}#toolbar=0&navpanes=0&view=FitH`}
+                                        className="w-full h-full border-0"
+                                        title={
+                                          activePdfName ||
+                                          "PDF Feature Sheet Preview"
+                                        }
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400 bg-gray-50 p-8">
+                                        <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+                                        <p className="text-sm font-medium text-gray-600">
+                                          Loading PDF Document Preview...
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

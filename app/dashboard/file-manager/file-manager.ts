@@ -2077,7 +2077,7 @@ export class FeatureSheetService {
     }
 
     const response = await api.put(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      `/feature-sheets/${uuid}`,
       updatePayload,
     );
 
@@ -2133,7 +2133,7 @@ export class FeatureSheetService {
     }
 
     const response = await api.put(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      `/feature-sheets/${uuid}`,
       apiPayload,
     );
 
@@ -2181,7 +2181,7 @@ export class FeatureSheetService {
 
     // Step 3: Create feature sheet record using the S3 key
     const response = await api.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
+      `/feature-sheets`,
       {
         order_uuid: orderUuid,
         type: "pdf",
@@ -2199,7 +2199,7 @@ export class FeatureSheetService {
 
   async deleteFeatureSheet(uuid: string): Promise<void> {
     const response = await api.delete(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      `/feature-sheets/${uuid}`,
     );
 
     if (response.status !== 200 && response.status !== 204) {
@@ -2209,7 +2209,7 @@ export class FeatureSheetService {
 
   async getFeatureSheet(uuid: string): Promise<FeatureSheetResponse> {
     const response = await api.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      `/feature-sheets/${uuid}`,
     );
 
     if (response.status !== 200) {
@@ -2224,7 +2224,7 @@ export class FeatureSheetService {
     isPublicView: boolean = false,
   ): Promise<FeatureSheetResponse[]> {
     try {
-      const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}${isPublicView ? "?public=true" : ""}`;
+      const endpoint = `/feature-sheets/order/${orderUuid}${isPublicView ? "?public=true" : ""}`;
       const response = await api.get(endpoint);
 
       if (response.status === 200) {
@@ -2233,7 +2233,8 @@ export class FeatureSheetService {
     } catch (err) {
       console.warn("api.get failed for feature sheets by order, attempting fetch fallback:", err);
       try {
-        const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}${isPublicView ? "?public=true" : ""}`;
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const endpoint = `${baseUrl}/feature-sheets/order/${orderUuid}${isPublicView ? "?public=true" : ""}`;
         const res = await fetch(endpoint);
         if (res.ok) {
           const json = await res.json();
@@ -2253,7 +2254,7 @@ export class FeatureSheetService {
    */
   async getFeatureSheetsByAgent(): Promise<FeatureSheetResponse[]> {
     const response = await api.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/agent/all`,
+      `/feature-sheets/agent/all`,
     );
 
     if (response.status !== 200) {
@@ -2265,7 +2266,7 @@ export class FeatureSheetService {
 
   async requestPrint(uuid: string, data: PrintRequestData): Promise<void> {
     const response = await api.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}/print-request`,
+      `/feature-sheets/${uuid}/print-request`,
       data,
     );
 
@@ -2338,8 +2339,11 @@ export class FeatureSheetService {
    * Parse payload and return state objects for component
    */
   parsePayloadToState(payload: FeatureSheetResponse): FeatureSheetState {
+    const content = payload?.content || ({} as any);
+    const images = payload?.images || [];
+
     // Separate property images for indexing
-    const propertyImages = payload.images.filter(
+    const propertyImages = images.filter(
       (img) => img.slot === "property" || img.slot?.startsWith("image"),
     );
 
@@ -2354,10 +2358,10 @@ export class FeatureSheetService {
 
     return {
       // Metadata
-      templateKey: payload.template_key,
-      orderUuid: payload.order_id,
-      uploadedBy: payload.uploaded_by,
-      type: payload.type,
+      templateKey: payload?.template_key || "",
+      orderUuid: payload?.order_id || "",
+      uploadedBy: payload?.uploaded_by || "admin",
+      type: payload?.type || "template",
 
       // Theme
       primaryColor: "#4290E9",
@@ -2365,66 +2369,66 @@ export class FeatureSheetService {
       borderColor: "#BBBBBB",
 
       // Content
-      offeredAtPrice: getString(payload.content.offeredAtPrice),
-      realtorTitle: getString(payload.content.realtorTitle),
-      realtorName: getString(payload.content.realtorName),
-      companyName: getString(payload.content.companyName),
-      propertyNotesTitle: getString(payload.content.propertyNotesTitle),
-      propertyNotesDescription: getString(payload.content.propertyNotesDescription),
-      expandedDetail1Title: getString(payload.content.expandedDetail1Title) || "Site Influences",
-      expandedDetail1Description: getString(payload.content.expandedDetail1Description) || getString(payload.content.expandedDetail1),
-      expandedDetail2Title: getString(payload.content.expandedDetail2Title) || "Gross Taxes",
-      expandedDetail2Description: getString(payload.content.expandedDetail2Description) || getString(payload.content.expandedDetail2),
-      keyHighlightLabel: getString(payload.content.keyHighlightLabel) || "Features Included",
-      keyHighlights: (payload.content.keyHighlights as any)?.value || [],
-      highlights: (payload.content.highlights as any)?.value || [],
-      emailLink: getString(payload.content.emailLink),
-      linkedinLink: getString(payload.content.linkedinLink),
-      phoneNumber: getString(payload.content.phoneNumber),
-      contactLabel: getString(payload.content.contactLabel),
-      contactInfo: getString(payload.content.contactInfo),
-      ctaText: getString(payload.content.ctaText),
+      offeredAtPrice: getString(content.offeredAtPrice),
+      realtorTitle: getString(content.realtorTitle),
+      realtorName: getString(content.realtorName),
+      companyName: getString(content.companyName),
+      propertyNotesTitle: getString(content.propertyNotesTitle),
+      propertyNotesDescription: getString(content.propertyNotesDescription),
+      expandedDetail1Title: getString(content.expandedDetail1Title) || "Site Influences",
+      expandedDetail1Description: getString(content.expandedDetail1Description) || getString(content.expandedDetail1),
+      expandedDetail2Title: getString(content.expandedDetail2Title) || "Gross Taxes",
+      expandedDetail2Description: getString(content.expandedDetail2Description) || getString(content.expandedDetail2),
+      keyHighlightLabel: getString(content.keyHighlightLabel) || "Features Included",
+      keyHighlights: (content.keyHighlights as any)?.value || [],
+      highlights: (content.highlights as any)?.value || [],
+      emailLink: getString(content.emailLink),
+      linkedinLink: getString(content.linkedinLink),
+      phoneNumber: getString(content.phoneNumber),
+      contactLabel: getString(content.contactLabel),
+      contactInfo: getString(content.contactInfo),
+      ctaText: getString(content.ctaText),
       amount:
         getString(
-          (payload.content.otherDetails as unknown as Record<string, unknown>)
+          (content.otherDetails as unknown as Record<string, unknown>)
             ?.amount
         ),
       mlsNumber:
         getString(
-          (payload.content.otherDetails as unknown as Record<string, unknown>)
+          (content.otherDetails as unknown as Record<string, unknown>)
             ?.mlsNumber
         ),
-      email: getString(payload.content.emailLink),
-      phone: getString(payload.content.phoneNumber),
-      linkedin: getString(payload.content.linkedinLink),
-      expandedDetail3Title: getString(payload.content.expandedDetail3Title),
+      email: getString(content.emailLink),
+      phone: getString(content.phoneNumber),
+      linkedin: getString(content.linkedinLink),
+      expandedDetail3Title: getString(content.expandedDetail3Title),
       expandedDetail3Description: getString(
-        payload.content.expandedDetail3Description
+        content.expandedDetail3Description
       ),
-      expandedDetail4Title: getString(payload.content.expandedDetail4Title),
+      expandedDetail4Title: getString(content.expandedDetail4Title),
       expandedDetail4Description: getString(
-        payload.content.expandedDetail4Description
+        content.expandedDetail4Description
       ),
       otherDetails: Object.fromEntries(
-        Object.entries((payload.content.otherDetails as Record<string, any>) || {}).map(([k, v]) => [
+        Object.entries((content.otherDetails as Record<string, any>) || {}).map(([k, v]) => [
           k,
           getString(v),
         ])
       ),
 
       // Mapped for BcfpStandard2 state
-      title: getString(payload.content.offeredAtPrice),
-      subtitle: getString(payload.content.realtorTitle),
-      fullName: getString(payload.content.realtorName),
-      propertyName: getString(payload.content.propertyNotesTitle),
-      description: getString(payload.content.propertyNotesDescription),
+      title: getString(content.offeredAtPrice),
+      subtitle: getString(content.realtorTitle),
+      fullName: getString(content.realtorName),
+      propertyName: getString(content.propertyNotesTitle),
+      description: getString(content.propertyNotesDescription),
       siteInfluences:
-        getString(payload.content.expandedDetail1Description) ||
-        getString(payload.content.expandedDetail1),
+        getString(content.expandedDetail1Description) ||
+        getString(content.expandedDetail1),
       grossTaxes:
-        getString(payload.content.expandedDetail2Description) ||
-        getString(payload.content.expandedDetail2),
-      featuresIncluded: ((payload.content.keyHighlights as any)?.value?.join("\n") ||
+        getString(content.expandedDetail2Description) ||
+        getString(content.expandedDetail2),
+      featuresIncluded: ((content.keyHighlights as any)?.value?.join("\n") ||
         "") as string,
 
       // Images — start with DB-backed feature sheet images (blob uploads)
@@ -2432,7 +2436,7 @@ export class FeatureSheetService {
         const acc: { [key: string]: string | null } = {};
 
         // 1. Populate from FeatureSheetImage DB records (blob / new uploads)
-        for (const img of payload.images) {
+        for (const img of images) {
           let slot = img.slot;
           if (slot === 'property') {
             const propIndex = propertyImages.findIndex(
@@ -2455,7 +2459,7 @@ export class FeatureSheetService {
 
         //    the user selected from the gallery (no re-encoding needed).
         //    Skip any corrupted feature-sheets URLs that were accidentally bound earlier.
-        const galleryImages = (payload.content as Record<string, unknown>)
+        const galleryImages = (content as Record<string, unknown>)
           ?.galleryImages as Record<string, string> | undefined;
         if (galleryImages) {
           for (const [slot, url] of Object.entries(galleryImages)) {
@@ -2471,7 +2475,7 @@ export class FeatureSheetService {
 
       imageUuids: (() => {
         const acc: { [key: string]: string | null } = {};
-        for (const img of payload.images) {
+        for (const img of images) {
           let slot = img.slot;
           if (slot === 'property') {
             const propIndex = propertyImages.findIndex(

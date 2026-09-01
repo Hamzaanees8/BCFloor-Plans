@@ -1272,6 +1272,7 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onNavigateToTab={(tab) => handleTabChange(tab)}
           />
         );
       case "Standard Photos":
