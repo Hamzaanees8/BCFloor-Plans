@@ -9,6 +9,8 @@ export interface TextStyle {
     alignContent?: "start" | "center" | "end" | "space-between";
     lineHeight?: string;
     letterSpacing?: string;
+    fontStyle?: "normal" | "italic";
+    textDecoration?: "none" | "underline";
 }
 
 export interface DetailField {
@@ -206,7 +208,6 @@ export interface FeatureSheetPayload {
     order_uuid: string;
     type: FeatureSheetType;
     uploaded_by: UploadedBy;
-    is_published?: boolean;
     // For template sheets:
     template_key?: string;
     theme?: FeatureSheetTheme;
@@ -214,6 +215,7 @@ export interface FeatureSheetPayload {
     image_uuids?: string[];   // UUIDs from the confirm step — sent to backend
     // For PDF sheets:
     pdf_s3_key?: string;
+    is_published?: boolean;
     // Internal only — used by buildPayload, never sent to backend directly
     images?: FeatureSheetImage[];
     fieldStyles?: Record<string, any>;
@@ -244,7 +246,6 @@ export interface FeatureSheetState {
     orderUuid: string;
     uploadedBy: UploadedBy;
     type: FeatureSheetType;
-    is_published?: boolean;
     primaryColor: string;
     backgroundColor: string;
     borderColor: string;
@@ -315,6 +316,8 @@ export interface DraggingState {
 
 export interface PrintRequestData {
     copies: number;
+    option_id?: string;
+    amount?: number;
     with_bleed: boolean;
     additional_info?: string;
     agent_id: string;

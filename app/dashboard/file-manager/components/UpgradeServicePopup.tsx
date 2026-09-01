@@ -77,19 +77,38 @@ export default function UpgradeServicePopup({
 
             // Map all services from the order, updating the current one
             const allServices = (orderData.services || []).map(orderService => {
+                const fsUuid = (orderService as any).feature_sheet_uuid || (orderService as any).feature_sheet?.uuid;
+                const fsId = (orderService as any).feature_sheet_id || (orderService as any).feature_sheet?.id;
+                let customName = (orderService as any).custom;
+
                 if (orderService.uuid === currentBookedService.uuid) {
+                    if (customName && selectedOption?.title) {
+                        if (customName.includes(" - ")) {
+                            const baseName = customName.split(" - ")[0];
+                            const optionTitle = selectedOption.title.toLowerCase().includes("copies")
+                                ? selectedOption.title
+                                : `${selectedOption.title} Copies`;
+                            customName = `${baseName} - ${optionTitle}`;
+                        }
+                    }
                     return {
                         service_id: currentService.uuid,
                         option_id: selected,
                         amount: Number(selectedOption.amount ?? 0),
-                        uuid: orderService.uuid
+                        uuid: orderService.uuid,
+                        custom: customName,
+                        feature_sheet_uuid: fsUuid,
+                        feature_sheet_id: fsId,
                     }
                 }
                 return {
-                    service_id: orderService.service.uuid,
-                    option_id: orderService.option.uuid,
+                    service_id: orderService.service?.uuid || (orderService as any).service_id || String(orderService.service_id || ""),
+                    option_id: orderService.option?.uuid || (orderService as any).option_id || (orderService.option_id ? String(orderService.option_id) : undefined),
                     amount: Number(orderService.amount),
-                    uuid: orderService.uuid
+                    uuid: orderService.uuid,
+                    custom: customName,
+                    feature_sheet_uuid: fsUuid,
+                    feature_sheet_id: fsId,
                 }
             })
 

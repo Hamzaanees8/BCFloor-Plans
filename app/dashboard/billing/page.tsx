@@ -30,6 +30,7 @@ import {
   isPaidOrSucceeded,
   isRefunded,
   getBestTargetInvoice,
+  prepareOrderInvoicePreview,
 } from "./billing";
 import {
   ChevronDown,
@@ -125,7 +126,7 @@ const Page = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showAgain, setShowAgain] = useState(true);
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -381,6 +382,7 @@ const Page = () => {
     action: "pay" | "view",
     serviceId?: string,
     serviceAmount?: number,
+    serviceNumericId?: number | string,
   ) => {
     try {
       setInvoicesLoading(true);
@@ -388,13 +390,24 @@ const Page = () => {
       const res = await GetInvoicesByOrder(billing.order_uuid);
       const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
 
-      const targetInvoice = getBestTargetInvoice(invoicesList, serviceId);
+      const targetInvoice = getBestTargetInvoice(
+        invoicesList,
+        serviceId,
+        serviceNumericId,
+      );
 
       if (action === "view") {
         if (targetInvoice) {
           setActionLoading(null);
+          const previewInvoice = serviceId
+            ? targetInvoice
+            : prepareOrderInvoicePreview(
+                invoicesList,
+                targetInvoice,
+                billing,
+              ) || targetInvoice;
           setServiceInvoicePopup({
-            invoice: targetInvoice,
+            invoice: previewInvoice,
             billing,
             serviceId,
           });
@@ -488,121 +501,111 @@ const Page = () => {
     setPendingAction(null);
   };
 
-  const toggleRow = async (index: number) => {
-    const isExpanding = expandedRow !== index;
-    setExpandedRow(isExpanding ? index : null);
-    if (isExpanding) {
-      const billing = sortedBillings[index];
-      if (
-        billing &&
-        !rowInvoices[billing.order_uuid] &&
-        !rowInvoicesLoading[billing.order_uuid]
-      ) {
-        setRowInvoicesLoading((prev) => ({
-          ...prev,
-          [billing.order_uuid]: true,
-        }));
-        try {
-          const res = await GetInvoicesByOrder(billing.order_uuid);
-          const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
-          setRowInvoices((prev) => ({
-            ...prev,
-            [billing.order_uuid]: invoicesList,
-          }));
-        } catch (err) {
-          console.error("Failed to load row invoice:", err);
-        } finally {
-          setRowInvoicesLoading((prev) => ({
-            ...prev,
-            [billing.order_uuid]: false,
-          }));
-        }
-      }
-
-      // Fetch media per service for agent restriction
-      if (
-        billing &&
-        !rowServiceMedia[billing.order_uuid] &&
-        !rowMediaLoading[billing.order_uuid]
-      ) {
-        setRowMediaLoading((prev) => ({ ...prev, [billing.order_uuid]: true }));
-        try {
-          const token = localStorage.getItem("token") || "";
-          const filesData = await GetFilesData(token, billing.order_uuid);
-          // API returns { data: Tour[] } where each Tour has .files[] and .links[]
-          const tours: any[] = Array.isArray(filesData?.data) ? filesData.data : [];
-          const files: any[] = tours.flatMap((t: any) => Array.isArray(t.files) ? t.files : []);
-          const links: any[] = tours.flatMap((t: any) => Array.isArray(t.links) ? t.links : []);
-          const serviceIdsWithMedia = new Set<number | string>();
-          files.forEach((f: any) => {
-            if (f.service_id != null) {
-              serviceIdsWithMedia.add(f.service_id);
-              serviceIdsWithMedia.add(String(f.service_id));
-            }
-            if (f.service?.id != null) {
-              serviceIdsWithMedia.add(f.service.id);
-              serviceIdsWithMedia.add(String(f.service.id));
-            }
-            if (f.service?.uuid) {
-              serviceIdsWithMedia.add(f.service.uuid);
-            }
-          });
-          links.forEach((l: any) => {
-            if (l.link && String(l.link).trim() !== "") {
-              if (l.service_id != null) {
-                serviceIdsWithMedia.add(l.service_id);
-                serviceIdsWithMedia.add(String(l.service_id));
-              }
-              if (l.service?.id != null) {
-                serviceIdsWithMedia.add(l.service.id);
-                serviceIdsWithMedia.add(String(l.service.id));
-              }
-              if (l.service?.uuid) {
-                serviceIdsWithMedia.add(l.service.uuid);
-              }
-            }
-          });
-
-          // Match 3D/Matterport service if any 3D link exists in tour
-          const hasAny3DLink = links.some((l: any) => l.link && String(l.link).trim() !== "");
-          if (hasAny3DLink && Array.isArray(billing.services)) {
-            billing.services.forEach((s: any) => {
-              const sName = (s.service?.name || s.name || "").toLowerCase();
-              if (sName.includes("matterport") || sName.includes("3d tour") || sName.includes("3d floor")) {
-                if (s.service_id != null) {
-                  serviceIdsWithMedia.add(s.service_id);
-                  serviceIdsWithMedia.add(String(s.service_id));
-                }
-                if (s.service?.id != null) {
-                  serviceIdsWithMedia.add(s.service.id);
-                  serviceIdsWithMedia.add(String(s.service.id));
-                }
-                if (s.id != null) {
-                  serviceIdsWithMedia.add(s.id);
-                  serviceIdsWithMedia.add(String(s.id));
-                }
-                if (s.service?.uuid) {
-                  serviceIdsWithMedia.add(s.service.uuid);
-                }
-              }
-            });
-          }
-          setRowServiceMedia((prev) => ({
-            ...prev,
-            [billing.order_uuid]: serviceIdsWithMedia,
-          }));
-        } catch (err) {
-          console.error("Failed to load media for billing row:", err);
-          // On error, store empty set so we don't retry forever
-          setRowServiceMedia((prev) => ({
-            ...prev,
-            [billing.order_uuid]: new Set(),
-          }));
-        } finally {
-          setRowMediaLoading((prev) => ({ ...prev, [billing.order_uuid]: false }));
-        }
-      }
+  const fetchOrderInvoices = useCallback(async (orderUuid: string) => {
+    setRowInvoicesLoading((prev) => ({
+      ...prev,
+      [orderUuid]: true,
+    }));
+    try {
+      const res = await GetInvoicesByOrder(orderUuid);
+      const invoicesList = Array.isArray(res.data) ? res.data : [res.data].filter(Boolean);
+      setRowInvoices((prev) => ({
+        ...prev,
+        [orderUuid]: invoicesList,
+      }));
+      return invoicesList;
+    } catch (err) {
+      console.error("Failed to load row invoice:", err);
+      return [];
+    } finally {
+      setRowInvoicesLoading((prev) => ({
+        ...prev,
+        [orderUuid]: false,
+      }));
     }
+  }, []);
+
+  const fetchOrderMedia = useCallback(async (orderUuid: string, services?: any[]) => {
+    setRowMediaLoading((prev) => ({ ...prev, [orderUuid]: true }));
+    try {
+      const token = localStorage.getItem("token") || "";
+      const filesData = await GetFilesData(token, orderUuid);
+      // API returns { data: Tour[] } where each Tour has .files[] and .links[]
+      const tours: any[] = Array.isArray(filesData?.data) ? filesData.data : [];
+      const files: any[] = tours.flatMap((t: any) => Array.isArray(t.files) ? t.files : []);
+      const links: any[] = tours.flatMap((t: any) => Array.isArray(t.links) ? t.links : []);
+      const serviceIdsWithMedia = new Set<number | string>();
+      files.forEach((f: any) => {
+        if (f.service_id != null) {
+          serviceIdsWithMedia.add(f.service_id);
+          serviceIdsWithMedia.add(String(f.service_id));
+        }
+        if (f.service?.id != null) {
+          serviceIdsWithMedia.add(f.service.id);
+          serviceIdsWithMedia.add(String(f.service.id));
+        }
+        if (f.service?.uuid) {
+          serviceIdsWithMedia.add(f.service.uuid);
+        }
+      });
+      links.forEach((l: any) => {
+        if (l.link && String(l.link).trim() !== "") {
+          if (l.service_id != null) {
+            serviceIdsWithMedia.add(l.service_id);
+            serviceIdsWithMedia.add(String(l.service_id));
+          }
+          if (l.service?.id != null) {
+            serviceIdsWithMedia.add(l.service.id);
+            serviceIdsWithMedia.add(String(l.service.id));
+          }
+          if (l.service?.uuid) {
+            serviceIdsWithMedia.add(l.service.uuid);
+          }
+        }
+      });
+
+      // Match 3D/Matterport service if any 3D link exists in tour
+      const hasAny3DLink = links.some((l: any) => l.link && String(l.link).trim() !== "");
+      if (hasAny3DLink && Array.isArray(services)) {
+        services.forEach((s: any) => {
+          const sName = (s.service?.name || s.name || "").toLowerCase();
+          if (sName.includes("matterport") || sName.includes("3d tour") || sName.includes("3d floor")) {
+            if (s.service_id != null) {
+              serviceIdsWithMedia.add(s.service_id);
+              serviceIdsWithMedia.add(String(s.service_id));
+            }
+            if (s.service?.id != null) {
+              serviceIdsWithMedia.add(s.service.id);
+              serviceIdsWithMedia.add(String(s.service.id));
+            }
+            if (s.id != null) {
+              serviceIdsWithMedia.add(s.id);
+              serviceIdsWithMedia.add(String(s.id));
+            }
+            if (s.service?.uuid) {
+              serviceIdsWithMedia.add(s.service.uuid);
+            }
+          }
+        });
+      }
+      setRowServiceMedia((prev) => ({
+        ...prev,
+        [orderUuid]: serviceIdsWithMedia,
+      }));
+    } catch (err) {
+      console.error("Failed to load media for billing row:", err);
+      // On error, store empty set so we don't retry forever
+      setRowServiceMedia((prev) => ({
+        ...prev,
+        [orderUuid]: new Set(),
+      }));
+    } finally {
+      setRowMediaLoading((prev) => ({ ...prev, [orderUuid]: false }));
+    }
+  }, []);
+
+  const toggleRow = (orderUuid: string) => {
+    setExpandedRow((prev) => (prev === orderUuid ? null : orderUuid));
   };
 
   const handleViewRefundReceipt = (txn: any, billing: any) => {
@@ -666,20 +669,49 @@ const Page = () => {
     loadBillings();
   }, [loadBillings]);
 
+  // Reactive fetch for expanded order invoices and media
+  useEffect(() => {
+    if (!expandedRow) return;
+    const currentBilling = billings.find((b) => b.order_uuid === expandedRow);
+    if (!currentBilling) return;
+
+    if (!rowInvoices[expandedRow] && !rowInvoicesLoading[expandedRow]) {
+      fetchOrderInvoices(expandedRow);
+    }
+    if (!rowServiceMedia[expandedRow] && !rowMediaLoading[expandedRow]) {
+      fetchOrderMedia(expandedRow, currentBilling.services);
+    }
+  }, [
+    expandedRow,
+    billings,
+    rowInvoices,
+    rowInvoicesLoading,
+    rowServiceMedia,
+    rowMediaLoading,
+    fetchOrderInvoices,
+    fetchOrderMedia,
+  ]);
+
+  const handlePaymentSuccess = useCallback(async () => {
+    toast.success("Payment processed successfully! Updating records...");
+    await loadBillings();
+    if (expandedRow) {
+      await fetchOrderInvoices(expandedRow);
+    }
+  }, [loadBillings, expandedRow, fetchOrderInvoices]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const channel = new BroadcastChannel("billing_payment_channel");
     channel.onmessage = (event) => {
       if (event.data === "payment_success") {
-        toast.success("Payment processed successfully! Updating records...");
-        setRowInvoices({});
-        loadBillings();
+        handlePaymentSuccess();
       }
     };
     return () => {
       channel.close();
     };
-  }, [loadBillings]);
+  }, [handlePaymentSuccess]);
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
@@ -717,6 +749,8 @@ const Page = () => {
           channel.close();
         }
 
+        await handlePaymentSuccess();
+
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
         router.replace(`?${params.toString()}`);
@@ -735,7 +769,7 @@ const Page = () => {
     };
 
     processStripePayment();
-  }, [searchParams, router]);
+  }, [searchParams, router, handlePaymentSuccess]);
 
   const uniqueAgents = Array.from(
     new Set(billings.map((billing) => billing.agent_name).filter(Boolean)),
@@ -826,7 +860,11 @@ const Page = () => {
   ) => {
     e.stopPropagation();
     try {
-      setFetchingInvoice(true);
+      if (serviceUuid) {
+        setActionLoading({ id: serviceUuid, action: "refund" });
+      } else {
+        setFetchingInvoice(true);
+      }
       const res = await GetInvoicesByOrder(orderUuid);
       const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
       const targetInvoice = getBestTargetInvoice(invoicesList, serviceUuid);
@@ -848,6 +886,7 @@ const Page = () => {
       toast.error("Failed to process refund request.");
     } finally {
       setFetchingInvoice(false);
+      setActionLoading(null);
     }
   };
 
@@ -1104,7 +1143,7 @@ const Page = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedBillings.map((billing, index) => {
+              paginatedBillings.map((billing) => {
                 const orderInvoiceUrl = getOrderInvoiceUrl(billing);
                 const address = billing.property_address
                   ? `${billing.property_address}, ${billing.property_location || ""} `
@@ -1132,7 +1171,7 @@ const Page = () => {
                   <React.Fragment key={billing.order_uuid}>
                     {/* Main Order Row */}
                     <TableRow
-                      onClick={() => toggleRow(index)}
+                      onClick={() => toggleRow(billing.order_uuid)}
                       className="cursor-pointer hover:bg-gray-100"
                     >
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
@@ -1212,7 +1251,7 @@ const Page = () => {
                               <FileText className="h-4 w-4" />
                             )}
                           </Button>
-                          {expandedRow === index ? (
+                          {expandedRow === billing.order_uuid ? (
                             <ChevronUp className="h-5 w-5 text-gray-600" />
                           ) : (
                             <ChevronDown className="h-5 w-5 text-gray-600" />
@@ -1222,10 +1261,14 @@ const Page = () => {
                     </TableRow>
 
                     {/* Expanded Services Row */}
-                    {expandedRow === index &&
+                    {expandedRow === billing.order_uuid &&
                       (() => {
                         const orderInvoices =
                           rowInvoices[billing.order_uuid] || [];
+                        const isRowInvoicesLoading =
+                          !!rowInvoicesLoading[billing.order_uuid];
+                        const hasLoadedInvoices =
+                          Array.isArray(rowInvoices[billing.order_uuid]);
                         const targetOrderInvoice =
                           getBestTargetInvoice(orderInvoices);
                         const primaryInvoice =
@@ -1271,8 +1314,8 @@ const Page = () => {
                               .includes("cancellation fee") ||
                               inv.items?.some((i: any) =>
                                 i.description
-                                  ?.toLowerCase()
-                                  .includes("cancellation fee"),
+                                   ?.toLowerCase()
+                                   .includes("cancellation fee"),
                               )),
                         );
 
@@ -1345,7 +1388,14 @@ const Page = () => {
                                           </a>
                                         )}
                                         <div className="flex flex-wrap gap-2 items-center">
-                                          {targetOrderInvoice ? (
+                                          {isRowInvoicesLoading && !hasLoadedInvoices ? (
+                                            <Button
+                                              disabled
+                                              className="h-[35px] px-4 border border-[#BBBBBB] text-gray-400 bg-gray-50 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[100px] cursor-not-allowed opacity-80"
+                                            >
+                                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading...
+                                            </Button>
+                                          ) : targetOrderInvoice ? (
                                             <Button
                                               onClick={() =>
                                                 handleInvoiceAction(
@@ -1861,11 +1911,23 @@ const Page = () => {
                                         getBestTargetInvoice(
                                           orderInvoices,
                                           serviceUuid,
+                                          service.service_id,
                                         );
 
-                                      const isServiceRefunded = isRefunded(service.status);
-                                      const isServicePaid = (isPaidOrSucceeded(service.status) || billing.status === "paid") && !isServiceRefunded;
+                                      const isServiceRefunded =
+                                        isRefunded(service.status) ||
+                                        isRefunded(serviceTargetInvoice?.status);
+                                      const isServicePaid =
+                                        ((isPaidOrSucceeded(service.status) ||
+                                          isPaidOrSucceeded(serviceTargetInvoice?.status) ||
+                                          billing.status === "paid" ||
+                                          (parseFloat(serviceTargetInvoice?.paid_amount || 0) > 0 &&
+                                            parseFloat(serviceTargetInvoice?.paid_amount || 0) >=
+                                              parseFloat(serviceTargetInvoice?.total || 0) - 0.01)) &&
+                                        !isServiceRefunded);
                                       const isServiceVoid =
+                                        hasLoadedInvoices &&
+                                        !isRowInvoicesLoading &&
                                         serviceTargetInvoice === null;
 
                                       // Agent media restriction per service
@@ -1920,11 +1982,18 @@ const Page = () => {
                                                         ? "refunded"
                                                         : isServiceVoid
                                                           ? "no invoice"
-                                                          : service.status}
+                                                          : service.status || "unpaid"}
                                                   </span>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                  {serviceTargetInvoice ? (
+                                                  {isRowInvoicesLoading && !hasLoadedInvoices ? (
+                                                    <Button
+                                                      disabled
+                                                      className="h-[30px] px-3 bg-gray-50 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
+                                                    >
+                                                      <Loader2 className="h-3 w-3 animate-spin mr-1" /> Loading
+                                                    </Button>
+                                                  ) : serviceTargetInvoice ? (
                                                     <Button
                                                       onClick={() =>
                                                         handleInvoiceAction(
@@ -1932,6 +2001,7 @@ const Page = () => {
                                                           "view",
                                                           serviceUuid,
                                                           service.amount,
+                                                          service.service_id,
                                                         )
                                                       }
                                                       disabled={
@@ -2020,6 +2090,7 @@ const Page = () => {
                                                               "pay",
                                                               serviceUuid,
                                                               service.amount,
+                                                              service.service_id,
                                                             )
                                                           }
                                                           disabled={
@@ -2562,7 +2633,14 @@ const Page = () => {
                             <div className="flex gap-2 flex-wrap w-full md:justify-end">
                               <Button
                                 variant="outline"
-                                onClick={() => setViewingInvoice(invoice)}
+                                onClick={() => {
+                                  const prepared = prepareOrderInvoicePreview(
+                                    invoices.length > 0 ? invoices : [invoice],
+                                    invoice,
+                                    selectedBilling || undefined,
+                                  );
+                                  setViewingInvoice(prepared || invoice);
+                                }}
                                 className="h-[30px] text-xs px-3 font-normal border border-[#BBBBBB] hover:bg-gray-50 text-[#666666] rounded-[6px] transition-colors"
                               >
                                 View Invoice
@@ -2889,32 +2967,71 @@ const Page = () => {
         }}
         invoice={selectedInvoice}
         defaultAmount={refundDefaultAmount}
-        onSuccess={() => {
-          // Re-fetch billings to update status
-          const loadBillings = async () => {
+        onSuccess={async (updatedInvoice?: any) => {
+          const targetOrderUuid =
+            selectedInvoice?.order?.uuid ||
+            selectedInvoice?.order_uuid ||
+            expandedRow ||
+            selectedBilling?.order_uuid ||
+            serviceInvoicePopup?.billing?.order_uuid ||
+            selectedOrderUuid;
+
+          // 1. Refresh rowInvoices and modal invoices for the affected order
+          if (targetOrderUuid) {
             try {
-              setLoading(true);
-              const data = await getBillings();
-              if (userType === "agent") {
-                const userInfo = JSON.parse(
-                  localStorage.getItem("userInfo") || "{}",
+              const res = await GetInvoicesByOrder(targetOrderUuid);
+              const invoicesList = Array.isArray(res.data)
+                ? res.data
+                : [res.data].filter(Boolean);
+              setRowInvoices((prev) => ({
+                ...prev,
+                [targetOrderUuid]: invoicesList,
+              }));
+              setInvoices(invoicesList);
+            } catch (err) {
+              console.error("Failed to refresh order invoices after refund:", err);
+            }
+          }
+
+          // 2. If an expanded row is open, re-fetch its invoices to update service badges and action buttons
+          if (expandedRow && expandedRow !== targetOrderUuid) {
+            try {
+              await fetchOrderInvoices(expandedRow);
+            } catch (err) {
+              console.error("Failed to refresh expanded row invoices:", err);
+            }
+          }
+
+          // 3. Update serviceInvoicePopup if open
+          if (serviceInvoicePopup && targetOrderUuid) {
+            try {
+              const res = await GetInvoicesByOrder(targetOrderUuid);
+              const invoicesList = Array.isArray(res.data)
+                ? res.data
+                : [res.data].filter(Boolean);
+              const bestTarget = getBestTargetInvoice(
+                invoicesList,
+                serviceInvoicePopup.serviceId,
+              );
+              if (bestTarget) {
+                setServiceInvoicePopup((prev) =>
+                  prev ? { ...prev, invoice: bestTarget } : null,
                 );
-                const agentUuid = userInfo?.uuid;
-                if (agentUuid) {
-                  setBillings(data.filter((b) => b.agent_uuid === agentUuid));
-                } else {
-                  setBillings(data);
-                }
-              } else {
-                setBillings(data);
               }
             } catch (err) {
-              console.error("Failed to reload billings:", err);
-            } finally {
-              setLoading(false);
+              console.error("Failed to refresh serviceInvoicePopup invoice:", err);
             }
-          };
-          loadBillings();
+          }
+
+          // 4. Update viewingInvoice if open
+          if (viewingInvoice) {
+            if (updatedInvoice && viewingInvoice.uuid === updatedInvoice.uuid) {
+              setViewingInvoice(updatedInvoice);
+            }
+          }
+
+          // 5. Reload overall billings table data
+          await loadBillings();
         }}
       />
 

@@ -152,8 +152,11 @@ function payloadToFormData(payload: VendorPayload): FormData {
               opt: {
                 uuid?: string;
                 option_uuid: string;
-                vendor_price: number;
-                adjustment_time: string;
+                pay_type?: string;
+                vendor_price?: number | string;
+                sq_ft_rate?: number | string;
+                min_price?: number | string;
+                adjustment_time: number | string;
               },
               optIndex: number
             ) => {
@@ -162,12 +165,44 @@ function payloadToFormData(payload: VendorPayload): FormData {
                 String(opt.option_uuid)
               );
               formData.append(
-                `services[${index}][options][${optIndex}][vendor_price]`,
-                String(opt.vendor_price)
+                `services[${index}][options][${optIndex}][pay_type]`,
+                String(opt.pay_type || "flat")
               );
+              if (opt.pay_type === "per_sq_ft") {
+                formData.append(
+                  `services[${index}][options][${optIndex}][sq_ft_rate]`,
+                  String(opt.sq_ft_rate ?? 0)
+                );
+                if (
+                  opt.min_price !== undefined &&
+                  opt.min_price !== null &&
+                  opt.min_price !== ""
+                ) {
+                  formData.append(
+                    `services[${index}][options][${optIndex}][min_price]`,
+                    String(opt.min_price)
+                  );
+                }
+                formData.append(
+                  `services[${index}][options][${optIndex}][vendor_price]`,
+                  "0"
+                );
+              } else {
+                formData.append(
+                  `services[${index}][options][${optIndex}][vendor_price]`,
+                  String(opt.vendor_price ?? 0)
+                );
+              }
+              const adjTime =
+                opt.adjustment_time !== undefined &&
+                opt.adjustment_time !== null &&
+                opt.adjustment_time !== "no adjustment" &&
+                (opt.adjustment_time as any) !== ""
+                  ? String(opt.adjustment_time)
+                  : "0";
               formData.append(
                 `services[${index}][options][${optIndex}][adjustment_time]`,
-                String(opt.adjustment_time)
+                adjTime
               );
             }
           );

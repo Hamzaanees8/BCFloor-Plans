@@ -413,6 +413,9 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 service_id: service.service?.uuid as string,
                 option_id: service?.option?.uuid ?? undefined,
                 amount: Number(service?.amount) as number,
+                custom: service?.custom,
+                feature_sheet_uuid: (service as any).feature_sheet_uuid || (service as any).feature_sheet?.uuid,
+                feature_sheet_id: (service as any).feature_sheet_id || (service as any).feature_sheet?.id,
             }));
 
         const calendarServiceUuids = calendarServices.map((s) => {

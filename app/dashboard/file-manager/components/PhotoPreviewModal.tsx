@@ -103,13 +103,22 @@ const PhotoPreviewModal: React.FC<Props> = ({
                             setSubtype(detected);
                         }
                     });
-                } else if (typeof file === 'string') {
-                    detectIsPanoramaFromUrl(file).then(detected => {
-                        if (detected) {
-                            setAutoDetectedSubtype(detected);
-                            setSubtype(detected);
-                        }
-                    });
+                } else {
+                    const targetUrl = typeof file === 'string'
+                        ? file
+                        : (file as any)?.variant_urls?.landing ||
+                          (file as any)?.variant_urls?.popup ||
+                          (file as any)?.url ||
+                          (file as any)?.thumbnail_url ||
+                          ((file as any)?.file_path && (process.env.NEXT_PUBLIC_FILES_API_URL || process.env.NEXT_PUBLIC_API_URL) ? `${process.env.NEXT_PUBLIC_FILES_API_URL || process.env.NEXT_PUBLIC_API_URL}/${(file as any).file_path}` : '');
+                    if (targetUrl) {
+                        detectIsPanoramaFromUrl(targetUrl).then(detected => {
+                            if (detected) {
+                                setAutoDetectedSubtype(detected);
+                                setSubtype(detected);
+                            }
+                        });
+                    }
                 }
             }
         }

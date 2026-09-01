@@ -111,9 +111,11 @@ const FeatureSheetPreviewPage = () => {
   }
 
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("agentToken")) : null;
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const isPreview = searchParams?.get("preview") === "true";
   const isDraft = !featureSheet.is_published;
 
-  if (isDraft && !token) {
+  if (isDraft && !token && !isPreview) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-50 gap-4 p-6">
         <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-md text-center shadow-sm">

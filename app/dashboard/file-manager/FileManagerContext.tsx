@@ -620,7 +620,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   usePanoramaDetection(
     filesData?.files,
     setFilesData,
-    process.env.NEXT_PUBLIC_API_URL,
+    process.env.NEXT_PUBLIC_FILES_API_URL || process.env.NEXT_PUBLIC_API_URL,
   );
 
   // Helper function for partial updates

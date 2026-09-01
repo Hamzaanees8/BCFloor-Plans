@@ -121,7 +121,7 @@ type CurrentUser = {
     options?: {
       option_id: number;
       vendor_price: string;
-      vendor_adjustment_time: string | null;
+      vendor_adjustment_time: string | number | null;
       product_option?: { uuid: string };
     }[];
   }[];
@@ -581,9 +581,12 @@ const VendorForm = () => {
                     sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? (productOption as any)?.vendor_sq_ft_rate ?? "",
                     min_price: opt.min_price ?? (vs as any).min_price ?? (productOption as any)?.vendor_min_price ?? "",
                     adjustment_time:
-                      opt.vendor_adjustment_time !== null && opt.vendor_adjustment_time !== undefined && !isNaN(Number(opt.vendor_adjustment_time))
+                      opt.vendor_adjustment_time !== undefined &&
+                      opt.vendor_adjustment_time !== null &&
+                      opt.vendor_adjustment_time !== "no adjustment" &&
+                      opt.vendor_adjustment_time !== ""
                         ? Number(opt.vendor_adjustment_time)
-                        : null,
+                        : 0,
                   };
                 }) || [],
             };
@@ -945,16 +948,7 @@ const VendorForm = () => {
         },
         payment_per_km: Number(paymentPerKm),
         is_kilometers: inkilometers ? 1 : 0,
-        services: [...vendorServices, ...selectedServices].map((s: any) => ({
-          ...s,
-          options: (s.options || []).map((opt: any) => ({
-            ...opt,
-            adjustment_time:
-              opt.adjustment_time !== null && opt.adjustment_time !== undefined && !isNaN(Number(opt.adjustment_time))
-                ? Number(opt.adjustment_time)
-                : null,
-          })),
-        })),
+        services: [...vendorServices, ...selectedServices],
         settings: {
           payment_per_km: Number(paymentPerKm),
           enable_service_area: enableServiceArea ? 1 : 0,

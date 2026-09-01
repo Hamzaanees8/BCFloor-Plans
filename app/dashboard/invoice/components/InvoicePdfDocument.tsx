@@ -190,6 +190,16 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                                                     {serviceOption}
                                                 </span>
                                             )}
+                                            {(item.item_status === "paid" || item.is_paid) && (
+                                                <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 leading-none">
+                                                    Paid
+                                                </span>
+                                            )}
+                                            {item.item_status === "refunded" && (
+                                                <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-300 leading-none">
+                                                    Refunded
+                                                </span>
+                                            )}
                                             {(gstEnabled || pstEnabled) && (
                                                 <span className="text-[9px] text-gray-400 font-medium">
                                                     {[gstEnabled && 'GST', pstEnabled && 'PST'].filter(Boolean).join(' + ')}

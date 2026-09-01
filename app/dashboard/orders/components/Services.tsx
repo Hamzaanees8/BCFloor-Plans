@@ -263,7 +263,17 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
         const finalData = (showAll ? fetched : filteredServices).filter((service: Services) => {
             const name = service.name?.toLowerCase() || '';
-            return name !== 'feature sheets';
+            const catName = service.category?.name?.toLowerCase() || '';
+
+            // Exclude legacy hardcoded feature sheets
+            if (name === 'feature sheets') return false;
+
+            // For Print category: only include Managed Design & Print service
+            if (catName === 'print') {
+                return service.type === 'design_and_print';
+            }
+
+            return true;
         });
         setServicesData(finalData);
 

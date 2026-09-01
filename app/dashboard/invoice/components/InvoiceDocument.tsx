@@ -577,6 +577,16 @@ const InvoiceDocument = ({
                                 {serviceOption}
                               </span>
                             )}
+                            {(item.item_status === "paid" || item.is_paid) && (
+                              <span className="inline-block mt-1.5 ml-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300">
+                                Paid
+                              </span>
+                            )}
+                            {item.item_status === "refunded" && (
+                              <span className="inline-block mt-1.5 ml-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
+                                Refunded
+                              </span>
+                            )}
                           </div>
                           {isEditing && (
                             <Button
@@ -702,6 +712,16 @@ const InvoiceDocument = ({
                               }}
                             >
                               {serviceOption}
+                            </span>
+                          )}
+                          {(item.item_status === "paid" || item.is_paid) && (
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 min-w-fit">
+                              Paid
+                            </span>
+                          )}
+                          {item.item_status === "refunded" && (
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 min-w-fit">
+                              Refunded
                             </span>
                           )}
                         </div>

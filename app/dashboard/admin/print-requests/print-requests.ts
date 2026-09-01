@@ -4,6 +4,8 @@ export interface PrintRequest {
   uuid: string;
   status: "Pending" | "Processing" | "Completed" | "Cancelled";
   copies: number;
+  option_id?: string;
+  amount?: number;
   with_bleed: boolean;
   additional_info: string;
   created_at: string;

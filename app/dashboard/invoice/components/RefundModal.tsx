@@ -20,7 +20,7 @@ type RefundModalProps = {
     isOpen: boolean;
     onClose: () => void;
     invoice: any;
-    onSuccess: () => void;
+    onSuccess: (updatedInvoice?: any) => void;
     defaultAmount?: number;
 }
 
@@ -56,7 +56,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
             const res = await RefundInvoice(invoice.uuid, amount, notes)
             if (res.success) {
                 toast.success('Refund processed successfully')
-                onSuccess()
+                onSuccess(res.data)
                 onClose()
             } else {
                 toast.error(res.message || 'Refund failed')
@@ -72,7 +72,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px] font-alexandria">
+            <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto font-alexandria rounded-[8px] bg-white border border-[#BBBBBB] shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <RotateCcw className="h-5 w-5 text-orange-500" />

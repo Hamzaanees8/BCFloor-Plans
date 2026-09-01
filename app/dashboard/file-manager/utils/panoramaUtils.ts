@@ -11,12 +11,12 @@ export function classifyImageFromDimensions(width: number, height: number): Pano
   const ratio = width / height;
 
   // 360° Spherical / Equirectangular images (standard 2:1 aspect ratio, e.g. 6000x3000, 4000x2000)
-  if (ratio >= 1.90 && ratio <= 2.10) {
+  if (ratio >= 1.85 && ratio <= 2.15) {
     return 'panorama_360';
   }
 
-  // 180° / Wide Panoramas (aspect ratio 2.4:1 or wider)
-  if (ratio >= 2.40) {
+  // 180° / Wide Panoramas (aspect ratio 2.15:1 or wider)
+  if (ratio > 2.15) {
     return 'panorama_180';
   }
 
@@ -56,13 +56,13 @@ export async function detectIsPanoramaFromUrl(url: string): Promise<PanoramaSubt
 
   return new Promise((resolve) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const detected = classifyImageFromDimensions(img.naturalWidth, img.naturalHeight);
       detectionCache.set(url, detected);
       resolve(detected);
     };
     img.onerror = () => {
-      detectionCache.set(url, null);
       resolve(null);
     };
     img.src = url;
@@ -77,17 +77,17 @@ export function isPanoramaFile(file: any): boolean {
   if (file.subtype === 'panorama_360' || file.subtype === 'panorama_180' || file.subtype === 'panorama') return true;
   if (file.isPanorama === true || file.is_panorama === true) return true;
   // Legacy support for previously tagged panoramas
-  if (file.image_type === 'panorama' || file.image_type === 'wide_panorama' || file.image_type === '360') return true;
-  if (file.type === 'panorama' || file.type === '360') return true;
+  if (file.image_type === 'panorama' || file.image_type === 'wide_panorama' || file.image_type === '360' || file.image_type === '180') return true;
+  if (file.type === 'panorama' || file.type === '360' || file.type === '180') return true;
 
   const sName = (file.service?.name || "").toLowerCase();
   const catName = (file.service?.category?.name || "").toLowerCase();
   const fileName = (file.name || file.file_name || "").toLowerCase();
 
   return (
-    sName.includes("360") || sName.includes("panorama") || sName.includes("pano") ||
-    catName.includes("360") || catName.includes("panorama") || catName.includes("pano") ||
-    fileName.includes("360") || fileName.includes("pano")
+    sName.includes("360") || sName.includes("panorama") || sName.includes("pano") || sName.includes("180") ||
+    catName.includes("360") || catName.includes("panorama") || catName.includes("pano") || catName.includes("180") ||
+    fileName.includes("360") || fileName.includes("pano") || fileName.includes("180")
   );
 }
 
@@ -183,4 +183,3 @@ export function usePanoramaDetection(
     };
   }, [files, setFilesData, apiUrl]);
 }
-

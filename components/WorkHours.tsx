@@ -302,7 +302,7 @@ export interface SelectedService {
     vendor_price?: number | string;
     sq_ft_rate?: number | string;
     min_price?: number | string;
-    adjustment_time: string | number | null;
+    adjustment_time: number | string;
   }[];
   service?: Services;
 }
@@ -602,11 +602,11 @@ const VendorWorkHours = ({
         option_uuid: option.uuid,
         vendor_price: (option as any).vendor_price !== undefined && (option as any).vendor_price !== null && (option as any).vendor_price !== ""
           ? Number((option as any).vendor_price)
-          : 0,
+          : (option.cost ?? 0),
         pay_type: (option as any).vendor_pay_type || "flat",
         sq_ft_rate: (option as any).vendor_sq_ft_rate ?? "",
         min_price: (option as any).vendor_min_price ?? "",
-        adjustment_time: "no adjustment",
+        adjustment_time: 0,
       })) || [];
 
     const newService: SelectedService = {

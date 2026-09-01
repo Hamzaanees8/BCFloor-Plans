@@ -70,6 +70,7 @@ interface ServicePayload {
     base_sq_ft?: number;
     increment_duration_mins?: number;
     increment_sq_ft?: number;
+    type?: 'flyer' | 'tabloid' | 'design_and_print' | string;
 }
 export interface PackagePayload {
     name: string;

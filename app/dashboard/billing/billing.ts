@@ -143,19 +143,40 @@ export const isRefunded = (status?: string) => {
   return s === "refunded" || s === "refund" || s === "partially_refunded";
 };
 
-export function getBestTargetInvoice(invoicesList: any[], serviceUuid?: string) {
+export function getBestTargetInvoice(
+  invoicesList: any[],
+  serviceUuid?: string,
+  serviceId?: number | string,
+) {
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
     return null;
   }
 
-  // 1. If serviceUuid is provided: filter invoices containing this service
-  if (serviceUuid) {
+  // 1. If serviceUuid or serviceId is provided: filter invoices containing this service
+  if (serviceUuid || serviceId != null) {
     const serviceInvoices = invoicesList.filter((inv: any) =>
       inv.items?.some((i: any) => {
         const sUuid = i.order_service?.uuid || i.orderService?.uuid;
         const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
-        return sUuid === serviceUuid || sId?.toString() === serviceUuid;
-      })
+        const svcId =
+          i.order_service?.service_id ||
+          i.order_service?.service?.id ||
+          i.orderService?.service_id ||
+          i.orderService?.service?.id ||
+          i.service_id;
+
+        return (
+          (serviceUuid &&
+            (sUuid === serviceUuid ||
+              sId?.toString() === serviceUuid ||
+              (svcId != null && svcId.toString() === serviceUuid))) ||
+          (serviceId != null &&
+            (svcId === serviceId ||
+              svcId?.toString() === serviceId.toString() ||
+              sId === serviceId ||
+              sId?.toString() === serviceId.toString()))
+        );
+      }),
     );
 
     if (serviceInvoices.length > 0) {
@@ -194,4 +215,121 @@ export function getBestTargetInvoice(invoicesList: any[], serviceUuid?: string) 
 
   return null;
 }
+
+export function prepareOrderInvoicePreview(
+  invoicesList: any[],
+  targetInvoice: any,
+  billing?: BillingItem,
+) {
+  if (!targetInvoice) return null;
+  if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
+    return targetInvoice;
+  }
+
+  const isConsolidated =
+    targetInvoice.notes?.toLowerCase().includes("consolidated") ||
+    targetInvoice.agent_type === "primary" ||
+    !targetInvoice.notes?.toLowerCase().includes("service invoice");
+
+  if (!isConsolidated) {
+    return targetInvoice;
+  }
+
+  const itemsMap = new Map<string, any>();
+  const serviceStatusMap = new Map<string | number, { status: string; paid_amount: number }>();
+
+  invoicesList.forEach((inv: any) => {
+    const invStatus = (inv.status || "").toLowerCase();
+    const isPaid = isPaidOrSucceeded(invStatus);
+    const isRef = isRefunded(invStatus);
+
+    (inv.items || []).forEach((item: any) => {
+      const sId =
+        item.order_service_id ||
+        item.order_service?.id ||
+        item.orderService?.id;
+      const sUuid =
+        item.order_service?.uuid ||
+        item.orderService?.uuid;
+
+      if (sId != null) {
+        serviceStatusMap.set(sId, {
+          status: isPaid ? "paid" : isRef ? "refunded" : invStatus || "unpaid",
+          paid_amount: parseFloat(inv.paid_amount || 0),
+        });
+      }
+      if (sUuid != null) {
+        serviceStatusMap.set(sUuid, {
+          status: isPaid ? "paid" : isRef ? "refunded" : invStatus || "unpaid",
+          paid_amount: parseFloat(inv.paid_amount || 0),
+        });
+      }
+    });
+  });
+
+  invoicesList.forEach((inv: any) => {
+    (inv.items || []).forEach((item: any) => {
+      const key =
+        item.order_service?.uuid ||
+        item.orderService?.uuid ||
+        (item.order_service_id ? `id_${item.order_service_id}` : null) ||
+        item.description ||
+        item.id;
+
+      if (key && !itemsMap.has(key)) {
+        const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
+        const sUuid = item.order_service?.uuid || item.orderService?.uuid;
+        const statusInfo = (sUuid && serviceStatusMap.get(sUuid)) || (sId && serviceStatusMap.get(sId));
+        const itemStatus = statusInfo?.status || (isPaidOrSucceeded(inv.status) ? "paid" : "unpaid");
+
+        itemsMap.set(key, {
+          ...item,
+          item_status: itemStatus,
+          is_paid: itemStatus === "paid",
+        });
+      }
+    });
+  });
+
+  const allItems = Array.from(itemsMap.values());
+
+  let totalPaid = 0;
+  let totalRefunded = 0;
+
+  invoicesList.forEach((inv: any) => {
+    if (!isVoidOrCancelled(inv.status)) {
+      if (isPaidOrSucceeded(inv.status)) {
+        totalPaid += parseFloat(inv.total || inv.paid_amount || 0);
+      } else {
+        totalPaid += parseFloat(inv.paid_amount || 0);
+      }
+      totalRefunded += parseFloat(inv.refunded_amount || 0);
+    }
+  });
+
+  if (billing?.total_paid != null && billing.total_paid > totalPaid) {
+    totalPaid = billing.total_paid;
+  }
+  if (billing?.total_refunded != null && billing.total_refunded > totalRefunded) {
+    totalRefunded = billing.total_refunded;
+  }
+
+  const hasUnpaid = allItems.some((i: any) => !i.is_paid);
+  const hasPaid = allItems.some((i: any) => i.is_paid) || totalPaid > 0;
+  let overallStatus = targetInvoice.status;
+  if (hasPaid && hasUnpaid) {
+    overallStatus = "partially_paid";
+  } else if (hasPaid && !hasUnpaid && allItems.length > 0) {
+    overallStatus = "paid";
+  }
+
+  return {
+    ...targetInvoice,
+    status: overallStatus,
+    items: allItems.length > 0 ? allItems : targetInvoice.items,
+    paid_amount: totalPaid.toFixed(2),
+    refunded_amount: totalRefunded.toFixed(2),
+  };
+}
+
 
