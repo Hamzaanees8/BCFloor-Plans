@@ -150,36 +150,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     };
   }, [zoom, boundaryLimits]);
 
-  // Dynamically attach nudge, reset, and delete handlers to fieldPanel when active
-  useEffect(() => {
-    if (fieldPanel?.activeField && fieldPanel.activeField.fieldId === id) {
-      fieldPanel.updateActiveFieldHandlers({
-        onNudge: (dx: number, dy: number) => {
-          const b = calculateBounds();
-          const rawX = (currentPosRef.current.x || 0) + dx;
-          const rawY = (currentPosRef.current.y || 0) + dy;
 
-          const nextX = Math.round(Math.max(b.minX, Math.min(b.maxX, rawX)));
-          const nextY = Math.round(Math.max(b.minY, Math.min(b.maxY, rawY)));
-
-          currentPosRef.current = { x: nextX, y: nextY };
-          if (boxRef.current) {
-            boxRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
-          }
-          onPositionChange(id, { x: nextX, y: nextY });
-        },
-        onResetPosition: () => {
-          setIsFocused(false);
-          currentPosRef.current = { x: 0, y: 0 };
-          if (boxRef.current) {
-            boxRef.current.style.transform = "translate3d(0px, 0px, 0)";
-          }
-          onPositionChange(id, { x: 0, y: 0 });
-        },
-        onDelete: onDelete ? () => onDelete() : undefined,
-      });
-    }
-  }, [fieldPanel, id, onPositionChange, onDelete, calculateBounds]);
 
   const startDrag = (clientX: number, clientY: number) => {
     if (disabled) return;

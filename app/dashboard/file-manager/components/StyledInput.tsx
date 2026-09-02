@@ -667,6 +667,18 @@ export default function StyledInput({
   const fieldPanel = useFieldPanel();
   // Parent DraggableBox context if wrapped inside one
   const draggableBox = useContext(DraggableBoxContext);
+  const draggableBoxRef = useRef(draggableBox);
+  draggableBoxRef.current = draggableBox;
+
+  const onNudgeRef = useRef(onNudge);
+  onNudgeRef.current = onNudge;
+
+  const onResetPositionRef = useRef(onResetPosition);
+  onResetPositionRef.current = onResetPosition;
+
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+
   // Panel is "active" for this field when the panel is open and showing THIS field
   const isPanelActive = !!fieldPanel;
 
@@ -802,6 +814,12 @@ export default function StyledInput({
     }
     if (inputStyle.fontFamily)
       setFontFamily(fontFamilyToClass(inputStyle.fontFamily));
+    if (inputStyle.fontStyle !== undefined) {
+      setItalic(inputStyle.fontStyle === "italic");
+    }
+    if (inputStyle.textDecoration !== undefined) {
+      setUnderline(inputStyle.textDecoration === "underline");
+    }
     if (inputStyle.textAlign) setTextAlign(inputStyle.textAlign);
     if (inputStyle.verticalAlign) {
       setVerticalAlign(inputStyle.verticalAlign);
@@ -971,10 +989,15 @@ export default function StyledInput({
         }
       })();
 
+      const itVal = overrides.it ?? italic;
+      const ulVal = overrides.ul ?? underline;
+
       onChangeStyle({
         fontSize: fs,
         fontWeight: fwNum,
         fontFamily: ffCss,
+        fontStyle: itVal ? "italic" : "normal",
+        textDecoration: ulVal ? "underline" : "none",
         textAlign: ta,
         verticalAlign: va,
         alignContent: alignContentStr as any,
@@ -1026,27 +1049,32 @@ export default function StyledInput({
 
     if (isPanelActive && fieldPanel) {
       const nudgeFn = (dx: number, dy: number) => {
-        if (draggableBox) {
-          const currentX = draggableBox.position?.x || 0;
-          const currentY = draggableBox.position?.y || 0;
-          draggableBox.onPositionChange(draggableBox.id, {
+        const dBox = draggableBoxRef.current;
+        if (dBox) {
+          const currentX = dBox.position?.x || 0;
+          const currentY = dBox.position?.y || 0;
+          dBox.onPositionChange(dBox.id, {
             x: currentX + dx,
             y: currentY + dy,
           });
-        } else if (onNudge) {
-          onNudge(dx, dy);
+        } else if (onNudgeRef.current) {
+          onNudgeRef.current(dx, dy);
         }
       };
 
       const resetFn = () => {
-        if (draggableBox) {
-          draggableBox.onPositionChange(draggableBox.id, { x: 0, y: 0 });
-        } else if (onResetPosition) {
-          onResetPosition();
+        const dBox = draggableBoxRef.current;
+        if (dBox) {
+          dBox.onPositionChange(dBox.id, { x: 0, y: 0 });
+        } else if (onResetPositionRef.current) {
+          onResetPositionRef.current();
         }
       };
 
-      const deleteFn = onDelete || draggableBox?.onDelete;
+      const deleteFn = () => {
+        if (onDeleteRef.current) onDeleteRef.current();
+        else if (draggableBoxRef.current?.onDelete) draggableBoxRef.current.onDelete();
+      };
 
       fieldPanel.openPanel({
         fieldId: effectiveFieldId,
@@ -1173,6 +1201,23 @@ export default function StyledInput({
     });
   };
 
+  const activeTextAlign = textAlign || inputStyle?.textAlign || "left";
+  const activeVerticalAlign =
+    verticalAlign || inputStyle?.verticalAlign || "center";
+  const cleanedClassName = className
+    ? className
+        .replace(
+          /\bfont-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black|serif|sans|mono)\b/g,
+          "",
+        )
+        .replace(
+          /\b(italic|not-italic|underline|no-underline|line-through)\b/g,
+          "",
+        )
+        .replace(/\btext-(left|right|center|justify)\b/g, "")
+        .trim()
+    : "";
+
   return (
     <div
       ref={wrapperRef}
@@ -1199,28 +1244,33 @@ export default function StyledInput({
           onKeyDown={handleKeyDown}
           style={{
             fontSize,
-            textAlign,
+            textAlign: activeTextAlign,
             fontWeight: getFontWeightStyle(),
             fontStyle: italic ? "italic" : "normal",
             textDecoration: underline ? "underline" : "none",
             fontFamily: getFontFamilyStyle(),
-            lineHeight: 1.2,
+            lineHeight: 1.25,
             margin: 0,
             padding: 0,
             boxSizing: "border-box",
             display: "flex",
-            alignItems:
-              inputStyle?.verticalAlign === "top"
-                ? "flex-start"
-                : inputStyle?.verticalAlign === "bottom"
-                  ? "flex-end"
-                  : "center",
+            flexDirection: "column",
             justifyContent:
-              (textAlign || inputStyle?.textAlign) === "left"
+              activeVerticalAlign === "top"
                 ? "flex-start"
-                : (textAlign || inputStyle?.textAlign) === "right"
+                : activeVerticalAlign === "bottom"
                   ? "flex-end"
                   : "center",
+            alignItems:
+              activeTextAlign === "left"
+                ? "flex-start"
+                : activeTextAlign === "right"
+                  ? "flex-end"
+                  : activeTextAlign === "justify"
+                    ? "stretch"
+                    : "center",
+            width: "100%",
+            height: "100%",
             outline: "none",
             alignContent: getAlignContentStyle(),
           }}
@@ -1230,7 +1280,7 @@ export default function StyledInput({
             "whitespace-pre-wrap break-words transition-all",
             !isFocused &&
               "hover:ring-1 hover:ring-white/30 hover:bg-black/5 cursor-text",
-            className,
+            cleanedClassName,
             isFocused && "ring-2 ring-blue-500",
           )}
           suppressContentEditableWarning={true}
@@ -1243,19 +1293,36 @@ export default function StyledInput({
           <div
             className={cn(
               "col-start-1 row-start-1 pr-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
-              className,
+              cleanedClassName,
             )}
             style={{
               fontSize,
-              textAlign,
+              textAlign: activeTextAlign,
               fontWeight: getFontWeightStyle(),
               fontStyle: italic ? "italic" : "normal",
               fontFamily: getFontFamilyStyle(),
-              lineHeight: 1.2,
+              lineHeight: 1.25,
               margin: 0,
               padding: 0,
               boxSizing: "border-box",
-              display: "block",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent:
+                activeVerticalAlign === "top"
+                  ? "flex-start"
+                  : activeVerticalAlign === "bottom"
+                    ? "flex-end"
+                    : "center",
+              alignItems:
+                activeTextAlign === "left"
+                  ? "flex-start"
+                  : activeTextAlign === "right"
+                    ? "flex-end"
+                    : activeTextAlign === "justify"
+                      ? "stretch"
+                      : "center",
+              width: "100%",
+              height: "100%",
               alignContent: getAlignContentStyle(),
               backgroundColor: "transparent",
             }}

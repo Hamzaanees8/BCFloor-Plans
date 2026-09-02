@@ -245,6 +245,7 @@ type FormData = {
   sqftLabel?: string;
   builtYearLabel?: string;
   byLawLabel?: string;
+  byLawRestrictionsLabel?: string;
   maintFeesLabel?: string;
   maintFeesIncludeLabel?: string;
   featuresIncludedLabel?: string;

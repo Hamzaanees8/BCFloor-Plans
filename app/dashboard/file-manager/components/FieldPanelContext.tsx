@@ -75,16 +75,19 @@ export function FieldPanelProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
+  const value = React.useMemo(
+    () => ({
+      activeField,
+      openPanel,
+      closePanel,
+      updateActiveStyle,
+      updateActiveFieldHandlers,
+    }),
+    [activeField, openPanel, closePanel, updateActiveStyle, updateActiveFieldHandlers],
+  );
+
   return (
-    <FieldPanelContext.Provider
-      value={{
-        activeField,
-        openPanel,
-        closePanel,
-        updateActiveStyle,
-        updateActiveFieldHandlers,
-      }}
-    >
+    <FieldPanelContext.Provider value={value}>
       {children}
     </FieldPanelContext.Provider>
   );

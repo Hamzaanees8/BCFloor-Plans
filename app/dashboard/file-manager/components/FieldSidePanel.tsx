@@ -187,6 +187,9 @@ export default function FieldSidePanel({
   };
 
   // ── Mouse Hold / Continuous Repeat Nudge Logic ────────────────────────────
+  const activeFieldRef = React.useRef(activeField);
+  activeFieldRef.current = activeField;
+
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -212,17 +215,17 @@ export default function FieldSidePanel({
       const step = shift ? 10 : 1;
 
       // 1. Immediate step on press
-      activeField?.onNudge?.(dx * step, dy * step);
+      activeFieldRef.current?.onNudge?.(dx * step, dy * step);
 
-      // 2. Hold delay (220ms) before continuous repeat
+      // 2. Hold delay (180ms) before continuous repeat
       timeoutRef.current = setTimeout(() => {
         // 3. Smooth repeat tick every 35ms (~28 updates/sec)
         intervalRef.current = setInterval(() => {
-          activeField?.onNudge?.(dx * step, dy * step);
+          activeFieldRef.current?.onNudge?.(dx * step, dy * step);
         }, 35);
-      }, 220);
+      }, 180);
     },
-    [activeField, stopNudgeTimer],
+    [stopNudgeTimer],
   );
 
   React.useEffect(() => {
@@ -264,7 +267,13 @@ export default function FieldSidePanel({
       <button
         type="button"
         title={title}
-        onClick={onClick}
+        onMouseDown={(e) => {
+          e.preventDefault();
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          onClick();
+        }}
         className={`${base} ${variants[variant]}`}
       >
         {children}
@@ -366,7 +375,11 @@ export default function FieldSidePanel({
                     onClick={() =>
                       emit({
                         fontWeight:
-                          currentFontWeight === "700" ? "400" : "700",
+                          currentFontWeight === "700" ||
+                          currentFontWeight === "800" ||
+                          currentFontWeight === "bold"
+                            ? "400"
+                            : "700",
                       })
                     }
                   >
