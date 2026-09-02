@@ -27,6 +27,7 @@ export interface FloorPlanFile {
     updated_at: string;
     is_featured: boolean;
     is_processing?: boolean;
+    subtype?: string | null;
 }
 
 export interface Marker {
@@ -204,16 +205,47 @@ function PublicTourFloorPlans({
         return filename.replace(/\.[^/.]+$/, ""); // strip extension
     };
 
+    const isSnapshotMatchingFloorPlan = useCallback(
+        (snapshotFileName: string, currentImageId: string | null) => {
+            if (!currentImageId || !snapshotFileName) return false;
+            const normSnap = normalizeName(snapshotFileName);
+            const normCurrent = normalizeName(currentImageId);
+            if (normSnap === normCurrent) return true;
+
+            // If there is only 1 floor plan in this tour view, render all order snapshots on it
+            if (floorPlanFiles.length === 1) return true;
+
+            // Counterpart matching when multiple floor plans exist
+            const currentFile = floorPlanFiles.find(f => normalizeName(f.name) === normCurrent);
+            if (currentFile) {
+                const isBranded = currentFile.subtype === "branded_floorplan" || currentFile.subtype === "branded";
+                const isUnbranded = currentFile.subtype === "unbranded_floorplan" || currentFile.subtype === "unbranded";
+
+                const counterpart = floorPlanFiles.find(f => {
+                    if (isBranded) return f.subtype === "unbranded_floorplan" || f.subtype === "unbranded";
+                    if (isUnbranded) return f.subtype === "branded_floorplan" || f.subtype === "branded";
+                    return false;
+                });
+
+                if (counterpart && normalizeName(counterpart.name) === normSnap) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [floorPlanFiles],
+    );
+
     const getFilteredSnapshots = () => {
         if (!selectedImageId) return [];
 
         return snapshots.filter((snapshot) =>
-            normalizeName(snapshot.file_name) === normalizeName(selectedImageId)
+            isSnapshotMatchingFloorPlan(snapshot.file_name, selectedImageId)
         );
     };
 
     const filteredSnapshots = getFilteredSnapshots();
-    const currentLocalSnapshots = localMarkers.filter(m => normalizeName(m.floorImageUrl) === normalizeName(selectedImageId || ""));
+    const currentLocalSnapshots = localMarkers.filter(m => isSnapshotMatchingFloorPlan(m.floorImageUrl, selectedImageId));
     const allSnapshots = React.useMemo(() => [...filteredSnapshots, ...currentLocalSnapshots], [filteredSnapshots, currentLocalSnapshots]);
 
     const [isMounted, setIsMounted] = useState(false);
@@ -495,9 +527,9 @@ function PublicTourFloorPlans({
                                                     alt={`Floor Plan ${idx + 1}`}
                                                     className="max-w-full max-h-full object-contain select-none"
                                                 />
-                                                {snapshots.some(s => normalizeName(s.file_name) === normalizeName(file.name)) && (
+                                                {snapshots.some(s => isSnapshotMatchingFloorPlan(s.file_name, file.name)) && (
                                                     <div className="absolute top-2 right-2 bg-[#1b365d] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
-                                                        {snapshots.filter(s => normalizeName(s.file_name) === normalizeName(file.name)).length}
+                                                        {snapshots.filter(s => isSnapshotMatchingFloorPlan(s.file_name, file.name)).length}
                                                     </div>
                                                 )}
                                             </>

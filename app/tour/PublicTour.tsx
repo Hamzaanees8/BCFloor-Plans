@@ -255,7 +255,7 @@ const PublicTour = () => {
         return true;
       }) || [];
 
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       const orderA =
         (a as any).sort_order !== undefined && (a as any).sort_order !== null
           ? Number((a as any).sort_order)
@@ -269,7 +269,21 @@ const PublicTour = () => {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateA - dateB;
     });
-  }, [orderData, isPreview]);
+
+    if (isBranded) {
+      const brandedFiles = sorted.filter(
+        (f) => f.subtype === "branded_floorplan" || f.subtype === "branded"
+      );
+      if (brandedFiles.length > 0) return brandedFiles;
+    } else {
+      const unbrandedFiles = sorted.filter(
+        (f) => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded"
+      );
+      if (unbrandedFiles.length > 0) return unbrandedFiles;
+    }
+
+    return sorted;
+  }, [orderData, isPreview, isBranded]);
   const matterportLinks = useMemo(() => {
     const rawLinks = orderData?.tours?.[0]?.links || [];
     return rawLinks.filter((l) => {

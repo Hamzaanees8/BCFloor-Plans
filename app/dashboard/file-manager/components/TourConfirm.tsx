@@ -253,35 +253,42 @@ const TourConfirm = ({
     });
   }, []);
 
-  const isMediaApprovedByAgent = React.useCallback((file: any) => {
-    return (
-      file?.is_agent_approved === true ||
-      file?.is_agent_approved === 1 ||
-      file?.is_agent_approved === "1" ||
-      file?.is_agent_approved === "true" ||
-      file?.is_complimentary === true ||
-      file?.is_complimentary === 1 ||
-      file?.is_complimentary === "1" ||
-      file?.is_complimentary === "true"
-    );
-  }, []);
+  const isMediaApprovedByAgent = React.useCallback(
+    (file: any) => {
+      if (!isPublicView) return true;
+      return (
+        file?.is_agent_approved === true ||
+        file?.is_agent_approved === 1 ||
+        file?.is_agent_approved === "1" ||
+        file?.is_agent_approved === "true" ||
+        file?.is_complimentary === true ||
+        file?.is_complimentary === 1 ||
+        file?.is_complimentary === "1" ||
+        file?.is_complimentary === "true"
+      );
+    },
+    [isPublicView],
+  );
 
   const currentTourPhotos = React.useMemo(() => {
-    let photos = isPublicView
+    const rawFiles = isPublicView
       ? publicTourPhotos
-      : filesData?.files?.filter(
-          (file) =>
-            file?.service?.name !== "2D Floor Plans" &&
-            file?.service?.name !== "3D Floor Plans" &&
-            file.type === "photo",
-        );
+      : filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+
+    let photos = rawFiles?.filter(
+      (file: any) =>
+        file?.service?.name !== "2D Floor Plans" &&
+        file?.service?.name !== "3D Floor Plans" &&
+        file?.service?.category?.name !== "Floor Plan" &&
+        (file.type === "photo" || file.type === "panorama" || file.isPanorama),
+    );
 
     if (photos) {
       photos = getGlobalPhotoOrder(photos as any);
       photos = photos?.filter(isMediaApprovedByAgent);
     }
-    return photos;
-  }, [isPublicView, publicTourPhotos, filesData?.files, isMediaApprovedByAgent]);
+    return photos || [];
+  }, [isPublicView, publicTourPhotos, filesData?.files, orderData, isMediaApprovedByAgent]);
 
   const handleHomeSlideshowPlayChange = React.useCallback(
     (playing: boolean) => {
@@ -1083,39 +1090,48 @@ const TourConfirm = ({
                         </div>
                       );
                     })()
+                  ) : (uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) ? (
+                    <div
+                      className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
+                    >
+                      <CustomSlideshow
+                        images={uploadedImages}
+                        delay={delay}
+                        transition={transition}
+                        audioUrl={audioUrl}
+                        api_images={currentTourPhotos}
+                        className="h-full"
+                        currentIndex={currentImageIndex}
+                        onSlideChange={(index) => {
+                          setCurrentImageIndex(index);
+                          if (
+                            isPublicView &&
+                            onMediaView &&
+                            currentTourPhotos?.[index]
+                          ) {
+                            onMediaView(currentTourPhotos[index].uuid);
+                          }
+                        }}
+                        externalAudioControl={isPublicView ? true : undefined}
+                        propIsPlaying={isHomeSlideshowPlaying}
+                        propIsMuted={isAudioMuted}
+                        propSetIsPlaying={handleHomeSlideshowPlayChange}
+                        propSetIsMuted={setIsAudioMuted}
+                        watermarkUrl={actualWatermarkLogo}
+                      />
+                    </div>
                   ) : (
-                    (uploadedImages.length > 0 ||
-                      (currentTourPhotos?.length ?? 0) > 0) && (
-                      <div
-                        className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[45vh] sm:h-[636px]"}`}
-                      >
-                        <CustomSlideshow
-                          images={uploadedImages}
-                          delay={delay}
-                          transition={transition}
-                          audioUrl={audioUrl}
-                          api_images={currentTourPhotos}
-                          className="h-full"
-                          currentIndex={currentImageIndex}
-                          onSlideChange={(index) => {
-                            setCurrentImageIndex(index);
-                            if (
-                              isPublicView &&
-                              onMediaView &&
-                              currentTourPhotos?.[index]
-                            ) {
-                              onMediaView(currentTourPhotos[index].uuid);
-                            }
-                          }}
-                          externalAudioControl={isPublicView ? true : undefined}
-                          propIsPlaying={isHomeSlideshowPlaying}
-                          propIsMuted={isAudioMuted}
-                          propSetIsPlaying={handleHomeSlideshowPlayChange}
-                          propSetIsMuted={setIsAudioMuted}
-                          watermarkUrl={actualWatermarkLogo}
-                        />
+                    <div
+                      className={`relative w-full overflow-hidden ${isPublicView || isFullscreenPreview ? "h-screen" : "h-[300px] sm:h-[450px]"} bg-gray-900 flex flex-col items-center justify-center text-white gap-3 p-6 text-center`}
+                    >
+                      <div className="p-4 bg-white/10 rounded-full backdrop-blur-xs">
+                        <ImageIcon size={36} className="text-gray-300" />
                       </div>
-                    )
+                      <h3 className="font-bold text-xl text-white">Tour Preview</h3>
+                      <p className="text-sm text-gray-300 max-w-md leading-relaxed">
+                        No cover photos available for slideshow. Select another tab above (such as <strong>Overview</strong> or <strong>Floorplan</strong>) to preview tour contents.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -1665,7 +1681,7 @@ const TourConfirm = ({
                                   </div>
                                 </div>
                               ))}
-                              {regularPhotosList?.map((image, index) => {
+                              {regularPhotosList?.map((image: any, index: number) => {
                                 const globalIndex = uploadedImages.length + index;
                                 return (
                                   <div
@@ -2132,7 +2148,23 @@ const TourConfirm = ({
                 <div className="w-full pt-[140px] md:pt-[165px]">
                   {isPublicView ? (
                     <PublicTourFloorPlans
-                      floorPlanFiles={publicFloorPlanFiles || []}
+                      floorPlanFiles={
+                        (() => {
+                          const files = publicFloorPlanFiles || [];
+                          if (activeTourType === "branded") {
+                            const branded = files.filter(
+                              (f) => f.subtype === "branded_floorplan" || f.subtype === "branded",
+                            );
+                            if (branded.length > 0) return branded;
+                          } else {
+                            const unbranded = files.filter(
+                              (f) => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded",
+                            );
+                            if (unbranded.length > 0) return unbranded;
+                          }
+                          return files;
+                        })()
+                      }
                       snapshots={orderData?.tours?.[0]?.snapshots}
                       tourPhotos={publicTourPhotos as any}
                       watermarkLogo={actualWatermarkLogo}

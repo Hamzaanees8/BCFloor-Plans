@@ -48,10 +48,13 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     transition,
     selectedAudioTrack,
     setIsSaving,
+    setFloorPlanSubtype,
   } = useFileManagerContext();
 
+  const allSourceFiles = filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+
   const currentTourFloorFiles = [
-    ...(filesData?.files?.filter((file) => {
+    ...(allSourceFiles?.filter((file: any) => {
       const isFloorPlan =
         file?.service?.category?.name === "Floor Plan" ||
         file?.service?.name?.toLowerCase().includes("floor plan");
@@ -61,7 +64,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   ];
 
   let photosList = [
-    ...(filesData?.files?.filter((file) => {
+    ...(allSourceFiles?.filter((file: any) => {
       const isFloorPlan =
         file?.service?.category?.name === "Floor Plan" ||
         file?.service?.name?.toLowerCase().includes("floor plan");
@@ -372,15 +375,62 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     return filename.replace(/\.[^/.]+$/, ""); // strip extension
   };
 
-  const localSnapshots = droppedMarkers.filter(
-    (marker) =>
-      normalizeName(marker.floorImageUrl) ===
-      normalizeName(selectedImageId || ""),
+  const isSnapshotMatchingFloorPlan = useCallback(
+    (snapshotFileName: string, currentImageId: string | null) => {
+      if (!currentImageId || !snapshotFileName) return false;
+      const normSnap = normalizeName(snapshotFileName);
+      const normCurrent = normalizeName(currentImageId);
+      if (normSnap === normCurrent) return true;
+
+      // Check counterpart matching across filteredFloorFiles
+      const currentFile = filteredFloorFiles?.find(
+        (f: any) =>
+          normalizeName("uuid" in f ? f.name : f.file.name) === normCurrent,
+      );
+
+      if (currentFile) {
+        const isBranded =
+          currentFile.subtype === "branded_floorplan" ||
+          currentFile.subtype === "branded";
+        const isUnbranded =
+          currentFile.subtype === "unbranded_floorplan" ||
+          currentFile.subtype === "unbranded";
+
+        const counterpart = filteredFloorFiles?.find((f: any) => {
+          if (isBranded) {
+            return (
+              f.subtype === "unbranded_floorplan" ||
+              f.subtype === "unbranded"
+            );
+          }
+          if (isUnbranded) {
+            return (
+              f.subtype === "branded_floorplan" ||
+              f.subtype === "branded"
+            );
+          }
+          return false;
+        });
+
+        if (
+          counterpart &&
+          normalizeName("uuid" in counterpart ? counterpart.name : counterpart.file.name) === normSnap
+        ) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [filteredFloorFiles],
+  );
+
+  const localSnapshots = droppedMarkers.filter((marker) =>
+    isSnapshotMatchingFloorPlan(marker.floorImageUrl, selectedImageId),
   );
 
   const apiSnapshots = (filesData?.snapshots || []).filter(
     (snap) =>
-      normalizeName(snap.file_name) === normalizeName(selectedImageId || "") &&
+      isSnapshotMatchingFloorPlan(snap.file_name, selectedImageId) &&
       !deletedSnapshotUuids.has(snap.uuid),
   );
 
@@ -1375,67 +1425,128 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                 const isFilePDF = isPDF(file);
                 const fileName =
                   "uuid" in file ? file.name : (file as any).file.name;
+                const fileTargetId = "uuid" in file ? file.uuid : fileName;
+                const isBranded = file.subtype === "branded_floorplan" || file.subtype === "branded";
+                const isUnbranded = file.subtype === "unbranded_floorplan" || file.subtype === "unbranded";
+
                 return (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedImageId(fileName)}
-                    className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === fileName ? "border-2 border-[#4290E9]" : ""}`}
-                  >
-                    <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
-                      {"uuid" in file && file.is_processing ? (
-                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                          <p className="text-gray-500 font-medium text-xs">
-                            Processing...
-                          </p>
-                        </div>
-                      ) : isFilePDF ? (
-                        "uuid" in file &&
-                        (!file.variant_urls ||
-                          (Array.isArray(file.variant_urls) &&
-                            file.variant_urls.length === 0) ||
-                          Object.keys(file.variant_urls).length === 0) ? (
-                          <PdfPlaceholder
-                            className="w-full h-full"
-                            message="service is not paid yet"
+                  <div key={idx} className="flex flex-col gap-1 shrink-0">
+                    <div
+                      onClick={() => setSelectedImageId(fileName)}
+                      className={`w-[220px] h-[110px] flex items-center rounded-[6px] justify-center cursor-pointer relative overflow-hidden bg-white ${selectedImageId === fileName ? "border-2 border-[#4290E9]" : "border border-gray-200"}`}
+                    >
+                      {/* Subtype Badge Indicator */}
+                      {isBranded && (
+                        <span className="absolute top-1 left-1 z-10 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                          ✓ Branded
+                        </span>
+                      )}
+                      {isUnbranded && (
+                        <span className="absolute top-1 left-1 z-10 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                          ✓ Unbranded
+                        </span>
+                      )}
+
+                      <div className="relative border border-gray-100 rounded-[6px] w-full h-full flex items-center justify-center">
+                        {"uuid" in file && file.is_processing ? (
+                          <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                            <p className="text-gray-500 font-medium text-xs">
+                              Processing...
+                            </p>
+                          </div>
+                        ) : isFilePDF ? (
+                          "uuid" in file &&
+                          (!file.variant_urls ||
+                            (Array.isArray(file.variant_urls) &&
+                              file.variant_urls.length === 0) ||
+                            Object.keys(file.variant_urls).length === 0) ? (
+                            <PdfPlaceholder
+                              className="w-full h-full"
+                              message="service is not paid yet"
+                            />
+                          ) : (
+                            <div className="relative w-full h-full overflow-hidden">
+                              <iframe
+                                src={
+                                  "uuid" in file
+                                    ? `${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+                                    : URL.createObjectURL((file as any).file)
+                                }
+                                className="w-full h-full pointer-events-none border-none"
+                                tabIndex={-1}
+                                scrolling="no"
+                              />
+                              <div className="absolute inset-0 bg-transparent" />
+                            </div>
+                          )
+                        ) : !("uuid" in file) ? (
+                          <OptimizedImagePreview
+                            file={(file as any).file}
+                            className="max-w-full max-h-full"
                           />
                         ) : (
-                          <div className="relative w-full h-full overflow-hidden">
-                            <iframe
-                              src={
-                                "uuid" in file
-                                  ? `${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
-                                  : URL.createObjectURL((file as any).file)
-                              }
-                              className="w-full h-full pointer-events-none border-none"
-                              tabIndex={-1}
-                              scrolling="no"
-                            />
-                            <div className="absolute inset-0 bg-transparent" />
-                          </div>
-                        )
-                      ) : !("uuid" in file) ? (
-                        <OptimizedImagePreview
-                          file={(file as any).file}
-                          className="max-w-full max-h-full"
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            "uuid" in file
-                              ? file.variant_urls?.thumb ||
-                                file.thumbnail_url ||
-                                file.url ||
-                                (file.file_path
-                                  ? `${API_URL}/${file.file_path}`
-                                  : "")
-                              : URL.createObjectURL((file as any).file)
-                          }
-                          alt="preview"
-                          className="max-w-full max-h-full"
-                        />
-                      )}
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={
+                              "uuid" in file
+                                ? file.variant_urls?.thumb ||
+                                  file.thumbnail_url ||
+                                  file.url ||
+                                  (file.file_path
+                                    ? `${API_URL}/${file.file_path}`
+                                    : "")
+                                : URL.createObjectURL((file as any).file)
+                            }
+                            alt="preview"
+                            className="max-w-full max-h-full"
+                          />
+                        )}
+                      </div>
                     </div>
+
+                    {/* Checkbox controls for Branded & Unbranded */}
+                    {type !== "confirm" && userType !== "vendor" && (
+                      <div className="flex items-center justify-between gap-1 w-[220px] px-1 py-0.5 text-[11px]">
+                        <label
+                          className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
+                            isBranded
+                              ? "bg-blue-100 text-blue-800 border-blue-300 font-semibold"
+                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                          }`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isBranded}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setFloorPlanSubtype?.(fileTargetId, isBranded ? null : "branded_floorplan");
+                            }}
+                            className="h-3 w-3 accent-blue-600 cursor-pointer"
+                          />
+                          Branded
+                        </label>
+                        <label
+                          className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
+                            isUnbranded
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold"
+                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                          }`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isUnbranded}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setFloorPlanSubtype?.(fileTargetId, isUnbranded ? null : "unbranded_floorplan");
+                            }}
+                            className="h-3 w-3 accent-emerald-600 cursor-pointer"
+                          />
+                          Unbranded
+                        </label>
+                      </div>
+                    )}
                   </div>
                 );
               })}

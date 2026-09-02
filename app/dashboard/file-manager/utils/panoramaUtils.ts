@@ -74,6 +74,7 @@ export async function detectIsPanoramaFromUrl(url: string): Promise<PanoramaSubt
  */
 export function isPanoramaFile(file: any): boolean {
   if (!file) return false;
+  if (file.subtype === 'branded_floorplan' || file.subtype === 'unbranded_floorplan') return false;
   if (file.subtype === 'panorama_360' || file.subtype === 'panorama_180' || file.subtype === 'panorama') return true;
   if (file.isPanorama === true || file.is_panorama === true) return true;
   // Legacy support for previously tagged panoramas

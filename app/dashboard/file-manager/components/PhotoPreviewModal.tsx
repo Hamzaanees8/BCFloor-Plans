@@ -17,7 +17,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { detectIsPanoramaFromFile, detectIsPanoramaFromUrl } from '../utils/panoramaUtils';
 
 interface Props {
-    file: File | string | null;
+    file: any;
     open: boolean;
     title: string;
     onClose: () => void;
@@ -26,7 +26,7 @@ interface Props {
     initialName?: string;
     initialSubtype?: string | null;
     onSave?: (newName: string, newSubtype?: string | null) => void;
-    type?: 'photo' | 'video';
+    type?: 'photo' | 'video' | 'floor_plans' | string;
     suggestions?: string[];
     isPaid?: boolean;
     isAgentApproved?: boolean;
@@ -310,7 +310,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     )}
                 </div>
 
-                {onSave && userType !== 'agent' && type === 'photo' && (
+                {onSave && userType !== 'agent' && type === 'photo' && !(file?.service?.category?.name === 'Floor Plan' || file?.service?.name?.toLowerCase().includes('floor plan')) && (
                     <div className="mt-2 space-y-1.5 font-alexandria">
                         <div className="flex items-center justify-between">
                             <Label className="text-[#7d7d7d] text-[13px] font-semibold">Media Display Format</Label>
@@ -353,6 +353,47 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                 }`}
                             >
                                 ↔ 180° Wide Pano
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {onSave && userType !== 'agent' && (type === 'floor_plans' || file?.service?.category?.name === 'Floor Plan' || file?.service?.name?.toLowerCase().includes('floor plan')) && (
+                    <div className="mt-2 space-y-1.5 font-alexandria">
+                        <Label className="text-[#7d7d7d] text-[13px] font-semibold">Floor Plan Type</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSubtype(null)}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    !subtype
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                Standard
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSubtype('branded_floorplan')}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    subtype === 'branded_floorplan' || subtype === 'branded'
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                Branded Floor Plan
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSubtype('unbranded_floorplan')}
+                                className={`py-1.5 px-2 text-xs font-semibold rounded-md border text-center transition-all cursor-pointer ${
+                                    subtype === 'unbranded_floorplan' || subtype === 'unbranded'
+                                        ? `${userType}-bg text-white shadow-xs`
+                                        : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                Unbranded Floor Plan
                             </button>
                         </div>
                     </div>

@@ -358,6 +358,8 @@ type FileManagerContextType = {
   tourSettings: any | null;
   setTourSettings: Dispatch<SetStateAction<any | null>>;
 
+  setFloorPlanSubtype?: (targetIdentifier: string, newSubtype: 'branded_floorplan' | 'unbranded_floorplan' | null) => void;
+
   tourDefaultSettings: any | null;
   setTourDefaultSettings: Dispatch<SetStateAction<any | null>>;
 
@@ -638,12 +640,58 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const setFloorPlanSubtype = useCallback((targetIdentifier: string, newSubtype: 'branded_floorplan' | 'unbranded_floorplan' | null) => {
+    setFilesData((prev) => {
+      if (!prev || !prev.files) return prev;
+      const updatedFiles = prev.files.map((file) => {
+        const isTarget = file.uuid === targetIdentifier || file.name === targetIdentifier;
+        if (isTarget) {
+          const finalSubtype = file.subtype === newSubtype ? null : newSubtype;
+          return { ...file, subtype: finalSubtype };
+        } else if (newSubtype) {
+          if (
+            (newSubtype === 'branded_floorplan' && (file.subtype === 'branded_floorplan' || file.subtype === 'branded')) ||
+            (newSubtype === 'unbranded_floorplan' && (file.subtype === 'unbranded_floorplan' || file.subtype === 'unbranded'))
+          ) {
+            return { ...file, subtype: null };
+          }
+        }
+        return file;
+      });
+
+      return { ...prev, files: updatedFiles };
+    });
+
+    setFloorFiles((prev) => {
+      return prev.map((f: any) => {
+        const isTarget = f.uuid === targetIdentifier || (f.file && f.file.name === targetIdentifier) || f.name === targetIdentifier;
+        if (isTarget) {
+          const finalSubtype = f.subtype === newSubtype ? null : newSubtype;
+          return { ...f, subtype: finalSubtype };
+        } else if (newSubtype) {
+          if (
+            (newSubtype === 'branded_floorplan' && (f.subtype === 'branded_floorplan' || f.subtype === 'branded')) ||
+            (newSubtype === 'unbranded_floorplan' && (f.subtype === 'unbranded_floorplan' || f.subtype === 'unbranded'))
+          ) {
+            return { ...f, subtype: null };
+          }
+        }
+        return f;
+      });
+    });
+
+    if (targetIdentifier) {
+      setChangedFileUuids((prev) => new Set(prev).add(targetIdentifier));
+    }
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       files,
       setFiles,
       floorFiles,
       setFloorFiles,
+      setFloorPlanSubtype,
       selectedFiles,
       setSelectedFiles,
       links,
@@ -744,6 +792,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       tourDefaultSettings,
       restoreDetailFieldHandler,
       restoreAllDetailFieldsHandler,
+      setFloorPlanSubtype,
       // handleSave is injected by FileManager, so it's not in the deps array here for the default context
     ],
   );

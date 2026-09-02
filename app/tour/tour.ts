@@ -80,6 +80,7 @@ export interface OrderData {
             is_show: boolean;
             thumbnail_url: string;
             url: string;
+            subtype?: string | null;
             variant_urls?: {
                 thumb: string;
                 preview: string;

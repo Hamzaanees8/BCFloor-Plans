@@ -175,19 +175,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   }, [selectedAudioTrack, tourDefaultSettings, agentAudios]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Compute globally-sorted photo list ───────────────────────────────────
-  // getGlobalPhotoOrder sorts by sort_order ASC, ties broken by service_id ASC
-  const validPhotos = filesData?.files?.filter(
-    (file) =>
-      file?.service?.name !== "2D Floor Plans" &&
-      file?.service?.name !== "3D Floor Plans" &&
-      file.type === "photo"
-  ) || [];
-
-  let globalSortedPhotos: Files[] = validPhotos.length > 0
-    ? getGlobalPhotoOrder(validPhotos)
-    : [];
-
-  const isMediaApprovedByAgent = (file: any) => {
+  const isMediaApprovedByAgent = React.useCallback((file: any) => {
+    if (userType !== "agent") return true;
     return (
       file?.is_agent_approved === true ||
       file?.is_agent_approved === 1 ||
@@ -198,18 +187,36 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       file?.is_complimentary === "1" ||
       file?.is_complimentary === "true"
     );
-  };
+  }, [userType]);
+
+  const rawPhotos = filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+
+  const validPhotos = rawPhotos.filter(
+    (file: any) =>
+      file?.service?.name !== "2D Floor Plans" &&
+      file?.service?.name !== "3D Floor Plans" &&
+      file?.service?.category?.name !== "Floor Plan" &&
+      file.type === "photo" &&
+      !isPanoramaFile(file)
+  ) || [];
+
+  let globalSortedPhotos: Files[] = validPhotos.length > 0
+    ? getGlobalPhotoOrder(validPhotos)
+    : [];
 
   globalSortedPhotos = globalSortedPhotos.filter(isMediaApprovedByAgent);
 
   // ─── Rebuild FileItem[] whenever the API files change ─────────────────────
-  // We only rebuild from filesData, NOT on every fileItems setState, to avoid loops.
+  // We only rebuild from filesData / orderData, NOT on every fileItems setState, to avoid loops.
   useEffect(() => {
-    const validPhotosForEffect = filesData?.files?.filter(
-      (file) =>
+    const rawPhotosForEffect = filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+    const validPhotosForEffect = rawPhotosForEffect.filter(
+      (file: any) =>
         file?.service?.name !== "2D Floor Plans" &&
         file?.service?.name !== "3D Floor Plans" &&
-        file.type === "photo"
+        file?.service?.category?.name !== "Floor Plan" &&
+        file.type === "photo" &&
+        !isPanoramaFile(file)
     ) || [];
     const globalPhotos = validPhotosForEffect.length > 0 ? getGlobalPhotoOrder(validPhotosForEffect) : [];
     const agentFiltered = globalPhotos.filter(isMediaApprovedByAgent);
@@ -228,8 +235,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         originalData: file,
       }))
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filesData?.files, userType]);
+  }, [filesData?.files, orderData, isMediaApprovedByAgent, API_URL]);
 
   // ─── Global reorder handler ────────────────────────────────────────────────
   const handleGlobalReorder = useCallback(
@@ -427,12 +433,15 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     (!globalSortedPhotos || globalSortedPhotos.length === 0) &&
     (!selectedFiles || selectedFiles.length === 0)
   ) {
+    const rawAllPhotos = filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
     const allPhotos =
-      filesData?.files?.filter(
-        (file) =>
+      rawAllPhotos.filter(
+        (file: any) =>
           file?.service?.name !== "2D Floor Plans" &&
           file?.service?.name !== "3D Floor Plans" &&
-          file.type === "photo"
+          file?.service?.category?.name !== "Floor Plan" &&
+          file.type === "photo" &&
+          !isPanoramaFile(file)
       ) || [];
 
     if (userType === "agent") {
