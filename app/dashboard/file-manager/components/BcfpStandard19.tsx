@@ -1441,7 +1441,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           />
 
           {/* Floral SVG Background Overlay */}
-          {renderFloralSVG(1)}
+          {renderFloralSVG()}
 
           {/* ── PAGE 1 CONTAINER 2 (SafeZoneWrapper) ──────────────────────── */}
           <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
@@ -2700,7 +2700,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           }}
         >
           {/* Floral SVG Background Overlay */}
-          {renderFloralSVG(2)}
+          {renderFloralSVG()}
 
           {/* ── PAGE 2 CONTAINER 2 (SafeZoneWrapper) ──────────────────────── */}
           <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
