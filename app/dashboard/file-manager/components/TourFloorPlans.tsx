@@ -245,8 +245,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     const relX = e.clientX - imgRect.left;
     const relY = e.clientY - imgRect.top;
 
-    const xPercent = (relX / imgRect.width) * 100;
-    const yPercent = (relY / imgRect.height) * 100;
+    const xPercent = Math.max(0, Math.min(100, (relX / imgRect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, (relY / imgRect.height) * 100));
 
     setClickPos({ x: xPercent, y: yPercent });
     setShowPhotoSelector(true);
@@ -1059,13 +1059,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}
           >
             <div
-              ref={imageContainerRef}
-              onDrop={handleDrop}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-              }}
-              className={`relative w-full md:w-[70%] border border-gray-200 h-[300px] sm:h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
+              className={`relative w-full md:w-[70%] border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" ? "m-auto" : ""}`}
             >
               {selectedFile &&
               "uuid" in selectedFile &&
@@ -1108,201 +1102,231 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     title="Floor Plan PDF"
                   />
                 )
-              ) : selectedFile && !("uuid" in selectedFile) ? (
-                <OptimizedImagePreview
-                  file={(selectedFile as any).file}
-                  width={1200}
-                  height={1200}
-                  draggable={false}
-                  ref={imgRef as any}
-                  className="object-contain max-h-full max-w-full w-full h-full cursor-pointer"
-                  onDoubleClick={handleImageDoubleClick}
-                />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  draggable={false}
-                  ref={imgRef}
-                  src={
-                    selectedFile
-                      ? "uuid" in selectedFile
-                        ? selectedFile.variant_urls?.popup ||
-                          selectedFile.url ||
-                          (selectedFile.file_path
-                            ? `${API_URL}/${selectedFile.file_path}`
-                            : "")
-                        : URL.createObjectURL((selectedFile as any).file)
-                      : ""
-                  }
-                  alt="Selected Floor"
-                  className="object-contain max-h-full max-w-full w-full h-full cursor-pointer"
-                  onDoubleClick={handleImageDoubleClick}
-                />
-              )}
-              {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
-                const isApiSnapshot = "x_axis" in marker;
-                const posX = isApiSnapshot ? marker.x_axis : marker.x;
-                const posY = isApiSnapshot ? marker.y_axis : marker.y;
-
-                return (
-                  <div
-                    key={idx}
-                    className="absolute cursor-pointer z-10"
-                    style={{
-                      top: `${posY}%`,
-                      left: `${posX}%`,
-                      transform: "translate(-50%, -100%)",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openFullscreenSnapshot(marker, idx);
-                      if (isApiSnapshot) {
-                        setPreviewMarker({
-                          x: Number(marker.x_axis),
-                          y: Number(marker.y_axis),
-                          file_path: marker.file_path,
-                          url: marker.url,
-                          floorImageUrl: marker.file_name,
-                          name: marker.name ?? "",
-                          description: marker.description ?? "",
-                          isApi: true,
-                          thumbnail_url: marker.thumbnail_url,
-                          variant_urls: (marker as any).variant_urls,
-                        });
-
-                        setSnapshotFile(null);
-                        setSnapshotName(marker.name ?? "");
-                        setSnapshotDescription(marker.description ?? "");
-                        setTempMarkerPos({
-                          x: Number(marker.x_axis),
-                          y: Number(marker.y_axis),
-                        });
-                        setActiveMarkerIndex(null);
-                        setActiveApiSnapshotUuid(marker.uuid);
-                      } else {
-                        const originalIndex = droppedMarkers.findIndex(
-                          (m) => m === marker,
-                        );
-                        setActiveMarkerIndex(originalIndex);
-                        setActiveApiSnapshotUuid(null);
-                        setSnapshotFile(marker.file ?? null);
-                        setSnapshotName(marker.name ?? "");
-                        setSnapshotDescription(marker.description ?? "");
-                        setTempMarkerPos({ x: marker.x, y: marker.y });
-                        setPreviewMarker(marker);
-                      }
-                    }}
-                    onMouseEnter={() => {
-                      if (type !== "confirm") return;
-                      if (hoverTimeoutRef.current) {
-                        clearTimeout(hoverTimeoutRef.current);
-                      }
-                      if (isApiSnapshot) {
-                        setPreviewMarker({
-                          x: Number(marker.x_axis),
-                          y: Number(marker.y_axis),
-                          file_path: marker.file_path,
-                          url: marker.url,
-                          floorImageUrl: marker.file_name,
-                          name: marker.name ?? "",
-                          description: marker.description ?? "",
-                          isApi: true,
-                          thumbnail_url: marker.thumbnail_url,
-                          variant_urls: (marker as any).variant_urls,
-                        });
-                      } else {
-                        setPreviewMarker(marker);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (type !== "confirm") return;
-                      hoverTimeoutRef.current = setTimeout(() => {
-                        setPreviewMarker(null);
-                      }, 300);
-                    }}
-                  >
-                    <CameraIcon width={20} height={20} />
-                  </div>
-                );
-              })}
-
-              {previewMarker && type === "confirm" && (
                 <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFullscreenSnapshot(previewMarker);
+                  ref={imageContainerRef}
+                  onDrop={handleDrop}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
                   }}
-                  className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300 cursor-pointer"
-                  style={
-                    isMobile
-                      ? {
-                          bottom: "10px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                        }
-                      : {
-                          top:
-                            previewMarker.y > 50
-                              ? "auto"
-                              : `calc(${previewMarker.y}% - 24px)`,
-                          bottom:
-                            previewMarker.y > 50
-                              ? `calc(${100 - previewMarker.y}%)`
-                              : "auto",
-                          left:
-                            previewMarker.x > 50
-                              ? "auto"
-                              : `calc(${previewMarker.x}% + 15px)`,
-                          right:
-                            previewMarker.x > 50
-                              ? `calc(${100 - previewMarker.x}% + 15px)`
-                              : "auto",
-                        }
-                  }
-                  onMouseEnter={() => {
-                    if (hoverTimeoutRef.current) {
-                      clearTimeout(hoverTimeoutRef.current);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    hoverTimeoutRef.current = setTimeout(() => {
-                      setPreviewMarker(null);
-                    }, 300);
-                  }}
+                  className="relative inline-block max-w-full max-h-full select-none"
                 >
-                  <button
-                    onClick={() => setPreviewMarker(null)}
-                    className="absolute top-4 right-4 text-black text-[20px] bg-white rounded-full z-10 p-[2px]"
-                  >
-                    <X className="w-[20px] h-[20px]" />
-                  </button>
-
-                  {previewMarker && (
-                    //eslint-disable-next-line @next/next/no-img-element
+                  {selectedFile && !("uuid" in selectedFile) ? (
+                    <OptimizedImagePreview
+                      file={(selectedFile as any).file}
+                      width={1200}
+                      height={1200}
+                      draggable={false}
+                      ref={imgRef as any}
+                      className="block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain cursor-pointer select-none"
+                      onDoubleClick={handleImageDoubleClick}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
+                      draggable={false}
+                      ref={imgRef}
                       src={
-                        previewMarker.file
-                          ? URL.createObjectURL(previewMarker.file)
-                          : previewMarker.variant_urls?.popup ||
-                            previewMarker.variant_urls?.landing ||
-                            previewMarker.url ||
-                            (previewMarker.file_path
-                              ? previewMarker.file_path.startsWith("http")
-                                ? previewMarker.file_path
-                                : `${API_URL}/${previewMarker.file_path}`
-                              : "")
+                        selectedFile
+                          ? "uuid" in selectedFile
+                            ? selectedFile.variant_urls?.popup ||
+                              selectedFile.variant_urls?.landing ||
+                              selectedFile.url ||
+                              (selectedFile.file_path
+                                ? `${API_URL}/${selectedFile.file_path}`
+                                : "")
+                            : URL.createObjectURL((selectedFile as any).file)
+                          : ""
                       }
-                      alt={previewMarker.name || "Snapshot"}
-                      className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
+                      alt="Selected Floor"
+                      className="block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain cursor-pointer select-none"
+                      onDoubleClick={handleImageDoubleClick}
                     />
                   )}
+                  {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
+                    const isApiSnapshot = "x_axis" in marker;
+                    const rawX = Number(isApiSnapshot ? marker.x_axis : marker.x);
+                    const rawY = Number(isApiSnapshot ? marker.y_axis : marker.y);
+                    const posX = isNaN(rawX) ? 50 : Math.max(0, Math.min(100, rawX));
+                    const posY = isNaN(rawY) ? 50 : Math.max(0, Math.min(100, rawY));
 
-                  <div className="p-4 flex-1">
-                    <p className="text-[20px] font-[500] uppercase pb-2 break-words">
-                      {previewMarker?.name}
-                    </p>
-                    <p className="break-words">{previewMarker?.description}</p>
-                  </div>
+                    const isSelected =
+                      type !== "confirm" &&
+                      (isApiSnapshot
+                        ? activeApiSnapshotUuid === marker.uuid
+                        : activeMarkerIndex !== null &&
+                          droppedMarkers[activeMarkerIndex] === marker);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`absolute cursor-pointer z-10 transition-all duration-150 ${
+                          isSelected
+                            ? "scale-125 z-20 drop-shadow-[0_0_8px_rgba(66,144,233,0.9)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
+                            : "hover:scale-110"
+                        }`}
+                        style={{
+                          top: `${posY}%`,
+                          left: `${posX}%`,
+                          transform: "translate(-50%, -100%)",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (type === "confirm") {
+                            openFullscreenSnapshot(marker, idx);
+                            return;
+                          }
+
+                          if (isApiSnapshot) {
+                            setPreviewMarker({
+                              x: Number(marker.x_axis),
+                              y: Number(marker.y_axis),
+                              file_path: marker.file_path,
+                              url: marker.url,
+                              floorImageUrl: marker.file_name,
+                              name: marker.name ?? "",
+                              description: marker.description ?? "",
+                              isApi: true,
+                              thumbnail_url: marker.thumbnail_url,
+                              variant_urls: (marker as any).variant_urls,
+                            });
+
+                            setSnapshotFile(null);
+                            setSnapshotName(marker.name ?? "");
+                            setSnapshotDescription(marker.description ?? "");
+                            setTempMarkerPos({
+                              x: Number(marker.x_axis),
+                              y: Number(marker.y_axis),
+                            });
+                            setActiveMarkerIndex(null);
+                            setActiveApiSnapshotUuid(marker.uuid);
+                          } else {
+                            const originalIndex = droppedMarkers.findIndex(
+                              (m) => m === marker,
+                            );
+                            setActiveMarkerIndex(originalIndex);
+                            setActiveApiSnapshotUuid(null);
+                            setSnapshotFile(marker.file ?? null);
+                            setSnapshotName(marker.name ?? "");
+                            setSnapshotDescription(marker.description ?? "");
+                            setTempMarkerPos({ x: marker.x, y: marker.y });
+                            setPreviewMarker(marker);
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (type !== "confirm") return;
+                          if (hoverTimeoutRef.current) {
+                            clearTimeout(hoverTimeoutRef.current);
+                          }
+                          if (isApiSnapshot) {
+                            setPreviewMarker({
+                              x: Number(marker.x_axis),
+                              y: Number(marker.y_axis),
+                              file_path: marker.file_path,
+                              url: marker.url,
+                              floorImageUrl: marker.file_name,
+                              name: marker.name ?? "",
+                              description: marker.description ?? "",
+                              isApi: true,
+                              thumbnail_url: marker.thumbnail_url,
+                              variant_urls: (marker as any).variant_urls,
+                            });
+                          } else {
+                            setPreviewMarker(marker);
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          if (type !== "confirm") return;
+                          hoverTimeoutRef.current = setTimeout(() => {
+                            setPreviewMarker(null);
+                          }, 300);
+                        }}
+                      >
+                        <CameraIcon width={20} height={20} />
+                      </div>
+                    );
+                  })}
+
+                  {previewMarker && type === "confirm" && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFullscreenSnapshot(previewMarker);
+                      }}
+                      className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300 cursor-pointer"
+                      style={
+                        isMobile
+                          ? {
+                              bottom: "10px",
+                              left: "50%",
+                              transform: "translateX(-50%)",
+                            }
+                          : {
+                              top:
+                                previewMarker.y > 50
+                                  ? "auto"
+                                  : `calc(${previewMarker.y}% - 24px)`,
+                              bottom:
+                                previewMarker.y > 50
+                                  ? `calc(${100 - previewMarker.y}%)`
+                                  : "auto",
+                              left:
+                                previewMarker.x > 50
+                                  ? "auto"
+                                  : `calc(${previewMarker.x}% + 15px)`,
+                              right:
+                                previewMarker.x > 50
+                                  ? `calc(${100 - previewMarker.x}% + 15px)`
+                                  : "auto",
+                            }
+                      }
+                      onMouseEnter={() => {
+                        if (hoverTimeoutRef.current) {
+                          clearTimeout(hoverTimeoutRef.current);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        hoverTimeoutRef.current = setTimeout(() => {
+                          setPreviewMarker(null);
+                        }, 300);
+                      }}
+                    >
+                      <button
+                        onClick={() => setPreviewMarker(null)}
+                        className="absolute top-4 right-4 text-black text-[20px] bg-white rounded-full z-10 p-[2px]"
+                      >
+                        <X className="w-[20px] h-[20px]" />
+                      </button>
+
+                      {previewMarker && (
+                        //eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            previewMarker.file
+                              ? URL.createObjectURL(previewMarker.file)
+                              : previewMarker.variant_urls?.popup ||
+                                previewMarker.variant_urls?.landing ||
+                                previewMarker.url ||
+                                (previewMarker.file_path
+                                  ? previewMarker.file_path.startsWith("http")
+                                    ? previewMarker.file_path
+                                    : `${API_URL}/${previewMarker.file_path}`
+                                  : "")
+                          }
+                          alt={previewMarker.name || "Snapshot"}
+                          className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
+                        />
+                      )}
+
+                      <div className="p-4 flex-1">
+                        <p className="text-[20px] font-[500] uppercase pb-2 break-words">
+                          {previewMarker?.name}
+                        </p>
+                        <p className="break-words">{previewMarker?.description}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

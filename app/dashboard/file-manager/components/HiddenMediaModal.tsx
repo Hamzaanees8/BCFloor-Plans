@@ -115,7 +115,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="w-[95%] md:w-[800px] max-w-[900px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden bg-white">
+            <DialogContent className="w-[95%] md:w-[800px] max-w-[900px] max-h-[90vh] flex flex-col rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden bg-white">
                 <DialogHeader className="mb-2">
                     <DialogTitle className={`flex items-start md:items-center justify-between ${userType}-text text-[16px] md:text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-3 uppercase`}>
                         <div className="flex flex-col gap-0.5">

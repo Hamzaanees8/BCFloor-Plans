@@ -388,7 +388,7 @@ function PublicTourFloorPlans({
                                         loading="lazy"
                                         src={selectedFile.variant_urls?.landing || selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}
                                         alt="Selected Floor Plan"
-                                        className="object-contain max-h-[75vh] max-w-full w-auto h-auto mx-auto rounded-lg select-none pointer-events-none"
+                                        className="block object-contain max-h-[75vh] max-w-full w-auto h-auto mx-auto rounded-lg select-none pointer-events-none"
                                         draggable={false}
                                     />
                                     {/* Client requested to remove bottom-right branding watermark; commented out in case they want it back later

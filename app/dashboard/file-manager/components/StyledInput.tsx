@@ -660,7 +660,6 @@ export default function StyledInput({
         (f) => f.name.toLowerCase() === activeFontFolder.toLowerCase(),
       )
     : undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const customFonts = folderConfig?.fonts || [];
 
   // FieldPanel context – optional; graceful no-op when not inside a provider
@@ -1003,6 +1002,7 @@ export default function StyledInput({
         alignContent: alignContentStr as any,
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       onChangeStyle,
       fontWeight,
@@ -1073,7 +1073,8 @@ export default function StyledInput({
 
       const deleteFn = () => {
         if (onDeleteRef.current) onDeleteRef.current();
-        else if (draggableBoxRef.current?.onDelete) draggableBoxRef.current.onDelete();
+        else if (draggableBoxRef.current?.onDelete)
+          draggableBoxRef.current.onDelete();
       };
 
       fieldPanel.openPanel({

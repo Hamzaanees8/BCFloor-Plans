@@ -450,7 +450,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                             </div>
                         )}
-                        {userType !== 'agent' && userType !== 'vendor' && (
+                        {/* {userType !== 'agent' && userType !== 'vendor' && (
                             <Button
                                 variant="outline"
                                 onClick={() => setOpenUpgrade(true)}
@@ -458,7 +458,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             >
                                 Upgrade Plan
                             </Button>
-                        )}
+                        )} */}
                         <UpgradeServicePopup
                             open={openUpgrade}
                             setOpen={setOpenUpgrade}

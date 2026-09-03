@@ -174,8 +174,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="w-[95vw] md:w-[850px] md:max-w-[900px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
-                <DialogHeader>
+            <DialogContent className="w-[95vw] md:w-[850px] md:max-w-[900px] max-h-[90vh] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria flex flex-col overflow-y-auto custom-scroll [&>button]:hidden">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                         {title}
                         <Button
@@ -190,7 +190,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                 </DialogHeader>
 
-                <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-black rounded-lg overflow-hidden">
+                <div className="w-full h-[40vh] md:h-[48vh] min-h-[220px] max-h-[480px] flex justify-center items-center bg-black rounded-lg overflow-hidden flex-shrink-0">
                     {type === 'video' ? (
                         <div className="relative w-full h-full flex justify-center items-center">
                             {isVideoLoading && (
@@ -452,7 +452,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     </div>
                 )}
 
-                <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4 font-raleway">
+                <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4 font-raleway flex-shrink-0">
                     {onReplace && userType !== 'agent' && (
                         <button
                             onClick={onReplace}
