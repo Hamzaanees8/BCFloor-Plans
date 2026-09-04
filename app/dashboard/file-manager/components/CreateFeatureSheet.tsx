@@ -1622,23 +1622,25 @@ const CreateFeatureSheet = forwardRef<
                 </button>
               </div>
 
-              <div className="mt-10">
-                <button
-                  onClick={() =>
-                    document.getElementById("custom-pdf-upload")?.click()
-                  }
-                  className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
-                >
-                  + Upload Feature Sheet
-                </button>
-                <input
-                  id="custom-pdf-upload"
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={handlePdfUpload}
-                />
-              </div>
+              {userType !== "agent" && (
+                <div className="mt-10">
+                  <button
+                    onClick={() =>
+                      document.getElementById("custom-pdf-upload")?.click()
+                    }
+                    className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
+                  >
+                    + Upload Feature Sheet
+                  </button>
+                  <input
+                    id="custom-pdf-upload"
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handlePdfUpload}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -3184,6 +3186,8 @@ const CreateFeatureSheet = forwardRef<
                                 key={selectedSheetUuid || "new-BCFPStandard20"}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard21" && (

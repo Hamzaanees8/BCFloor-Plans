@@ -127,10 +127,24 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
         if (rightBound >= leftBound) {
           minX = leftBound;
           maxX = rightBound;
+        } else {
+          minX = Math.min(leftBound, rightBound);
+          maxX = Math.max(leftBound, rightBound);
+          if (Math.abs(rightBound - leftBound) <= 10) {
+            minX = 0;
+            maxX = 0;
+          }
         }
         if (bottomBound >= topBound) {
           minY = topBound;
           maxY = bottomBound;
+        } else {
+          minY = Math.min(topBound, bottomBound);
+          maxY = Math.max(topBound, bottomBound);
+          if (Math.abs(bottomBound - topBound) <= 10) {
+            minY = 0;
+            maxY = 0;
+          }
         }
       }
     }
