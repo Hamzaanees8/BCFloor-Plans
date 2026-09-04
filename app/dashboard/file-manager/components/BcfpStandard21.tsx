@@ -65,34 +65,6 @@ const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
   );
 };
 
-const STANDARD_FIELD_IDS = new Set([
-  "leftContentGroup",
-  "addressCode",
-  "roadName",
-  "cityLine",
-  "mlsNumberTop",
-  "propertyDescription",
-  "byLawRestrictions",
-  "maintFees",
-  "maintFeesInclude",
-  "featuresIncluded",
-  "siteInfluences",
-  "amenities",
-  "view",
-  "priceAmount",
-  "headline",
-  "specBedroom",
-  "specBathroom",
-  "specSqft",
-  "specBuiltYear",
-  "contactName",
-  "contactBrokerage",
-  "contactPhone",
-  "contactEmail",
-  "contactMls",
-  "contactDisclaimer",
-]);
-
 const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
     const {
@@ -1370,7 +1342,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
           <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
             <div
               data-safezone-container="true"
-              className="relative z-10 w-full h-full flex flex-col justify-between px-6 pt-5 pb-3 overflow-hidden"
+              className="relative z-10 w-full h-full flex flex-col justify-between px-4 pt-5 pb-3 overflow-hidden"
             >
               {/* ── Header Section ─────────────────────────────────────── */}
               <div

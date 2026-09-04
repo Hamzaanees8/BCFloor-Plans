@@ -1,5 +1,4 @@
 import {
-  House,
   Pencil,
   Trash,
   ZoomIn,
@@ -66,31 +65,6 @@ const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
   );
 };
 
-const STANDARD_FIELD_IDS = new Set([
-  "addressCode",
-  "roadName",
-  "cityLine",
-  "headerAmount",
-  "contactName",
-  "contactBrokerage",
-  "contactPhone",
-  "contactEmail",
-  "contactDisclaimer",
-  "priceAmount",
-  "propertyDescription",
-  "propertyDetails",
-  "specBedroom",
-  "specBathroom",
-  "specSqft",
-  "specBuiltYear",
-  "byLawRestrictions",
-  "maintFees",
-  "maintFeesInclude",
-  "featuresIncluded",
-  "siteInfluences",
-  "amenities",
-  "view",
-]);
 
 const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
