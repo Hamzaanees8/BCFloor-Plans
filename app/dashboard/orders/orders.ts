@@ -52,6 +52,7 @@ export interface OrderServiceItem {
   option_id?: string;
   amount: number;
   custom?: string;
+  vendor_id?: string;
   feature_sheet_id?: number;
   feature_sheet_uuid?: string;
   add_ons?: { uuid?: string; title: string; amount: number }[];

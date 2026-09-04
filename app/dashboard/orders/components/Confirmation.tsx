@@ -14,6 +14,7 @@ import { Plus, File } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
+import { isServiceRequiringTravel } from '../utils/serviceTimeUtils';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
@@ -423,21 +424,35 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                         const originalPrice = getOriginalPrice(service);
                         const computedPrice = isPaid ? originalPrice : calculateServicePriceAfterDiscounts(service);
 
+                        const matchedSlot = selectedSlots.find(
+                            slot => slot.service_id === service.uuid ||
+                                String(slot.service_id) === String(service.uuid) ||
+                                (service.id && String(slot.service_id) === String(service.id))
+                        );
+                        const resolvedVendorId = (service as any).vendor_id || matchedSlot?.vendor_id || matchedSlot?.vendor?.uuid || undefined;
+
                         return {
                             ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
                             service_id: service.uuid as string,
                             option_id: service.option_id ?? undefined,
                             amount: Number(computedPrice.toFixed(2)),
+                            vendor_id: resolvedVendorId,
                             custom: service.custom ?? undefined,
                             add_ons: service.addOns && service.addOns.length > 0 ? service.addOns : undefined
                         };
                     }),
                 discounts,
                 slots: (() => {
+                    // Filter out any slots for services that do not require travel
+                    const travelSlots = selectedSlots.filter((slot: Slot) => {
+                        const s = selectedServices.find(sel => sel.uuid === slot.service_id || String(sel.id) === String(slot.service_id));
+                        return isServiceRequiringTravel(s, services);
+                    });
+
                     // Group slots by service_id, vendor_id, and date
                     const groupedSlots: Record<string, Slot[]> = {};
 
-                    selectedSlots.forEach((slot: Slot) => {
+                    travelSlots.forEach((slot: Slot) => {
                         const key = `${slot.service_id}_${slot.vendor_id}_${slot.date}`;
                         if (!groupedSlots[key]) {
                             groupedSlots[key] = [];

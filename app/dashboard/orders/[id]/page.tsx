@@ -217,7 +217,7 @@ function Page() {
       setOrder_status(data.data.order_status);
       setProperty_website(data.data.property.property_website);
       setMls_property(data.data.property.mls_number);
-      setselectedVendors(data.data.vendor.uuid);
+      setselectedVendors(data.data.vendor?.uuid || data.data.slots?.[0]?.vendor?.uuid || "");
     } catch (err) {
       console.log("Error refreshing order:", err);
     }
@@ -249,7 +249,7 @@ function Page() {
 
   useEffect(() => {
     if (orderData) {
-      setselectedVendors(orderData?.slots[0].vendor.uuid);
+      setselectedVendors(orderData?.vendor?.uuid || orderData?.slots?.[0]?.vendor?.uuid || "");
     }
   }, [orderData]);
   useEffect(() => {
@@ -296,7 +296,7 @@ function Page() {
         setOrder_status(data.data.order_status);
         setProperty_website(data.data.property.property_website);
         setMls_property(data.data.property.mls_number);
-        setselectedVendors(data.data.vendor.uuid);
+        setselectedVendors(data.data.vendor?.uuid || data.data.slots?.[0]?.vendor?.uuid || "");
       })
       .catch((err) => console.log(err.message));
   }, [orderId]);
@@ -385,6 +385,19 @@ function Page() {
       const vendor = slot?.vendor;
       if (vendor && !uniqueVendorsMap.has(vendor.uuid)) {
         uniqueVendorsMap.set(vendor.uuid, vendor);
+      }
+    });
+  }
+
+  // Also include direct vendor if assigned directly to order or services without slots
+  if (orderData?.vendor?.uuid && !uniqueVendorsMap.has(orderData.vendor.uuid)) {
+    uniqueVendorsMap.set(orderData.vendor.uuid, orderData.vendor);
+  }
+  if (Array.isArray(orderData?.services)) {
+    orderData.services.forEach((s: any) => {
+      const v = s?.vendor;
+      if (v?.uuid && !uniqueVendorsMap.has(v.uuid)) {
+        uniqueVendorsMap.set(v.uuid, v);
       }
     });
   }

@@ -20,7 +20,7 @@ import { Agent } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../utils/serviceTimeUtils';
+import { getEffectiveServiceDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
 
@@ -217,7 +217,7 @@ const OrderForm = () => {
         setSelectedOptions({});
     };
     useEffect(() => {
-        if (currentUser && currentUser.slots && currentUser.slots.length > 0) {
+        if (currentUser) {
             setSelectedAgentId(currentUser.agent?.uuid || "");
             setSelectedListingId(currentUser.property?.uuid || "");
             setSelectedServices(() => {
@@ -234,6 +234,11 @@ const OrderForm = () => {
                     optionName: s.option?.title ?? s.custom ?? '',
                     payment_status: s.payment_status,
                     is_completed: s.is_completed,
+                    is_travel_required: (s.service as any)?.is_travel_required,
+                    allow_travel: (s.service as any)?.allow_travel,
+                    allowed_travel: (s.service as any)?.allowed_travel,
+                    type: (s.service as any)?.type,
+                    vendor_id: (s as any).vendor_id || (s as any).vendor?.uuid || (currentUser.slots || []).find(sl => sl.service_id === s.service.id)?.vendor?.uuid,
                 }));
             });
             setCustomServiceNames(() => {
@@ -359,7 +364,22 @@ const OrderForm = () => {
                 const serviceUuid = typeof service === 'string' ? service : service.uuid;
                 if (!serviceUuid) continue;
 
+                // Non-travel services do not require a time slot, but require an assigned vendor
+                const isTravelReq = isServiceRequiringTravel(service, servicesData);
+                if (!isTravelReq) {
+                    const hasVendor = Boolean((service as any).vendor_id && (service as any).vendor_id !== 'all' && (service as any).vendor_id !== 'none');
+                    if (!hasVendor) {
+                        newInvalidServices.push(serviceUuid);
+                        if (!firstErrorToastShown) {
+                            toast.error(`Please select a vendor for "${service.title}".`);
+                            firstErrorToastShown = true;
+                        }
+                    }
+                    continue;
+                }
+
                 const globalService = servicesData?.find(s => s.uuid === serviceUuid || (service.id && String(s.id) === String(serviceUuid)));
+
                 const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
 
                 const requiredDuration = getEffectiveServiceDuration(
@@ -408,7 +428,19 @@ const OrderForm = () => {
             const serviceId = typeof service === 'string' ? service : service.uuid;
             if (!serviceId) return;
 
+            // Non-travel services do not require a time slot, but require an assigned vendor
+            if (!isServiceRequiringTravel(service, servicesData)) {
+                const hasVendor = Boolean((service as any).vendor_id && (service as any).vendor_id !== 'all' && (service as any).vendor_id !== 'none');
+                if (!hasVendor) {
+                    if (!invalidServiceIds.includes(serviceId)) {
+                        invalidServiceIds.push(serviceId);
+                    }
+                }
+                return;
+            }
+
             const globalService = servicesData?.find(s => s.uuid === serviceId || (service.id && String(s.id) === String(serviceId)));
+
             const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
             const requiredDuration = getEffectiveServiceDuration(
                 productOption,

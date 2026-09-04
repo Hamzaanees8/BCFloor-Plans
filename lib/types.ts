@@ -144,6 +144,10 @@ export interface Service {
     background_color: string | null;
     border_color: string | null;
     thumbnail_url: string | null;
+    is_travel_required?: boolean | number;
+    allow_travel?: boolean | number;
+    allowed_travel?: boolean | number;
+    type?: string;
 }
 
 export interface Slot {

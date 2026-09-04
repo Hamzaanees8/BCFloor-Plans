@@ -27,6 +27,11 @@ export interface SelectedService {
     optionName?: string;
     payment_status?: string;
     is_completed?: boolean | number;
+    is_travel_required?: boolean | number;
+    allow_travel?: boolean | number;
+    allowed_travel?: boolean | number;
+    type?: string;
+    vendor_id?: string;
     addOns?: { uuid?: string; title: string; amount: number }[];
 }
 
@@ -185,6 +190,10 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                 quantity: quantity,
                 option_id: option_id,
                 optionName: optionName,
+                is_travel_required: (fullService as any)?.is_travel_required ?? (pkgService as any)?.is_travel_required,
+                allow_travel: (fullService as any)?.allow_travel ?? (pkgService as any)?.allow_travel,
+                allowed_travel: (fullService as any)?.allowed_travel ?? (pkgService as any)?.allowed_travel,
+                type: (fullService as any)?.type ?? (pkgService as any)?.type,
             });
         });
 
@@ -268,9 +277,13 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             // Exclude legacy hardcoded feature sheets
             if (name === 'feature sheets') return false;
 
-            // For Print category: only include Managed Design & Print service
+            // For Print category: include Managed Design & Print AND DIY print services (flyer, tabloid)
             if (catName === 'print') {
-                return service.type === 'design_and_print';
+                return (
+                    service.type === 'design_and_print' ||
+                    service.type === 'flyer' ||
+                    service.type === 'tabloid'
+                );
             }
 
             return true;

@@ -242,3 +242,46 @@ export function splitSlotInto15MinChunks(
 
     return chunks;
 }
+
+/**
+ * Determines whether a given service requires travel/appointment slot scheduling.
+ * If travel is disabled (false / 0 / '0' / 'false') or if it's a DIY print service (flyer / tabloid), returns false.
+ */
+export function isServiceRequiringTravel(
+    service: any,
+    catalogServices?: any[]
+): boolean {
+    if (!service) return true;
+
+    const serviceUuid = typeof service === 'string' ? service : (service.uuid || service.service_id);
+    const serviceId = typeof service === 'object' ? service.id : undefined;
+
+    const globalService = catalogServices?.find(s =>
+        (serviceUuid && s.uuid === serviceUuid) ||
+        (serviceId && String(s.id) === String(serviceId)) ||
+        (serviceUuid && String(s.id) === String(serviceUuid)) ||
+        (serviceId && s.uuid && String(s.uuid) === String(serviceId))
+    );
+
+    const isExplicitlyFalse = (val: any) => {
+        return val === false || val === 0 || val === '0' || val === 'false';
+    };
+
+    const checkObj = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (isExplicitlyFalse(obj.is_travel_required)) return false;
+        if (isExplicitlyFalse(obj.allow_travel)) return false;
+        if (isExplicitlyFalse(obj.allowed_travel)) return false;
+        const type = (obj.type || '').toLowerCase();
+        if (type === 'flyer' || type === 'tabloid' || type === 'design_and_print') return false;
+        return null;
+    };
+
+    const directCheck = checkObj(service);
+    if (directCheck !== null) return directCheck;
+
+    const globalCheck = checkObj(globalService);
+    if (globalCheck !== null) return globalCheck;
+
+    return true;
+}

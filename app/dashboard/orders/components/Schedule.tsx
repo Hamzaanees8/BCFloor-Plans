@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
@@ -17,7 +16,7 @@ import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightT
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
-import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, isServiceRequiringTravel } from '../utils/serviceTimeUtils'
 import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
@@ -121,7 +120,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
-    const [openTooltipIdx, setOpenTooltipIdx] = useState<number | null>(null);
     const { userType } = useAppContext();
 
     const {
@@ -151,6 +149,23 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
     const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
     const serviceCount = servicesToSchedule?.length || 0;
+
+    useEffect(() => {
+        if (servicesToSchedule && servicesToSchedule.length > 0) {
+            setSelectedVendorMap(prev => {
+                const updated = { ...prev };
+                let changed = false;
+                servicesToSchedule.forEach((s: any, idx: number) => {
+                    const key = s.uuid || `service-${idx}`;
+                    if (s.vendor_id && !updated[key]) {
+                        updated[key] = s.vendor_id;
+                        changed = true;
+                    }
+                });
+                return changed ? updated : prev;
+            });
+        }
+    }, [servicesToSchedule]);
 
     const minDate = React.useMemo(() => {
         if (selectedSlots.length > 0) {
@@ -255,6 +270,13 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 const vendorsForService = vendorsData.filter(v =>
                     v.vendor_services?.some(vs => vs.service?.uuid === service.uuid)
                 );
+
+                const isTravelReq = isServiceRequiringTravel(service, servicesData);
+                if (!isTravelReq) {
+                    result[service.uuid] = vendorsForService;
+                    overridable[service.uuid] = [];
+                    continue;
+                }
 
                 const insideResults = await Promise.all(
                     vendorsForService.map(async vendor => {
@@ -527,15 +549,33 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     </Popover>
                 </div>
             </div>
-            <div className="flex flex-col md:grid md:grid-cols-3 gap-8 md:gap-16 text-[#7D7D7D] px-4 md:px-16 py-6 auto-rows-max">
-                {(() => {
-                    const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
-                    return servicesToSchedule?.map((service, idx) => {
+            {servicesToSchedule.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-lg border border-[#BBBBBB] my-8 mx-4 md:mx-16 shadow-sm">
+                    <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+                        <CalendarIcon className="w-8 h-8 text-[#4290E9]" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-[#424242] mb-2">No Services Selected</h3>
+                    <p className="text-[#7D7D7D] max-w-md mb-4">
+                        Please go back to the Services step to select services.
+                    </p>
+                </div>
+            ) : (
+                <div className="flex flex-col md:grid md:grid-cols-3 gap-8 md:gap-16 text-[#7D7D7D] px-4 md:px-16 py-6 auto-rows-max">
+                    {(() => {
+                        return servicesToSchedule?.map((service, idx) => {
                         const serviceKey = service.uuid || `service-${idx}`;
-                        const selectedVendor = selectedVendorMap[serviceKey] ?? 'all';
+                        const isTravelRequired = isServiceRequiringTravel(service, servicesData);
+                        const selectedVendor = selectedVendorMap[serviceKey] ?? ((service as any).vendor_id || 'all');
 
                         const handleVendorChange = (value: string) => {
                             setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: value }));
+                            setSelectedServices((prev: any[]) => prev.map((s: any) => {
+                                const sKey = s.uuid || s.service_uuid || s.id;
+                                if (sKey === serviceKey || s.uuid === service.uuid) {
+                                    return { ...s, vendor_id: value !== 'all' && value !== 'none' ? value : undefined };
+                                }
+                                return s;
+                            }));
                         };
                         const showAllVendors = showAllVendorsMap[serviceKey] ?? 0;
                         const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
@@ -559,12 +599,19 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                             (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
                         );
                         const currentDuration = serviceSlots.length * 15;
-                        const isFullyScheduled = (userType === 'admin' || isEdit) ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0);
-                        const isInvalid = (userType === 'admin' || isEdit) ? (serviceSlots.length === 0 && invalidServices.includes(service.uuid || '')) : invalidServices.includes(service.uuid || '');
+                        const isVendorAssigned = Boolean(selectedVendor && selectedVendor !== 'all' && selectedVendor !== 'none');
+
+                        const isFullyScheduled = !isTravelRequired
+                            ? isVendorAssigned
+                            : ((userType === 'admin' || isEdit) ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0));
+
+                        const isInvalid = !isTravelRequired
+                            ? (!isVendorAssigned && (invalidServices.includes(service.uuid || '') || (service.id && invalidServices.includes(String(service.id)))))
+                            : ((userType === 'admin' || isEdit) ? (serviceSlots.length === 0 && invalidServices.includes(service.uuid || '')) : invalidServices.includes(service.uuid || ''));
 
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
-                        const isPastDate = isEdit && serviceSlots.some((slot: Slot) => {
+                        const isPastDate = isEdit && isTravelRequired && serviceSlots.some((slot: Slot) => {
                             if (!slot.date) return false;
                             const slotDate = new Date(slot.date + 'T00:00:00');
                             return slotDate < today;
@@ -577,70 +624,65 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                     isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent",
                                     isPastDate ? "pointer-events-none opacity-60 bg-gray-50 bg-opacity-50" : ""
                                 )}>
-                                    <div className="flex justify-between items-start">
-                                        <div>
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-[12px]">
-                                                Select Service Time ({idx + 1} of {servicesToSchedule?.length})
+                                                {isTravelRequired
+                                                    ? `Select Service Time (${idx + 1} of ${servicesToSchedule?.length})`
+                                                    : `Select Service Vendor (${idx + 1} of ${servicesToSchedule?.length})`}
                                             </p>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
-                                                {currentService?.is_travel_required === false && (
-                                                    <TooltipProvider>
-                                                        <Tooltip open={openTooltipIdx === idx} onOpenChange={(open) => setOpenTooltipIdx(open ? idx : null)}>
-                                                            <TooltipTrigger asChild onClick={(e) => {
-                                                                e.preventDefault();
-                                                                setOpenTooltipIdx(openTooltipIdx === idx ? null : idx);
-                                                            }}>
-                                                                <Info className="w-4 h-4 text-blue-500 cursor-pointer" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="max-w-[250px] bg-blue-50 border-blue-100 p-3">
-                                                                <p className="text-[11px] text-blue-700 leading-relaxed text-left whitespace-normal">
-                                                                    <span className="font-semibold">This service does not require travel.</span>{' '}
-                                                                    You can book any available time slot on any day. Only slots already booked by other orders are unavailable.
-                                                                </p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                )}
+                                                <p className="text-[16px] font-[700] max-w-[200px] truncate">{service.title}</p>
                                             </div>
                                             <p className="text-[12px]">
                                                 Approx. Duration <br />
                                                 <span className="text-[16px] font-[700] block min-h-[24px]">
-                                                    {(() => {
-                                                        const effectiveDuration = getEffectiveServiceDuration(
-                                                            productOption,
-                                                            currentService,
-                                                            squareFootage
-                                                        );
-                                                        const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
+                                                    {isTravelRequired ? (
+                                                        (() => {
+                                                            const effectiveDuration = getEffectiveServiceDuration(
+                                                                productOption,
+                                                                currentService,
+                                                                squareFootage
+                                                            );
+                                                            const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
 
-                                                        return (
-                                                            <>
-                                                                {effectiveDuration} Minutes
-                                                                {isCalculated && (
-                                                                    <span className="text-[10px] font-[400] text-gray-500 block mt-1">
-                                                                        (Calculated based on property size)
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        );
-                                                    })()}
+                                                            return (
+                                                                <>
+                                                                    {effectiveDuration} Minutes
+                                                                    {isCalculated && (
+                                                                        <span className="text-[10px] font-[400] text-gray-500 block mt-1">
+                                                                            (Calculated based on property size)
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <>
+                                                            Direct Service
+                                                            <span className="text-[10px] font-[400] text-gray-500 block mt-1">
+                                                                (No travel required)
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </span>
                                             </p>
                                         </div>
                                         <div className={cn(
-                                            "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
-                                            isFullyScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+                                            "shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-xs",
+                                            isFullyScheduled
+                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                : (isTravelRequired ? "bg-gray-100 text-gray-600 border border-gray-200" : "bg-amber-50 text-amber-700 border border-amber-300/80")
                                         )}>
                                             {isFullyScheduled ? (
                                                 <>
-                                                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                                                    Scheduled
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                                    {isTravelRequired ? "Scheduled" : "Vendor Assigned"}
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span className="w-2 h-2 rounded-full bg-gray-400" />
-                                                    Pending
+                                                    <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", isTravelRequired ? "bg-gray-400" : "bg-amber-500")} />
+                                                    {isTravelRequired ? "Pending" : "Vendor Required"}
                                                 </>
                                             )}
                                         </div>
@@ -678,42 +720,44 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex justify-start gap-6 items-center">
-                                            <Switch
-                                                id={`recommend-time-${idx}`}
-                                                checked={!!recommendTime}
-                                                onCheckedChange={(checked) => {
-                                                    setRecommendTimeMap((prev) => ({
-                                                        ...prev,
-                                                        [serviceKey]: checked ? 1 : 0,
-                                                    }));
+                                        {isTravelRequired && (
+                                            <div className="flex justify-start gap-6 items-center">
+                                                <Switch
+                                                    id={`recommend-time-${idx}`}
+                                                    checked={!!recommendTime}
+                                                    onCheckedChange={(checked) => {
+                                                        setRecommendTimeMap((prev) => ({
+                                                            ...prev,
+                                                            [serviceKey]: checked ? 1 : 0,
+                                                        }));
 
-                                                    if (checked) {
-                                                        const serviceVendors = filteredVendorsByService[service.uuid || ''] || [];
-                                                        if (serviceVendors.length > 0) {
-                                                            let nearestVendorId = '';
-                                                            let minDistance = Infinity;
+                                                        if (checked) {
+                                                            const serviceVendors = filteredVendorsByService[service.uuid || ''] || [];
+                                                            if (serviceVendors.length > 0) {
+                                                                let nearestVendorId = '';
+                                                                let minDistance = Infinity;
 
-                                                            serviceVendors.forEach(vendor => {
-                                                                const distance = vendorDistances[vendor.uuid || ''];
-                                                                if (distance !== undefined && distance < minDistance) {
-                                                                    minDistance = distance;
-                                                                    nearestVendorId = vendor.uuid || '';
+                                                                serviceVendors.forEach(vendor => {
+                                                                    const distance = vendorDistances[vendor.uuid || ''];
+                                                                    if (distance !== undefined && distance < minDistance) {
+                                                                        minDistance = distance;
+                                                                        nearestVendorId = vendor.uuid || '';
+                                                                    }
+                                                                });
+
+                                                                if (nearestVendorId) {
+                                                                    setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: nearestVendorId }));
                                                                 }
-                                                            });
-
-                                                            if (nearestVendorId) {
-                                                                setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: nearestVendorId }));
                                                             }
+                                                        } else {
+                                                            setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: 'all' }));
                                                         }
-                                                    } else {
-                                                        setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: 'all' }));
-                                                    }
-                                                }}
-                                                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                                            />
-                                            <label htmlFor={`recommend-time-${idx}`} className="text-[12px] cursor-pointer">Recommend Best Time</label>
-                                        </div>
+                                                    }}
+                                                    className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                                />
+                                                <label htmlFor={`recommend-time-${idx}`} className="text-[12px] cursor-pointer">Recommend Best Time</label>
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         {(() => {
@@ -925,32 +969,34 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             ) : null}
                                         </div>
 
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                        "w-full h-[42px] justify-start text-left font-normal bg-[#EEEEEE] border-[#BBBBBB] text-[#7D7D7D] mt-3",
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {serviceDates[serviceKey] || masterDate ? format(serviceDates[serviceKey] || masterDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="end">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={serviceDates[serviceKey] || masterDate}
-                                                    onSelect={(date) => {
-                                                        if (date) {
-                                                            setServiceDates(prev => ({ ...prev, [serviceKey]: date }));
-                                                        }
-                                                    }}
-                                                    disabled={{ before: minDate }}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                        {isTravelRequired && (
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full h-[42px] justify-start text-left font-normal bg-[#EEEEEE] border-[#BBBBBB] text-[#7D7D7D] mt-3",
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {serviceDates[serviceKey] || masterDate ? format(serviceDates[serviceKey] || masterDate, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="end">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={serviceDates[serviceKey] || masterDate}
+                                                        onSelect={(date) => {
+                                                            if (date) {
+                                                                setServiceDates(prev => ({ ...prev, [serviceKey]: date }));
+                                                            }
+                                                        }}
+                                                        disabled={{ before: minDate }}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
 
                                         {isVendorModalOpen && selectedVendorForModal && (
                                             <VendorWorkCarousel
@@ -1043,6 +1089,20 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                                         <div className="mt-[20px]">
                                             {(() => {
+                                                if (!isTravelRequired) {
+                                                    return (
+                                                        <div className="flex flex-col items-center justify-center p-6 bg-slate-50/80 rounded-xl border border-dashed border-slate-300 text-center gap-2.5 my-2">
+                                                            <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                                                                <Info className="w-5 h-5" />
+                                                            </div>
+                                                            <p className="text-[13px] font-semibold text-slate-800">Direct Service Fulfillment</p>
+                                                            <p className="text-[12px] text-slate-600 leading-relaxed max-w-xs">
+                                                                Please select an assigned vendor for this service using the dropdown above. Since this service does not require on-site travel, calendar time slots are not required.
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 // Issue 1 Fix: For past-date bookings, always render the calendar
                                                 // so previously-booked slots show as selected (read-only).
                                                 // For current/future dates with no vendors, show the error block.
@@ -1152,7 +1212,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                                 </div>
 
-                                {((idx + 1) % 3 === 0 || idx === servicesToSchedule?.length - 1) && (
+                                {((idx + 1) % 3 === 0 || idx === servicesToSchedule?.length - 1) && servicesToSchedule.some(s => isServiceRequiringTravel(s, servicesData)) && (
                                     <div className="col-span-1 md:col-span-3 w-full">
                                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-0 border border-[#EEEEEE] bg-white p-4 rounded-lg">
                                             <div className="flex items-center gap-2 text-[9px] text-[#424242]">
@@ -1184,10 +1244,10 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                 )}
                             </React.Fragment>
                         );
-                    })
+                    });
                 })()}
-            </div>
-
+                    </div>
+            )}
         </div>
     )
 }

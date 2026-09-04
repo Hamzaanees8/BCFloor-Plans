@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useOrderContext } from "../context/OrderContext";
 import { Services } from "../../services/page";
 import { SelectedService } from "./Services";
+import { isServiceRequiringTravel } from "../utils/serviceTimeUtils";
 import React from "react";
 
 interface ConfirmationCardProps {
@@ -21,10 +22,14 @@ export default function ConfirmationCard({ title, service, selectedService, slot
         selectedOptions,
         customPrices,
         customServiceNames,
+        vendorsData,
     } = useOrderContext();
     const selectedOption = selectedOptions[service.uuid] || "";
     const customPrice = customPrices[service.uuid] || "";
     const customServiceName = customServiceNames[service.uuid] || "";
+
+    const assignedVendor = selectedService.vendor_id ? vendorsData.find(v => v.uuid === selectedService.vendor_id) : null;
+    const assignedVendorName = assignedVendor ? `${assignedVendor.first_name} ${assignedVendor.last_name}` : null;
 
     const isCustom = selectedOption === "custom";
     const numericPrice = Number(selectedService.price);
@@ -46,14 +51,23 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                 </div>
                 <div className="flex items-start justify-between">
                     <div className="flex flex-col gap-1">
-                        {slotInfo?.map((info, idx) => (
-                            <div key={idx} className="flex flex-col mb-2">
-                                <p className="text-[#666666] text-[12px] font-semibold">Vendor: {info.vendorName}</p>
-                                {info.timeRanges.map((range, i) => (
-                                    <p key={i} className="text-[#666666] text-[12px] font-normal">{range}</p>
-                                ))}
+                        {slotInfo && slotInfo.length > 0 ? (
+                            slotInfo.map((info, idx) => (
+                                <div key={idx} className="flex flex-col mb-2">
+                                    <p className="text-[#666666] text-[12px] font-semibold">Vendor: {info.vendorName}</p>
+                                    {info.timeRanges.map((range, i) => (
+                                        <p key={i} className="text-[#666666] text-[12px] font-normal">{range}</p>
+                                    ))}
+                                </div>
+                            ))
+                        ) : !isServiceRequiringTravel(service) ? (
+                            <div className="flex flex-col mb-2">
+                                {assignedVendorName && (
+                                    <p className="text-[#666666] text-[12px] font-semibold">Vendor: {assignedVendorName}</p>
+                                )}
+                                <p className="text-gray-500 text-[12px] italic">No appointment required (Direct / non-travel service)</p>
                             </div>
-                        ))}
+                        ) : null}
                     </div>
                     {selectedService.service_uuid && (
                         <span className={`text-[10px] ${selectedService.payment_status?.toUpperCase() === 'PAID' ? 'bg-[#6BAE41]' : 'bg-[#E06D5E]'} text-white px-2 py-0.5 rounded-full font-semibold uppercase border ${selectedService.payment_status?.toUpperCase() === 'PAID' ? 'border-green-200' : 'border-red-200'}`}>

@@ -58,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
       const fullBaseUrl = `${protocol}://${host}`;
       const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
 
-      const res = await fetch(fetchUrl, { next: { revalidate: 3600 } });
+      const res = await fetch(fetchUrl, { cache: 'no-store' });
       if (res.ok) {
         const whitelabelData = await res.json();
         if (whitelabelData?.name || whitelabelData?.from_name) {
@@ -151,7 +151,7 @@ export default async function RootLayout({
       const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
       console.log('Layout: fetching branding for', fullBaseUrl);
 
-      const res = await fetch(fetchUrl, { next: { revalidate: 3600 } });
+      const res = await fetch(fetchUrl, { cache: 'no-store' });
       if (res.ok) {
         whitelabelData = await res.json();
       }

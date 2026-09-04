@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { X, Printer, Loader2 } from "lucide-react";
+import { X, Printer, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import {
   featureSheetService,
@@ -48,7 +48,7 @@ interface PrintRequestModalProps {
   orderData?: Order | null;
   onTourCreated?: (tourData: any) => void;
   onSaveSheet?: () => Promise<any>;
-  onRequestSuccess?: (sheetUuid: string) => void;
+  onRequestSuccess?: (sheetUuid: string, claimedServiceUuid?: string) => void;
 }
 
 export default function PrintRequestModal({
@@ -77,6 +77,9 @@ export default function PrintRequestModal({
     null,
   );
   const [selectedOptionUuid, setSelectedOptionUuid] = useState<string>("");
+
+  // Pre-booked service detection state
+  const [preBookedService, setPreBookedService] = useState<any | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -181,6 +184,109 @@ export default function PrintRequestModal({
                 : 25);
             setCopies(copiesCount);
           }
+
+          // ── Pre-booked service detection ──────────────────────────────────
+          // Detect an existing unpaired DIY service on this order that matches the current template type
+          const existingPreBooked = (orderData?.services || []).find((os: any) => {
+            const osFsId = os.feature_sheet_id || os.feature_sheet?.id;
+            const osFsUuid = os.feature_sheet_uuid || os.feature_sheet?.uuid;
+            const hasNoSheet = !osFsId && !osFsUuid;
+            if (!hasNoSheet) return false;
+
+            // Find catalog service to resolve category and type reliably
+            const catalogService = servicesList.find(
+              (s: any) =>
+                (s.uuid && (s.uuid === os.service?.uuid || s.uuid === os.service_id)) ||
+                (s.id != null && (s.id === os.service?.id || s.id === os.service_id)),
+            ) || os.service;
+
+            const catName = (
+              catalogService?.category?.name ||
+              os.service?.category?.name ||
+              ""
+            ).toLowerCase();
+            const sType = (
+              catalogService?.type ||
+              os.service?.type ||
+              ""
+            ).toLowerCase();
+            const sName = (
+              catalogService?.name ||
+              os.service?.name ||
+              os.custom ||
+              ""
+            ).toLowerCase();
+
+            const isPrintCat =
+              catName === "print" ||
+              catName === "feature_sheets" ||
+              catName === "feature sheets" ||
+              sName.includes("flyer") ||
+              sName.includes("tabloid") ||
+              sName.includes("feature sheet");
+
+            const matchesType =
+              targetType === "tabloid"
+                ? sType === "tabloid" || sName.includes("tabloid")
+                : sType === "flyer" ||
+                  (!sType && !sName.includes("tabloid"));
+
+            return isPrintCat && matchesType;
+          });
+          setPreBookedService(existingPreBooked || null);
+
+          // If we found a pre-booked service, pre-select its exact option
+          if (existingPreBooked && fsService?.product_options?.length > 0) {
+            const preBookedOptId =
+              existingPreBooked.option?.uuid ||
+              existingPreBooked.option_id ||
+              existingPreBooked.option?.id;
+
+            let preBookedOption = fsService.product_options.find(
+              (opt: any) =>
+                preBookedOptId &&
+                (opt.uuid === preBookedOptId ||
+                  opt.id === preBookedOptId ||
+                  String(opt.id) === String(preBookedOptId)),
+            );
+
+            if (!preBookedOption && existingPreBooked.option) {
+              preBookedOption = fsService.product_options.find((opt: any) => {
+                if (
+                  existingPreBooked.option.title &&
+                  opt.title?.toLowerCase() ===
+                    existingPreBooked.option.title.toLowerCase()
+                ) {
+                  return true;
+                }
+                if (
+                  existingPreBooked.option.quantity &&
+                  opt.quantity === existingPreBooked.option.quantity
+                ) {
+                  return true;
+                }
+                if (
+                  existingPreBooked.amount &&
+                  Number(opt.amount) === Number(existingPreBooked.amount)
+                ) {
+                  return true;
+                }
+                return false;
+              });
+            }
+
+            if (!preBookedOption) {
+              preBookedOption = fsService.product_options[0];
+            }
+
+            setSelectedOptionUuid(preBookedOption.uuid);
+            const pCopies =
+              preBookedOption.quantity ||
+              (preBookedOption.title
+                ? parseInt(preBookedOption.title.match(/\d+/)?.[0] || "25", 10)
+                : 25);
+            setCopies(pCopies);
+          }
         } catch (err) {
           console.error("Failed to fetch services:", err);
           toast.error("Failed to load print options.");
@@ -236,6 +342,7 @@ export default function PrintRequestModal({
         savedSheetData = await onSaveSheet();
       }
 
+      const resolvedFsUuid = savedSheetData?.uuid || featureSheetUuid;
       const resolvedFsId = savedSheetData?.id || featureSheetId;
       const targetFeatureSheetId = resolvedFsId
         ? Number(resolvedFsId)
@@ -275,25 +382,61 @@ export default function PrintRequestModal({
         : `${copies} Copies`;
       const sheetCustomName = `Feature Sheet (${sheetLabel}) - ${optionTitle}`;
 
-      // 1. Send print request first
-      await featureSheetService.requestPrint(featureSheetUuid, {
-        copies,
-        option_id: selectedOptionUuid,
-        amount: Number(selectedOption?.amount ?? 0),
-        with_bleed: withBleed,
-        additional_info: additionalInfo,
-        agent_id: agentId,
-        property_id: propertyId,
-        tour_id: activeTourId,
-      });
+      // ── Branch: Pre-booked detection ──────────────────────────────────────
+      const matchingTemplate = templateImages.find(
+        (t) =>
+          t.id.toLowerCase() === templateKey?.toLowerCase() ||
+          t.url.toLowerCase() === templateKey?.toLowerCase(),
+      );
+      const isTabloid =
+        matchingTemplate?.type === "tabloid" ||
+        templateKey?.toLowerCase().includes("tabloid");
+      const targetType = isTabloid ? "tabloid" : "flyer";
 
-      // 2. Add/update the Feature Sheets service in the order
-      let updatedOrder = orderData;
+      // Re-check with the current pre-booked state
+      const currentPreBooked =
+        preBookedService ||
+        (orderData?.services || []).find((os: any) => {
+          const osFsId = os.feature_sheet_id || os.feature_sheet?.id;
+          const osFsUuid = os.feature_sheet_uuid || os.feature_sheet?.uuid;
+          const hasNoSheet = !osFsId && !osFsUuid;
+          if (!hasNoSheet) return false;
+
+          const sType = (os.service?.type || "").toLowerCase();
+          const sName = (os.service?.name || os.custom || "").toLowerCase();
+          const isPrintType =
+            targetType === "tabloid"
+              ? sType === "tabloid" || sName.includes("tabloid")
+              : sType === "flyer" ||
+                (!sType && !sName.includes("tabloid") && sName.includes("flyer"));
+          return isPrintType;
+        }) ||
+        null;
+
+      const isPaidPreBooked =
+        currentPreBooked &&
+        (currentPreBooked.payment_status?.toUpperCase() === "PAID" ||
+          orderData?.payment_status?.toUpperCase() === "PAID" ||
+          currentPreBooked.payment_status === "PAID");
+
       const token = localStorage.getItem("token") || "";
 
-      if (orderData) {
-        // Build all existing services list from the order safely with optional chaining
-        const allServices: OrderServiceItem[] = (orderData.services || []).map(
+      if (currentPreBooked) {
+        // ── PATH A: Pre-booked service exists ─────────────────────────────
+        // 1. Send the print request (records the request on the backend)
+        await featureSheetService.requestPrint(resolvedFsUuid, {
+          copies,
+          option_id: selectedOptionUuid,
+          amount: Number(selectedOption?.amount ?? 0),
+          with_bleed: withBleed,
+          additional_info: additionalInfo,
+          agent_id: agentId,
+          property_id: propertyId,
+          tour_id: activeTourId,
+        });
+
+        // 2. Patch the pre-booked order service with the feature_sheet references
+        const allServices: OrderServiceItem[] = (orderData?.services || []).map(
           (orderService) => ({
             service_id:
               orderService.service?.uuid ||
@@ -305,7 +448,7 @@ export default function PrintRequestModal({
               (orderService.option_id
                 ? String(orderService.option_id)
                 : undefined),
-            amount: Number(orderService.amount),
+            amount: Number(orderService.amount) || 0,
             uuid: orderService.uuid,
             custom: (orderService as any).custom,
             feature_sheet_uuid:
@@ -317,114 +460,215 @@ export default function PrintRequestModal({
           }),
         );
 
-        // Find an existing UNPAID feature sheet service on the order specifically for this sheet (or unlinked)
-        const existingUnpaidIndex = (orderData.services || []).findIndex(
-          (orderService) => {
-            const osFsId =
-              (orderService as any).feature_sheet_id ||
-              (orderService as any).feature_sheet?.id;
-            const osFsUuid =
-              (orderService as any).feature_sheet_uuid ||
-              (orderService as any).feature_sheet?.uuid;
-
-            if (orderService.payment_status === "PAID") return false;
-
-            // Direct feature-sheet ID match (most reliable — no service-object hydration needed)
-            if (
-              targetFeatureSheetId &&
-              osFsId &&
-              Number(osFsId) === Number(targetFeatureSheetId)
-            )
-              return true;
-            if (featureSheetUuid && osFsUuid && osFsUuid === featureSheetUuid)
-              return true;
-
-            // Unlinked existing FS service (no sheet IDs attached) — only match if this sheet also has no ID yet
-            if (
-              !osFsId &&
-              !osFsUuid &&
-              !targetFeatureSheetId &&
-              !featureSheetUuid
-            ) {
-              const isFS =
-                (orderService.service as any)?.category?.name?.toLowerCase() ===
-                  "print" ||
-                (orderService.service as any)?.category?.name?.toLowerCase() ===
-                  "feature_sheets" ||
-                (orderService.service as any)?.category?.name?.toLowerCase() ===
-                  "feature sheets" ||
-                orderService.service?.name?.toLowerCase() ===
-                  "feature sheets" ||
-                orderService.service?.name?.toLowerCase() === "print";
-              return isFS;
-            }
-
-            return false;
-          },
+        // Find and update the pre-booked item in the list
+        const preBookedIdx = allServices.findIndex(
+          (s) => s.uuid === currentPreBooked.uuid,
         );
-
-        if (existingUnpaidIndex !== -1) {
-          // Update the existing unpaid print service item with new option & amount & feature_sheet_id & feature_sheet_uuid
-          allServices[existingUnpaidIndex] = {
-            service_id: featureSheetsService.uuid,
-            option_id: selectedOptionUuid,
-            amount: Number(selectedOption?.amount ?? 0),
-            uuid: orderData.services[existingUnpaidIndex].uuid,
+        if (preBookedIdx !== -1) {
+          allServices[preBookedIdx] = {
+            ...allServices[preBookedIdx],
             custom: sheetCustomName,
             feature_sheet_id: targetFeatureSheetId,
-            feature_sheet_uuid: featureSheetUuid,
+            feature_sheet_uuid: resolvedFsUuid,
           };
-        } else {
-          // Append a NEW service line item to the order for this print request
-          allServices.push({
-            service_id: featureSheetsService.uuid,
-            option_id: selectedOptionUuid,
-            amount: Number(selectedOption?.amount ?? 0),
-            custom: sheetCustomName,
-            feature_sheet_id: targetFeatureSheetId,
-            feature_sheet_uuid: featureSheetUuid,
-          });
         }
 
         const updateRes = await UpdateOrderService(
-          orderData.uuid,
+          orderData!.uuid,
           allServices,
           token,
         );
-        if (updateRes && updateRes.data) {
-          updatedOrder = updateRes.data;
-        }
-      }
+        const updatedOrder = updateRes?.data || orderData;
 
-      toast.success("Print request sent & service booked successfully!");
-      if (featureSheetUuid && onRequestSuccess) {
-        onRequestSuccess(featureSheetUuid);
-      }
-      onClose();
-
-      // 3. Automatically initiate invoice generation and payment checkout
-      if (updatedOrder && token) {
-        try {
-          const bookedServiceItem = (updatedOrder.services || []).find(
-            (os: any) =>
-              (os.feature_sheet_uuid &&
-                os.feature_sheet_uuid === featureSheetUuid) ||
-              (os.service?.uuid &&
-                os.service.uuid === featureSheetsService?.uuid) ||
-              (os.service_id && os.service_id === featureSheetsService?.uuid),
+        if (isPaidPreBooked) {
+          // PATH A1: Already paid — just attach the sheet, no payment needed
+          toast.success(
+            "✅ Sheet attached to your pre-booked print service! No payment needed.",
           );
-          const serviceUuidForInvoice =
-            bookedServiceItem?.uuid || featureSheetsService?.uuid;
+          if (resolvedFsUuid && onRequestSuccess) {
+            onRequestSuccess(resolvedFsUuid, currentPreBooked.uuid);
+          }
+          onClose();
+        } else {
+          // PATH A2: Pre-booked but unpaid — close the modal and open payment for existing item
+          toast.success("Print request sent! Proceeding to payment...");
+          if (resolvedFsUuid && onRequestSuccess) {
+            onRequestSuccess(resolvedFsUuid, currentPreBooked.uuid);
+          }
+          onClose();
 
-          toast.info("Opening payment checkout...");
-          await createPayment(updatedOrder, token, window.location.href, {
-            serviceId: serviceUuidForInvoice,
-            paymentType: "service",
-            serviceName: sheetCustomName,
-            amount: Number(selectedOption?.amount ?? 0),
-          });
-        } catch (payErr) {
-          console.error("Payment checkout error:", payErr);
+          if (updatedOrder && token) {
+            try {
+              const payServiceItem = (updatedOrder.services || []).find(
+                (os: any) => os.uuid === currentPreBooked.uuid,
+              );
+              const serviceUuidForInvoice =
+                payServiceItem?.uuid || currentPreBooked.uuid;
+
+              toast.info("Opening payment checkout for pre-booked service...");
+              await createPayment(updatedOrder, token, window.location.href, {
+                serviceId: serviceUuidForInvoice,
+                paymentType: "service",
+                serviceName: sheetCustomName,
+                amount: Number(selectedOption?.amount ?? 0),
+              });
+            } catch (payErr) {
+              console.error("Payment checkout error:", payErr);
+            }
+          }
+        }
+      } else {
+        // ── PATH B: No pre-booked service — original flow ─────────────────
+        // 1. Send print request first
+        await featureSheetService.requestPrint(resolvedFsUuid, {
+          copies,
+          option_id: selectedOptionUuid,
+          amount: Number(selectedOption?.amount ?? 0),
+          with_bleed: withBleed,
+          additional_info: additionalInfo,
+          agent_id: agentId,
+          property_id: propertyId,
+          tour_id: activeTourId,
+        });
+
+        // 2. Add/update the Feature Sheets service in the order
+        let updatedOrder = orderData;
+
+        if (orderData) {
+          // Build all existing services list from the order safely with optional chaining
+          const allServices: OrderServiceItem[] = (orderData.services || []).map(
+            (orderService) => ({
+              service_id:
+                orderService.service?.uuid ||
+                (orderService as any).service_id ||
+                String(orderService.service_id || ""),
+              option_id:
+                orderService.option?.uuid ||
+                (orderService as any).option_id ||
+                (orderService.option_id
+                  ? String(orderService.option_id)
+                  : undefined),
+              amount: Number(orderService.amount),
+              uuid: orderService.uuid,
+              custom: (orderService as any).custom,
+              feature_sheet_uuid:
+                (orderService as any).feature_sheet_uuid ||
+                (orderService as any).feature_sheet?.uuid,
+              feature_sheet_id:
+                (orderService as any).feature_sheet_id ||
+                (orderService as any).feature_sheet?.id,
+            }),
+          );
+
+          // Find an existing UNPAID feature sheet service on the order specifically for this sheet (or unlinked)
+          const existingUnpaidIndex = (orderData.services || []).findIndex(
+            (orderService) => {
+              const osFsId =
+                (orderService as any).feature_sheet_id ||
+                (orderService as any).feature_sheet?.id;
+              const osFsUuid =
+                (orderService as any).feature_sheet_uuid ||
+                (orderService as any).feature_sheet?.uuid;
+
+              if (orderService.payment_status === "PAID") return false;
+
+              // Direct feature-sheet ID match (most reliable — no service-object hydration needed)
+              if (
+                targetFeatureSheetId &&
+                osFsId &&
+                Number(osFsId) === Number(targetFeatureSheetId)
+              )
+                return true;
+              if (resolvedFsUuid && osFsUuid && osFsUuid === resolvedFsUuid)
+                return true;
+
+              // Unlinked existing FS service (no sheet IDs attached) — only match if this sheet also has no ID yet
+              if (
+                !osFsId &&
+                !osFsUuid &&
+                !targetFeatureSheetId &&
+                !resolvedFsUuid
+              ) {
+                const isFS =
+                  (orderService.service as any)?.category?.name?.toLowerCase() ===
+                    "print" ||
+                  (orderService.service as any)?.category?.name?.toLowerCase() ===
+                    "feature_sheets" ||
+                  (orderService.service as any)?.category?.name?.toLowerCase() ===
+                    "feature sheets" ||
+                  orderService.service?.name?.toLowerCase() ===
+                    "feature sheets" ||
+                  orderService.service?.name?.toLowerCase() === "print";
+                return isFS;
+              }
+
+              return false;
+            },
+          );
+
+          if (existingUnpaidIndex !== -1) {
+            // Update the existing unpaid print service item with new option & amount & feature_sheet_id & feature_sheet_uuid
+            allServices[existingUnpaidIndex] = {
+              service_id: featureSheetsService.uuid,
+              option_id: selectedOptionUuid,
+              amount: Number(selectedOption?.amount ?? 0),
+              uuid: orderData.services[existingUnpaidIndex].uuid,
+              custom: sheetCustomName,
+              feature_sheet_id: targetFeatureSheetId,
+              feature_sheet_uuid: resolvedFsUuid,
+            };
+          } else {
+            // Append a NEW service line item to the order for this print request
+            allServices.push({
+              service_id: featureSheetsService.uuid,
+              option_id: selectedOptionUuid,
+              amount: Number(selectedOption?.amount ?? 0),
+              custom: sheetCustomName,
+              feature_sheet_id: targetFeatureSheetId,
+              feature_sheet_uuid: resolvedFsUuid,
+            });
+          }
+
+          const updateRes = await UpdateOrderService(
+            orderData.uuid,
+            allServices,
+            token,
+          );
+          if (updateRes && updateRes.data) {
+            updatedOrder = updateRes.data;
+          }
+        }
+
+        toast.success("Print request sent & service booked successfully!");
+        if (resolvedFsUuid && onRequestSuccess) {
+          onRequestSuccess(resolvedFsUuid);
+        }
+        onClose();
+
+        // 3. Automatically initiate invoice generation and payment checkout
+        if (updatedOrder && token) {
+          try {
+            const bookedServiceItem = (updatedOrder.services || []).find(
+              (os: any) =>
+                (os.feature_sheet_uuid &&
+                  os.feature_sheet_uuid === resolvedFsUuid) ||
+                (os.service?.uuid &&
+                  os.service.uuid === featureSheetsService?.uuid) ||
+                (os.service_id && os.service_id === featureSheetsService?.uuid),
+            );
+            const serviceUuidForInvoice =
+              bookedServiceItem?.uuid || featureSheetsService?.uuid;
+
+            toast.info("Opening payment checkout...");
+            await createPayment(updatedOrder, token, window.location.href, {
+              serviceId: serviceUuidForInvoice,
+              paymentType: "service",
+              serviceName: sheetCustomName,
+              amount: Number(selectedOption?.amount ?? 0),
+            });
+          } catch (payErr) {
+            console.error("Payment checkout error:", payErr);
+          }
         }
       }
     } catch (error) {
@@ -459,6 +703,37 @@ export default function PrintRequestModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Pre-booked service banner */}
+          {preBookedService && (
+            <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+              preBookedService.payment_status?.toUpperCase() === "PAID"
+                ? "bg-green-50 border-green-200"
+                : "bg-amber-50 border-amber-200"
+            }`}>
+              {preBookedService.payment_status?.toUpperCase() === "PAID" ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              )}
+              <div className="text-sm">
+                {preBookedService.payment_status?.toUpperCase() === "PAID" ? (
+                  <>
+                    <p className="font-semibold text-green-700">Pre-booked print service found</p>
+                    <p className="text-green-600 text-xs mt-0.5">
+                      Your order already includes a paid print service. Sending this request will attach your sheet — no payment required.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-amber-700">Pre-booked print service found (unpaid)</p>
+                    <p className="text-amber-600 text-xs mt-0.5">
+                      Your order has a print service pending payment. Sending this request will attach your sheet and open the payment checkout.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label
               htmlFor="option"
@@ -472,21 +747,37 @@ export default function PrintRequestModal({
                 Loading print options...
               </div>
             ) : featureSheetsService?.product_options?.length > 0 ? (
-              <Select
-                value={selectedOptionUuid}
-                onValueChange={handleOptionChange}
-              >
-                <SelectTrigger className="h-[44px] border-[#BBBBBB] focus:ring-0 focus:border-[#4290E9] text-[#424242]">
-                  <SelectValue placeholder="Select print quantity" />
-                </SelectTrigger>
-                <SelectContent>
-                  {featureSheetsService.product_options.map((opt: any) => (
-                    <SelectItem key={opt.uuid} value={opt.uuid}>
-                      {opt.title} (${parseFloat(opt.amount).toFixed(2)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Select
+                  value={selectedOptionUuid}
+                  onValueChange={handleOptionChange}
+                  disabled={Boolean(preBookedService)}
+                >
+                  <SelectTrigger
+                    disabled={Boolean(preBookedService)}
+                    className={`h-[44px] border-[#BBBBBB] focus:ring-0 focus:border-[#4290E9] text-[#424242] ${
+                      preBookedService
+                        ? "bg-gray-100/90 cursor-not-allowed text-gray-700 border-gray-300"
+                        : ""
+                    }`}
+                  >
+                    <SelectValue placeholder="Select print quantity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {featureSheetsService.product_options.map((opt: any) => (
+                      <SelectItem key={opt.uuid} value={opt.uuid}>
+                        {opt.title} (${parseFloat(opt.amount).toFixed(2)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {preBookedService && (
+                  <p className="text-xs text-amber-800 font-medium flex items-center gap-1.5 mt-1 bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200">
+                    <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    Quantity is locked to your pre-booked service ({copies} copies).
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="text-sm text-red-500 font-medium">
                 No &quot;Feature Sheets&quot; service options found. Please
@@ -545,6 +836,8 @@ export default function PrintRequestModal({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending...
               </>
+            ) : preBookedService?.payment_status?.toUpperCase() === "PAID" ? (
+              "Attach Sheet"
             ) : (
               "Send Request"
             )}

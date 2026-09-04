@@ -344,8 +344,15 @@ const CreateFeatureSheet = forwardRef<
     }
   }, [orderData?.uuid]);
 
-  const handlePrintRequestSuccess = (sheetUuid: string) => {
+  const [claimedOrderServiceUuids, setClaimedOrderServiceUuids] = useState<string[]>([]);
+
+  const handlePrintRequestSuccess = (sheetUuid: string, claimedServiceUuid?: string) => {
     if (!sheetUuid) return;
+    if (claimedServiceUuid) {
+      setClaimedOrderServiceUuids((prev) =>
+        prev.includes(claimedServiceUuid) ? prev : [...prev, claimedServiceUuid],
+      );
+    }
     setPrintedSheetUuids((prev) => {
       if (prev.includes(sheetUuid)) return prev;
       const updated = [...prev, sheetUuid];
@@ -406,6 +413,45 @@ const CreateFeatureSheet = forwardRef<
     const statusInfo = getSheetBookingAndInvoiceStatus(currentSheet, orderData);
     return statusInfo.orderService || null;
   }, [orderData, isCurrentSheetPrinted, currentSheet]);
+
+  // Detect a pre-booked unpaired DIY service on this order matching the current template type
+  const preBookedDIYService = useMemo(() => {
+    if (!orderData?.services || isCurrentSheetPrinted) return null;
+    const currentTemplate_lower = selectedTemplate?.toLowerCase() || "";
+    // Determine the expected service type based on the open template
+    const targetType = currentTemplate_lower.includes("tabloid") ? "tabloid" : "flyer";
+    return (
+      (orderData.services as any[]).find((os: any) => {
+        const osFsId = os.feature_sheet_id || os.feature_sheet?.id;
+        const osFsUuid = os.feature_sheet_uuid || os.feature_sheet?.uuid;
+        const isClaimed = os.uuid && claimedOrderServiceUuids.includes(os.uuid);
+        const hasNoSheet = !osFsId && !osFsUuid && !isClaimed;
+        if (!hasNoSheet) return false;
+
+        const sType = (os.service?.type || "").toLowerCase();
+        const sName = (os.service?.name || os.custom || "").toLowerCase();
+        const catName = (os.service?.category?.name || "").toLowerCase();
+
+        const isPrintOrFS =
+          catName === "print" ||
+          catName === "feature_sheets" ||
+          catName === "feature sheets" ||
+          sName.includes("flyer") ||
+          sName.includes("tabloid") ||
+          sName.includes("feature sheet") ||
+          sType === "flyer" ||
+          sType === "tabloid";
+
+        const matchesType =
+          targetType === "tabloid"
+            ? sType === "tabloid" || sName.includes("tabloid")
+            : sType === "flyer" ||
+              (!sType && !sName.includes("tabloid"));
+
+        return isPrintOrFS && matchesType;
+      }) || null
+    );
+  }, [orderData, isCurrentSheetPrinted, selectedTemplate, claimedOrderServiceUuids]);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [featureSheetsFullService, setFeatureSheetsFullService] = useState<
@@ -1541,14 +1587,28 @@ const CreateFeatureSheet = forwardRef<
                   selectedTemplate &&
                   selectedSheetUuid &&
                   !isCurrentSheetPrinted && (
-                    <button
-                      type="button"
-                      onClick={() => setIsPrintModalOpen(true)}
-                      className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
-                    >
-                      <Printer className="w-4 h-4" />
-                      Send Print Request
-                    </button>
+                    <>
+                      {preBookedDIYService && (
+                        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium border ${
+                          preBookedDIYService.payment_status?.toUpperCase() === "PAID"
+                            ? "bg-green-50 border-green-300 text-green-700"
+                            : "bg-amber-50 border-amber-300 text-amber-700"
+                        }`}>
+                          <Printer className="w-3 h-3" />
+                          {preBookedDIYService.payment_status?.toUpperCase() === "PAID"
+                            ? "Pre-booked (paid) — attach only"
+                            : "Pre-booked (unpaid) — attach & pay"}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsPrintModalOpen(true)}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
+                      >
+                        <Printer className="w-4 h-4" />
+                        {preBookedDIYService ? "Attach & Send Print Request" : "Send Print Request"}
+                      </button>
+                    </>
                   )}
               </div>
               <div className="text-center">
@@ -3322,24 +3382,6 @@ const CreateFeatureSheet = forwardRef<
                           </div>
                         </div>
                       </div>
-                      {!isReadonly && (
-                        <>
-                          {/* Print Request Drawer */}
-                          <div className="fixed bottom-0 right-0 p-4 border-l border-t border-gray-200 bg-white rounded-tl-lg shadow-lg z-50 hidden">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="font-semibold text-lg text-gray-800">
-                                Print Request
-                              </h3>
-                            </div>
-                            <PrintRequestModal
-                              featureSheetUuid={selectedSheetUuid || ""}
-                              orderUuid={orderData?.uuid || ""}
-                              open={isPrintModalOpen}
-                              onClose={() => setIsPrintModalOpen(false)}
-                            />
-                          </div>
-                        </>
-                      )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>

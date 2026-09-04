@@ -54,10 +54,10 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
         setContactNumber(currentOrder?.agent.primary_phone ?? '')
         setContactEmail(currentOrder?.agent?.email ?? '')
         setContactNumber(currentOrder?.agent?.primary_phone ?? '')
-        const currentVendor = currentOrder?.slots.find((slots) => {
+        const currentVendor = (currentOrder?.slots || []).find((slots) => {
             return slots.service_id == serviceId
         })
-        const currentServiceSlots = currentOrder?.slots.filter((slots) => {
+        const currentServiceSlots = (currentOrder?.slots || []).filter((slots) => {
             return slots.service_id == serviceId
         })
         if (currentServiceSlots && currentServiceSlots.length > 0) {

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, Printer } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { CleanedProductOption } from "../../services/services";
 import { SelectedService } from "./Services";
@@ -94,6 +94,14 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
     return isSelected;
   }, [isOriginallyBooked, switchEnabled, isCompleted, isNewBookingSelected, isSelected]);
+
+  // ── DIY Print Service detection ──────────────────────────────────────────
+  const isDIYPrint = useMemo(() => {
+    const t = (service.type || '').toLowerCase();
+    return t === 'flyer' || t === 'tabloid';
+  }, [service.type]);
+
+  const isDIYTabloid = (service.type || '').toLowerCase() === 'tabloid';
 
   const { hasAreaType, hasQuantityType, isLegacyPhotoService, isFloorplanOrTour } = useMemo(() => {
     const name = service.name?.toLowerCase() || '';
@@ -411,13 +419,18 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           return [...prev, {
             title,
             uuid: service.uuid,
+            id: service.id ? String(service.id) : undefined,
             price: effectiveData.price,
             quantity: effectiveData.quantity,
             option_id: effectiveData.option_id,
             custom: effectiveData.custom,
             optionName: effectiveData.optionName,
             addOns: updatedAddOns,
-            payment_status: 'UNPAID'
+            payment_status: 'UNPAID',
+            is_travel_required: (service as any).is_travel_required,
+            allow_travel: (service as any).allow_travel,
+            allowed_travel: (service as any).allowed_travel,
+            type: (service as any).type,
           }];
         }
       });
@@ -430,6 +443,17 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
     if (setSelectedServices) {
       setSelectedServices(prev => {
+        const baseServiceProps = {
+          title,
+          uuid: service.uuid,
+          id: service.id ? String(service.id) : undefined,
+          is_travel_required: (service as any).is_travel_required,
+          allow_travel: (service as any).allow_travel,
+          allowed_travel: (service as any).allowed_travel,
+          type: (service as any).type,
+          payment_status: 'UNPAID',
+        };
+
         if (isOriginallyBooked && switchEnabled) {
           if (isCompleted) {
             const isRebooked = prev.some(item => item.uuid === service.uuid && !item.service_uuid);
@@ -437,7 +461,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
               return prev.filter(item => !(item.uuid === service.uuid && !item.service_uuid));
             } else {
               const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
-              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
+              return [...prev, { ...baseServiceProps, price, quantity, option_id, custom, optionName, addOns }];
             }
           } else {
             const exists = prev.some(item => item.uuid === service.uuid);
@@ -445,7 +469,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
               return prev.filter(item => item.uuid !== service.uuid);
             } else {
               const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
-              return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
+              return [...prev, { ...baseServiceProps, price, quantity, option_id, custom, optionName, addOns }];
             }
           }
         } else {
@@ -454,7 +478,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
             return prev.filter(item => item.uuid !== service.uuid);
           } else {
             const { price, quantity, option_id, custom, optionName, addOns } = getEffectivePriceAndQty();
-            return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, addOns, payment_status: 'UNPAID' }];
+            return [...prev, { ...baseServiceProps, price, quantity, option_id, custom, optionName, addOns }];
           }
         }
       });
@@ -512,6 +536,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
             Booked
           </div>
         )}
+        {isDIYPrint && (
+          <div className="absolute top-0 right-2 transform -translate-y-1/2 flex items-center gap-1 bg-violet-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm whitespace-nowrap z-10">
+            <Printer className="w-3 h-3" />
+            DIY Print
+          </div>
+        )}
         <CardContent className="p-0">
           <div className="flex items-start justify-between mb-2">
             <div className="flex justify-between gap-2 w-full items-center">
@@ -534,6 +564,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 onClick={handleToggleService}
               >
                 <p>{title}</p>
+                {isDIYPrint && (
+                  <p className="text-[11px] text-violet-500 font-medium mt-0.5">
+                    {isDIYTabloid ? 'Tabloid (17"×11")' : 'Letter Flyer (8.5"×11")'} — design online, request print later
+                  </p>
+                )}
               </div>
               <div className={`text-[20px] font-[500]`} style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
                 ${selectedPrice !== null ? Number(selectedPrice + addOnsTotal).toFixed(2) : ''}

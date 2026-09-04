@@ -44,13 +44,17 @@ function extractColorValue(color: string | ColorValue | undefined, fallback: str
   return color || fallback;
 }
 
-function updatePageMetadata(org: OrganizationData | null) {
+function updatePageMetadata(org: OrganizationData) {
   if (typeof document === "undefined") return;
 
-  const title = org?.name || org?.from_name || "Tojuco Solutions";
-  document.title = title;
+  // Only update when we have real org data — never overwrite with defaults
+  // before the API response arrives (avoids the flash of "Tojuco Solutions").
+  const title = org.name || org.from_name;
+  if (title) document.title = title;
 
-  const faviconUrl = org?.branding?.logo || "/tojuco.png";
+  const faviconUrl = org.branding?.logo;
+  if (!faviconUrl) return;
+
   const relTypes = ["icon", "shortcut icon", "apple-touch-icon"];
   relTypes.forEach((rel) => {
     let link: HTMLLinkElement | null = document.querySelector(`link[rel="${rel}"]`);
@@ -68,7 +72,12 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
   const [isOrganizationLoaded, setIsOrganizationLoaded] = useState(false);
 
   useEffect(() => {
-    updatePageMetadata(organization);
+    // Only update metadata when we actually have org data loaded.
+    // Skipping the null case prevents the tab from briefly showing
+    // "Tojuco Solutions" before the API response arrives.
+    if (organization) {
+      updatePageMetadata(organization);
+    }
   }, [organization]);
 
   useEffect(() => {
@@ -125,7 +134,10 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       try {
         console.log("OrganizationProvider: fetching resolution for hostname:", domainWithoutPort);
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com').replace(/\/api\/?$/, '');
-        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${domainWithoutPort}`);
+        // Use cache: 'no-store' so each client fetch is fresh.
+        // The middleware + cookie already cache org_data for 1 hour;
+        // this path only runs when the cookie is missing.
+        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${domainWithoutPort}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           console.log("OrganizationProvider: resolved:", data.slug, data.portal_type);

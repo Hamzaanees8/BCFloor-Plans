@@ -1,6 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar from '../../orders/components/OneDayCalendar'
 import { Services } from '../../services/page'
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/popover"
 import { format } from "date-fns"
 import VendorWorkCarousel from '../../orders/components/VendorWorkCarousel'
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../../orders/utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../../orders/utils/serviceTimeUtils'
 import { Slot } from '../../orders/context/OrderContext'
 
 interface AppointmentTab {
@@ -172,7 +171,6 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(false);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
-    const [openTooltipIdx, setOpenTooltipIdx] = useState<number | null>(null);
 
     useEffect(() => {
         if (!currentOrder?.slots || !currentOrder?.services) return;
@@ -296,10 +294,11 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
             } as OrderService;
         }).filter((item): item is OrderService => item !== null)) || [];
 
-        setMergedServices([
+        const allServices = [
             ...(currentOrder?.services || []),
             ...enriched,
-        ]);
+        ];
+        setMergedServices(allServices.filter(s => isServiceRequiringTravel(s?.service, servicesData)));
 
     }, [servicesData, calendarServices, currentOrder]);
 
@@ -588,24 +587,6 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                         </p>
                                         <div className="flex items-center gap-2">
                                             <p className="text-[16px] font-[700] max-w-[200px]">{service.service.name}</p>
-                                            {service.service.is_travel_required === false && (
-                                                <TooltipProvider>
-                                                    <Tooltip open={openTooltipIdx === idx} onOpenChange={(open) => setOpenTooltipIdx(open ? idx : null)}>
-                                                        <TooltipTrigger asChild onClick={(e) => {
-                                                            e.preventDefault();
-                                                            setOpenTooltipIdx(openTooltipIdx === idx ? null : idx);
-                                                        }}>
-                                                            <Info className="w-4 h-4 text-blue-500 cursor-pointer" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent className="max-w-[250px] bg-blue-50 border-blue-100 p-3">
-                                                            <p className="text-[11px] text-blue-700 leading-relaxed text-left whitespace-normal">
-                                                                <span className="font-semibold">This service does not require travel.</span>{' '}
-                                                                You can book any available time slot on any day. Only slots already booked by other orders are unavailable.
-                                                            </p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            )}
                                         </div>
                                         <p className="text-[12px]">
                                             Approx. Duration <br />
