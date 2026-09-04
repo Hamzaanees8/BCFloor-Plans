@@ -3195,6 +3195,8 @@ const CreateFeatureSheet = forwardRef<
                                 key={selectedSheetUuid || "new-BCFPStandard21"}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
+                                showBleed={showBleed}
+                                showGuide={showGuide}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard22" && (

@@ -191,6 +191,8 @@ type FormData = {
   sqft: string;
   builtYear: string;
   suite?: string;
+  patioSqft?: string;
+  ceilingHeight?: string;
 
   // Legacy/Internal mappings
   offeredAtPrice: string;
