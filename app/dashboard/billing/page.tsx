@@ -29,6 +29,7 @@ import {
   isVoidOrCancelled,
   isPaidOrSucceeded,
   isRefunded,
+  isPartiallyRefunded,
   getBestTargetInvoice,
   prepareOrderInvoicePreview,
 } from "./billing";
@@ -1284,7 +1285,7 @@ const Page = () => {
                           billing.status === "paid" ||
                           (orderInvoices.length > 0 &&
                             orderInvoices.every((inv) =>
-                              isPaidOrSucceeded(inv.status),
+                              isPaidOrSucceeded(inv.status) || isPartiallyRefunded(inv.status),
                             ));
                         const isOrderRefunded =
                           isRefunded(billing.status) ||
@@ -1911,12 +1912,16 @@ const Page = () => {
                                         getBestTargetInvoice(
                                           orderInvoices,
                                           serviceUuid,
-                                          service.service_id,
+                                            service.service_id,
                                         );
 
                                       const isServiceRefunded =
                                         isRefunded(service.status) ||
                                         isRefunded(serviceTargetInvoice?.status);
+                                      const isServicePartiallyRefunded =
+                                        !isServiceRefunded &&
+                                        (isPartiallyRefunded(service.status) ||
+                                          isPartiallyRefunded(serviceTargetInvoice?.status));
                                       const isServicePaid =
                                         ((isPaidOrSucceeded(service.status) ||
                                           isPaidOrSucceeded(serviceTargetInvoice?.status) ||
@@ -1924,7 +1929,8 @@ const Page = () => {
                                           (parseFloat(serviceTargetInvoice?.paid_amount || 0) > 0 &&
                                             parseFloat(serviceTargetInvoice?.paid_amount || 0) >=
                                               parseFloat(serviceTargetInvoice?.total || 0) - 0.01)) &&
-                                        !isServiceRefunded);
+                                        !isServiceRefunded &&
+                                        !isServicePartiallyRefunded);
                                       const isServiceVoid =
                                         hasLoadedInvoices &&
                                         !isRowInvoicesLoading &&
@@ -1946,6 +1952,7 @@ const Page = () => {
                                         actualOrderCancelled ||
                                         isServiceVoid ||
                                         isServicePaid ||
+                                        isServicePartiallyRefunded ||
                                         isServiceRefunded;
                                       return (
                                         <div
@@ -1959,31 +1966,35 @@ const Page = () => {
                                                   <p className="font-semibold text-gray-800">
                                                     {service.service_name}
                                                   </p>
-                                                  <span
-                                                    className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase
-                                                  ${
-                                                    isServicePaid
-                                                      ? "bg-[#6BAE41]"
-                                                      : isServiceRefunded
-                                                        ? "bg-[#DC9600]"
-                                                        : service.status ===
-                                                            "pending"
-                                                          ? "bg-[#DC9600]"
-                                                          : isServiceVoid ||
-                                                              service.status ===
-                                                                "cancelled"
-                                                            ? "bg-[#E06D5E]"
-                                                            : "bg-[#7D7D7D]"
-                                                  }`}
-                                                  >
-                                                    {isServicePaid
-                                                      ? "paid"
-                                                      : isServiceRefunded
-                                                        ? "refunded"
-                                                        : isServiceVoid
-                                                          ? "no invoice"
-                                                          : service.status || "unpaid"}
-                                                  </span>
+                                                    <span
+                                                     className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2
+                                                   ${
+                                                     isServicePartiallyRefunded
+                                                       ? "bg-[#D97706]"
+                                                       : isServicePaid
+                                                         ? "bg-[#6BAE41]"
+                                                         : isServiceRefunded
+                                                           ? "bg-[#DC9600]"
+                                                           : service.status ===
+                                                               "pending"
+                                                             ? "bg-[#DC9600]"
+                                                             : isServiceVoid ||
+                                                                 service.status ===
+                                                                   "cancelled"
+                                                               ? "bg-[#E06D5E]"
+                                                               : "bg-[#7D7D7D]"
+                                                   }`}
+                                                   >
+                                                     {isServicePartiallyRefunded
+                                                       ? "partially refunded"
+                                                       : isServicePaid
+                                                         ? "paid"
+                                                         : isServiceRefunded
+                                                           ? "refunded"
+                                                           : isServiceVoid
+                                                             ? "no invoice"
+                                                             : service.status || "unpaid"}
+                                                   </span>
                                                 </div>
                                                 <div className="flex gap-2">
                                                   {isRowInvoicesLoading && !hasLoadedInvoices ? (
@@ -2190,7 +2201,8 @@ const Page = () => {
                                                   )}
 
                                                   {isServicePaid &&
-                                                    !isServiceRefunded && (
+                                                    !isServiceRefunded &&
+                                                    !isServicePartiallyRefunded && (
                                                       <>
                                                         <Button
                                                           disabled
@@ -2228,6 +2240,44 @@ const Page = () => {
                                                         )}
                                                       </>
                                                     )}
+
+                                                  {isServicePartiallyRefunded && (
+                                                    <>
+                                                      <Button
+                                                        disabled
+                                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[120px] bg-[#D97706] cursor-not-allowed opacity-90"
+                                                      >
+                                                        Partially Refunded
+                                                      </Button>
+                                                      {role === "admin" && (
+                                                        <Button
+                                                          variant="outline"
+                                                          onClick={(e) =>
+                                                            handleRefundClick(
+                                                              e,
+                                                              billing.order_uuid,
+                                                              serviceUuid,
+                                                              service.amount,
+                                                            )
+                                                          }
+                                                          disabled={
+                                                            actionLoading !== null
+                                                          }
+                                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                                        >
+                                                          {actionLoading?.id ===
+                                                            serviceUuid &&
+                                                          actionLoading?.action ===
+                                                            "refund" ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                          ) : (
+                                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                                          )}{" "}
+                                                          Refund
+                                                        </Button>
+                                                      )}
+                                                    </>
+                                                  )}
                                                 </div>
                                               </div>
                                               <div className="text-sm text-gray-600 space-y-0.5">

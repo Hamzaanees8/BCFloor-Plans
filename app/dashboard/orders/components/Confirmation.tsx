@@ -715,11 +715,13 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         // Grand total is the final amount from the order
                                         const grandTotal = parseFloat(orderData?.amount || "0");
 
-                                        // Get paid amount from order data
+                                        // Get paid amount and refunded amount from order data
                                         const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
+                                        const refundedAmount = parseFloat(orderData?.refunded_amount || "0") || 0;
+                                        const netPaid = Math.max(0, paidAmount - refundedAmount);
 
                                         // Calculate balance due
-                                        const balanceDue = grandTotal - paidAmount;
+                                        const balanceDue = grandTotal - netPaid;
 
                                         return (
                                             <>
@@ -753,10 +755,18 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     </p>
                                                 )}
 
+                                                {/* Show refunded amount if any refund has been processed */}
+                                                {refundedAmount > 0 && (
+                                                    <p className='grid grid-cols-4 gap-[15px] text-red-500'>
+                                                        <span className='col-span-3'>Refunded</span>
+                                                        <span className='col-span-1'>+${refundedAmount.toFixed(2)}</span>
+                                                    </p>
+                                                )}
+
                                                 {/* Show balance due */}
                                                 <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2'>
                                                     <span className='col-span-3'>
-                                                        {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                                                        {(paidAmount > 0 || refundedAmount > 0) ? "Balance Due" : "Amount Due"}
                                                     </span>
                                                     <span className='col-span-1'>${Math.max(0, balanceDue).toFixed(2)}</span>
                                                 </p>

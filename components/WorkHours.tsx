@@ -593,7 +593,9 @@ const VendorWorkHours = ({
     const selectedService = servicesData.find((s) => s.uuid === sId);
     if (!selectedService) return;
 
-    const alreadyExists = selectedServices.some((s) => s.service_id === sId);
+    const alreadyExists =
+      selectedServices.some((s) => s.service_id === sId) ||
+      vendorServices.some((s) => s.service_id === sId);
     if (alreadyExists) return;
 
     // Create options array in the new format
@@ -634,10 +636,40 @@ const VendorWorkHours = ({
 
       if (!service) return prev;
 
-      service.options = service.options.map((opt) =>
-        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt,
-      );
+      let updatedOptions = [...service.options];
 
+      if (optionUuid) {
+        const existingOptIndex = service.options.findIndex(
+          (opt) => opt.option_uuid === optionUuid
+        );
+        if (existingOptIndex >= 0) {
+          updatedOptions = service.options.map((opt, i) =>
+            i === existingOptIndex ? { ...opt, [field]: value } : opt
+          );
+        } else {
+          updatedOptions = [
+            ...service.options,
+            {
+              option_uuid: optionUuid,
+              pay_type: "flat",
+              vendor_price: 0,
+              adjustment_time: 0,
+              [field]: value,
+            },
+          ];
+        }
+      }
+
+      const updatedService: SelectedService = {
+        ...service,
+        options: updatedOptions,
+      };
+
+      if (field === "vendor_price" || field === "pay_type" || field === "sq_ft_rate" || field === "min_price") {
+        (updatedService as any)[field] = value;
+      }
+
+      updatedServices[index] = updatedService;
       return updatedServices;
     });
   };
@@ -654,10 +686,40 @@ const VendorWorkHours = ({
 
       if (!service) return prev;
 
-      service.options = service.options.map((opt) =>
-        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt,
-      );
+      let updatedOptions = [...service.options];
 
+      if (optionUuid) {
+        const existingOptIndex = service.options.findIndex(
+          (opt) => opt.option_uuid === optionUuid
+        );
+        if (existingOptIndex >= 0) {
+          updatedOptions = service.options.map((opt, i) =>
+            i === existingOptIndex ? { ...opt, [field]: value } : opt
+          );
+        } else {
+          updatedOptions = [
+            ...service.options,
+            {
+              option_uuid: optionUuid,
+              pay_type: "flat",
+              vendor_price: 0,
+              adjustment_time: 0,
+              [field]: value,
+            },
+          ];
+        }
+      }
+
+      const updatedService: SelectedService = {
+        ...service,
+        options: updatedOptions,
+      };
+
+      if (field === "vendor_price" || field === "pay_type" || field === "sq_ft_rate" || field === "min_price") {
+        (updatedService as any)[field] = value;
+      }
+
+      updatedServices[index] = updatedService;
       return updatedServices;
     });
   };
@@ -1528,7 +1590,7 @@ const VendorWorkHours = ({
                           <div className="space-y-2 flex flex-col items-center">
                             {selectedServices.map((selectedService, index) => (
                               <ServiceItem
-                                key={index}
+                                key={selectedService.service_id || index}
                                 index={index}
                                 selectedService={selectedService}
                                 servicesData={servicesData}
@@ -1551,7 +1613,7 @@ const VendorWorkHours = ({
                           <div className="space-y-2 flex flex-col items-center">
                             {vendorServices.map((selectedService, index) => (
                               <ServiceItem
-                                key={index}
+                                key={selectedService.service_id || selectedService.vendor_service_id || index}
                                 index={index}
                                 selectedService={selectedService}
                                 servicesData={servicesData}

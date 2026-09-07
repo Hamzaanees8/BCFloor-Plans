@@ -1058,7 +1058,7 @@ export async function DownloadFile(
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.message || `Upload failed with status ${response.status}`,
+      error.message || `Download failed with status ${response.status}`,
     );
   }
 

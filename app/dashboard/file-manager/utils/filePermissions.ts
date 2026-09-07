@@ -107,15 +107,13 @@ export const isAgentFileDownloadAllowed = ({
  * Check if payment authorization is valid for the file
  * 
  * Business Logic:
- * - If service payment_status is PAID: file can be downloaded if is_paid OR is_complimentary
- * - If order payment_status is PAID: file can be downloaded if is_paid OR is_complimentary
- * - Otherwise: file cannot be downloaded
- * 
- * Note: is_complimentary files STILL require payment_status to be PAID.
- * This means the file cost is waived but the overall service/order must be paid first.
+ * - If service.media_access === true: file is authorized (even if payment_status is REFUNDED)
+ * - If service.media_access === false: file access is blocked
+ * - If service.media_access == null: fallback to payment_status check (service or order is PAID)
+ * - File must also be marked as is_paid OR is_complimentary
  * 
  * @param file - File object
- * @param currentService - Current service (optional, expects payment_status property)
+ * @param currentService - Current service (optional, expects payment_status and media_access property)
  * @param orderData - Order data (optional)
  * @returns true if payment is authorized, false otherwise
  */
@@ -130,28 +128,40 @@ export const isPaymentAuthorizationValid = ({
 }): boolean => {
   if (!file) return false;
 
-  // Check if service is paid (currentService can have payment_status)
-  const isServicePaid =
-    currentService?.payment_status === 'PAID' ||
-    (file.service && orderData?.services?.some(
-      (s: OrderService) => s.service.uuid === file.service?.uuid && s.payment_status === 'PAID'
-    ));
-
-  // Check if order is paid
-  const isOrderPaid = orderData?.payment_status === 'PAID';
-
-  // Payment must be authorized
-  if (!isServicePaid && !isOrderPaid) {
-    return false;
-  }
-
   // File must be marked as paid or complimentary
-  // (complimentary REQUIRES payment to be done first)
   if (!file.is_paid && !file.is_complimentary) {
     return false;
   }
 
-  return true;
+  // Find the matching service for this file
+  const matchedService = currentService || (file.service && orderData?.services?.find(
+    (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
+  ));
+
+  const mediaAccess = matchedService?.media_access !== undefined && matchedService?.media_access !== null
+    ? matchedService.media_access
+    : (matchedService?.service as any)?.media_access;
+
+  // Rule 1: true -> always accessible
+  if (mediaAccess === true) {
+    return true;
+  }
+
+  // Rule 2: false -> always locked
+  if (mediaAccess === false) {
+    return false;
+  }
+
+  // Rule 3: null / undefined -> fallback to checking if service or order is PAID
+  const isServicePaid =
+    currentService?.payment_status === 'PAID' ||
+    (file.service && orderData?.services?.some(
+      (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
+    ));
+
+  const isOrderPaid = orderData?.payment_status === 'PAID';
+
+  return isServicePaid || isOrderPaid;
 };
 
 /**
@@ -176,16 +186,30 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
       return 'File is not available for download';
     }
 
-    const isServicePaid =
-      currentService?.payment_status === 'PAID' ||
-      (file.service && orderData?.services?.some(
-        (s: OrderService) => s.service.uuid === file.service?.uuid && s.payment_status === 'PAID'
-      ));
+    const matchedService = currentService || (file.service && orderData?.services?.find(
+      (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
+    ));
 
-    const isOrderPaid = orderData?.payment_status === 'PAID';
+    const mediaAccess = matchedService?.media_access !== undefined && matchedService?.media_access !== null
+      ? matchedService.media_access
+      : (matchedService?.service as any)?.media_access;
 
-    if (!isServicePaid && !isOrderPaid) {
-      return 'Service payment required';
+    if (mediaAccess === false) {
+      return 'Media access has been revoked';
+    }
+
+    if (mediaAccess !== true) {
+      const isServicePaid =
+        currentService?.payment_status === 'PAID' ||
+        (file.service && orderData?.services?.some(
+          (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
+        ));
+
+      const isOrderPaid = orderData?.payment_status === 'PAID';
+
+      if (!isServicePaid && !isOrderPaid) {
+        return 'Service payment required';
+      }
     }
   }
 

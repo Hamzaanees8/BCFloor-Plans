@@ -17,7 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '../orders/components/SearchableSelect'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -27,6 +26,8 @@ type Invoice = {
     invoice_number?: string;
     status: string;
     total: string;
+    paid_amount?: string;
+    refunded_amount?: string;
     currency: string;
     issued_at: string;
     agent: {
@@ -206,7 +207,7 @@ const InvoiceListPage = () => {
                         className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit uppercase"
                         style={{ backgroundColor: bgColor }}
                     >
-                        {status}
+                        {status.replace(/_/g, ' ')}
                     </div>
                 );
             }
@@ -221,7 +222,8 @@ const InvoiceListPage = () => {
                         label: "View",
                         onClick: () => router.push(`/dashboard/invoice/${inv.uuid}`),
                     },
-                    ...(inv.status === 'paid' ? [{
+                    ...((['paid', 'partially_refunded', 'partial_refunded'].includes((inv.status || '').toLowerCase()) &&
+                        (parseFloat(inv.paid_amount || inv.total || '0') - parseFloat(inv.refunded_amount || '0')) > 0) ? [{
                         label: "Refund",
                         onClick: () => handleRefund(inv),
                     }] : []),
@@ -406,24 +408,34 @@ const InvoiceListPage = () => {
                                                     <p className="text-xs text-gray-500 mt-1 font-semibold">
                                                         Agent: {inv.agent?.first_name} {inv.agent?.last_name}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-400 mt-1">
-                                                        Property: {inv.order?.property?.address || 'N/A'}
-                                                    </p>
+                                                    {inv.order?.property?.address && (
+                                                        <p className="text-[11px] text-gray-400 mt-1 truncate">
+                                                            Property: {inv.order.property.address}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <div className="text-right flex flex-col items-end">
-                                                    <p className="text-[14px] font-bold text-gray-800">${Number(inv.total).toFixed(2)}</p>
-                                                    <Badge className="text-white px-2 py-0.5 rounded text-[9px] font-medium uppercase mt-2 border-0" style={{ backgroundColor: bgColor }}>
-                                                        {status}
-                                                    </Badge>
+                                                <div
+                                                    className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-medium tracking-wide uppercase shrink-0"
+                                                    style={{ backgroundColor: bgColor }}
+                                                >
+                                                    {status.replace(/_/g, ' ')}
                                                 </div>
                                             </div>
 
-                                            <div className="text-[10px] text-gray-400 pt-2 border-t border-gray-50 flex justify-between">
-                                                <span>Issued: {new Date(inv.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</span>
-                                                <span>Currency: {inv.currency}</span>
+                                            {inv.order?.property?.address && (
+                                                <p className="text-xs text-gray-600 truncate">
+                                                    {inv.order.property.address}
+                                                </p>
+                                            )}
+
+                                            <div className="flex justify-between items-center text-xs text-gray-500">
+                                                <span>{new Date(inv.issued_at).toLocaleDateString()}</span>
+                                                <span className="font-bold text-gray-900 text-sm">
+                                                    ${parseFloat(inv.total || '0').toFixed(2)}
+                                                </span>
                                             </div>
 
-                                            <div className="flex gap-2 pt-3 border-t border-gray-100">
+                                            <div className="flex gap-2 pt-2 border-t border-gray-50">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
@@ -433,7 +445,8 @@ const InvoiceListPage = () => {
                                                     <Eye className="h-3.5 w-3.5" />
                                                     View Details
                                                 </Button>
-                                                {inv.status === 'paid' && (
+                                                {['paid', 'partially_refunded', 'partial_refunded'].includes((inv.status || '').toLowerCase()) &&
+                                                    (parseFloat(inv.paid_amount || inv.total || '0') - parseFloat(inv.refunded_amount || '0')) > 0 && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"

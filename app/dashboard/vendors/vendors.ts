@@ -147,6 +147,34 @@ function payloadToFormData(payload: VendorPayload): FormData {
             `services[${index}][service_id]`,
             String(service.service_id)
           );
+          const primaryOption = service.options?.[0];
+          const payType = service.pay_type || primaryOption?.pay_type || "flat";
+          formData.append(`services[${index}][pay_type]`, String(payType));
+
+          const topVendorPrice =
+            service.vendor_price !== undefined && service.vendor_price !== null && service.vendor_price !== ""
+              ? Number(service.vendor_price)
+              : primaryOption?.vendor_price !== undefined && primaryOption?.vendor_price !== null && primaryOption?.vendor_price !== ""
+              ? Number(primaryOption.vendor_price)
+              : 0;
+          formData.append(`services[${index}][vendor_price]`, String(topVendorPrice));
+
+          const topSqFtRate =
+            service.sq_ft_rate !== undefined && service.sq_ft_rate !== ""
+              ? service.sq_ft_rate
+              : primaryOption?.sq_ft_rate;
+          if (topSqFtRate !== undefined && topSqFtRate !== null && topSqFtRate !== "") {
+            formData.append(`services[${index}][sq_ft_rate]`, String(Number(topSqFtRate) || 0));
+          }
+
+          const topMinPrice =
+            service.min_price !== undefined && service.min_price !== ""
+              ? service.min_price
+              : primaryOption?.min_price;
+          if (topMinPrice !== undefined && topMinPrice !== null && topMinPrice !== "") {
+            formData.append(`services[${index}][min_price]`, String(Number(topMinPrice) || 0));
+          }
+          let validOptIndex = 0;
           service.options?.forEach(
             (
               opt: {
@@ -157,53 +185,66 @@ function payloadToFormData(payload: VendorPayload): FormData {
                 sq_ft_rate?: number | string;
                 min_price?: number | string;
                 adjustment_time: number | string;
-              },
-              optIndex: number
+              }
             ) => {
+              if (!opt.option_uuid || typeof opt.option_uuid !== "string" || opt.option_uuid.trim() === "") {
+                return;
+              }
               formData.append(
-                `services[${index}][options][${optIndex}][option_uuid]`,
-                String(opt.option_uuid)
+                `services[${index}][options][${validOptIndex}][option_uuid]`,
+                String(opt.option_uuid.trim())
               );
               formData.append(
-                `services[${index}][options][${optIndex}][pay_type]`,
+                `services[${index}][options][${validOptIndex}][pay_type]`,
                 String(opt.pay_type || "flat")
               );
               if (opt.pay_type === "per_sq_ft") {
+                const numericSqFtRate =
+                  opt.sq_ft_rate !== undefined && opt.sq_ft_rate !== "" && !isNaN(Number(opt.sq_ft_rate))
+                    ? Number(opt.sq_ft_rate)
+                    : 0;
                 formData.append(
-                  `services[${index}][options][${optIndex}][sq_ft_rate]`,
-                  String(opt.sq_ft_rate ?? 0)
+                  `services[${index}][options][${validOptIndex}][sq_ft_rate]`,
+                  String(numericSqFtRate)
                 );
                 if (
                   opt.min_price !== undefined &&
                   opt.min_price !== null &&
-                  opt.min_price !== ""
+                  opt.min_price !== "" &&
+                  !isNaN(Number(opt.min_price))
                 ) {
                   formData.append(
-                    `services[${index}][options][${optIndex}][min_price]`,
-                    String(opt.min_price)
+                    `services[${index}][options][${validOptIndex}][min_price]`,
+                    String(Number(opt.min_price))
                   );
                 }
                 formData.append(
-                  `services[${index}][options][${optIndex}][vendor_price]`,
+                  `services[${index}][options][${validOptIndex}][vendor_price]`,
                   "0"
                 );
               } else {
+                const numericPrice =
+                  opt.vendor_price !== undefined && opt.vendor_price !== "" && !isNaN(Number(opt.vendor_price))
+                    ? Number(opt.vendor_price)
+                    : 0;
                 formData.append(
-                  `services[${index}][options][${optIndex}][vendor_price]`,
-                  String(opt.vendor_price ?? 0)
+                  `services[${index}][options][${validOptIndex}][vendor_price]`,
+                  String(numericPrice)
                 );
               }
               const adjTime =
                 opt.adjustment_time !== undefined &&
                 opt.adjustment_time !== null &&
                 opt.adjustment_time !== "no adjustment" &&
-                (opt.adjustment_time as any) !== ""
+                (opt.adjustment_time as any) !== "" &&
+                !isNaN(Number(opt.adjustment_time))
                   ? String(opt.adjustment_time)
                   : "0";
               formData.append(
-                `services[${index}][options][${optIndex}][adjustment_time]`,
+                `services[${index}][options][${validOptIndex}][adjustment_time]`,
                 adjTime
               );
+              validOptIndex++;
             }
           );
         });

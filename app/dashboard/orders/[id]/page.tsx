@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Copy, File, Loader2 } from "lucide-react";
+import { Copy, File, Loader2, RotateCcw } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 //import Link from 'next/link';
 import {
@@ -55,6 +55,7 @@ import { resolveServicePrice } from "@/lib/pricingUtils";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
+import RefundModal from "../../invoice/components/RefundModal";
 import { useOrganization } from "@/app/context/OrganizationContext";
 export interface VendorAddress {
   type: "company" | "billing" | string;
@@ -203,6 +204,7 @@ function Page() {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "primary" | "co-agent">("all");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -317,13 +319,24 @@ function Page() {
       .catch((err) => console.log("Error fetching files data:", err));
   }, [orderId]);
 
-  useEffect(() => {
+  const fetchInvoices = () => {
     if (!orderData?.uuid || userType === "vendor") return;
     setInvoicesLoading(true);
     GetInvoicesByOrder(orderData.uuid)
-      .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
+      .then((res) => {
+        const invs = Array.isArray(res.data) ? res.data : [];
+        setInvoices(invs);
+        if (viewingInvoice) {
+          const updated = invs.find((i: any) => i.uuid === viewingInvoice.uuid || i.id === viewingInvoice.id);
+          if (updated) setViewingInvoice(updated);
+        }
+      })
       .catch(() => console.log("Failed to load invoices"))
       .finally(() => setInvoicesLoading(false));
+  };
+
+  useEffect(() => {
+    fetchInvoices();
   }, [orderData?.uuid, userType]);
 
   const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
@@ -371,11 +384,13 @@ function Page() {
   // Use backend amount as the source of truth for the Grand Total (Net Price)
   const calculatedGrandTotal = parseFloat(orderData?.amount || "0");
   const calculatedPaidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
+  const calculatedRefundedAmount = parseFloat(orderData?.refunded_amount || "0") || 0;
+  const calculatedNetPaid = Math.max(0, calculatedPaidAmount - calculatedRefundedAmount);
 
-  // For Balance Due, we subtract the paid amount from the total
+  // For Balance Due, we subtract the net paid amount from the total
   const calculatedBalanceDue = Math.max(
     0,
-    calculatedGrandTotal - calculatedPaidAmount,
+    calculatedGrandTotal - calculatedNetPaid,
   );
 
   const uniqueVendorsMap = new Map();
@@ -1416,12 +1431,15 @@ function Page() {
                     // Grand total is the final amount from the order
                     const grandTotal = parseFloat(orderData?.amount || "0") + gstAmount;
 
-                    // Get paid amount from order data
+                    // Get paid amount and refunded amount from order data
                     const paidAmount =
                       parseFloat(orderData?.paid_amount || "0") || 0;
+                    const refundedAmount =
+                      parseFloat(orderData?.refunded_amount || "0") || 0;
+                    const netPaid = Math.max(0, paidAmount - refundedAmount);
 
                     // Calculate balance due
-                    const balanceDue = grandTotal - paidAmount;
+                    const balanceDue = grandTotal - netPaid;
 
                     return (
                       <>
@@ -1473,10 +1491,20 @@ function Page() {
                           </p>
                         )}
 
+                        {/* Show refunded amount if any refund has been processed */}
+                        {refundedAmount > 0 && (
+                          <p className="grid grid-cols-4 gap-[15px] text-red-500">
+                            <span className="col-span-3">Refunded</span>
+                            <span className="col-span-1">
+                              +${refundedAmount.toFixed(2)}
+                            </span>
+                          </p>
+                        )}
+
                         {/* Show balance due */}
                         <p className="grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2">
                           <span className="col-span-3">
-                            {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                            {(paidAmount > 0 || refundedAmount > 0) ? "Balance Due" : "Amount Due"}
                           </span>
                           <span className="col-span-1">
                             ${Math.max(0, balanceDue).toFixed(2)}
@@ -1665,6 +1693,7 @@ function Page() {
                     )
                       badgeBg = "#F5A623";
                     else if (status === "REFUNDED") badgeBg = "#D0021B";
+                    else if (status === "PARTIALLY_REFUNDED" || status === "PARTIAL_REFUNDED") badgeBg = "#D9534F";
 
                     return (
                       <div
@@ -1684,7 +1713,7 @@ function Page() {
                               className="text-white px-2 py-0.5 rounded-full text-[10px] font-medium uppercase"
                               style={{ backgroundColor: badgeBg }}
                             >
-                              {status}
+                              {status.replace(/_/g, ' ')}
                             </span>
                           </div>
                           <span
@@ -1817,6 +1846,17 @@ function Page() {
                   </div>
 
                   <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
+                    {userType === "admin" &&
+                      ['paid', 'partially_refunded', 'partial_refunded'].includes((viewingInvoice.status || '').toLowerCase()) &&
+                      (parseFloat(viewingInvoice.paid_amount || viewingInvoice.total || 0) - parseFloat(viewingInvoice.refunded_amount || 0)) > 0 && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsRefundModalOpen(true)}
+                          className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-orange-600 border border-orange-200 hover:bg-orange-50 rounded-[6px] shadow-sm transition-all"
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" /> Refund
+                        </Button>
+                      )}
                     {userType !== "vendor" &&
                       viewingInvoice.status?.toUpperCase() !== "PAID" &&
                       viewingInvoice.status?.toUpperCase() !== "VOID" &&
@@ -1894,6 +1934,16 @@ function Page() {
           )}
         </DialogContent>
       </Dialog>
+
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => setIsRefundModalOpen(false)}
+        invoice={viewingInvoice}
+        onSuccess={() => {
+          fetchInvoices();
+          refreshOrders();
+        }}
+      />
     </div>
   );
 }

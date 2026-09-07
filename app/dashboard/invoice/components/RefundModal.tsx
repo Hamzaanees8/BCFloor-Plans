@@ -29,6 +29,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
     const role = (userType as string) || 'admin';
     const [amount, setAmount] = useState('')
     const [notes, setNotes] = useState('')
+    const [revokeMediaAccess, setRevokeMediaAccess] = useState(true)
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
@@ -41,6 +42,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
                 setAmount(refundable)
             }
             setNotes('')
+            setRevokeMediaAccess(true)
         }
     }, [isOpen, invoice, defaultAmount])
 
@@ -53,7 +55,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
 
         try {
             setSubmitting(true)
-            const res = await RefundInvoice(invoice.uuid, amount, notes)
+            const res = await RefundInvoice(invoice.uuid, amount, notes, revokeMediaAccess)
             if (res.success) {
                 toast.success('Refund processed successfully')
                 onSuccess(res.data)
@@ -95,6 +97,38 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
                         <p className="text-xs text-gray-500">
                             Maximum refundable: ${(parseFloat(invoice.paid_amount || 0) - parseFloat(invoice.refunded_amount || 0)).toFixed(2)}
                         </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Media Access</Label>
+                        <div className="space-y-2 pt-1">
+                            <label className={`flex items-start gap-2.5 cursor-pointer p-2.5 rounded-md border transition-colors ${revokeMediaAccess ? 'border-orange-500 bg-orange-50/30' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                <input
+                                    type="radio"
+                                    name="mediaAccess"
+                                    className="mt-0.5 text-orange-500 focus:ring-orange-500 h-4 w-4"
+                                    checked={revokeMediaAccess === true}
+                                    onChange={() => setRevokeMediaAccess(true)}
+                                />
+                                <div className="text-xs">
+                                    <span className="font-semibold text-gray-800 block">Revoke Media Access</span>
+                                    <span className="text-gray-500">Revoke agent access to media files for refunded services.</span>
+                                </div>
+                            </label>
+                            <label className={`flex items-start gap-2.5 cursor-pointer p-2.5 rounded-md border transition-colors ${!revokeMediaAccess ? 'border-orange-500 bg-orange-50/30' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                <input
+                                    type="radio"
+                                    name="mediaAccess"
+                                    className="mt-0.5 text-orange-500 focus:ring-orange-500 h-4 w-4"
+                                    checked={revokeMediaAccess === false}
+                                    onChange={() => setRevokeMediaAccess(false)}
+                                />
+                                <div className="text-xs">
+                                    <span className="font-semibold text-gray-800 block">Keep Media Access</span>
+                                    <span className="text-gray-500">Agent retains access as a courtesy/discount.</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <div className="space-y-2">

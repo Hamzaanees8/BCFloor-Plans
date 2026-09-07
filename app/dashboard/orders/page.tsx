@@ -44,6 +44,7 @@ export type Order = {
     updated_at: string;
     agent: Agent;
     paid_amount: string;
+    refunded_amount?: string;
     services: OrderService[];
     logs: {
         id: number;
@@ -248,6 +249,7 @@ export type OrderService = {
     service_id: number;
     uuid: string;
     payment_status?: string;
+    media_access?: boolean | null;
     is_completed?: boolean | number;
     option: {
         id: number;

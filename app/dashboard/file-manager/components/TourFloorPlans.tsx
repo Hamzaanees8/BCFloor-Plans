@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraIcon } from "@/components/Icons";
-import { X, ChevronLeft, ChevronRight, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, RotateCcw, ZoomIn, ZoomOut, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { DeleteSnapshot, GetFilesData } from "../file-manager";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
@@ -1082,26 +1082,46 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                   message="Floor plan preview is protected until payment is completed"
                 />
               ) : isSelectedFilePDF && selectedFile ? (
-                "uuid" in selectedFile &&
-                (!selectedFile.variant_urls ||
-                  (Array.isArray(selectedFile.variant_urls) &&
-                    selectedFile.variant_urls.length === 0) ||
-                  Object.keys(selectedFile.variant_urls).length === 0) ? (
-                  <PdfPlaceholder
-                    className="w-full h-full"
-                    message="service is not paid yet"
-                  />
-                ) : (
-                  <iframe
-                    src={
-                      "uuid" in selectedFile
-                        ? `${selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : "")}#toolbar=0`
-                        : URL.createObjectURL((selectedFile as any).file)
-                    }
-                    className="w-full h-full border-0"
-                    title="Floor Plan PDF"
-                  />
-                )
+                (() => {
+                  if (!("uuid" in selectedFile)) {
+                    return (
+                      <iframe
+                        src={URL.createObjectURL((selectedFile as any).file)}
+                        className="w-full h-full border-0"
+                        title="Floor Plan PDF"
+                      />
+                    );
+                  }
+                  const pdfUrl =
+                    (selectedFile.thumbnail_url && typeof selectedFile.thumbnail_url === "string" && selectedFile.thumbnail_url.trim()) ||
+                    (selectedFile.variant_urls && typeof selectedFile.variant_urls === "object" && !Array.isArray(selectedFile.variant_urls) && (selectedFile.variant_urls.popup || selectedFile.variant_urls.thumb || selectedFile.variant_urls.landing || selectedFile.variant_urls.slider || selectedFile.variant_urls.print)) ||
+                    (selectedFile.url && typeof selectedFile.url === "string" && selectedFile.url.trim()) ||
+                    (selectedFile.file_path && typeof selectedFile.file_path === "string" && selectedFile.file_path.trim() ? (selectedFile.file_path.startsWith("http") ? selectedFile.file_path : `${API_URL}/${selectedFile.file_path}`) : null);
+
+                  if (!pdfUrl) {
+                    return (
+                      <div className="flex flex-col items-center justify-center w-full h-full p-6 text-center bg-gray-50">
+                        <div className="bg-red-50 rounded-full p-4 mb-3">
+                          <FileText className="w-10 h-10 text-red-500" />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-700 max-w-[80%] truncate block">
+                          {selectedFile.name || "PDF Floor Plan"}
+                        </span>
+                        <span className="inline-block mt-2 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                          URL Missing
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <iframe
+                      src={`${pdfUrl}#toolbar=0`}
+                      className="w-full h-full border-0"
+                      title="Floor Plan PDF"
+                    />
+                  );
+                })()
               ) : (
                 <div
                   ref={imageContainerRef}
@@ -1479,30 +1499,65 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                             </p>
                           </div>
                         ) : isFilePDF ? (
-                          "uuid" in file &&
-                          (!file.variant_urls ||
-                            (Array.isArray(file.variant_urls) &&
-                              file.variant_urls.length === 0) ||
-                            Object.keys(file.variant_urls).length === 0) ? (
-                            <PdfPlaceholder
-                              className="w-full h-full"
-                              message="service is not paid yet"
-                            />
-                          ) : (
-                            <div className="relative w-full h-full overflow-hidden">
-                              <iframe
-                                src={
-                                  "uuid" in file
-                                    ? `${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
-                                    : URL.createObjectURL((file as any).file)
-                                }
-                                className="w-full h-full pointer-events-none border-none"
-                                tabIndex={-1}
-                                scrolling="no"
-                              />
-                              <div className="absolute inset-0 bg-transparent" />
-                            </div>
-                          )
+                          (() => {
+                            if (!("uuid" in file)) {
+                              return (
+                                <div className="relative w-full h-full overflow-hidden">
+                                  <iframe
+                                    src={URL.createObjectURL((file as any).file)}
+                                    className="w-full h-full pointer-events-none border-none"
+                                    tabIndex={-1}
+                                    scrolling="no"
+                                  />
+                                  <div className="absolute inset-0 bg-transparent" />
+                                </div>
+                              );
+                            }
+
+                            if (
+                              userType === "agent" &&
+                              orderData?.payment_status !== "PAID" &&
+                              !(file as any).is_complimentary
+                            ) {
+                              return (
+                                <PdfPlaceholder
+                                  className="w-full h-full"
+                                  message="service is not paid yet"
+                                />
+                              );
+                            }
+
+                            const pdfUrl =
+                              (file.thumbnail_url && typeof file.thumbnail_url === "string" && file.thumbnail_url.trim()) ||
+                              (file.variant_urls && typeof file.variant_urls === "object" && !Array.isArray(file.variant_urls) && (file.variant_urls.popup || file.variant_urls.thumb || file.variant_urls.landing || file.variant_urls.slider || file.variant_urls.print)) ||
+                              (file.url && typeof file.url === "string" && file.url.trim()) ||
+                              (file.file_path && typeof file.file_path === "string" && file.file_path.trim() ? (file.file_path.startsWith("http") ? file.file_path : `${API_URL}/${file.file_path}`) : null);
+
+                            if (!pdfUrl) {
+                              return (
+                                <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center bg-gray-50">
+                                  <div className="bg-red-50 rounded-full p-2 mb-1">
+                                    <FileText className="w-5 h-5 text-red-500" />
+                                  </div>
+                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
+                                    URL Missing
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="relative w-full h-full overflow-hidden">
+                                <iframe
+                                  src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                  className="w-full h-full pointer-events-none border-none"
+                                  tabIndex={-1}
+                                  scrolling="no"
+                                />
+                                <div className="absolute inset-0 bg-transparent" />
+                              </div>
+                            );
+                          })()
                         ) : !("uuid" in file) ? (
                           <OptimizedImagePreview
                             file={(file as any).file}

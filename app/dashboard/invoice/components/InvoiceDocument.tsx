@@ -117,8 +117,10 @@ const InvoiceDocument = ({
   const isVendorInvoice = !!(invoice.vendor || invoice.vendor_details || invoice.vendor_id);
   const displayData = isEditing ? editData : invoice;
   const paidAmount = parseFloat(displayData.paid_amount || invoice.paid_amount || 0);
+  const refundedAmount = parseFloat(displayData.refunded_amount || invoice.refunded_amount || 0);
+  const netPaid = Math.max(0, paidAmount - refundedAmount);
   const grandTotal = parseFloat(displayData.total || displayData.total_amount || invoice.total || "0");
-  const balanceDue = Math.max(0, grandTotal - paidAmount);
+  const balanceDue = Math.max(0, grandTotal - netPaid);
 
   // Resolved Org details (Payer)
   const currentOrgDetails = displayData.org_details || invoice.org_details || {};
@@ -185,14 +187,14 @@ const InvoiceDocument = ({
                   partially_paid: "bg-yellow-100 text-yellow-700",
                   partial: "bg-yellow-100 text-yellow-700",
                   refunded: "bg-red-100 text-red-600",
-                  partially_refunded: "bg-red-50 text-red-500",
-                  partial_refunded: "bg-red-50 text-red-500",
+                  partially_refunded: "bg-amber-50 text-amber-700 border border-amber-300",
+                  partial_refunded: "bg-amber-50 text-amber-700 border border-amber-300",
                 };
                 return (
                   <span
                     className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] leading-normal font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}
                   >
-                    {status.replace('_', ' ')}
+                    {status.replace(/_/g, ' ')}
                   </span>
                 );
               })()}
@@ -930,24 +932,36 @@ const InvoiceDocument = ({
             </span>
           </div>
 
-          {/* Partial payment details if paid_amount > 0 */}
-          {paidAmount > 0 && (
+          {/* Partial payment and refund details if paid_amount > 0 or refunded_amount > 0 */}
+          {(paidAmount > 0 || refundedAmount > 0) && (
             <div className="space-y-1.5 pt-2 border-t border-gray-100">
-              <div className="flex justify-between text-xs text-gray-600">
-                <span className="font-medium uppercase tracking-wider text-[10px]">
-                  Amount Paid:
-                </span>
-                <span className="font-semibold text-green-600">
-                  -${paidAmount.toFixed(2)}
-                </span>
-              </div>
-              {parseFloat(invoice.refunded_amount || 0) > 0 && (
+              {paidAmount > 0 && (
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span className="font-medium uppercase tracking-wider text-[10px]">
+                    Amount Paid:
+                  </span>
+                  <span className="font-semibold text-green-600">
+                    -${paidAmount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {refundedAmount > 0 && (
                 <div className="flex justify-between text-xs text-gray-600">
                   <span className="font-medium uppercase tracking-wider text-[10px]">
                     Amount Refunded:
                   </span>
                   <span className="font-semibold text-red-500">
-                    +${parseFloat(invoice.refunded_amount).toFixed(2)}
+                    +${refundedAmount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {refundedAmount > 0 && paidAmount > 0 && (
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span className="font-medium uppercase tracking-wider text-[10px]">
+                    Net Paid:
+                  </span>
+                  <span className="font-semibold text-gray-800">
+                    ${netPaid.toFixed(2)}
                   </span>
                 </div>
               )}

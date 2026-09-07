@@ -55,6 +55,7 @@ export interface OrderServiceItem {
   vendor_id?: string;
   feature_sheet_id?: number;
   feature_sheet_uuid?: string;
+  media_access?: boolean | null;
   add_ons?: { uuid?: string; title: string; amount: number }[];
 }
 export type AgentNote = {

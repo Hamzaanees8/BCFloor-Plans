@@ -68,14 +68,26 @@ const ServiceItem = ({
   const [showTimeFields, setShowTimeFields] = useState(false);
   const { userType } = useAppContext();
 
-  // Find the full service data
-  const serviceData = servicesData.find(
-    (s) => s.uuid === selectedService.service_id,
-  );
-  const serviceName = serviceData?.name || "Unknown Service";
+  // Find the full service data with multiple fallbacks
+  const serviceData =
+    servicesData.find(
+      (s) => s.uuid === selectedService.service_id || String((s as any).id) === String(selectedService.service_id)
+    ) ||
+    selectedService.service ||
+    (currentUser?.vendor_services?.find(
+      (vs) =>
+        vs.uuid === selectedService.vendor_service_id ||
+        String(vs.service_id) === String(selectedService.service_id) ||
+        vs.service?.uuid === selectedService.service_id
+    )?.service as any);
+
+  const serviceName = serviceData?.name || (selectedService.service as any)?.name || "Unknown Service";
 
   // Get product options from service data
-  const productOptions = serviceData?.product_options || [];
+  const productOptions =
+    serviceData?.product_options ||
+    (serviceData as any)?.productOptions ||
+    [];
 
   const handleOptionChange = (
     optionUuid: string,
@@ -142,7 +154,7 @@ const ServiceItem = ({
       {showTimeFields && productOptions.length > 0 && (
         <div className="space-y-3">
           <Accordion type="single" collapsible className="space-y-3">
-            {productOptions.map((option) => {
+            {productOptions.map((option: any) => {
               const optionData = getOptionData(option.uuid ?? "");
               const priceErrorKey = `services[${index}].options[${option.uuid}].vendor_price`;
               const hasError = fieldErrors?.[priceErrorKey];
@@ -256,12 +268,16 @@ const ServiceItem = ({
                           type="number"
                           step="0.01"
                           placeholder={defaultPrice > 0 ? `e.g. ${Number(defaultPrice).toFixed(2)} (Default)` : "e.g. 120.00"}
-                          value={optionData?.vendor_price || ""}
+                          value={
+                            optionData?.vendor_price !== undefined && optionData?.vendor_price !== null
+                              ? optionData.vendor_price
+                              : ""
+                          }
                           onChange={(e) =>
                             handleOptionChange(
                               option.uuid ?? "",
                               "vendor_price",
-                              e.target.value === "" ? 0 : Number(e.target.value),
+                              e.target.value === "" ? "" : Number(e.target.value),
                             )
                           }
                           className={`h-[38px] w-full border text-xs ${
@@ -350,8 +366,118 @@ const ServiceItem = ({
         </div>
       )}
       {showTimeFields && productOptions.length === 0 && (
-        <div className="text-center py-4 text-gray-500 text-xs">
-          No product options available for this service
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3.5 bg-white">
+          <p className="text-xs text-gray-500 italic">
+            This service has no product options. Payout rates apply directly to the service.
+          </p>
+          <div>
+            <Label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Payout Calculation Type
+            </Label>
+            <Select
+              value={selectedService.pay_type || (serviceData as any)?.vendor_pay_type || "flat"}
+              onValueChange={(val) =>
+                onChange(index, "", "pay_type", val)
+              }
+              disabled={isVendor}
+            >
+              <SelectTrigger
+                className="h-[38px] w-full border text-xs border-gray-300"
+                style={{
+                  backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                }}
+              >
+                <SelectValue placeholder="Select Payout Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="flat">Flat Rate ($)</SelectItem>
+                <SelectItem value="per_sq_ft">Per Sq. Ft. ($/sq.ft)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(selectedService.pay_type || (serviceData as any)?.vendor_pay_type) === "per_sq_ft" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Sq. Ft. Rate ($/sq.ft) <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  step="0.001"
+                  placeholder="e.g. 0.035"
+                  value={selectedService.sq_ft_rate ?? ""}
+                  onChange={(e) =>
+                    onChange(
+                      index,
+                      "",
+                      "sq_ft_rate",
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  className="h-[38px] w-full border text-xs border-gray-300"
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                  }}
+                  disabled={isVendor}
+                />
+              </div>
+              <div>
+                <Label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Guaranteed Minimum ($)
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 75.00"
+                  value={selectedService.min_price ?? ""}
+                  onChange={(e) =>
+                    onChange(
+                      index,
+                      "",
+                      "min_price",
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  className="h-[38px] w-full border text-xs border-gray-300"
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                  }}
+                  disabled={isVendor}
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label className="block text-xs font-semibold text-gray-700 mb-1">
+                Flat Payout Amount ($) <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g. 120.00"
+                value={
+                  selectedService.vendor_price !== undefined &&
+                  selectedService.vendor_price !== null
+                    ? selectedService.vendor_price
+                    : ""
+                }
+                onChange={(e) =>
+                  onChange(
+                    index,
+                    "",
+                    "vendor_price",
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                className="h-[38px] w-full border text-xs border-gray-300"
+                style={{
+                  backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                }}
+                disabled={isVendor}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

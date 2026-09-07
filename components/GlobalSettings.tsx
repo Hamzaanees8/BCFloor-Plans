@@ -63,6 +63,7 @@ import EmailLogsSettings from "./EmailLogsSettings";
 import QbSyncLogsSettings from "./QbSyncLogsSettings";
 import PortalSettings from "./PortalSettings";
 import EmailNotificationsSettings from "./EmailNotificationsSettings";
+import TaxSettings from "./TaxSettings";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -312,6 +313,7 @@ const GlobalSettings = () => {
     const orgSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
     const portalSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
     const tourSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
+    const taxSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
 
     // Override overflow-x: hidden on ancestor elements that break sticky positioning
     useEffect(() => {
@@ -908,6 +910,7 @@ const GlobalSettings = () => {
             { name: "Email Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Tax Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "QB Sync Logs", permission: PERMISSIONS.ACCESS_BILLING }
         ];
@@ -1243,6 +1246,17 @@ const GlobalSettings = () => {
                     >
                         Save Changes
                     </Button>
+                ) : activeTab === "Tax Settings" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            taxSettingsRef.current?.save();
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center justify-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
                 ) : activeTab === "Templates" || activeTab === "Email Logs" || activeTab === "QB Sync Logs" ? null : (
                     <Button
                         type="button"
@@ -1299,6 +1313,9 @@ const GlobalSettings = () => {
                 )}
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />
+                )}
+                {activeTab === "Tax Settings" && userType === "admin" && (
+                    <TaxSettings ref={taxSettingsRef} />
                 )}
                 {activeTab === "Email Logs" && userType === "admin" && (
                     <EmailLogsSettings />

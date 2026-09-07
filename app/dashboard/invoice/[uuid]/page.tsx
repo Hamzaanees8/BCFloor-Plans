@@ -164,7 +164,9 @@ const InvoicePreviewPage = () => {
         const grandTotal = Number((subtotal + totalTax).toFixed(2));
         const effectiveTaxRate = subtotal > 0 ? Number(((totalTax / subtotal) * 100).toFixed(2)) : 0;
         const paidAmount = parseFloat(editData?.paid_amount || invoice?.paid_amount || 0);
-        const balanceDue = Number(Math.max(0, grandTotal - paidAmount).toFixed(2));
+        const refundedAmount = parseFloat(editData?.refunded_amount || invoice?.refunded_amount || 0);
+        const netPaid = Math.max(0, paidAmount - refundedAmount);
+        const balanceDue = Number(Math.max(0, grandTotal - netPaid).toFixed(2));
 
         const taxDetails: Record<string, { rate: number; amount: number }> = {};
         if (totalHstAmount > 0) taxDetails['HST'] = { rate: taxRule.hstRate, amount: totalHstAmount };
@@ -316,7 +318,9 @@ const InvoicePreviewPage = () => {
         const taxAmount = (subtotal * (rate / 100))
         const grandTotal = subtotal + taxAmount
         const paidAmount = parseFloat(editData?.paid_amount || invoice?.paid_amount || 0)
-        const balanceDue = Math.max(0, grandTotal - paidAmount)
+        const refundedAmount = parseFloat(editData?.refunded_amount || invoice?.refunded_amount || 0)
+        const netPaid = Math.max(0, paidAmount - refundedAmount)
+        const balanceDue = Math.max(0, grandTotal - netPaid)
 
         setEditData({
             ...editData,
@@ -378,12 +382,15 @@ const InvoicePreviewPage = () => {
                         </>
                     ) : (
                         <>
-                            {role === 'admin' && invoice.status !== 'paid' && (
+                            {role === 'admin' &&
+                                !['paid', 'partially_refunded', 'partial_refunded', 'refunded', 'void'].includes((invoice.status || '').toLowerCase()) && (
                                 <Button className="bg-[#6BAE41] text-white hover:bg-[#6BAE41]/90 h-[35px] md:h-[44px] px-6 rounded-[6px] font-bold" onClick={handleMarkPaid}>
                                     <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
                                 </Button>
                             )}
-                            {role === 'admin' && invoice.status === 'paid' && parseFloat(invoice.total || 0) > 0 && (
+                            {role === 'admin' &&
+                                ['paid', 'partially_refunded', 'partial_refunded'].includes((invoice.status || '').toLowerCase()) &&
+                                (parseFloat(invoice.paid_amount || invoice.total || 0) - parseFloat(invoice.refunded_amount || 0)) > 0 && (
                                 <Button
                                     variant="outline"
                                     className="bg-orange-500 text-white hover:bg-orange-600 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]"

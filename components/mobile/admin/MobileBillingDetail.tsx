@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, type BillingItem } from '@/app/dashboard/billing/billing'
+import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, type BillingItem } from '@/app/dashboard/billing/billing'
 import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from '@/app/dashboard/invoice/invoice_api'
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
 import InvoicePdfDocument from '@/app/dashboard/invoice/components/InvoicePdfDocument'
@@ -485,7 +485,10 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                         </>
                       )}
 
-                      {isPaidOrSucceeded(invoice.status) && role === 'admin' && !isRefunded(invoice.status) && (
+                      {(isPaidOrSucceeded(invoice.status) || isPartiallyRefunded(invoice.status)) &&
+                        role === 'admin' &&
+                        !isRefunded(invoice.status) &&
+                        (parseFloat(invoice.paid_amount || invoice.total || 0) - parseFloat(invoice.refunded_amount || 0)) > 0 && (
                         <Button
                           variant="outline"
                           className="col-span-2 h-10 text-xs font-semibold rounded-lg text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"

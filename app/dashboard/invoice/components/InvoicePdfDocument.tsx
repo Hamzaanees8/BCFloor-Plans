@@ -71,15 +71,25 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         <p className="text-sm font-medium text-gray-600">Date: <span className="text-gray-900">{new Date(invoice.issued_at || invoice.created_at).toLocaleDateString()}</span></p>
                         
                         <div className="mt-3">
-                            <span 
-                                className="inline-block px-4 pt-[6px] pb-[3px] text-[10px] font-bold uppercase rounded-full leading-none tracking-wider"
-                                style={{
-                                    backgroundColor: (invoice.status?.toLowerCase() === 'paid') ? '#6BAE411A' : (invoice.status?.toLowerCase() === 'draft') ? '#FFEDD5' : '#DBEAFE',
-                                    color: (invoice.status?.toLowerCase() === 'paid') ? '#6BAE41' : (invoice.status?.toLowerCase() === 'draft') ? '#EA580C' : '#2563EB',
-                                }}
-                            >
-                                {invoice.status || 'UNPAID'}
-                            </span>
+                            {(() => {
+                                const s = (invoice.status || 'UNPAID').toLowerCase();
+                                const isPaid = s === 'paid';
+                                const isDraft = s === 'draft';
+                                const isRef = s === 'refunded' || s === 'refund';
+                                const isPartialRef = s === 'partially_refunded' || s === 'partial_refunded';
+
+                                const bg = isPaid ? '#6BAE411A' : isDraft ? '#FFEDD5' : isPartialRef ? '#FEF3C7' : isRef ? '#FEE2E2' : '#DBEAFE';
+                                const color = isPaid ? '#6BAE41' : isDraft ? '#EA580C' : isPartialRef ? '#B45309' : isRef ? '#DC2626' : '#2563EB';
+
+                                return (
+                                    <span 
+                                        className="inline-block px-4 pt-[6px] pb-[3px] text-[10px] font-bold uppercase rounded-full leading-none tracking-wider"
+                                        style={{ backgroundColor: bg, color: color }}
+                                    >
+                                        {(invoice.status || 'UNPAID').replace(/_/g, ' ')}
+                                    </span>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -261,17 +271,25 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         <span className="text-xl font-bold">${parseFloat(invoice.total || invoice.total_amount || '0').toFixed(2)} {invoice.currency || 'CAD'}</span>
                     </div>
 
-                    {/* Partial payments */}
-                    {parseFloat(invoice.paid_amount || '0') > 0 && (
+                    {/* Partial payments & refunds */}
+                    {((parseFloat(invoice.paid_amount || '0') > 0) || (parseFloat(invoice.refunded_amount || '0') > 0)) && (
                         <div className="pt-2 px-4 space-y-1 text-xs">
-                            <div className="flex justify-between text-gray-600">
-                                <span>Paid:</span>
-                                <span className="font-semibold text-green-600">-${parseFloat(invoice.paid_amount).toFixed(2)}</span>
-                            </div>
+                            {parseFloat(invoice.paid_amount || '0') > 0 && (
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Paid:</span>
+                                    <span className="font-semibold text-green-600">-${parseFloat(invoice.paid_amount).toFixed(2)}</span>
+                                </div>
+                            )}
+                            {parseFloat(invoice.refunded_amount || '0') > 0 && (
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Refunded:</span>
+                                    <span className="font-semibold text-red-500">+${parseFloat(invoice.refunded_amount).toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-bold text-gray-900">
                                 <span>Balance Due:</span>
                                 <span className="text-red-600">
-                                    ${Math.max(0, parseFloat(invoice.total || '0') - parseFloat(invoice.paid_amount || '0')).toFixed(2)}
+                                    ${Math.max(0, parseFloat(invoice.total || invoice.total_amount || '0') - Math.max(0, parseFloat(invoice.paid_amount || '0') - parseFloat(invoice.refunded_amount || '0'))).toFixed(2)}
                                 </span>
                             </div>
                         </div>

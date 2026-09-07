@@ -854,3 +854,6 @@ export async function UpdateOrganizationBranding(uuid: string, payload: FormData
 
   return data;
 }
+
+// ─── Tax Settings ─────────────────────────────────────────────────────────────
+export * from "./tax-settings";

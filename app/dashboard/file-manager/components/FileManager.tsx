@@ -70,6 +70,147 @@ const FileManager = () => {
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
   const [services, setServices] = React.useState<OrerServices[]>([]);
 
+  // Helper to filter services for vendor including slot services and direct assigned non-travel services (like design_and_print)
+  const filterServicesForVendor = React.useCallback(
+    (
+      orderServices: OrerServices[] | undefined,
+      orderSlots: Slot[] | undefined,
+      orderVendor: any,
+      currentVendorUUID?: string,
+      currentVendorId?: string | number,
+      catalogServices?: Services[],
+    ) => {
+      if (!orderServices || !Array.isArray(orderServices)) return [];
+
+      return orderServices.filter((srv: any) => {
+        // 1. Check if vendor has a matching slot for this service in order.slots
+        const hasMatchingSlot = (orderSlots ?? []).some((slot: Slot) => {
+          const slotVendorUuid =
+            slot.vendor?.uuid ||
+            (typeof slot.vendor_id === "string" ? slot.vendor_id : undefined);
+          const slotVendorId =
+            (slot.vendor as any)?.id ||
+            (typeof slot.vendor_id === "number" ? slot.vendor_id : undefined);
+
+          const isSlotForVendor =
+            (slotVendorUuid &&
+              currentVendorUUID &&
+              slotVendorUuid === currentVendorUUID) ||
+            (currentVendorId &&
+              (String(slotVendorId) === String(currentVendorId) ||
+                String(slot.vendor_id) === String(currentVendorId))) ||
+            (slot.vendor_id &&
+              currentVendorUUID &&
+              String(slot.vendor_id) === String(currentVendorUUID));
+
+          if (!isSlotForVendor) return false;
+
+          return (
+            slot.service_id === srv.service_id ||
+            String(slot.service_id) === String(srv.service_id) ||
+            (srv.service?.id != null &&
+              (slot.service_id === srv.service.id ||
+                String(slot.service_id) === String(srv.service.id))) ||
+            (srv.service?.uuid &&
+              (slot.service_id === srv.service.uuid ||
+                String(slot.service_id) === String(srv.service.uuid)))
+          );
+        });
+
+        if (hasMatchingSlot) return true;
+
+        // 2. Direct vendor assignment on the service item (e.g. non-slot services like design_and_print)
+        const srvVendorUuid =
+          srv.vendor?.uuid ||
+          (srv as any).vendor_uuid ||
+          (typeof srv.vendor_id === "string" ? srv.vendor_id : undefined);
+        const srvVendorId =
+          srv.vendor?.id ||
+          (typeof srv.vendor_id === "number" ? srv.vendor_id : undefined);
+
+        const isDirectlyAssigned = Boolean(
+          (srvVendorUuid &&
+            currentVendorUUID &&
+            srvVendorUuid === currentVendorUUID) ||
+            (currentVendorId &&
+              (String(srvVendorId) === String(currentVendorId) ||
+                String(srv.vendor_id) === String(currentVendorId))) ||
+            (srv.vendor_id &&
+              currentVendorUUID &&
+              String(srv.vendor_id) === String(currentVendorUUID)),
+        );
+
+        if (isDirectlyAssigned) return true;
+
+        // 3. Fallback: Order-level vendor assignment if service is design_and_print (or print category)
+        const orderVendorUuid =
+          orderVendor?.uuid ||
+          (typeof orderVendor?.vendor_id === "string"
+            ? orderVendor.vendor_id
+            : undefined);
+        const orderVendorId =
+          orderVendor?.id ||
+          (typeof orderVendor?.vendor_id === "number"
+            ? orderVendor.vendor_id
+            : undefined);
+
+        const isOrderLevelVendor = Boolean(
+          (orderVendorUuid &&
+            currentVendorUUID &&
+            orderVendorUuid === currentVendorUUID) ||
+            (currentVendorId &&
+              (String(orderVendorId) === String(currentVendorId) ||
+                String(orderVendor?.vendor_id) === String(currentVendorId))) ||
+            (orderVendor?.vendor_id &&
+              currentVendorUUID &&
+              String(orderVendor.vendor_id) === String(currentVendorUUID)),
+        );
+
+        const hasDifferentVendorAssigned = Boolean(
+          (srvVendorUuid &&
+            currentVendorUUID &&
+            srvVendorUuid !== currentVendorUUID) ||
+            (srv.vendor_id &&
+              currentVendorUUID &&
+              String(srv.vendor_id) !== String(currentVendorUUID) &&
+              (!currentVendorId ||
+                String(srv.vendor_id) !== String(currentVendorId))),
+        );
+
+        if (isOrderLevelVendor && !hasDifferentVendorAssigned) {
+          const fullService =
+            (catalogServices ?? []).find(
+              (s) =>
+                (s.uuid && s.uuid === srv.service?.uuid) ||
+                (s.id != null && s.id === srv.service?.id) ||
+                (s.id != null && s.id === srv.service_id),
+            ) || srv.service;
+
+          const sType = (
+            (fullService as any)?.type ||
+            (srv as any)?.type ||
+            ""
+          ).toLowerCase();
+          const catName = (
+            (fullService as any)?.category?.name ||
+            (srv.service as any)?.category?.name ||
+            ""
+          ).toLowerCase();
+
+          if (
+            sType === "design_and_print" ||
+            (catName === "print" && sType !== "flyer" && sType !== "tabloid")
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+    },
+    [],
+  );
+
   // --- Duplicate service grouping ---
   // Group services by service.uuid (definition UUID), sorted by created_at asc
   const groupedServices = React.useMemo(() => {
@@ -113,7 +254,11 @@ const FileManager = () => {
         return;
       }
 
-      const key = os.service?.uuid || fullService?.uuid;
+      const key =
+        os.service?.uuid ||
+        fullService?.uuid ||
+        (os.service_id ? String(os.service_id) : undefined) ||
+        (os.service?.id ? String(os.service.id) : undefined);
       if (!key) return;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(os);
@@ -364,7 +509,8 @@ const FileManager = () => {
   const fetchOrder = React.useCallback(async () => {
     const token = localStorage.getItem("token");
     const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-    const currentVendorUUID = userInfo?.uuid;
+    const currentVendorUUID = userInfo?.uuid || userInfo?.data?.uuid;
+    const currentVendorId = userInfo?.id || userInfo?.data?.id;
     const userType = localStorage.getItem("userType");
 
     if (!token) {
@@ -380,14 +526,13 @@ const FileManager = () => {
       let filteredServices = order.services;
 
       if (userType === "vendor") {
-        const vendorServiceIds = order.slots
-          ?.filter((slot: Slot) => slot.vendor?.uuid === currentVendorUUID)
-          .map((slot: Slot) => slot.service_id);
-
-        const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
-        filteredServices = order.services?.filter(
-          (srv: { service_id: number }) =>
-            uniqueVendorServiceIds.includes(srv.service_id),
+        filteredServices = filterServicesForVendor(
+          order.services,
+          order.slots,
+          order.vendor,
+          currentVendorUUID,
+          currentVendorId,
+          servicesData,
         );
       }
 
@@ -395,7 +540,27 @@ const FileManager = () => {
     } catch (err: any) {
       console.log(err.message);
     }
-  }, [orderId]);
+  }, [orderId, filterServicesForVendor, servicesData]);
+
+  // Keep vendor services in sync when servicesData catalog finishes loading or orderData updates
+  useEffect(() => {
+    const userType = localStorage.getItem("userType");
+    if (userType === "vendor" && orderData?.services) {
+      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const currentVendorUUID = userInfo?.uuid || userInfo?.data?.uuid;
+      const currentVendorId = userInfo?.id || userInfo?.data?.id;
+
+      const filtered = filterServicesForVendor(
+        orderData.services,
+        orderData.slots,
+        orderData.vendor,
+        currentVendorUUID,
+        currentVendorId,
+        servicesData,
+      );
+      setServices(filtered);
+    }
+  }, [servicesData, orderData, filterServicesForVendor]);
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
@@ -1117,7 +1282,9 @@ const FileManager = () => {
         />
       );
     }
-    const category = activeService?.category?.name;
+    const category =
+      activeService?.category?.name ||
+      (activeServiceGroup?.[0]?.service as any)?.category?.name;
 
     const primaryInvoice =
       invoices.find(

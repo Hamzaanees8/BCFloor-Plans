@@ -13,7 +13,7 @@ import SquareFootage from "../../calendar/components/SquareFootage";
 import { format } from "date-fns";
 
 import { Order, OrderService } from "../../orders/page";
-import { Check, Loader2, Eye, EyeOff } from "lucide-react";
+import { Check, Loader2, Eye, EyeOff, FileText } from "lucide-react";
 import {
   DownloadFile,
   ServiceCompletion,
@@ -564,10 +564,42 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
         (file.file_path?.toLowerCase().endsWith(".pdf") ||
           file.type === "pdf" ||
           file.type === "application/pdf");
-      const isVariantUrlsEmpty =
-        !file.variant_urls ||
-        (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) ||
-        Object.keys(file.variant_urls).length === 0;
+
+      // Resolve preview URL: first thumbnail_url, then variant_urls, then url / file_path
+      const pdfPreviewUrl: string | null = (() => {
+        if (
+          file.thumbnail_url &&
+          typeof file.thumbnail_url === "string" &&
+          file.thumbnail_url.trim()
+        ) {
+          return file.thumbnail_url.trim();
+        }
+        if (
+          file.variant_urls &&
+          typeof file.variant_urls === "object" &&
+          !Array.isArray(file.variant_urls)
+        ) {
+          const v =
+            file.variant_urls.thumb ||
+            file.variant_urls.popup ||
+            file.variant_urls.landing ||
+            file.variant_urls.slider ||
+            file.variant_urls.print;
+          if (v && typeof v === "string" && v.trim()) return v.trim();
+        }
+        if (file.url && typeof file.url === "string" && file.url.trim()) {
+          return file.url.trim();
+        }
+        if (
+          file.file_path &&
+          typeof file.file_path === "string" &&
+          file.file_path.trim()
+        ) {
+          const p = file.file_path.trim();
+          return p.startsWith("http") ? p : `${API_URL}/${p}`;
+        }
+        return null;
+      })();
 
       let displayType = "2D Floor Plan";
       if (isLocal) {
@@ -749,10 +781,13 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                   </p>
                 </div>
               ) : isPdf ? (
-                isVariantUrlsEmpty ? (
+                userType === "agent" &&
+                bookingToUse?.payment_status !== "PAID" &&
+                orderData?.payment_status !== "PAID" &&
+                !file.is_complimentary ? (
                   <PdfPlaceholder
                     className="w-full h-full object-contain cursor-pointer"
-                    message="service is not paid yet"
+                    message="Service is not paid yet"
                     onClick={() => {
                       if (isHidingMode && file.uuid) {
                         setFilesToHide((prev) => {
@@ -769,6 +804,34 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                       }
                     }}
                   />
+                ) : !pdfPreviewUrl ? (
+                  <div
+                    className={`flex flex-col items-center justify-center w-full h-full p-3 text-center bg-gray-50 cursor-pointer transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === "admin" ? "opacity-70" : ""} ${file.is_hidden ? "grayscale opacity-60" : ""}`}
+                    onClick={() => {
+                      if (isHidingMode && file.uuid) {
+                        setFilesToHide((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(file.uuid)) next.delete(file.uuid);
+                          else next.add(file.uuid);
+                          return next;
+                        });
+                      } else if (!isHidingMode) {
+                        toast.info(
+                          "PDF preview URL is not available yet. You can download the file using the download icon below.",
+                        );
+                      }
+                    }}
+                  >
+                    <div className="bg-red-50 rounded-full p-3 mb-2 shadow-xs">
+                      <FileText className="w-8 h-8 text-red-500" />
+                    </div>
+                    <span className="text-[11px] font-semibold text-gray-700 max-w-[90%] truncate block" title={file.name || "PDF Document"}>
+                      {file.name || "PDF Document"}
+                    </span>
+                    <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                      URL Missing
+                    </span>
+                  </div>
                 ) : (
                   <div className="absolute inset-0 overflow-hidden rounded-[6px]">
                     <div
@@ -782,21 +845,26 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                             return next;
                           });
                         } else if (!isHidingMode) {
-                          handleImageClick(
-                            file.variant_urls?.popup ||
-                              file.url ||
-                              `${API_URL}/${file.file_path}`,
-                            file,
-                          );
+                          handleImageClick(pdfPreviewUrl, file);
                         }
                       }}
                     >
-                      <iframe
-                        src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                        className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
-                        tabIndex={-1}
-                        scrolling="no"
-                      />
+                      {pdfPreviewUrl.toLowerCase().includes(".pdf") ? (
+                        <iframe
+                          src={`${pdfPreviewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                          className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
+                          tabIndex={-1}
+                          scrolling="no"
+                        />
+                      ) : (
+                        <NextImage
+                          src={pdfPreviewUrl}
+                          alt={file.name || "PDF Preview"}
+                          fill
+                          draggable={false}
+                          className="object-contain"
+                        />
+                      )}
                       <div className="absolute inset-0 bg-transparent" />
                     </div>
                   </div>
@@ -1205,6 +1273,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                     setShowDownloadModal(true);
                   }}
                   title={
+                    userType === "agent" &&
                     !(
                       bookingToUse?.payment_status === "PAID" ||
                       orderData?.payment_status === "PAID"
@@ -1213,6 +1282,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                       : ""
                   }
                   disabled={
+                    userType === "agent" &&
                     !(
                       bookingToUse?.payment_status === "PAID" ||
                       orderData?.payment_status === "PAID"
@@ -1222,7 +1292,15 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                     isScrolled
                       ? "h-[24px] w-[70px] text-[10px]"
                       : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
-                  } px-1 md:px-4 ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  } px-1 md:px-4 ${
+                    userType === "agent" &&
+                    !(
+                      bookingToUse?.payment_status === "PAID" ||
+                      orderData?.payment_status === "PAID"
+                    )
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
                 >
                   Download Files
                 </Button>

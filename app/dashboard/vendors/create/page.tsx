@@ -117,12 +117,21 @@ type CurrentUser = {
   settings?: VendorSettings;
   vendor_services?: {
     uuid: string;
-    service?: { uuid: string };
+    service?: { id?: number | string; uuid: string; name?: string; product_options?: any[]; productOptions?: any[] };
+    service_id?: string | number;
+    pay_type?: string;
+    vendor_price?: string | number;
+    sq_ft_rate?: string | number;
+    min_price?: string | number;
     options?: {
       option_id: number;
-      vendor_price: string;
+      pay_type?: string;
+      vendor_price: string | number;
+      sq_ft_rate?: string | number;
+      min_price?: string | number;
       vendor_adjustment_time: string | number | null;
       product_option?: { uuid: string };
+      option_uuid?: string;
     }[];
   }[];
   addresses?: VendorAddress[];
@@ -310,6 +319,7 @@ const VendorForm = () => {
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
   const hasInitiallyRendered = useRef(false);
+  const hasPopulatedVendorServices = useRef(false);
 
   const [useHeadquarterForStart, setUseHeadquarterForStart] = useState<boolean>(!params?.id);
   const [useHeadquarterForBilling, setUseHeadquarterForBilling] = useState<boolean>(!params?.id);
@@ -449,6 +459,7 @@ const VendorForm = () => {
         .catch((err) => console.log(err.message));
     }
     if (idToUse) {
+      hasPopulatedVendorServices.current = false;
       GetOne(idToUse)
         .then((data) => {
           setCurrentUser(data.data);
@@ -556,43 +567,6 @@ const VendorForm = () => {
       if (currentUser.portfolio_images) {
         setPortfolioImagesUrl(currentUser.portfolio_images);
       }
-      if (currentUser.vendor_services && servicesData.length > 0) {
-        const transformedServices: SelectedService[] =
-          currentUser.vendor_services.map((vs) => {
-            const serviceInfo = servicesData.find(
-              (s) => s.uuid === vs.service?.uuid
-            );
-
-            return {
-              service_id: vs.service?.uuid || "",
-              vendor_service_id: vs.uuid,
-              options:
-                vs.options?.map((opt: any) => {
-                  const productOption = serviceInfo?.product_options?.find(
-                    (po) => po.id === opt.option_id || po.uuid === opt.product_option?.uuid
-                  );
-
-                  return {
-                    option_uuid: productOption?.uuid || opt.product_option?.uuid || "",
-                    pay_type: opt.pay_type || (vs as any).pay_type || (productOption as any)?.vendor_pay_type || "flat",
-                    vendor_price: opt.vendor_price !== undefined && opt.vendor_price !== null && opt.vendor_price !== ""
-                      ? Number(opt.vendor_price)
-                      : ((productOption as any)?.vendor_price !== undefined && (productOption as any)?.vendor_price !== null ? Number((productOption as any).vendor_price) : 0),
-                    sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? (productOption as any)?.vendor_sq_ft_rate ?? "",
-                    min_price: opt.min_price ?? (vs as any).min_price ?? (productOption as any)?.vendor_min_price ?? "",
-                    adjustment_time:
-                      opt.vendor_adjustment_time !== undefined &&
-                      opt.vendor_adjustment_time !== null &&
-                      opt.vendor_adjustment_time !== "no adjustment" &&
-                      opt.vendor_adjustment_time !== ""
-                        ? Number(opt.vendor_adjustment_time)
-                        : 0,
-                  };
-                }) || [],
-            };
-          });
-        setVendorServices(transformedServices);
-      }
       if (currentUser?.work_hours?.work_days) {
         let parsed: any[] = [];
 
@@ -660,6 +634,169 @@ const VendorForm = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  // Synchronize and hydrate vendor services whenever both currentUser and servicesData are available
+  useEffect(() => {
+    if (
+      currentUser?.vendor_services &&
+      currentUser.vendor_services.length > 0 &&
+      servicesData.length > 0 &&
+      !hasPopulatedVendorServices.current
+    ) {
+      const transformedServices: SelectedService[] = currentUser.vendor_services.map((vs) => {
+        const serviceUuid: string = vs.service?.uuid || (vs.service_id ? String(vs.service_id) : "");
+        const serviceInfo = servicesData.find(
+          (s) => s.uuid === serviceUuid || String((s as any).id) === String(vs.service_id)
+        );
+
+        const resolvedServiceId =
+          serviceInfo?.uuid ||
+          vs.service?.uuid ||
+          (vs.service_id ? String(vs.service_id) : "");
+
+        const masterOptions: any[] =
+          (serviceInfo?.product_options && serviceInfo.product_options.length > 0
+            ? serviceInfo.product_options
+            : null) ||
+          ((serviceInfo as any)?.productOptions && (serviceInfo as any).productOptions.length > 0
+            ? (serviceInfo as any).productOptions
+            : null) ||
+          (vs.service?.product_options && vs.service.product_options.length > 0
+            ? vs.service.product_options
+            : null) ||
+          ((vs.service as any)?.productOptions && (vs.service as any).productOptions.length > 0
+            ? (vs.service as any).productOptions
+            : null) ||
+          [];
+
+        let transformedOptions: any[] = [];
+        if (masterOptions.length > 0) {
+          transformedOptions = masterOptions.map((po, poIndex) => {
+            const savedOpt = vs.options?.find(
+              (opt: any, optIndex: number) =>
+                (opt.option_id && (String(opt.option_id) === String(po.id) || String(opt.option_id) === String(po.uuid))) ||
+                (opt.product_option?.uuid && opt.product_option.uuid === po.uuid) ||
+                (opt.productOption?.uuid && opt.productOption.uuid === po.uuid) ||
+                (opt.option_uuid && opt.option_uuid === po.uuid) ||
+                (opt.uuid && opt.uuid === po.uuid) ||
+                (vs.options?.length === 1 && masterOptions.length === 1) ||
+                (optIndex === poIndex && vs.options?.length === masterOptions.length)
+            );
+
+            // Smart fallback for rates: if savedOpt has a positive price, use it;
+            // otherwise, if the service itself (vs) has a price (common in older services), fall back to vs.vendor_price;
+            // otherwise fallback to po.vendor_price / cost
+            const rawSavedPrice = savedOpt?.vendor_price;
+            const rawServicePrice = vs.vendor_price;
+            const rawPoPrice = (po as any)?.vendor_price ?? (po as any)?.cost;
+
+            let finalPrice = 0;
+            if (rawSavedPrice !== undefined && rawSavedPrice !== null && rawSavedPrice !== "" && Number(rawSavedPrice) > 0) {
+              finalPrice = Number(rawSavedPrice);
+            } else if (rawServicePrice !== undefined && rawServicePrice !== null && rawServicePrice !== "" && Number(rawServicePrice) > 0) {
+              finalPrice = Number(rawServicePrice);
+            } else if (rawSavedPrice !== undefined && rawSavedPrice !== null && rawSavedPrice !== "") {
+              finalPrice = Number(rawSavedPrice);
+            } else if (rawServicePrice !== undefined && rawServicePrice !== null && rawServicePrice !== "") {
+              finalPrice = Number(rawServicePrice);
+            } else if (rawPoPrice !== undefined && rawPoPrice !== null && rawPoPrice !== "") {
+              finalPrice = Number(rawPoPrice);
+            }
+
+            const rawSavedPayType = savedOpt?.pay_type;
+            const rawServicePayType = (vs as any).pay_type;
+            const rawPoPayType = (po as any)?.vendor_pay_type;
+            const finalPayType = rawSavedPayType || rawServicePayType || rawPoPayType || "flat";
+
+            const finalSqFtRate =
+              savedOpt?.sq_ft_rate ??
+              (vs as any).sq_ft_rate ??
+              (po as any)?.vendor_sq_ft_rate ??
+              "";
+
+            const finalMinPrice =
+              savedOpt?.min_price ??
+              (vs as any).min_price ??
+              (po as any)?.vendor_min_price ??
+              "";
+
+            const finalAdjTime =
+              savedOpt?.vendor_adjustment_time !== undefined &&
+              savedOpt?.vendor_adjustment_time !== null &&
+              savedOpt?.vendor_adjustment_time !== "no adjustment" &&
+              savedOpt?.vendor_adjustment_time !== ""
+                ? Number(savedOpt.vendor_adjustment_time)
+                : 0;
+
+            return {
+              option_uuid: po.uuid || savedOpt?.option_uuid || savedOpt?.product_option?.uuid || "",
+              pay_type: finalPayType,
+              vendor_price: finalPrice,
+              sq_ft_rate: finalSqFtRate,
+              min_price: finalMinPrice,
+              adjustment_time: finalAdjTime,
+            };
+          });
+        } else if (vs.options && vs.options.length > 0) {
+          transformedOptions = vs.options.map((opt: any) => ({
+            option_uuid: opt.product_option?.uuid || opt.productOption?.uuid || opt.option_uuid || opt.uuid || "",
+            pay_type: opt.pay_type || (vs as any).pay_type || "flat",
+            vendor_price:
+              opt.vendor_price !== undefined && opt.vendor_price !== null && opt.vendor_price !== "" && Number(opt.vendor_price) > 0
+                ? Number(opt.vendor_price)
+                : vs.vendor_price !== undefined && vs.vendor_price !== null && vs.vendor_price !== ""
+                ? Number(vs.vendor_price)
+                : Number(opt.vendor_price) || 0,
+            sq_ft_rate: opt.sq_ft_rate ?? (vs as any).sq_ft_rate ?? "",
+            min_price: opt.min_price ?? (vs as any).min_price ?? "",
+            adjustment_time:
+              opt.vendor_adjustment_time !== undefined &&
+              opt.vendor_adjustment_time !== null &&
+              opt.vendor_adjustment_time !== "no adjustment" &&
+              opt.vendor_adjustment_time !== ""
+                ? Number(opt.vendor_adjustment_time)
+                : 0,
+          }));
+        }
+
+        const topLevelPrice =
+          transformedOptions.length > 0
+            ? transformedOptions[0].vendor_price
+            : vs.vendor_price !== undefined && vs.vendor_price !== null
+            ? Number(vs.vendor_price)
+            : undefined;
+
+        const topLevelPayType =
+          transformedOptions.length > 0
+            ? transformedOptions[0].pay_type
+            : vs.pay_type || "flat";
+
+        const topLevelSqFtRate =
+          transformedOptions.length > 0
+            ? transformedOptions[0].sq_ft_rate
+            : vs.sq_ft_rate;
+
+        const topLevelMinPrice =
+          transformedOptions.length > 0
+            ? transformedOptions[0].min_price
+            : vs.min_price;
+
+        return {
+          service_id: resolvedServiceId,
+          vendor_service_id: vs.uuid,
+          service: vs.service || serviceInfo,
+          pay_type: topLevelPayType,
+          vendor_price: topLevelPrice,
+          sq_ft_rate: topLevelSqFtRate,
+          min_price: topLevelMinPrice,
+          options: transformedOptions,
+        };
+      });
+
+      setVendorServices(transformedServices);
+      hasPopulatedVendorServices.current = true;
+    }
+  }, [currentUser, servicesData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -948,7 +1085,38 @@ const VendorForm = () => {
         },
         payment_per_km: Number(paymentPerKm),
         is_kilometers: inkilometers ? 1 : 0,
-        services: [...vendorServices, ...selectedServices],
+        services: (() => {
+          const allServicesMap = new Map<string, SelectedService>();
+          [...vendorServices, ...selectedServices].forEach((svc) => {
+            const matchingService = servicesData.find(
+              (s) => s.uuid === svc.service_id || String((s as any).id) === String(svc.service_id)
+            ) || svc.service;
+
+            const trueServiceId = matchingService?.uuid || svc.service_id;
+            if (trueServiceId) {
+              // Ensure options have valid option_uuid
+              const cleanOptions = (svc.options || []).map((opt) => {
+                if (opt.option_uuid && opt.option_uuid.trim() !== "") {
+                  return opt;
+                }
+                const masterOpt = matchingService?.product_options?.find(
+                  (po: any) => String(po.id) === String((opt as any).option_id) || po.uuid === (opt as any).uuid
+                );
+                return {
+                  ...opt,
+                  option_uuid: masterOpt?.uuid || opt.option_uuid || "",
+                };
+              });
+
+              allServicesMap.set(trueServiceId, {
+                ...svc,
+                service_id: trueServiceId,
+                options: cleanOptions,
+              });
+            }
+          });
+          return Array.from(allServicesMap.values());
+        })(),
         settings: {
           payment_per_km: Number(paymentPerKm),
           enable_service_area: enableServiceArea ? 1 : 0,

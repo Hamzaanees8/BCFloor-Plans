@@ -140,7 +140,13 @@ export const isPaidOrSucceeded = (status?: string) => {
 export const isRefunded = (status?: string) => {
   if (!status) return false;
   const s = status.toLowerCase();
-  return s === "refunded" || s === "refund" || s === "partially_refunded";
+  return s === "refunded" || s === "refund";
+};
+
+export const isPartiallyRefunded = (status?: string) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === "partially_refunded" || s === "partial_refunded";
 };
 
 export function getBestTargetInvoice(
@@ -190,12 +196,15 @@ export function getBestTargetInvoice(
     }
   }
 
-  // 2. Order-level (main order invoice): filter out void/cancelled invoices
+  // 2. Fallback: select the best overall invoice for the order
   const activeInvoices = invoicesList.filter((inv: any) => !isVoidOrCancelled(inv.status));
 
   if (activeInvoices.length > 0) {
-    // Priority 1: Consolidated invoice (the main full-order invoice)
-    const consolidated = activeInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated"));
+    // Priority 1: Consolidated invoice (standard comprehensive overview)
+    const consolidated = activeInvoices.find((inv: any) => 
+      inv.notes?.toLowerCase().includes("consolidated") || 
+      inv.items?.length > 1
+    );
     if (consolidated) return consolidated;
 
     // Priority 2: Cancellation fee invoice
@@ -242,6 +251,8 @@ export function prepareOrderInvoicePreview(
     const invStatus = (inv.status || "").toLowerCase();
     const isPaid = isPaidOrSucceeded(invStatus);
     const isRef = isRefunded(invStatus);
+    const isPartialRef = isPartiallyRefunded(invStatus);
+    const itemResolvedStatus = isRef ? "refunded" : isPartialRef ? "partially_refunded" : isPaid ? "paid" : invStatus || "unpaid";
 
     (inv.items || []).forEach((item: any) => {
       const sId =
@@ -254,13 +265,13 @@ export function prepareOrderInvoicePreview(
 
       if (sId != null) {
         serviceStatusMap.set(sId, {
-          status: isPaid ? "paid" : isRef ? "refunded" : invStatus || "unpaid",
+          status: itemResolvedStatus,
           paid_amount: parseFloat(inv.paid_amount || 0),
         });
       }
       if (sUuid != null) {
         serviceStatusMap.set(sUuid, {
-          status: isPaid ? "paid" : isRef ? "refunded" : invStatus || "unpaid",
+          status: itemResolvedStatus,
           paid_amount: parseFloat(inv.paid_amount || 0),
         });
       }
@@ -285,7 +296,7 @@ export function prepareOrderInvoicePreview(
         itemsMap.set(key, {
           ...item,
           item_status: itemStatus,
-          is_paid: itemStatus === "paid",
+          is_paid: itemStatus === "paid" || itemStatus === "partially_refunded",
         });
       }
     });
@@ -296,10 +307,18 @@ export function prepareOrderInvoicePreview(
   let totalPaid = 0;
   let totalRefunded = 0;
 
-  invoicesList.forEach((inv: any) => {
+  const hasIndividualInvoices = invoicesList.some(
+    (inv: any) => !inv.notes?.toLowerCase().includes("consolidated") && !isVoidOrCancelled(inv.status)
+  );
+
+  const relevantInvoices = hasIndividualInvoices
+    ? invoicesList.filter((inv: any) => !inv.notes?.toLowerCase().includes("consolidated"))
+    : invoicesList;
+
+  relevantInvoices.forEach((inv: any) => {
     if (!isVoidOrCancelled(inv.status)) {
-      if (isPaidOrSucceeded(inv.status)) {
-        totalPaid += parseFloat(inv.total || inv.paid_amount || 0);
+      if (isPaidOrSucceeded(inv.status) || isPartiallyRefunded(inv.status)) {
+        totalPaid += parseFloat(inv.paid_amount || inv.total || 0);
       } else {
         totalPaid += parseFloat(inv.paid_amount || 0);
       }
@@ -314,10 +333,15 @@ export function prepareOrderInvoicePreview(
     totalRefunded = billing.total_refunded;
   }
 
-  const hasUnpaid = allItems.some((i: any) => !i.is_paid);
+  const hasUnpaid = allItems.some((i: any) => !i.is_paid && i.item_status !== "refunded");
   const hasPaid = allItems.some((i: any) => i.is_paid) || totalPaid > 0;
+  const hasRefunded = allItems.some((i: any) => i.item_status === "refunded" || i.item_status === "partially_refunded") || totalRefunded > 0;
   let overallStatus = targetInvoice.status;
-  if (hasPaid && hasUnpaid) {
+  if (totalRefunded > 0 && totalRefunded >= totalPaid && totalPaid > 0) {
+    overallStatus = "refunded";
+  } else if (hasRefunded && totalPaid > 0) {
+    overallStatus = "partially_refunded";
+  } else if (hasPaid && hasUnpaid) {
     overallStatus = "partially_paid";
   } else if (hasPaid && !hasUnpaid && allItems.length > 0) {
     overallStatus = "paid";

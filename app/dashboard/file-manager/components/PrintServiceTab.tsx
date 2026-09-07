@@ -6,6 +6,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { Order } from "../../orders/page";
 import { Services } from "../../services/page";
 import { DownloadFile, GetFilesData } from "../file-manager";
+import { canDownloadFile } from "../utils/filePermissions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +23,6 @@ import {
   Lock,
   Eye,
   Clock,
-  Receipt,
   Loader2,
   Printer,
   Plus,
@@ -86,7 +86,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   // Clean up blob URL on unmount or file change
   useEffect(() => {
     return () => {
-      if (previewBlobUrl) {
+      if (previewBlobUrl && previewBlobUrl.startsWith("blob:")) {
         URL.revokeObjectURL(previewBlobUrl);
       }
     };
@@ -125,6 +125,50 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   const currentPdf = allPdfFiles[0]; // Latest / current active version
   const previousPdfFiles = useMemo(() => allPdfFiles.slice(1), [allPdfFiles]);
 
+  // Helper to extract direct PDF file URL
+  const getPrintFileUrl = useCallback((file: any): string => {
+    if (!file) return "";
+    if (typeof file === "string") return file;
+    if (file.file && (file.file instanceof File || file.file instanceof Blob)) {
+      return URL.createObjectURL(file.file);
+    }
+    if (file instanceof File || file instanceof Blob) {
+      return URL.createObjectURL(file);
+    }
+    const API_URL =
+      process.env.NEXT_PUBLIC_FILES_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "";
+    const rawUrl =
+      file.url ||
+      file.download_url ||
+      file.variant_urls?.print ||
+      file.variant_urls?.popup ||
+      file.variant_urls?.landing ||
+      (file.file_path
+        ? file.file_path.startsWith("http")
+          ? file.file_path
+          : `${API_URL}/${file.file_path}`
+        : "");
+    return rawUrl;
+  }, []);
+
+  // Check if file download/preview is permitted for agent
+  const canAgentAccessFile = useCallback((file: any): boolean => {
+    if (!file) return false;
+    if (userType !== "agent") return true;
+
+    const isAllowed = canDownloadFile({
+      file: file as Files,
+      currentService: currentBookedService,
+      orderData,
+      userType,
+    });
+
+    const fileUrl = getPrintFileUrl(file);
+    return Boolean(isAllowed && (fileUrl || file.file_path || file.download_url));
+  }, [userType, currentBookedService, orderData, getPrintFileUrl]);
+
   // Approval status check helper
   const isFileApproved = useCallback((file: any) => {
     if (!file) return false;
@@ -150,8 +194,6 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
     "UNPAID";
   const isPaid = paymentStatus === "PAID";
   const isRefunded = paymentStatus === "REFUNDED";
-  // Payment verification bypassed for print PDF proof viewing/downloading for now
-  const hasAccess = true;
 
   // Extract quantity/copies from option or custom fields
   const optionTitle = currentBookedService?.option?.title || "";
@@ -166,6 +208,10 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   const handleToggleApproval = async (targetFile?: any) => {
     const fileToApprove = targetFile || currentPdf;
     if (!fileToApprove || isTogglingApproval || userType !== "agent") return;
+    if (!canAgentAccessFile(fileToApprove)) {
+      toast.error("Access to this document is restricted");
+      return;
+    }
     setIsTogglingApproval(true);
     try {
       const isApproved = isFileApproved(fileToApprove);
@@ -336,10 +382,8 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   // Handle Download a specific PDF
   const handleDownload = async (targetFile: any) => {
     if (!targetFile) return;
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Authentication required");
+    if (userType === "agent" && !canAgentAccessFile(targetFile)) {
+      toast.error("Access to this document is restricted");
       return;
     }
 
@@ -348,16 +392,50 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
     try {
       const fileName =
         targetFile.name || `${currentService?.name || "Print_Document"}.pdf`;
+      const directUrl = getPrintFileUrl(targetFile);
 
-      if (targetFile.url && !targetFile.uuid) {
-        window.open(targetFile.url, "_blank");
-      } else {
+      // 1. If direct URL is available, download directly
+      if (directUrl) {
+        try {
+          const res = await fetch(directUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            downloadBlob(blob, fileName);
+            toast.success("Download started");
+            return;
+          }
+        } catch (fetchErr) {
+          // If direct fetch fails (e.g. CORS on S3/CDN storage), fall back to anchor click
+          console.warn(
+            "Direct fetch download failed, triggering link download:",
+            fetchErr,
+          );
+          const link = document.createElement("a");
+          link.href = directUrl;
+          link.download = fileName;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success("Download started");
+          return;
+        }
+      }
+
+      // 2. Fall back to DownloadFile API if no direct URL or direct download failed
+      const token = localStorage.getItem("token");
+      if (token && targetFile.uuid) {
         const response = await DownloadFile(token, targetFile.uuid);
         if (!response.ok)
           throw new Error(`Download failed: ${response.statusText}`);
         const blob = await response.blob();
         downloadBlob(blob, fileName);
+        toast.success("Download completed");
+        return;
       }
+
+      throw new Error("No download URL or file available");
     } catch (err: any) {
       console.error("Download error:", err);
       toast.error(err.message || "Failed to download file");
@@ -366,44 +444,31 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
     }
   };
 
-  // Handle Preview Popup for a specific PDF
-  const handleOpenPreview = async (targetFile: any) => {
+  // Handle Preview Popup for a specific PDF without calling download API
+  const handleOpenPreview = (targetFile: any) => {
     if (!targetFile) return;
+    if (userType === "agent" && !canAgentAccessFile(targetFile)) {
+      toast.error("Access to this document is restricted");
+      return;
+    }
     setSelectedPreviewFile(targetFile);
     setShowPreviewModal(true);
 
-    if (previewBlobUrl) {
+    if (previewBlobUrl && previewBlobUrl.startsWith("blob:")) {
       URL.revokeObjectURL(previewBlobUrl);
+    }
+
+    const fileUrl = getPrintFileUrl(targetFile);
+    if (!fileUrl) {
       setPreviewBlobUrl(null);
-    }
-
-    setIsPreviewLoading(true);
-    try {
-      const token = localStorage.getItem("token") || "";
-      let blob: Blob;
-
-      if (targetFile.uuid) {
-        const response = await DownloadFile(token, targetFile.uuid);
-        blob = await response.blob();
-      } else {
-        const fileUrl =
-          targetFile.url ||
-          (targetFile.file_path
-            ? `${process.env.NEXT_PUBLIC_API_URL || ""}/${targetFile.file_path}`
-            : "");
-        const response = await fetch(fileUrl);
-        blob = await response.blob();
-      }
-
-      const pdfBlob = new Blob([blob], { type: "application/pdf" });
-      const objectUrl = URL.createObjectURL(pdfBlob);
-      setPreviewBlobUrl(objectUrl);
-    } catch (err: any) {
-      console.error("Failed to load PDF preview:", err);
-      toast.error("Failed to load PDF preview");
-    } finally {
       setIsPreviewLoading(false);
+      toast.error("Preview URL not available for this document");
+      return;
     }
+
+    // Directly set preview URL for iframe display without calling download endpoint
+    setPreviewBlobUrl(fileUrl);
+    setIsPreviewLoading(false);
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -432,7 +497,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
       >
         {/* Left: Upload/Download Button */}
         <div className="shrink-0 flex items-center gap-2">
-          {userType === "admin" ? (
+          {userType === "admin" || userType === "vendor" ? (
             <div className="flex gap-2 items-center">
               <Button
                 onClick={() => !isUploading && fileInputRef.current?.click()}
@@ -476,13 +541,11 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                 </Button>
               )}
             </div>
-          ) : (
+          ) : canAgentAccessFile(currentPdf) ? (
             <div className="flex gap-2 items-center">
               <Button
                 onClick={() => handleDownload(currentPdf)}
-                title={!hasAccess ? "Service not paid yet" : ""}
                 disabled={
-                  !hasAccess ||
                   !currentPdf ||
                   downloadingFileUuid === (currentPdf?.uuid || "current")
                 }
@@ -490,11 +553,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                   isScrolled
                     ? "h-[24px] w-[70px] text-[10px]"
                     : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
-                } px-1 md:px-4 text-white ${
-                  !hasAccess || !currentPdf
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                } px-1 md:px-4 text-white cursor-pointer`}
               >
                 {downloadingFileUuid === (currentPdf?.uuid || "current") ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
@@ -504,7 +563,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                 Download
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Center: Title & Subtitle */}
@@ -574,426 +633,417 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
 
       {/* Main Body Content */}
       <div className="w-full py-8 px-4 md:px-8 max-w-5xl mx-auto space-y-6">
-        {currentPdf && !hasAccess ? (
-          /* Payment Required Lock Screen for Agents */
-          <div className="bg-white rounded-[12px] border border-amber-200 bg-amber-50/50 p-8 text-center flex flex-col items-center justify-center shadow-sm">
-            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
-              <Lock className="w-7 h-7" />
+        <div className="space-y-6">
+          {/* Current Active PDF Proof Card */}
+          <div className="bg-white rounded-[12px] border border-[#E4E4E4] p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-3">
+              <div>
+                <h3 className="text-[16px] font-[600] text-[#1C1C1C] flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  Current Print PDF Proof
+                </h3>
+                <p className="text-[12px] text-[#666666] mt-0.5">
+                  {userType === "admin" || userType === "vendor"
+                    ? "Upload, replace, or manage the high-resolution print PDF document for this order."
+                    : "View, approve, and download your finalized print PDF proof."}
+                </p>
+                {onNavigateToTab && userType !== "vendor" && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToTab("CreateFeatureSheet")}
+                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer mt-1"
+                  >
+                    <span>Access DIY print material creation tool</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Approved for Printing Badge / Action for Current PDF */}
+              {currentPdf && (
+                <div className="flex items-center gap-2">
+                  {userType === "admin" || userType === "vendor" ? (
+                    <div
+                      key="current-admin-status"
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold border select-none ${
+                        isCurrentApprovedForPrinting
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                          : "bg-amber-50 text-amber-700 border-amber-300"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center ${
+                          isCurrentApprovedForPrinting
+                            ? "bg-emerald-600 text-white"
+                            : "border border-amber-400 bg-white"
+                        }`}
+                      >
+                        {isCurrentApprovedForPrinting && (
+                          <Check size={12} strokeWidth={3} />
+                        )}
+                      </div>
+                      <span>
+                        {isCurrentApprovedForPrinting
+                          ? "Approved for Printing"
+                          : "Not Approved for Printing"}
+                      </span>
+                    </div>
+                  ) : canAgentAccessFile(currentPdf) ? (
+                    <button
+                      key="current-agent-toggle"
+                      type="button"
+                      onClick={() => handleToggleApproval(currentPdf)}
+                      disabled={isTogglingApproval}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold border transition-all cursor-pointer ${
+                        isCurrentApprovedForPrinting
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                      title="Click to toggle Approved for Printing"
+                    >
+                      <div
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                          isCurrentApprovedForPrinting
+                            ? "bg-emerald-600 border-emerald-600 text-white"
+                            : "border-gray-400 bg-white"
+                        }`}
+                      >
+                        {isCurrentApprovedForPrinting && (
+                          <Check size={12} strokeWidth={3} />
+                        )}
+                      </div>
+                      <span>Approved for Printing</span>
+                    </button>
+                  ) : (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Access Restricted</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <h3 className="text-[18px] font-[600] text-amber-900 mb-1.5">
-              Payment Required to Access Print Proof
-            </h3>
-            <p className="text-[13px] text-amber-700 max-w-md mb-6 leading-relaxed">
-              This print service (
-              {copiesCount ? `${copiesCount} copies` : "print package"}) is
-              currently unpaid. Please complete payment of{" "}
-              <span className="font-[600]">${totalWithTax.toFixed(2)}</span> to
-              review and download the completed PDF proof.
-            </p>
-            {onOpenInvoice && (
-              <Button
-                onClick={() =>
-                  onOpenInvoice(
-                    currentService?.name,
-                    currentBookedService?.uuid,
-                  )
-                }
-                className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[40px] px-8 rounded-[8px] flex items-center gap-2 shadow-sm cursor-pointer"
+
+            {/* Admin / Vendor Upload Dropzone (When no PDFs exist yet) */}
+            {(userType === "admin" || userType === "vendor") && !currentPdf && (
+              <div
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-[10px] p-8 flex flex-col items-center justify-center transition-all ${
+                  isUploading
+                    ? "border-blue-300 bg-blue-50/40 cursor-wait"
+                    : "border-gray-300 hover:border-blue-500 bg-gray-50/70 hover:bg-blue-50/40 cursor-pointer"
+                }`}
               >
-                <Receipt className="w-4 h-4" />
-                Pay Invoice (${totalWithTax.toFixed(2)})
-              </Button>
+                {isUploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-2" />
+                    <p className="text-[14px] font-[600] text-blue-700">
+                      Uploading Print PDF...
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      Please wait while the file is processed
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <UploadCloud className="w-10 h-10 text-blue-500 mb-2" />
+                    <p className="text-[14px] font-[600] text-gray-800">
+                      Click or drag to upload Print PDF
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      Accepts high-resolution PDF document format
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        ) : (
-          /* Unlocked Area */
-          <div className="space-y-6">
-            {/* Current Active PDF Proof Card */}
-            <div className="bg-white rounded-[12px] border border-[#E4E4E4] p-6 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-3">
-                <div>
-                  <h3 className="text-[16px] font-[600] text-[#1C1C1C] flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    Current Print PDF Proof
-                  </h3>
-                  <p className="text-[12px] text-[#666666] mt-0.5">
-                    {userType === "admin"
-                      ? "Upload, replace, or manage the high-resolution print PDF document for this order."
-                      : "View, approve, and download your finalized print PDF proof."}
+
+            {/* Current PDF Document Details & Actions */}
+            {currentPdf ? (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-[#F9FBFD] border border-blue-100 rounded-[10px] gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-3.5 bg-blue-100 text-blue-700 rounded-[10px] shrink-0">
+                    <FileText className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] md:text-[15px] font-[600] text-[#1C1C1C] break-all">
+                      {currentPdf.name ||
+                        `${currentService?.name || "Print_Document"}.pdf`}
+                    </p>
+                    <div className="flex items-center gap-3 text-[12px] text-[#666666] mt-1 flex-wrap">
+                      {currentPdf.created_at && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          Uploaded:{" "}
+                          {new Date(
+                            currentPdf.created_at,
+                          ).toLocaleDateString()}
+                        </span>
+                      )}
+                      {currentPdf.size && (
+                        <span>Size: {formatFileSize(currentPdf.size)}</span>
+                      )}
+                      <span className="inline-flex items-center text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded text-[11px] border border-blue-200">
+                        Latest Version
+                      </span>
+                      {isCurrentApprovedForPrinting && (
+                        <span className="inline-flex items-center text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
+                          <Check className="w-3 h-3 mr-1" /> Approved for
+                          Printing
+                        </span>
+                      )}
+                      {userType === "agent" && !canAgentAccessFile(currentPdf) && (
+                        <span className="inline-flex items-center text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded text-[11px] border border-amber-200">
+                          <Lock className="w-3 h-3 mr-1 text-amber-600" /> Access Restricted
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                  {(userType === "admin" || userType === "vendor" || canAgentAccessFile(currentPdf)) && (
+                    <>
+                      <Button
+                        onClick={() => handleOpenPreview(currentPdf)}
+                        variant="outline"
+                        size="sm"
+                        className="h-[36px] px-3.5 rounded-[6px] border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        Preview
+                      </Button>
+
+                      <Button
+                        onClick={() => handleDownload(currentPdf)}
+                        disabled={downloadingFileUuid === (currentPdf.uuid || "current")}
+                        size="sm"
+                        className="h-[36px] px-4 rounded-[6px] bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {downloadingFileUuid === (currentPdf.uuid || "current") ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        Download PDF
+                      </Button>
+                    </>
+                  )}
+
+                  {(userType === "admin" || userType === "vendor") && (
+                    <Button
+                      onClick={() => handleDelete(currentPdf)}
+                      variant="outline"
+                      size="sm"
+                      className="h-[36px] px-2.5 rounded-[6px] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
+                      title="Delete this PDF"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              userType !== "admin" &&
+              userType !== "vendor" && (
+                <div className="text-center py-10 px-6 bg-[#F9FBFD] rounded-[10px] border border-blue-100 text-gray-600 flex flex-col items-center justify-center space-y-3">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
+                    <Printer className="w-6 h-6" />
+                  </div>
+                  {copiesCount ? (
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-blue-100/80 text-blue-800 rounded-full text-xs font-semibold border border-blue-200">
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Number of Copies Ordered: {copiesCount}</span>
+                    </div>
+                  ) : null}
+                  <p className="text-[14px] font-medium text-gray-700 max-w-xl mx-auto leading-relaxed">
+                    You will receive a proof once all the required materials and information have been received. Please email the office to specify which template you would like used and provide the information to be displayed.
                   </p>
                   {onNavigateToTab && (
                     <button
                       type="button"
                       onClick={() => onNavigateToTab("CreateFeatureSheet")}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer mt-1"
+                      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer pt-1"
                     >
                       <span>Access DIY print material creation tool</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
-
-                {/* Approved for Printing Badge / Action for Current PDF */}
-                {currentPdf && (
-                  <div className="flex items-center gap-2">
-                    {userType === "admin" ? (
-                      <div
-                        key="current-admin-status"
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold border select-none ${
-                          isCurrentApprovedForPrinting
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                            : "bg-amber-50 text-amber-700 border-amber-300"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded flex items-center justify-center ${
-                            isCurrentApprovedForPrinting
-                              ? "bg-emerald-600 text-white"
-                              : "border border-amber-400 bg-white"
-                          }`}
-                        >
-                          {isCurrentApprovedForPrinting && (
-                            <Check size={12} strokeWidth={3} />
-                          )}
-                        </div>
-                        <span>
-                          {isCurrentApprovedForPrinting
-                            ? "Approved for Printing"
-                            : "Not Approved for Printing"}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        key="current-agent-toggle"
-                        type="button"
-                        onClick={() => handleToggleApproval(currentPdf)}
-                        disabled={isTogglingApproval}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold border transition-all cursor-pointer ${
-                          isCurrentApprovedForPrinting
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        }`}
-                        title="Click to toggle Approved for Printing"
-                      >
-                        <div
-                          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                            isCurrentApprovedForPrinting
-                              ? "bg-emerald-600 border-emerald-600 text-white"
-                              : "border-gray-400 bg-white"
-                          }`}
-                        >
-                          {isCurrentApprovedForPrinting && (
-                            <Check size={12} strokeWidth={3} />
-                          )}
-                        </div>
-                        <span>Approved for Printing</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Admin Upload Dropzone (When no PDFs exist yet) */}
-              {userType === "admin" && !currentPdf && (
-                <div
-                  onClick={() => !isUploading && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-[10px] p-8 flex flex-col items-center justify-center transition-all ${
-                    isUploading
-                      ? "border-blue-300 bg-blue-50/40 cursor-wait"
-                      : "border-gray-300 hover:border-blue-500 bg-gray-50/70 hover:bg-blue-50/40 cursor-pointer"
-                  }`}
-                >
-                  {isUploading ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-2" />
-                      <p className="text-[14px] font-[600] text-blue-700">
-                        Uploading Print PDF...
-                      </p>
-                      <p className="text-[12px] text-gray-500 mt-1">
-                        Please wait while the file is processed
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <UploadCloud className="w-10 h-10 text-blue-500 mb-2" />
-                      <p className="text-[14px] font-[600] text-gray-800">
-                        Click or drag to upload Print PDF
-                      </p>
-                      <p className="text-[12px] text-gray-500 mt-1">
-                        Accepts high-resolution PDF document format
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Current PDF Document Details & Actions */}
-              {currentPdf ? (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-[#F9FBFD] border border-blue-100 rounded-[10px] gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="p-3.5 bg-blue-100 text-blue-700 rounded-[10px] shrink-0">
-                      <FileText className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <p className="text-[14px] md:text-[15px] font-[600] text-[#1C1C1C] break-all">
-                        {currentPdf.name ||
-                          `${currentService?.name || "Print_Document"}.pdf`}
-                      </p>
-                      <div className="flex items-center gap-3 text-[12px] text-[#666666] mt-1 flex-wrap">
-                        {currentPdf.created_at && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-gray-400" />
-                            Uploaded:{" "}
-                            {new Date(
-                              currentPdf.created_at,
-                            ).toLocaleDateString()}
-                          </span>
-                        )}
-                        {currentPdf.size && (
-                          <span>Size: {formatFileSize(currentPdf.size)}</span>
-                        )}
-                        <span className="inline-flex items-center text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded text-[11px] border border-blue-200">
-                          Latest Version
-                        </span>
-                        {isCurrentApprovedForPrinting && (
-                          <span className="inline-flex items-center text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
-                            <Check className="w-3 h-3 mr-1" /> Approved for
-                            Printing
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                    <Button
-                      onClick={() => handleOpenPreview(currentPdf)}
-                      variant="outline"
-                      size="sm"
-                      className="h-[36px] px-3.5 rounded-[6px] border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Eye className="w-4 h-4 text-blue-600" />
-                      Preview
-                    </Button>
-
-                    <Button
-                      onClick={() => handleDownload(currentPdf)}
-                      disabled={downloadingFileUuid === (currentPdf.uuid || "current")}
-                      size="sm"
-                      className="h-[36px] px-4 rounded-[6px] bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 cursor-pointer"
-                    >
-                      {downloadingFileUuid === (currentPdf.uuid || "current") ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      Download PDF
-                    </Button>
-
-                    {userType === "admin" && (
-                      <Button
-                        onClick={() => handleDelete(currentPdf)}
-                        variant="outline"
-                        size="sm"
-                        className="h-[36px] px-2.5 rounded-[6px] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
-                        title="Delete this PDF"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                userType !== "admin" && (
-                  <div className="text-center py-10 px-6 bg-[#F9FBFD] rounded-[10px] border border-blue-100 text-gray-600 flex flex-col items-center justify-center space-y-3">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
-                      <Printer className="w-6 h-6" />
-                    </div>
-                    {copiesCount ? (
-                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-blue-100/80 text-blue-800 rounded-full text-xs font-semibold border border-blue-200">
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Number of Copies Ordered: {copiesCount}</span>
-                      </div>
-                    ) : null}
-                    <p className="text-[14px] font-medium text-gray-700 max-w-xl mx-auto leading-relaxed">
-                      You will receive a proof once all the required materials and information have been received. Please email the office to specify which template you would like used and provide the information to be displayed.
-                    </p>
-                    {onNavigateToTab && (
-                      <button
-                        type="button"
-                        onClick={() => onNavigateToTab("CreateFeatureSheet")}
-                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer pt-1"
-                      >
-                        <span>Access DIY print material creation tool</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* Previous Versions Section */}
-            {previousPdfFiles.length > 0 && (
-              <div className="bg-white rounded-[12px] border border-[#E4E4E4] p-6 shadow-sm space-y-4">
-                <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-gray-500" />
-                    <h4 className="text-[15px] font-[600] text-[#1C1C1C]">
-                      Previous Versions ({previousPdfFiles.length})
-                    </h4>
-                  </div>
-                  <span className="text-[11px] text-[#7D7D7D]">
-                    Archived versions for this service
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {previousPdfFiles.map((prevFile: any, idx: number) => {
-                    const isPrevApproved = isFileApproved(prevFile);
-                    const fileKey = prevFile.uuid || prevFile.id || `prev-file-${idx}`;
-
-                    return (
-                      <div
-                        key={fileKey}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-gray-50/80 hover:bg-gray-50 border border-gray-200 rounded-[8px] gap-3 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2.5 bg-gray-200/70 text-gray-600 rounded-[8px] shrink-0">
-                            <FileText className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-[13px] font-[600] text-[#2C2C2C] break-all">
-                                {prevFile.name || `Print_Document_v${previousPdfFiles.length - idx}.pdf`}
-                              </p>
-                              <span className="text-[10px] font-medium bg-gray-200/80 text-gray-600 px-1.5 py-0.5 rounded">
-                                v{previousPdfFiles.length - idx}
-                              </span>
-                              {isPrevApproved && (
-                                <span className="inline-flex items-center text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded text-[10px] border border-emerald-200">
-                                  <Check className="w-2.5 h-2.5 mr-0.5" /> Approved
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 text-[11px] text-[#777777] mt-0.5 flex-wrap">
-                              {prevFile.created_at && (
-                                <span>
-                                  Uploaded:{" "}
-                                  {new Date(
-                                    prevFile.created_at,
-                                  ).toLocaleString()}
-                                </span>
-                              )}
-                              {prevFile.size && (
-                                <span>Size: {formatFileSize(prevFile.size)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons for Previous Version */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                          {userType === "admin" ? (
-                            <div
-                              key={`prev-admin-status-${fileKey}`}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold border select-none ${
-                                isPrevApproved
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                  : "bg-amber-50 text-amber-700 border-amber-300"
-                              }`}
-                            >
-                              <div
-                                className={`w-3.5 h-3.5 rounded flex items-center justify-center ${
-                                  isPrevApproved
-                                    ? "bg-emerald-600 text-white"
-                                    : "border border-amber-400 bg-white"
-                                }`}
-                              >
-                                {isPrevApproved && (
-                                  <Check size={10} strokeWidth={3} />
-                                )}
-                              </div>
-                              <span>
-                                {isPrevApproved
-                                  ? "Approved for Printing"
-                                  : "Not Approved for Printing"}
-                              </span>
-                            </div>
-                          ) : (
-                            <button
-                              key={`prev-agent-toggle-${fileKey}`}
-                              type="button"
-                              onClick={() => handleToggleApproval(prevFile)}
-                              disabled={isTogglingApproval}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold border transition-all cursor-pointer ${
-                                isPrevApproved
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                              }`}
-                              title="Click to toggle Approved for Printing for this version"
-                            >
-                              <div
-                                className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
-                                  isPrevApproved
-                                    ? "bg-emerald-600 border-emerald-600 text-white"
-                                    : "border-gray-400 bg-white"
-                                }`}
-                              >
-                                {isPrevApproved && (
-                                  <Check size={10} strokeWidth={3} />
-                                )}
-                              </div>
-                              <span>Approved for Printing</span>
-                            </button>
-                          )}
-
-                          <Button
-                            onClick={() => handleOpenPreview(prevFile)}
-                            variant="outline"
-                            size="sm"
-                            className="h-[30px] px-2.5 text-xs rounded-[5px] border-gray-300 text-gray-700 hover:bg-white flex items-center gap-1 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-blue-600" />
-                            Preview
-                          </Button>
-
-                          <Button
-                            onClick={() => handleDownload(prevFile)}
-                            disabled={downloadingFileUuid === (prevFile.uuid || "prev")}
-                            variant="outline"
-                            size="sm"
-                            className="h-[30px] px-2.5 text-xs rounded-[5px] border-gray-300 text-gray-700 hover:bg-white flex items-center gap-1 cursor-pointer"
-                          >
-                            {downloadingFileUuid === (prevFile.uuid || "prev") ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-600" />
-                            ) : (
-                              <Download className="w-3.5 h-3.5 text-gray-600" />
-                            )}
-                            Download
-                          </Button>
-
-                          {userType === "admin" && (
-                            <Button
-                              onClick={() => handleDelete(prevFile)}
-                              variant="outline"
-                              size="sm"
-                              className="h-[30px] px-2 text-xs rounded-[5px] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
-                              title="Delete this version"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              )
             )}
           </div>
-        )}
+
+          {/* Previous Versions Section */}
+          {previousPdfFiles.length > 0 && (
+            <div className="bg-white rounded-[12px] border border-[#E4E4E4] p-6 shadow-sm space-y-4">
+              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-gray-500" />
+                  <h4 className="text-[15px] font-[600] text-[#1C1C1C]">
+                    Previous Versions ({previousPdfFiles.length})
+                  </h4>
+                </div>
+                <span className="text-[11px] text-[#7D7D7D]">
+                  Archived versions for this service
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {previousPdfFiles.map((prevFile: any, idx: number) => {
+                  const isPrevApproved = isFileApproved(prevFile);
+                  const fileKey = prevFile.uuid || prevFile.id || `prev-file-${idx}`;
+                  const isPrevAccessible = canAgentAccessFile(prevFile);
+
+                  return (
+                    <div
+                      key={fileKey}
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-gray-50/80 hover:bg-gray-50 border border-gray-200 rounded-[8px] gap-3 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-gray-200/70 text-gray-600 rounded-[8px] shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-[13px] font-[600] text-[#2C2C2C] break-all">
+                              {prevFile.name || `Print_Document_v${previousPdfFiles.length - idx}.pdf`}
+                            </p>
+                            <span className="text-[10px] font-medium bg-gray-200/80 text-gray-600 px-1.5 py-0.5 rounded">
+                              v{previousPdfFiles.length - idx}
+                            </span>
+                            {isPrevApproved && (
+                              <span className="inline-flex items-center text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded text-[10px] border border-emerald-200">
+                                <Check className="w-2.5 h-2.5 mr-0.5" /> Approved
+                              </span>
+                            )}
+                            {userType === "agent" && !isPrevAccessible && (
+                              <span className="inline-flex items-center text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">
+                                <Lock className="w-2.5 h-2.5 mr-0.5 text-amber-600" /> Access Restricted
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-[#777777] mt-0.5 flex-wrap">
+                            {prevFile.created_at && (
+                              <span>
+                                Uploaded:{" "}
+                                {new Date(
+                                  prevFile.created_at,
+                                ).toLocaleString()}
+                              </span>
+                            )}
+                            {prevFile.size && (
+                              <span>Size: {formatFileSize(prevFile.size)}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons for Previous Version */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                        {userType === "admin" || userType === "vendor" ? (
+                          <div
+                            key={`prev-admin-status-${fileKey}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold border select-none ${
+                              isPrevApproved
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                : "bg-amber-50 text-amber-700 border-amber-300"
+                            }`}
+                          >
+                            <div
+                              className={`w-3.5 h-3.5 rounded flex items-center justify-center ${
+                                isPrevApproved
+                                  ? "bg-emerald-600 text-white"
+                                  : "border border-amber-400 bg-white"
+                              }`}
+                            >
+                              {isPrevApproved && (
+                                <Check size={10} strokeWidth={3} />
+                              )}
+                            </div>
+                            <span>
+                              {isPrevApproved
+                                ? "Approved for Printing"
+                                : "Not Approved for Printing"}
+                            </span>
+                          </div>
+                        ) : isPrevAccessible ? (
+                          <button
+                            key={`prev-agent-toggle-${fileKey}`}
+                            type="button"
+                            onClick={() => handleToggleApproval(prevFile)}
+                            disabled={isTogglingApproval}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold border transition-all cursor-pointer ${
+                              isPrevApproved
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                            title="Click to toggle Approved for Printing for this version"
+                          >
+                            <div
+                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                                isPrevApproved
+                                  ? "bg-emerald-600 border-emerald-600 text-white"
+                                  : "border-gray-400 bg-white"
+                              }`}
+                            >
+                              {isPrevApproved && (
+                                <Check size={10} strokeWidth={3} />
+                              )}
+                            </div>
+                            <span>Approved for Printing</span>
+                          </button>
+                        ) : null}
+
+                        {(userType === "admin" || userType === "vendor" || isPrevAccessible) && (
+                          <>
+                            <Button
+                              onClick={() => handleOpenPreview(prevFile)}
+                              variant="outline"
+                              size="sm"
+                              className="h-[30px] px-2.5 text-xs rounded-[5px] border-gray-300 text-gray-700 hover:bg-white flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-blue-600" />
+                              Preview
+                            </Button>
+
+                            <Button
+                              onClick={() => handleDownload(prevFile)}
+                              disabled={downloadingFileUuid === (prevFile.uuid || "prev")}
+                              variant="outline"
+                              size="sm"
+                              className="h-[30px] px-2.5 text-xs rounded-[5px] border-gray-300 text-gray-700 hover:bg-white flex items-center gap-1 cursor-pointer"
+                            >
+                              {downloadingFileUuid === (prevFile.uuid || "prev") ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-600" />
+                              ) : (
+                                <Download className="w-3.5 h-3.5 text-gray-600" />
+                              )}
+                              Download
+                            </Button>
+                          </>
+                        )}
+
+                        {(userType === "admin" || userType === "vendor") && (
+                          <Button
+                            onClick={() => handleDelete(prevFile)}
+                            variant="outline"
+                            size="sm"
+                            className="h-[30px] px-2 text-xs rounded-[5px] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
+                            title="Delete this version"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* PDF Preview Modal Popup */}
@@ -1056,7 +1106,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
           <DialogFooter className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex flex-row items-center justify-between shrink-0 sm:justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               {selectedPreviewFile && (
-                userType === "admin" ? (
+                userType === "admin" || userType === "vendor" ? (
                   <div
                     key="modal-admin-status"
                     className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold border select-none ${
@@ -1117,6 +1167,18 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {previewBlobUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(previewBlobUrl, "_blank")}
+                  className="h-9 px-3 text-gray-700 border-gray-300 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer"
+                  title="Open PDF in a new browser tab"
+                >
+                  <ExternalLink className="w-4 h-4 text-gray-600" />
+                  <span className="hidden sm:inline">Open in Tab</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
