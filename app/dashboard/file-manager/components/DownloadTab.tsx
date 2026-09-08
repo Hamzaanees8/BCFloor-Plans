@@ -85,12 +85,21 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             const isApproved = userType === 'agent' ? (file.is_agent_approved || file.is_complimentary) : true;
             const isValidType = file.type === 'photo' || file.type === 'video';
 
+            if (userType === 'agent') {
+                const matchedService = orderData?.services?.find(
+                    (s: any) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
+                );
+                if (matchedService?.media_access === false || (matchedService?.service as any)?.media_access === false) {
+                    return false;
+                }
+            }
+
             return !isApproved && isValidType;
         });
 
         const names = new Set(unapprovedFiles.map(f => f.service?.name).filter(Boolean));
         return Array.from(names);
-    }, [filesData?.files, userType]);
+    }, [filesData?.files, userType, orderData?.services]);
 
     // Helper to compute date boundary for a specific booking index within a group
     const computeBookingBoundary = useCallback((group: OrderServiceEntry[], index: number): MediaDateBoundary => {
@@ -121,6 +130,9 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
         if (groupedOrderServices && groupedOrderServices.size > 0) {
             groupedOrderServices.forEach((group, serviceUuid) => {
                 group.forEach((booking, idx) => {
+                    const isMediaBlocked = userType === 'agent' && (booking.media_access === false || (booking.service as any)?.media_access === false);
+                    if (isMediaBlocked) return;
+
                     const boundary = computeBookingBoundary(group, idx);
                     const isPaid = orderData?.payment_status === 'PAID' || booking.payment_status === 'PAID';
                     const label = group.length > 1
@@ -151,6 +163,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             const isValidType = file.type === 'photo' || file.type === 'video';
 
             if (!isApproved || !isValidType || !file.service || isForbiddenService) return;
+
+            if (userType === 'agent') {
+                const matchedService = orderData?.services?.find(
+                    (s: any) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
+                );
+                if (matchedService?.media_access === false || (matchedService?.service as any)?.media_access === false) {
+                    return;
+                }
+            }
 
             const fileDate = new Date(file.created_at).getTime();
 

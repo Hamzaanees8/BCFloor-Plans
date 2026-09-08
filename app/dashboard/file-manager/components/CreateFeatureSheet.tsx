@@ -2120,15 +2120,23 @@ const CreateFeatureSheet = forwardRef<
                                 </span>
                               </div>
                             </div>
-                            {userType !== "vendor" && (
-                              <button
-                                type="button"
-                                onClick={handleOpenUpgradeModal}
-                                className={`text-center px-4 py-2 text-[13px] h-[32px] transition-colors ${userType}-bg hover:brightness-90 text-white rounded-[6px] font-[500] border-none shadow-sm cursor-pointer`}
-                              >
-                                Upgrade Plan
-                              </button>
-                            )}
+                            {userType !== "vendor" &&
+                              !(
+                                userType === "agent" &&
+                                (bookedFeatureSheetsService?.media_access ===
+                                  false ||
+                                  (
+                                    bookedFeatureSheetsService?.service as any
+                                  )?.media_access === false)
+                              ) && (
+                                <button
+                                  type="button"
+                                  onClick={handleOpenUpgradeModal}
+                                  className={`text-center px-4 py-2 text-[13px] h-[32px] transition-colors ${userType}-bg hover:brightness-90 text-white rounded-[6px] font-[500] border-none shadow-sm cursor-pointer`}
+                                >
+                                  Upgrade Plan
+                                </button>
+                              )}
                           </div>
                         )}
                         <div className="grid-cols-1 md:grid-cols-3 gap-6 !hidden">

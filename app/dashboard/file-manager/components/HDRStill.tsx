@@ -1655,13 +1655,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setOpenUpgrade(true)}
-                                            className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
-                                        >
-                                            Upgrade Plan
-                                        </Button>
+                                        {!(userType === 'agent' && (bookingToUse?.media_access === false || (bookingToUse?.service as any)?.media_access === false)) && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setOpenUpgrade(true)}
+                                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
+                                            >
+                                                Upgrade Plan
+                                            </Button>
+                                        )}
                                         {isOverLimit && (
                                             <div className="text-right text-[10px] md:text-[11px] text-[#666666] leading-[1.3] mt-0.5">
                                                 <div>Extra cost: <span className="text-[#E06D5E] font-bold">+${extraCharge.toFixed(2)}</span> on invoice</div>

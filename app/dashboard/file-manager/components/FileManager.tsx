@@ -21,6 +21,7 @@ import DownloadTab from "./DownloadTab";
 import HiddenMediaModal from "./HiddenMediaModal";
 import PackageLimitWarningModal from "./PackageLimitWarningModal";
 import UpgradeServicePopup from "./UpgradeServicePopup";
+import BlockedMediaMessage from "./BlockedMediaMessage";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
@@ -1313,6 +1314,24 @@ const FileManager = () => {
       };
     }
 
+    const isMediaBlockedForAgent =
+      userType === "agent" &&
+      (currentBookedService?.media_access === false ||
+        (currentBookedService?.service as any)?.media_access === false);
+
+    if (isMediaBlockedForAgent) {
+      return (
+        <BlockedMediaMessage
+          serviceName={
+            activeService?.name || currentBookedService?.service?.name
+          }
+          orderService={currentBookedService}
+          onOpenInvoice={handleOpenInvoice}
+          bookingIndex={activeServiceIndex}
+        />
+      );
+    }
+
     switch (category) {
       case "Video":
         return (
@@ -1810,6 +1829,13 @@ const FileManager = () => {
             s.uuid === tabUuidToCheck,
         );
       const packageLimit = bookingToUse?.option?.quantity;
+
+      if (
+        bookingToUse?.media_access === false ||
+        (bookingToUse?.service as any)?.media_access === false
+      ) {
+        return null;
+      }
 
       if (packageLimit && packageLimit > 0) {
         const serviceFiles =

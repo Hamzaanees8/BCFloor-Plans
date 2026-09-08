@@ -364,7 +364,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             const serviceData = contextServicesData.find((sd: Services) => sd.uuid === srv.uuid);
             const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
 
-            const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, hasValidSqFt ? sqFt : undefined);
+            const requiredDuration = getEffectiveServiceDuration(productOption, serviceData, hasValidSqFt ? sqFt : undefined);
             const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
             const allocatedDuration = serviceSlots.length * 15;
 

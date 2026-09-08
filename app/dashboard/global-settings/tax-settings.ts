@@ -355,3 +355,116 @@ export async function GetQuickBooksTaxCodes(): Promise<QuickBooksTaxCode[]> {
     return [];
   }
 }
+
+export interface RealtimeTaxPreviewItem {
+  amount: number;
+  is_taxable?: boolean;
+}
+
+export interface RealtimeTaxPreviewRequest {
+  org_slug?: string;
+  org_uuid?: string;
+  property_province: string;
+  property_country?: string;
+  items: RealtimeTaxPreviewItem[];
+}
+
+export interface RealtimeTaxDetail {
+  rate: number;
+  amount: number;
+  registration_number?: string;
+}
+
+export interface RealtimeTaxPreviewResponseData {
+  subtotal: number;
+  total_tax_amount: number;
+  effective_tax_rate: number;
+  tax_details: Record<string, RealtimeTaxDetail>;
+  tax_numbers?: string;
+  total: number;
+  calculation_basis?: string;
+  jurisdiction?: string;
+  items?: Array<{
+    index: number;
+    amount: number;
+    is_taxable: boolean;
+    tax_amount: number;
+    gst_amount?: number;
+    pst_amount?: number;
+    hst_amount?: number;
+  }>;
+}
+
+/**
+ * Real-time tax calculation engine for Order Creation, Checkout, and Book Now flow.
+ * Tries authenticated POST /tax-settings/calculate-preview, falling back to POST /public/tax-preview.
+ * Provides a local Canadian tax rule fallback if offline.
+ */
+export async function CalculateRealtimeTaxPreview(
+  request: RealtimeTaxPreviewRequest
+): Promise<RealtimeTaxPreviewResponseData> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("agentToken")) : null;
+
+  // Try authenticated route if token is present
+  if (token) {
+    try {
+      const response = await api.post("/tax-settings/calculate-preview", request);
+      const resData = response.data?.data ?? response.data;
+      if (resData && typeof resData === "object" && typeof resData.total_tax_amount === "number") {
+        return resData;
+      }
+    } catch (err: any) {
+      console.warn("POST /tax-settings/calculate-preview failed, trying /public/tax-preview:", err?.message || err);
+    }
+  }
+
+  // Fallback to public route
+  try {
+    const response = await api.post("/public/tax-preview", {
+      org_slug: request.org_slug || "bc-floor-plans",
+      ...request,
+    });
+    const resData = response.data?.data ?? response.data;
+    if (resData && typeof resData === "object" && typeof resData.total_tax_amount === "number") {
+      return resData;
+    }
+  } catch (err: any) {
+    console.warn("POST /public/tax-preview failed, computing fallback:", err?.message || err);
+  }
+
+  // Graceful local fallback calculation based on Canadian province rules
+  const subtotal = request.items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const taxableSubtotal = request.items
+    .filter((i) => i.is_taxable !== false)
+    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  const prov = (request.property_province || "BC").trim().toUpperCase();
+  const taxRule = defaultCanadaRules.find(
+    (r) => r.state_province.toUpperCase() === prov || r.state_province.toUpperCase() === prov.slice(0, 2)
+  ) || defaultCanadaRules[0]; // default to BC
+
+  const taxDetails: Record<string, RealtimeTaxDetail> = {};
+  let totalTax = 0;
+
+  taxRule.taxes.filter((t) => t.is_enabled).forEach((t) => {
+    const taxAmt = Number(((taxableSubtotal * t.rate) / 100).toFixed(2));
+    taxDetails[t.name] = {
+      rate: t.rate,
+      amount: taxAmt,
+      registration_number: t.registration_number,
+    };
+    totalTax += taxAmt;
+  });
+
+  return {
+    subtotal: Number(subtotal.toFixed(2)),
+    total_tax_amount: Number(totalTax.toFixed(2)),
+    effective_tax_rate: subtotal > 0 ? Number(((totalTax / subtotal) * 100).toFixed(2)) : 0,
+    tax_details: taxDetails,
+    tax_numbers: "",
+    total: Number((subtotal + totalTax).toFixed(2)),
+    calculation_basis: "destination",
+    jurisdiction: `Fallback (${taxRule.state_province})`,
+  };
+}
+

@@ -918,7 +918,7 @@ export default function OneDayCalendar({
     // Warn if over-selecting
     const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
     const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-    const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+    const requiredDuration = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
     const selDate = dayjs(slots[0].start).format('YYYY-MM-DD');
     const existingCount = selectedSlots.filter(s => isSameService(s.service_id, service.service) && s.date === selDate).length;
     const newTotal = (existingCount + slots.length) * 15;

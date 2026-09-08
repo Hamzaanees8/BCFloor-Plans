@@ -2948,11 +2948,17 @@ export default function OneDayCalendar({
       ),
     );
 
+    const currentServiceForDeselect = servicesData?.find(
+      (s) => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)),
+    );
+    const productOptionForDeselect = currentServiceForDeselect?.product_options?.find(
+      (option) =>
+        (service.option_id && option.uuid === service.option_id) ||
+        (service.option_id && String(option.id) === String(service.option_id)),
+    );
     const requiredDuration = getEffectiveServiceDuration(
-      servicesData
-        ?.find((s) => s.uuid === service.uuid)
-        ?.product_options?.find((option) => option.uuid === service.option_id)
-        ?.service_duration,
+      productOptionForDeselect,
+      currentServiceForDeselect,
       activeSquareFootage,
     );
     const requiredSlots = Math.ceil(requiredDuration / 15);
@@ -3096,13 +3102,18 @@ export default function OneDayCalendar({
 
     // Show informational message about slot selection progress
     // Recalculate service duration and current slots for toast message
-    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+    const currentService = servicesData?.find(
+      (s) => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)),
+    );
     const productOption = currentService?.product_options?.find(
-      (option) => option.uuid === service.option_id,
+      (option) =>
+        (service.option_id && option.uuid === service.option_id) ||
+        (service.option_id && String(option.id) === String(service.option_id)),
     );
     const squareFootage = activeSquareFootage;
     const requiredDuration = getEffectiveServiceDuration(
-      productOption?.service_duration,
+      productOption,
+      currentService,
       squareFootage,
     );
 

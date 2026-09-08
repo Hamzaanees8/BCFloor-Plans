@@ -10,8 +10,9 @@ import { SelectedService } from './Services';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { Input } from '@/components/ui/input';
-import { Plus, File } from 'lucide-react';
+import { Plus, File, Loader2 } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
+import { CalculateRealtimeTaxPreview, RealtimeTaxPreviewResponseData } from '../../global-settings/tax-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
 import { isServiceRequiringTravel } from '../utils/serviceTimeUtils';
@@ -177,6 +178,75 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         if (packagePercent <= 0) return 0;
         return Math.max(0, rawTotal * (packagePercent / 100));
     }, [activePackage]);
+
+    const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
+    const propertyCountry = tempPropertyData?.country || currentListing?.country || "CA";
+
+    const [taxPreview, setTaxPreview] = useState<RealtimeTaxPreviewResponseData | null>(null);
+    const [isTaxLoading, setIsTaxLoading] = useState<boolean>(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        if (!selectedServices?.length) {
+            setTaxPreview(null);
+            return;
+        }
+
+        setIsTaxLoading(true);
+
+        const timer = setTimeout(async () => {
+            try {
+                const totalOrig = selectedServices.reduce((sum, s) => sum + getOriginalPrice(s), 0);
+                let pkgDisc = 0;
+                if (activePackage && (activePackage.discount || 0) > 0) {
+                    pkgDisc = (totalOrig * (activePackage.discount || 0)) / 100;
+                }
+                const pkgRatio = totalOrig > 0 ? (pkgDisc / totalOrig) : 0;
+
+                const items = selectedServices.map((sel) => {
+                    const discountedPrice = calculateServicePriceAfterDiscounts(sel);
+                    const effAmount = Math.max(0, discountedPrice - (getOriginalPrice(sel) * pkgRatio));
+                    return {
+                        amount: Number(effAmount.toFixed(2)),
+                        is_taxable: true,
+                    };
+                });
+
+                const data = await CalculateRealtimeTaxPreview({
+                    org_slug: orgSlug || "bc-floor-plans",
+                    property_province: propertyProvince,
+                    property_country: propertyCountry,
+                    items,
+                });
+
+                if (isMounted) {
+                    setTaxPreview(data);
+                }
+            } catch (err) {
+                console.warn("Error calculating tax preview:", err);
+            } finally {
+                if (isMounted) {
+                    setIsTaxLoading(false);
+                }
+            }
+        }, 250);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+        };
+    }, [
+        selectedServices,
+        appliedCodeDiscount,
+        appliedQuantityDiscounts,
+        activePackage,
+        propertyProvince,
+        propertyCountry,
+        orgSlug,
+        getOriginalPrice,
+        calculateServicePriceAfterDiscounts,
+    ]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -687,15 +757,29 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         })()}
                                     </div>
 
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>GST/HST</span>
-                                        <span className='col-span-1'>$0.00</span>
-                                    </p>
+                                    {(() => {
+                                        if (taxPreview?.tax_details && Object.keys(taxPreview.tax_details).length > 0) {
+                                            return Object.entries(taxPreview.tax_details).map(([tName, tInfo]) => (
+                                                <p key={tName} className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>{tName} ({tInfo.rate}%)</span>
+                                                    <span className='col-span-1'>${Number(tInfo.amount || 0).toFixed(2)}</span>
+                                                </p>
+                                            ));
+                                        }
+                                        return (
+                                            <>
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>GST/HST</span>
+                                                    <span className='col-span-1'>$0.00</span>
+                                                </p>
 
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>PST/RST/QST</span>
-                                        <span className='col-span-1'>$0.00</span>
-                                    </p>
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>PST/RST/QST</span>
+                                                    <span className='col-span-1'>$0.00</span>
+                                                </p>
+                                            </>
+                                        );
+                                    })()}
 
                                     {(() => {
                                         // Calculate subtotal from services
@@ -1138,17 +1222,59 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 return acc;
                                             }, 0);
 
-                                            // Amount Due = Grand Total - Paid Amount
-                                            const amountDue = grandTotal - paidAmount;
+                                            const previewTaxAmount = taxPreview ? Number(taxPreview.total_tax_amount || 0) : 0;
+                                            const grandTotalWithTax = grandTotal + previewTaxAmount;
+                                            // Amount Due = Grand Total (with tax) - Paid Amount
+                                            const amountDue = grandTotalWithTax - paidAmount;
 
                                             return (
                                                 <>
                                                     <div className='flex items-center justify-between'>
-                                                        <p className='font-normal text-[14px] text-[#424242]'>Order/Quote approx.</p>
+                                                        <p className='font-normal text-[14px] text-[#424242]'>Subtotal</p>
                                                         <p className='font-normal text-[14px] text-[#424242]'>
                                                             ${grandTotal.toFixed(2)}
                                                         </p>
                                                     </div>
+
+                                                    {/* Real-time Tax Preview Breakdown */}
+                                                    <div className='border-t border-dashed my-1 pt-1 space-y-1'>
+                                                        {isTaxLoading ? (
+                                                            <div className='flex items-center justify-between text-xs text-[#888888] italic py-0.5'>
+                                                                <span className='flex items-center gap-1.5'>
+                                                                    <Loader2 className='w-3 h-3 animate-spin text-[#6BAE41]' /> Calculating tax ({propertyProvince})...
+                                                                </span>
+                                                                <span>—</span>
+                                                            </div>
+                                                        ) : taxPreview && taxPreview.tax_details && Object.keys(taxPreview.tax_details).length > 0 ? (
+                                                            <>
+                                                                {Object.entries(taxPreview.tax_details).map(([taxName, details]) => (
+                                                                    <div key={taxName} className='flex items-center justify-between text-[13px] text-[#666666]'>
+                                                                        <p>{taxName} ({details.rate}%)</p>
+                                                                        <p>${Number(details.amount || 0).toFixed(2)}</p>
+                                                                    </div>
+                                                                ))}
+                                                                {Object.keys(taxPreview.tax_details).length > 1 && (
+                                                                    <div className='flex items-center justify-between text-[13px] font-medium text-[#424242]'>
+                                                                        <p>Total Estimated Tax</p>
+                                                                        <p>${previewTaxAmount.toFixed(2)}</p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <div className='flex items-center justify-between text-[13px] text-[#666666]'>
+                                                                <p>Estimated Tax ({propertyProvince})</p>
+                                                                <p>${previewTaxAmount.toFixed(2)}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className='flex items-center justify-between pt-1 font-medium'>
+                                                        <p className='text-[14px] text-[#424242]'>Order/Quote approx. (inc. tax)</p>
+                                                        <p className='text-[14px] text-[#424242]'>
+                                                            ${grandTotalWithTax.toFixed(2)}
+                                                        </p>
+                                                    </div>
+
                                                     {paidAmount > 0 && (
                                                         <div className='flex items-center justify-between text-[#6BAE41]'>
                                                             <p className='font-normal text-[14px]'>Paid</p>
@@ -1165,6 +1291,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                             ${Math.max(0, amountDue).toFixed(2)}
                                                         </p>
                                                     </div>
+                                                    <p className="text-[10px] text-[#888888] italic text-right mt-1">
+                                                        * Tax preview based on {propertyProvince}, {propertyCountry}. Final taxes are applied on invoice.
+                                                    </p>
                                                 </>
                                             );
                                         })()}

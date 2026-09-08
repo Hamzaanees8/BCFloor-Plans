@@ -337,6 +337,7 @@ function Page() {
 
   useEffect(() => {
     fetchInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData?.uuid, userType]);
 
   const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {

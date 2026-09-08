@@ -3,20 +3,26 @@ import { addMinutes, format, parse, differenceInMinutes } from 'date-fns';
 
 export function calculateServiceDuration(
     squareFootage: number | string | undefined,
-    baseDuration: number = 60
+    baseDuration: number = 60,
+    baseSqFt: number = 2000,
+    incrementDuration: number = 30,
+    incrementSqFt: number = 1000
 ): number {
     const sqFtNum = typeof squareFootage === 'string'
         ? parseFloat(squareFootage.replace(/,/g, ''))
         : Number(squareFootage);
 
     const base = (baseDuration && baseDuration > 0) ? baseDuration : 60;
+    const effectiveBaseSqFt = (baseSqFt && baseSqFt > 0) ? baseSqFt : 2000;
+    const effectiveIncSqFt = (incrementSqFt && incrementSqFt > 0) ? incrementSqFt : 1000;
+    const effectiveIncMins = (incrementDuration && incrementDuration > 0) ? incrementDuration : 30;
 
-    if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= 2000) {
+    if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
         return base;
     }
 
-    const additionalSqFt = sqFtNum - 2000;
-    const additionalTime = Math.ceil(additionalSqFt / 500) * 30;
+    const additionalSqFt = sqFtNum - effectiveBaseSqFt;
+    const additionalTime = Math.ceil(additionalSqFt / effectiveIncSqFt) * effectiveIncMins;
 
     return base + additionalTime;
 }
@@ -24,6 +30,9 @@ export function calculateServiceDuration(
 
 export interface ServiceDurationOption {
     service_duration?: string | number | null;
+    sq_ft_range?: string | null;
+    isSqFtRange?: boolean;
+    sq_ft_rate?: string | number | null;
     [key: string]: any;
 }
 
@@ -68,13 +77,15 @@ export function getEffectiveServiceDuration(
         ? parseFloat(squareFootage.replace(/,/g, ''))
         : Number(squareFootage);
 
-    // ── Check if Option is a Per SqFt Rate Option ─────────────────────────────
-    const isPerSqFtRate = (
-        (option?.sq_ft_rate !== undefined && option?.sq_ft_rate !== null && option?.sq_ft_rate !== '' && !isNaN(Number(option.sq_ft_rate)) && Number(option.sq_ft_rate) > 0) ||
-        (typeof option?.title === 'string' && option.title.toLowerCase().includes('per sqft'))
+    // ── Check if Option is a Fixed SqFt Range Tier Option ─────────────────────
+    // Fixed tier options (e.g. Matterport tier "0 - 1500 sq ft") already account for size in the option.
+    const isFixedSqFtRangeTier = Boolean(
+        (option?.sq_ft_range && String(option.sq_ft_range).trim() !== '') ||
+        option?.isSqFtRange === true
     );
 
-    // ── LEVEL 1: Product Option service_duration (Highest Priority) ──────────
+    // 1. Determine Base Duration:
+    // Option duration takes priority if set; otherwise Service base duration; fallback to 60
     const optionDurationRaw = option?.service_duration;
     let optionDuration: number | null = null;
     if (optionDurationRaw !== undefined && optionDurationRaw !== null && optionDurationRaw !== '') {
@@ -84,80 +95,53 @@ export function getEffectiveServiceDuration(
         }
     }
 
-    if (optionDuration !== null) {
-        if (!isPerSqFtRate) {
-            // Fixed flat duration for fixed tier option (e.g. Matterport sqft range options)
-            return optionDuration;
-        }
-
-        // Per-sqft rate option: Option duration acts as base duration for <= base_sq_ft.
-        // For property size above base_sq_ft, apply service increment rules!
-        const baseDuration = optionDuration;
-        const baseSqFtRaw = service?.base_sq_ft;
-        const baseSqFt = (baseSqFtRaw !== undefined && baseSqFtRaw !== null && baseSqFtRaw !== '')
-            ? (typeof baseSqFtRaw === 'string' ? parseFloat(baseSqFtRaw) : Number(baseSqFtRaw))
-            : 2000;
-
-        const incSqFtRaw = service?.increment_sq_ft;
-        const incSqFt = (incSqFtRaw !== undefined && incSqFtRaw !== null && incSqFtRaw !== '')
-            ? (typeof incSqFtRaw === 'string' ? parseFloat(incSqFtRaw) : Number(incSqFtRaw))
-            : 1000;
-
-        const incMinsRaw = service?.increment_duration_mins;
-        const incMins = (incMinsRaw !== undefined && incMinsRaw !== null && incMinsRaw !== '')
-            ? (typeof incMinsRaw === 'string' ? parseInt(incMinsRaw, 10) : Number(incMinsRaw))
-            : 30;
-
-        const effectiveBaseSqFt = (!isNaN(baseSqFt) && baseSqFt > 0) ? baseSqFt : 2000;
-        const effectiveIncSqFt = (!isNaN(incSqFt) && incSqFt > 0) ? incSqFt : 1000;
-        const effectiveIncMins = !isNaN(incMins) ? incMins : 30;
-
-        if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
-            return baseDuration;
-        }
-
-        const excessSqFt = sqFtNum - effectiveBaseSqFt;
-        const increments = Math.ceil(excessSqFt / effectiveIncSqFt);
-        return baseDuration + (increments * effectiveIncMins);
-    }
-
-    // ── LEVEL 2: Service Base Time & Increments (Second Priority) ────────────
-    const baseDurationRaw = service?.base_duration_mins;
-    if (baseDurationRaw !== undefined && baseDurationRaw !== null && baseDurationRaw !== '') {
-        const baseDuration = typeof baseDurationRaw === 'string' ? parseInt(baseDurationRaw, 10) : Number(baseDurationRaw);
-        if (!isNaN(baseDuration) && baseDuration > 0) {
-            const baseSqFtRaw = service?.base_sq_ft;
-            const baseSqFt = (baseSqFtRaw !== undefined && baseSqFtRaw !== null && baseSqFtRaw !== '')
-                ? (typeof baseSqFtRaw === 'string' ? parseFloat(baseSqFtRaw) : Number(baseSqFtRaw))
-                : 2000;
-
-            const incSqFtRaw = service?.increment_sq_ft;
-            const incSqFt = (incSqFtRaw !== undefined && incSqFtRaw !== null && incSqFtRaw !== '')
-                ? (typeof incSqFtRaw === 'string' ? parseFloat(incSqFtRaw) : Number(incSqFtRaw))
-                : 1000;
-
-            const incMinsRaw = service?.increment_duration_mins;
-            const incMins = (incMinsRaw !== undefined && incMinsRaw !== null && incMinsRaw !== '')
-                ? (typeof incMinsRaw === 'string' ? parseInt(incMinsRaw, 10) : Number(incMinsRaw))
-                : 30;
-
-            const effectiveBaseSqFt = (!isNaN(baseSqFt) && baseSqFt > 0) ? baseSqFt : 2000;
-            const effectiveIncSqFt = (!isNaN(incSqFt) && incSqFt > 0) ? incSqFt : 1000;
-            const effectiveIncMins = !isNaN(incMins) ? incMins : 30;
-
-            if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
-                return baseDuration;
-            }
-
-            const excessSqFt = sqFtNum - effectiveBaseSqFt;
-            const increments = Math.ceil(excessSqFt / effectiveIncSqFt);
-            return baseDuration + (increments * effectiveIncMins);
+    const serviceBaseDurationRaw = service?.base_duration_mins;
+    let serviceBaseDuration: number | null = null;
+    if (serviceBaseDurationRaw !== undefined && serviceBaseDurationRaw !== null && serviceBaseDurationRaw !== '') {
+        const parsed = typeof serviceBaseDurationRaw === 'string' ? parseInt(serviceBaseDurationRaw, 10) : Number(serviceBaseDurationRaw);
+        if (!isNaN(parsed) && parsed > 0) {
+            serviceBaseDuration = parsed;
         }
     }
 
-    // ── LEVEL 3: Default Hardcoded Calculation Fallback (Third Priority) ─────
-    return calculateServiceDuration(squareFootage ?? undefined, 60);
+    // If it's a fixed sqft range tier and has an option duration, return it directly without extra increments
+    if (isFixedSqFtRangeTier && optionDuration !== null) {
+        return optionDuration;
+    }
+
+    const baseDuration = optionDuration ?? serviceBaseDuration ?? 60;
+
+    // 2. Read Service Increment Settings
+    const baseSqFtRaw = service?.base_sq_ft;
+    const baseSqFt = (baseSqFtRaw !== undefined && baseSqFtRaw !== null && baseSqFtRaw !== '')
+        ? (typeof baseSqFtRaw === 'string' ? parseFloat(baseSqFtRaw) : Number(baseSqFtRaw))
+        : 2000;
+
+    const incSqFtRaw = service?.increment_sq_ft;
+    const incSqFt = (incSqFtRaw !== undefined && incSqFtRaw !== null && incSqFtRaw !== '')
+        ? (typeof incSqFtRaw === 'string' ? parseFloat(incSqFtRaw) : Number(incSqFtRaw))
+        : 1000;
+
+    const incMinsRaw = service?.increment_duration_mins;
+    const incMins = (incMinsRaw !== undefined && incMinsRaw !== null && incMinsRaw !== '')
+        ? (typeof incMinsRaw === 'string' ? parseInt(incMinsRaw, 10) : Number(incMinsRaw))
+        : 30;
+
+    const effectiveBaseSqFt = (!isNaN(baseSqFt) && baseSqFt > 0) ? baseSqFt : 2000;
+    const effectiveIncSqFt = (!isNaN(incSqFt) && incSqFt > 0) ? incSqFt : 1000;
+    const effectiveIncMins = (!isNaN(incMins) && incMins > 0) ? incMins : 30;
+
+    // If no extra sq ft or square footage <= baseSqFt, return base duration
+    if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
+        return baseDuration;
+    }
+
+    // Calculate incremental time based on service settings
+    const excessSqFt = sqFtNum - effectiveBaseSqFt;
+    const increments = Math.ceil(excessSqFt / effectiveIncSqFt);
+    return baseDuration + (increments * effectiveIncMins);
 }
+
 
 
 export function calculateSlotsDuration(slots: { start_time: string; end_time: string }[]): number {
