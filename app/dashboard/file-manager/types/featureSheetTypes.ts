@@ -324,4 +324,7 @@ export interface PrintRequestData {
     agent_id: string;
     property_id: string;
     tour_id?: string;
+    is_pre_booked?: boolean;
+    order_service_uuid?: string;
+    order_uuid?: string;
 }

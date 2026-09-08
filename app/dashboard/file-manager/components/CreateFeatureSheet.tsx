@@ -459,29 +459,85 @@ const CreateFeatureSheet = forwardRef<
   >(null);
 
   const handleOpenUpgradeModal = async () => {
-    if (!featureSheetsFullService) {
-      try {
-        const token = localStorage.getItem("token") || "";
-        const response = await GetServices(token);
-        const servicesList = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response)
-            ? response
-            : [];
-        const fsService = servicesList.find(
+    try {
+      const token = localStorage.getItem("token") || "";
+      const response = await GetServices(token);
+      const servicesList = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      const isTabloid =
+        Boolean(selectedTemplate?.toLowerCase().includes("tabloid")) ||
+        Boolean(
+          (currentSheet as any)?.template?.toLowerCase().includes("tabloid"),
+        );
+      const targetType = isTabloid ? "tabloid" : "flyer";
+
+      // 1. If bookedFeatureSheetsService has a valid DIY service (not design_and_print), match it directly
+      const bookedType = (
+        (bookedFeatureSheetsService?.service as any)?.type || ""
+      ).toLowerCase();
+      const targetServiceUuid =
+        bookedType !== "design_and_print"
+          ? bookedFeatureSheetsService?.service?.uuid
+          : undefined;
+      const targetServiceId =
+        bookedType !== "design_and_print"
+          ? (bookedFeatureSheetsService?.service?.id ??
+            bookedFeatureSheetsService?.service_id)
+          : undefined;
+
+      let fsService = servicesList.find(
+        (s: any) =>
+          (targetServiceUuid && s.uuid === targetServiceUuid) ||
+          (targetServiceId &&
+            (s.id === targetServiceId || s.uuid === String(targetServiceId))),
+      );
+
+      // 2. Match by category "Print" and type ("tabloid" vs "flyer")
+      if (!fsService) {
+        fsService = servicesList.find(
           (s: any) =>
-            s.category?.name?.toLowerCase() === "print" ||
-            s.category?.name?.toLowerCase() === "feature_sheets" ||
-            s.category?.name?.toLowerCase() === "feature sheets" ||
-            s.name?.toLowerCase() === "feature sheets" ||
-            s.name?.toLowerCase() === "print",
+            s.category?.name?.toLowerCase() === "print" &&
+            s.type?.toLowerCase() === targetType,
         );
-        setFeatureSheetsFullService(
-          fsService || bookedFeatureSheetsService?.service || null,
-        );
-      } catch (e) {
-        console.error("Failed to fetch full service options for upgrade:", e);
       }
+
+      // 3. Fallback matching
+      if (!fsService) {
+        fsService = servicesList.find((s: any) => {
+          const cat = s.category?.name?.toLowerCase() || "";
+          const name = s.name?.toLowerCase() || "";
+          const isPrintCat =
+            cat === "print" ||
+            cat === "feature_sheets" ||
+            cat === "feature sheets";
+          if (!isPrintCat) return false;
+          if (targetType === "tabloid") {
+            return (
+              s.type?.toLowerCase() === "tabloid" || name.includes("tabloid")
+            );
+          } else {
+            return (
+              s.type?.toLowerCase() === "flyer" ||
+              (!s.type &&
+                !name.includes("tabloid") &&
+                s.type !== "design_and_print")
+            );
+          }
+        });
+      }
+
+      setFeatureSheetsFullService(
+        fsService ||
+          (bookedType !== "design_and_print"
+            ? bookedFeatureSheetsService?.service
+            : null),
+      );
+    } catch (e) {
+      console.error("Failed to fetch full service options for upgrade:", e);
     }
     setIsUpgradeModalOpen(true);
   };

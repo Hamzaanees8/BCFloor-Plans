@@ -951,41 +951,46 @@ export async function createPayment(
     paymentType?: "full" | "service";
     serviceName?: string;
     amount?: string | number;
+    existingInvoiceUuid?: string;
   },
 ) {
   try {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    // Step 1: Create an Invoice first
-    const invoicePayload: {
-      order_uuid: string;
-      service_uuids?: string[];
-    } = {
-      order_uuid: order.uuid,
-    };
+    // Step 1: Use existing invoice UUID if provided, otherwise create a new invoice
+    let invoiceUuid = options?.existingInvoiceUuid;
 
-    if (options?.paymentType === "service" && options?.serviceId) {
-      invoicePayload.service_uuids = Array.isArray(options.serviceId)
-        ? options.serviceId
-        : [options.serviceId];
+    if (!invoiceUuid) {
+      const invoicePayload: {
+        order_uuid: string;
+        service_uuids?: string[];
+      } = {
+        order_uuid: order.uuid,
+      };
+
+      if (options?.paymentType === "service" && options?.serviceId) {
+        invoicePayload.service_uuids = Array.isArray(options.serviceId)
+          ? options.serviceId
+          : [options.serviceId];
+      }
+
+      const invoiceResponse = await fetch(`${API_URL}/invoices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(invoicePayload),
+      });
+
+      if (!invoiceResponse.ok) {
+        const errorData = await invoiceResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create invoice");
+      }
+
+      const invoiceData = await invoiceResponse.json();
+      invoiceUuid = invoiceData.data?.uuid || invoiceData.uuid;
     }
-
-    const invoiceResponse = await fetch(`${API_URL}/invoices`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(invoicePayload),
-    });
-
-    if (!invoiceResponse.ok) {
-      const errorData = await invoiceResponse.json().catch(() => ({}));
-      throw new Error(errorData.message || "Failed to create invoice");
-    }
-
-    const invoiceData = await invoiceResponse.json();
-    const invoiceUuid = invoiceData.data.uuid;
 
     // Step 2: Create Payment Session using the Invoice UUID
     const body = {

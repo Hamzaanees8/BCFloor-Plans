@@ -341,13 +341,22 @@ export interface ListingOrder {
     updated_at: string;
     services: OrderService[];
     lock_materials: boolean;
+    media_approval_required?: boolean;
+    has_unapproved_media?: boolean;
+    has_pending_approval?: boolean;
+    vendor?: any;
     tours?: {
         uuid?: string;
         is_publish?: boolean;
         files?: {
+            id?: number;
+            uuid?: string;
             is_featured?: boolean;
             file_path?: string;
             thumbnail_url?: string;
+            is_admin_approved?: boolean | number;
+            type?: string;
+            service_id?: number;
         }[];
     }[];
     areas?: {

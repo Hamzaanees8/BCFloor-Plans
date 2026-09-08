@@ -82,17 +82,19 @@ export default function UpgradeServicePopup({
                 let customName = (orderService as any).custom;
 
                 if (orderService.uuid === currentBookedService.uuid) {
-                    if (customName && selectedOption?.title) {
-                        if (customName.includes(" - ")) {
+                    if (selectedOption?.title) {
+                        const optionTitle = selectedOption.title.toLowerCase().includes("copies")
+                            ? selectedOption.title
+                            : `${selectedOption.title} Copies`;
+                        if (customName && customName.includes(" - ")) {
                             const baseName = customName.split(" - ")[0];
-                            const optionTitle = selectedOption.title.toLowerCase().includes("copies")
-                                ? selectedOption.title
-                                : `${selectedOption.title} Copies`;
                             customName = `${baseName} - ${optionTitle}`;
+                        } else if (fsId || fsUuid) {
+                            customName = `Feature Sheet - ${optionTitle}`;
                         }
                     }
                     return {
-                        service_id: currentService.uuid,
+                        service_id: currentService.uuid || (orderService as any).service_id || String(orderService.service_id || ""),
                         option_id: selected,
                         amount: Number(selectedOption.amount ?? 0),
                         uuid: orderService.uuid,

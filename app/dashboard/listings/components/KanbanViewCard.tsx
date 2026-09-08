@@ -1,15 +1,18 @@
-import { Eye, FolderOpen, Calendar, Mail, Phone, FileText } from "lucide-react";
+import { Eye, FolderOpen, Calendar, Mail, Phone, FileText, Clock } from "lucide-react";
 import React from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Listings, Tour, TourFile } from "@/lib/types";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
 import { getAppOrigin } from "@/lib/utils";
+import { checkMediaApprovalStatus, getMediaApprovalBadge } from "../utils/approvalHelper";
 
 interface KanbanViewCardProps {
   data: Listings | Tour;
   type?: 'listing' | 'tour';
   onQuickView?: () => void;
+  pendingApprovalMap?: Map<string, string>; // orderUuid -> serviceUuid
 }
 
 const slugify = (text: string) => {
@@ -77,7 +80,8 @@ const getPaymentStatus = (orders?: any[]) => {
   }
 };
 
-const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardProps) => {
+const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMap }: KanbanViewCardProps) => {
+  const router = useRouter();
   const { userType } = useAppContext();
   const orgContext = useOptionalOrganization();
   const organization = orgContext?.organization;
@@ -133,6 +137,30 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     (KanbanViewCard as any).publicTourUrl = isPublished ? `${agentDomainUrl}/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
   }
 
+  // Derive a fast-lookup Set from the map keys
+  const pendingOrderUuids = pendingApprovalMap ? new Set(pendingApprovalMap.keys()) : undefined;
+  const approvalStatus = type === 'listing' ? checkMediaApprovalStatus(data, pendingOrderUuids) : { requiresApproval: false, unapprovedCount: 0, totalFiles: 0 };
+  const approvalBadge = getMediaApprovalBadge(approvalStatus, userType);
+
+  // Build deep-link URL for admin: open FileManager on the specific service tab
+  let approvalLink: string | null = null;
+  if (approvalBadge && userType === 'admin' && type === 'listing') {
+    const listingData = data as Listings;
+    const orders = listingData.orders || [];
+    const latest = [...orders].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    )[0];
+    if (latest?.uuid) {
+      const serviceUuid = pendingApprovalMap?.get(latest.uuid) || "";
+      approvalLink = `/dashboard/file-manager/${latest.uuid}?listingId=${listingData.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ''}`;
+    }
+  }
+
+  // If this card requires approval and user is admin, point the card's target navigation to the approval pending service
+  if (approvalLink) {
+    href = approvalLink;
+  }
+
   const handleCardClick = (e: React.MouseEvent) => {
     if (type === 'tour') {
       e.preventDefault();
@@ -177,6 +205,24 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             {latestOrder && (
               <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm ${payStatus.color}`}>
                 {payStatus.label}
+              </span>
+            )}
+            {approvalBadge && (
+              <span
+                onClick={(e) => {
+                  if (approvalLink) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(approvalLink);
+                  }
+                }}
+                title={approvalBadge.tooltip}
+                className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm flex items-center gap-1 w-fit ${
+                  approvalLink ? "cursor-pointer hover:brightness-95 transition-all" : ""
+                } ${approvalBadge.color}`}
+              >
+                <Clock className="w-2.5 h-2.5 shrink-0" />
+                {approvalBadge.label}
               </span>
             )}
           </div>
@@ -297,6 +343,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             <>
               <Link
                 href={href}
+                data-interactive="true"
                 className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-emerald-600 hover:bg-white rounded transition-all font-medium text-center"
                 title="Manage Files / Edit"
               >
@@ -309,6 +356,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
                   <div className="w-[1px] h-4 bg-gray-200"></div>
                   <Link
                     href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}?isEdit=true` : "/dashboard/orders/create"}
+                    data-interactive="true"
                     className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-indigo-600 hover:bg-white rounded transition-all font-medium text-center"
                     title={latestOrder?.uuid ? "Update Booking" : "New Booking"}
                   >
@@ -329,9 +377,19 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
   );
 
   return type === 'listing' ? (
-    <Link href={href} className="w-full block">
+    <div
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a, [data-interactive="true"]')) {
+          return;
+        }
+        if (href) {
+          router.push(href);
+        }
+      }}
+      className="w-full block cursor-pointer"
+    >
       {content}
-    </Link>
+    </div>
   ) : (
     <div className="w-full">
       {content}

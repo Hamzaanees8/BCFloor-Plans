@@ -244,6 +244,15 @@ const FileManager = () => {
         catName === "feature_sheets";
       if (isFS) return;
 
+      // Exclude any service linked to a feature sheet (flyer/tabloid DIY print bookings are handled in the Feature Sheets tab)
+      const hasFeatureSheet = Boolean(
+        (os as any).feature_sheet_id ||
+        (os as any).feature_sheet_uuid ||
+        (os as any).feature_sheet ||
+        ((os as any).custom && (os as any).custom.toLowerCase().includes("feature sheet"))
+      );
+      if (hasFeatureSheet) return;
+
       // Handle Print category services or flyer/tabloid types:
       // If service is in category "Print", only include it if type === "design_and_print"
       // (Flyer and Tabloid DIY print requests are handled under the "Feature Sheets" tab)

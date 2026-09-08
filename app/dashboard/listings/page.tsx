@@ -3,11 +3,13 @@ import React, { useEffect, useState, useRef } from "react";
 import QuickViewCard, { AgentData } from "@/components/QuickViewCard";
 import Link from "next/link";
 import { DeleteListing, GetListing, UpdateListingStatus } from "./listing";
+import { GetFilesData } from "@/app/dashboard/file-manager/file-manager";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { List } from "lucide-react";
+import { List, Clock } from "lucide-react";
 import KanbanViewCard from "./components/KanbanViewCard";
+import { checkMediaApprovalStatus, getMediaApprovalBadge } from "./utils/approvalHelper";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -149,6 +151,13 @@ const Page = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTour, setFilterTour] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  // Maps orderUuid -> first unapproved serviceUuid (for deep-linking admin into the right FM tab)
+  const [pendingApprovalMap, setPendingApprovalMap] = useState<Map<string, string>>(new Map());
+  // Derived Set so checkMediaApprovalStatus can still do a fast lookup
+  const pendingOrderUuids = React.useMemo(
+    () => new Set(pendingApprovalMap.keys()),
+    [pendingApprovalMap]
+  );
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
@@ -214,6 +223,89 @@ const Page = () => {
         setLoading(false);
       });
   }, []);
+
+  // FileManager-style check: fetch tour files per order and look for unapproved files
+  // Mirrors exactly: filesData.files.filter(f => !f.is_admin_approved)
+  useEffect(() => {
+    if (!listingsData.length) return;
+    if (userType !== "admin" && userType !== "vendor" && userType !== "") return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Collect latest order UUID per listing (only active orders to reduce calls)
+    const activeStatuses = new Set(["Processing", "In Progress", "Pending", "Completed"]);
+    const ordersToCheck: { orderUuid: string; listingUuid: string; listingOrders: any[] }[] = [];
+
+    for (const listing of listingsData) {
+      const orders = listing.orders || [];
+      const latest = [...orders].sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )[0];
+      if (latest?.uuid && activeStatuses.has(latest.order_status)) {
+        ordersToCheck.push({ orderUuid: latest.uuid, listingUuid: listing.uuid || "", listingOrders: orders });
+      }
+    }
+
+    if (!ordersToCheck.length) return;
+
+    const isFileUnapproved = (f: any) => {
+      return (
+        f.is_admin_approved === false ||
+        f.is_admin_approved === 0 ||
+        f.is_admin_approved === "0" ||
+        f.is_admin_approved === "false" ||
+        (!f.is_admin_approved && f.is_admin_approved !== undefined)
+      );
+    };
+
+    Promise.all(
+      ordersToCheck.map(async ({ orderUuid, listingOrders }) => {
+        try {
+          const res = await GetFilesData(token, orderUuid);
+          if (!res?.data) return null;
+          const tours: any[] = Array.isArray(res.data) ? res.data : [res.data];
+          // Same check as FileManager: !f.is_admin_approved
+          // Also capture the first unapproved service UUID for deep-linking
+          for (const tour of tours) {
+            for (const f of tour.files || []) {
+              if (isFileUnapproved(f)) {
+                let serviceUuid = f.service?.uuid || "";
+                if (!serviceUuid && f.service_id) {
+                  for (const order of listingOrders) {
+                    const servicesList = order.order_services || order.services || [];
+                    const matched = servicesList.find((os: any) => 
+                      os.service_id === f.service_id || 
+                      os.service?.id === f.service_id ||
+                      Number(os.service_id) === Number(f.service_id) ||
+                      Number(os.service?.id) === Number(f.service_id)
+                    );
+                    if (matched?.service?.uuid) {
+                      serviceUuid = matched.service.uuid;
+                      break;
+                    }
+                  }
+                }
+                if (!serviceUuid && (f.service_id || f.service?.id)) {
+                  serviceUuid = String(f.service_id || f.service?.id);
+                }
+                return { orderUuid, serviceUuid };
+              }
+            }
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })
+    ).then((results) => {
+      const map = new Map<string, string>();
+      for (const r of results) {
+        if (r) map.set(r.orderUuid, r.serviceUuid);
+      }
+      setPendingApprovalMap(map);
+    });
+  }, [listingsData, userType]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -290,9 +382,12 @@ const Page = () => {
       const matchesStatus =
         filterStatus === "all" ||
         filterStatus === "" ||
+        (filterStatus === "Approval Pending" &&
+          checkMediaApprovalStatus(listing, pendingOrderUuids).requiresApproval) ||
         (filterStatus === "Cancelled" &&
           getProjectStatus(listing.orders).label === "Cancelled") ||
         (filterStatus !== "Cancelled" &&
+          filterStatus !== "Approval Pending" &&
           listing.property_status === filterStatus);
 
       const matchesTour =
@@ -391,6 +486,7 @@ const Page = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Approval Pending">Approval Pending</SelectItem>
                 <SelectItem value="Just listed">Just listed</SelectItem>
                 <SelectItem value="Sold">Sold</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
@@ -440,6 +536,7 @@ const Page = () => {
           }}
           handleDelete={handleDelete}
           handleUpdateStatus={handleUpdateStatus}
+          pendingApprovalMap={pendingApprovalMap}
         />
 
         {showCard && type === "listing" && selectedData && (
@@ -536,13 +633,41 @@ const Page = () => {
       cell: ({ row }: { row: Row<Listings> }) => {
         const listing = row.original;
         const status = getProjectStatus(listing.orders);
+        const approvalStatus = checkMediaApprovalStatus(listing, pendingOrderUuids);
+        const approvalBadge = getMediaApprovalBadge(approvalStatus, userType);
+        const latestOrder = getLatestOrder(listing.orders);
+        let approvalLink: string | null = null;
+        if (approvalBadge && userType === "admin" && latestOrder?.uuid) {
+          const serviceUuid = pendingApprovalMap?.get(latestOrder.uuid) || "";
+          approvalLink = `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ""}`;
+        }
         return (
-          <div className="text-[13px] font-[500]">
+          <div className="flex flex-col gap-1 items-start">
             <span
-              className={`px-2.5 py-1 rounded-full border text-[12px] font-[500] ${status.color}`}
+              className={`px-2.5 py-0.5 rounded-full border text-[11px] font-[500] ${status.color}`}
             >
               {status.label}
             </span>
+            {approvalBadge && (
+              approvalLink ? (
+                <Link
+                  href={approvalLink}
+                  title={approvalBadge.tooltip}
+                  className={`px-2 py-0.5 rounded-full border text-[10px] font-[500] flex items-center gap-1 cursor-pointer hover:brightness-95 transition-all ${approvalBadge.color}`}
+                >
+                  <Clock className="w-2.5 h-2.5 shrink-0" />
+                  {approvalBadge.label}
+                </Link>
+              ) : (
+                <span
+                  title={approvalBadge.tooltip}
+                  className={`px-2 py-0.5 rounded-full border text-[10px] font-[500] flex items-center gap-1 ${approvalBadge.color}`}
+                >
+                  <Clock className="w-2.5 h-2.5 shrink-0" />
+                  {approvalBadge.label}
+                </span>
+              )
+            )}
           </div>
         );
       },
@@ -838,6 +963,7 @@ const Page = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Approval Pending">Approval Pending</SelectItem>
             <SelectItem value="Just listed">Just listed</SelectItem>
             <SelectItem value="Sold">Sold</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
@@ -934,6 +1060,7 @@ const Page = () => {
                   <KanbanViewCard
                     key={listing.uuid}
                     data={listing}
+                    pendingApprovalMap={pendingApprovalMap}
                     onQuickView={() => {
                       setShowCard(true);
                       setType("listing");

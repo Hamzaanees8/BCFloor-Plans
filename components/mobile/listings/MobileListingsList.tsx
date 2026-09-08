@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import {
   MoreVertical,
   Mail,
   Phone,
+  Clock,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Listings } from '@/lib/types';
+import { checkMediaApprovalStatus, getMediaApprovalBadge } from '@/app/dashboard/listings/utils/approvalHelper';
 
 interface MobileListingsListProps {
   listings: Listings[];
@@ -34,6 +37,7 @@ interface MobileListingsListProps {
   onQuickView: (listing: Listings) => void;
   handleDelete: (uuid: string) => void;
   handleUpdateStatus: (listingId: string, status: boolean) => Promise<any>;
+  pendingApprovalMap?: Map<string, string>; // orderUuid -> serviceUuid
 }
 
 export default function MobileListingsList({
@@ -44,6 +48,7 @@ export default function MobileListingsList({
   onQuickView,
   handleDelete,
   handleUpdateStatus,
+  pendingApprovalMap,
 }: MobileListingsListProps) {
   const router = useRouter();
   // No settings needed
@@ -157,6 +162,16 @@ export default function MobileListingsList({
         const projStatus = getProjectStatus(listing.orders);
         const payStatus = getPaymentStatus(listing.orders);
         const latestOrder = getLatestOrder(listing.orders);
+        const pendingOrderUuids = pendingApprovalMap ? new Set(pendingApprovalMap.keys()) : undefined;
+        const approvalStatus = checkMediaApprovalStatus(listing, pendingOrderUuids);
+        const approvalBadge = getMediaApprovalBadge(approvalStatus, userType);
+
+        // Build deep-link for admin badge → FileManager on the right service tab
+        let approvalLink: string | null = null;
+        if (approvalBadge && userType === 'admin' && latestOrder?.uuid) {
+          const serviceUuid = pendingApprovalMap?.get(latestOrder.uuid) || '';
+          approvalLink = `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ''}`;
+        }
 
         const files = listing.orders?.[0]?.tours?.[0]?.files;
         const featuredFile = files?.find((file: any) => file.is_featured) || files?.[0];
@@ -180,7 +195,7 @@ export default function MobileListingsList({
                   className="flex gap-3 flex-1 min-w-0 cursor-pointer"
                   onClick={() => {
                     if (latestOrder?.uuid) {
-                      router.push(`/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}`);
+                      router.push(approvalLink || `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}`);
                     } else {
                       onQuickView(listing);
                     }
@@ -253,6 +268,28 @@ export default function MobileListingsList({
                           <CreditCard className="w-3 h-3 mr-1" />
                           {payStatus.label}
                         </Badge>
+                      )}
+                      {approvalBadge && (
+                        approvalLink ? (
+                          <Link
+                            href={approvalLink}
+                            onClick={(e) => e.stopPropagation()}
+                            title={approvalBadge.tooltip}
+                            className={`inline-flex items-center text-[10px] px-2 py-0.5 border rounded-full font-semibold cursor-pointer hover:brightness-95 transition-all ${approvalBadge.color}`}
+                          >
+                            <Clock className="w-3 h-3 mr-1" />
+                            {approvalBadge.label}
+                          </Link>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            title={approvalBadge.tooltip}
+                            className={`text-[10px] px-2 py-0.5 border flex items-center ${approvalBadge.color}`}
+                          >
+                            <Clock className="w-3 h-3 mr-1" />
+                            {approvalBadge.label}
+                          </Badge>
+                        )
                       )}
                     </div>
                   </div>

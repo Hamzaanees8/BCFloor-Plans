@@ -402,37 +402,65 @@ export default function PrintRequestModal({
           const hasNoSheet = !osFsId && !osFsUuid;
           if (!hasNoSheet) return false;
 
-          const sType = (os.service?.type || "").toLowerCase();
-          const sName = (os.service?.name || os.custom || "").toLowerCase();
-          const isPrintType =
+          const sType = (os.service?.type || featureSheetsService?.type || "").toLowerCase();
+          const sName = (os.service?.name || os.custom || featureSheetsService?.name || "").toLowerCase();
+          const catName = (os.service?.category?.name || featureSheetsService?.category?.name || "").toLowerCase();
+
+          const isPrintCat =
+            catName === "print" ||
+            catName === "feature_sheets" ||
+            catName === "feature sheets" ||
+            sName.includes("flyer") ||
+            sName.includes("tabloid") ||
+            sName.includes("feature sheet");
+
+          const matchesType =
             targetType === "tabloid"
               ? sType === "tabloid" || sName.includes("tabloid")
               : sType === "flyer" ||
-                (!sType && !sName.includes("tabloid") && sName.includes("flyer"));
-          return isPrintType;
+                (!sType && !sName.includes("tabloid"));
+
+          return isPrintCat && matchesType;
         }) ||
         null;
+
+      // Check payment status from order_service, order level, or matching invoice status
+      const isPaidViaInvoice = (orderData as any)?.invoices?.some(
+        (inv: any) =>
+          inv.status?.toLowerCase() === "paid" &&
+          (inv.items?.some(
+            (item: any) =>
+              item.order_service_id === currentPreBooked?.id ||
+              item.order_service?.id === currentPreBooked?.id ||
+              item.order_service?.uuid === currentPreBooked?.uuid,
+          ) ||
+          (!inv.items || inv.items.length === 0)),
+      );
 
       const isPaidPreBooked =
         currentPreBooked &&
         (currentPreBooked.payment_status?.toUpperCase() === "PAID" ||
           orderData?.payment_status?.toUpperCase() === "PAID" ||
-          currentPreBooked.payment_status === "PAID");
+          currentPreBooked.payment_status === "PAID" ||
+          Boolean(isPaidViaInvoice));
 
       const token = localStorage.getItem("token") || "";
 
       if (currentPreBooked) {
         // ── PATH A: Pre-booked service exists ─────────────────────────────
-        // 1. Send the print request (records the request on the backend)
+        // 1. Send the print request (pass amount: 0 and pre-booked context to avoid backend invoice generation)
         await featureSheetService.requestPrint(resolvedFsUuid, {
           copies,
           option_id: selectedOptionUuid,
-          amount: Number(selectedOption?.amount ?? 0),
+          amount: 0,
           with_bleed: withBleed,
           additional_info: additionalInfo,
           agent_id: agentId,
           property_id: propertyId,
           tour_id: activeTourId,
+          is_pre_booked: true,
+          order_service_uuid: currentPreBooked.uuid,
+          order_uuid: orderData?.uuid,
         });
 
         // 2. Patch the pre-booked order service with the feature_sheet references
@@ -490,7 +518,7 @@ export default function PrintRequestModal({
           }
           onClose();
         } else {
-          // PATH A2: Pre-booked but unpaid — close the modal and open payment for existing item
+          // PATH A2: Pre-booked but unpaid — attach sheet and prompt payment using EXISTING invoice
           toast.success("Print request sent! Proceeding to payment...");
           if (resolvedFsUuid && onRequestSuccess) {
             onRequestSuccess(resolvedFsUuid, currentPreBooked.uuid);
@@ -499,19 +527,33 @@ export default function PrintRequestModal({
 
           if (updatedOrder && token) {
             try {
-              const payServiceItem = (updatedOrder.services || []).find(
-                (os: any) => os.uuid === currentPreBooked.uuid,
+              // Locate existing invoice for this order/service so we DO NOT create a duplicate
+              const existingMatchingInvoice = (updatedOrder as any).invoices?.find(
+                (inv: any) =>
+                  inv.items?.some(
+                    (item: any) =>
+                      item.order_service_id === currentPreBooked.id ||
+                      item.order_service?.id === currentPreBooked.id ||
+                      item.order_service?.uuid === currentPreBooked.uuid,
+                  ) ||
+                  inv.order_id === updatedOrder.id ||
+                  inv.order_uuid === updatedOrder.uuid,
               );
-              const serviceUuidForInvoice =
-                payServiceItem?.uuid || currentPreBooked.uuid;
 
-              toast.info("Opening payment checkout for pre-booked service...");
-              await createPayment(updatedOrder, token, window.location.href, {
-                serviceId: serviceUuidForInvoice,
-                paymentType: "service",
-                serviceName: sheetCustomName,
-                amount: Number(selectedOption?.amount ?? 0),
-              });
+              const existingInvoiceUuid = existingMatchingInvoice?.uuid;
+
+              if (existingInvoiceUuid) {
+                toast.info("Opening payment checkout for your pre-booked service invoice...");
+                await createPayment(updatedOrder, token, window.location.href, {
+                  serviceId: currentPreBooked.uuid,
+                  paymentType: "service",
+                  serviceName: sheetCustomName,
+                  amount: Number(currentPreBooked.amount || selectedOption?.amount || 0),
+                  existingInvoiceUuid,
+                });
+              } else {
+                toast.info("Your sheet is attached. Please pay via your order invoice.");
+              }
             } catch (payErr) {
               console.error("Payment checkout error:", payErr);
             }
