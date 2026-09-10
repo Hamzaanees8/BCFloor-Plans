@@ -12,6 +12,7 @@ import { GlobalFileUploadProvider } from '@/context/GlobalFileUploadContext';
 import { GlobalUploadProgressOverlay } from '@/components/upload/GlobalUploadProgressOverlay';
 import { GlobalDownloadProvider } from '@/context/GlobalDownloadContext';
 import { GlobalDownloadProgressOverlay } from '@/components/download/GlobalDownloadProgressOverlay';
+import EnvironmentBanner from '@/components/EnvironmentBanner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -164,6 +165,14 @@ export default async function RootLayout({
   const extractColor = (c: any, fallback: string) =>
     (typeof c === 'object' ? c?.value : c) || fallback;
 
+  const envMode = (
+    process.env.NETX_ENV ||
+    process.env.NEXT_ENV ||
+    process.env.NEXT_PUBLIC_ENV ||
+    ""
+  ).trim().toLowerCase();
+  const isDevelop = envMode === "develop";
+
   const brandedStyle = whitelabelData?.branding ? {
     '--org-primary': extractColor(whitelabelData.branding.primary_color, '#6BAE41'),
     '--org-secondary': extractColor(whitelabelData.branding.secondary_color, '#DC9600'),
@@ -174,6 +183,11 @@ export default async function RootLayout({
     '--logo-url': whitelabelData.branding.logo ? `url(${whitelabelData.branding.logo})` : 'none',
   } as React.CSSProperties : {};
 
+  const rootStyle: React.CSSProperties = {
+    ...brandedStyle,
+    ...(isDevelop ? { '--env-banner-height': '36px' } : { '--env-banner-height': '0px' }),
+  };
+
   return (
     <html lang="en">
       <head>
@@ -183,7 +197,8 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <OrganizationProvider>
-          <div id="global-whitelabel-root" style={brandedStyle}>
+          <div id="global-whitelabel-root" style={rootStyle}>
+            {isDevelop && <EnvironmentBanner />}
             <GlobalFileUploadProvider>
               <GlobalDownloadProvider>
                 <UploadQueueProvider>

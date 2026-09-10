@@ -970,6 +970,243 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     setPreviewMarker(null);
   };
 
+  const [draggingMarker, setDraggingMarker] = useState<{
+    key: string;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  const dragStateRef = useRef<{
+    key: string;
+    marker: any;
+    isApiSnapshot: boolean;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    hasMoved: boolean;
+    pointerId: number;
+    targetEl: HTMLElement | null;
+  } | null>(null);
+
+  const justDraggedRef = useRef(false);
+
+  const handleMarkerPointerDown = (
+    e: React.PointerEvent<HTMLDivElement>,
+    marker: any,
+    isApiSnapshot: boolean,
+    posX: number,
+    posY: number,
+  ) => {
+    if (type === "confirm" || userType === "vendor" || e.button !== 0) return;
+    e.stopPropagation();
+
+    const targetEl = e.currentTarget;
+    try {
+      targetEl.setPointerCapture(e.pointerId);
+    } catch (err) {
+      console.warn("setPointerCapture failed", err);
+    }
+
+    const key = isApiSnapshot
+      ? marker.uuid
+      : `local-${droppedMarkers.indexOf(marker)}`;
+
+    dragStateRef.current = {
+      key,
+      marker,
+      isApiSnapshot,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: posX,
+      currentY: posY,
+      hasMoved: false,
+      pointerId: e.pointerId,
+      targetEl,
+    };
+  };
+
+  const handleMarkerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    if (!state.hasMoved) {
+      if (Math.hypot(dx, dy) < 4) return;
+      state.hasMoved = true;
+    }
+
+    const container = imgRef.current || imageContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const relX = e.clientX - rect.left;
+    const relY = e.clientY - rect.top;
+    const newX = Math.max(0, Math.min(100, (relX / rect.width) * 100));
+    const newY = Math.max(0, Math.min(100, (relY / rect.height) * 100));
+
+    state.currentX = newX;
+    state.currentY = newY;
+
+    setDraggingMarker({
+      key: state.key,
+      currentX: newX,
+      currentY: newY,
+    });
+  };
+
+  const handleMarkerPointerUp = async (
+    e: React.PointerEvent<HTMLDivElement>,
+    marker: any,
+    isApiSnapshot: boolean,
+  ) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId) return;
+
+    try {
+      state.targetEl?.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    const hasMoved = state.hasMoved;
+    const finalX = state.currentX;
+    const finalY = state.currentY;
+
+    dragStateRef.current = null;
+    setDraggingMarker(null);
+
+    if (hasMoved) {
+      justDraggedRef.current = true;
+      setTimeout(() => {
+        justDraggedRef.current = false;
+      }, 150);
+
+      if (isApiSnapshot) {
+        setActiveMarkerIndex(null);
+        setActiveApiSnapshotUuid(marker.uuid);
+        setSnapshotFile(null);
+        setSnapshotName(marker.name ?? "");
+        setSnapshotDescription(marker.description ?? "");
+        setTempMarkerPos({ x: finalX, y: finalY });
+        setPreviewMarker({
+          x: finalX,
+          y: finalY,
+          file_path: marker.file_path,
+          url: marker.url,
+          floorImageUrl: marker.file_name,
+          name: marker.name ?? "",
+          description: marker.description ?? "",
+          isApi: true,
+          thumbnail_url: marker.thumbnail_url,
+          variant_urls: (marker as any).variant_urls,
+        });
+
+        if (filesData) {
+          setFilesData({
+            ...filesData,
+            snapshots: filesData.snapshots.map((s) =>
+              s.uuid === marker.uuid
+                ? { ...s, x_axis: Number(finalX), y_axis: String(finalY) }
+                : s,
+            ),
+          });
+        }
+
+        const activeSnapshots = [
+          ...(filesData?.snapshots || [])
+            .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+            .map((snap) => {
+              if (snap.uuid === marker.uuid) {
+                return {
+                  uuid: snap.uuid,
+                  x: finalX,
+                  y: finalY,
+                  floorImageUrl: snap.file_name ?? "",
+                  isApi: true as const,
+                  name: snap.name ?? undefined,
+                  description: snap.description ?? undefined,
+                  file_path: snap.file_path,
+                  url: snap.url,
+                  thumbnail_url: snap.thumbnail_url,
+                  variant_urls: snap.variant_urls,
+                };
+              }
+              return {
+                uuid: snap.uuid,
+                x: Number(snap.x_axis ?? 0),
+                y: Number(snap.y_axis ?? 0),
+                floorImageUrl: snap.file_name ?? "",
+                isApi: true as const,
+                name: snap.name ?? undefined,
+                description: snap.description ?? undefined,
+                file_path: snap.file_path,
+                url: snap.url,
+                thumbnail_url: snap.thumbnail_url,
+                variant_urls: snap.variant_urls,
+              };
+            }),
+          ...droppedMarkers,
+        ];
+
+        await persistSnapshots(activeSnapshots, {
+          showToast: true,
+          successToastMsg: "Snapshot position updated",
+        });
+      } else {
+        const originalIndex = droppedMarkers.findIndex((m) => m === marker);
+        if (originalIndex !== -1) {
+          const updatedMarkers = droppedMarkers.map((m, i) =>
+            i === originalIndex ? { ...m, x: finalX, y: finalY } : m,
+          );
+          setDroppedMarkers(updatedMarkers);
+          setActiveMarkerIndex(originalIndex);
+          setActiveApiSnapshotUuid(null);
+          setSnapshotFile(marker.file ?? null);
+          setSnapshotName(marker.name ?? "");
+          setSnapshotDescription(marker.description ?? "");
+          setTempMarkerPos({ x: finalX, y: finalY });
+          setPreviewMarker({ ...marker, x: finalX, y: finalY });
+
+          const activeSnapshots = [
+            ...(filesData?.snapshots || [])
+              .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+              .map((snap) => ({
+                uuid: snap.uuid,
+                x: Number(snap.x_axis ?? 0),
+                y: Number(snap.y_axis ?? 0),
+                floorImageUrl: snap.file_name ?? "",
+                isApi: true as const,
+                name: snap.name ?? undefined,
+                description: snap.description ?? undefined,
+                file_path: snap.file_path,
+                url: snap.url,
+                thumbnail_url: snap.thumbnail_url,
+                variant_urls: snap.variant_urls,
+              })),
+            ...updatedMarkers,
+          ];
+
+          await persistSnapshots(activeSnapshots, {
+            showToast: true,
+            successToastMsg: "Snapshot position updated",
+          });
+        }
+      }
+    }
+  };
+
+  const handleMarkerPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId) return;
+    try {
+      state.targetEl?.releasePointerCapture(e.pointerId);
+    } catch {}
+    dragStateRef.current = null;
+    setDraggingMarker(null);
+  };
+
   const selectedFile = filteredFloorFiles?.find(
     (f) => ("uuid" in f ? f.name : (f as any).file.name) === selectedImageId,
   );
@@ -1171,6 +1408,14 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     const posX = isNaN(rawX) ? 50 : Math.max(0, Math.min(100, rawX));
                     const posY = isNaN(rawY) ? 50 : Math.max(0, Math.min(100, rawY));
 
+                    const markerKey = isApiSnapshot
+                      ? marker.uuid
+                      : `local-${droppedMarkers.indexOf(marker)}`;
+                    const isDraggingThis =
+                      draggingMarker !== null && draggingMarker.key === markerKey;
+                    const displayX = isDraggingThis ? draggingMarker.currentX : posX;
+                    const displayY = isDraggingThis ? draggingMarker.currentY : posY;
+
                     const isSelected =
                       type !== "confirm" &&
                       (isApiSnapshot
@@ -1181,18 +1426,38 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     return (
                       <div
                         key={idx}
-                        className={`absolute cursor-pointer z-10 transition-all duration-150 ${
-                          isSelected
-                            ? "scale-125 z-20 drop-shadow-[0_0_8px_rgba(66,144,233,0.9)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
-                            : "hover:scale-110"
+                        className={`absolute select-none z-10 ${
+                          type === "confirm"
+                            ? "cursor-pointer hover:scale-110 transition-all duration-150"
+                            : isDraggingThis
+                              ? "cursor-grabbing scale-125 z-30 transition-none drop-shadow-[0_0_12px_rgba(66,144,233,1)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
+                              : isSelected
+                                ? "cursor-grab scale-125 z-20 transition-all duration-150 drop-shadow-[0_0_8px_rgba(66,144,233,0.9)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
+                                : "cursor-grab hover:scale-110 transition-all duration-150"
                         }`}
                         style={{
-                          top: `${posY}%`,
-                          left: `${posX}%`,
+                          top: `${displayY}%`,
+                          left: `${displayX}%`,
                           transform: "translate(-50%, -100%)",
+                          touchAction: type !== "confirm" ? "none" : "auto",
                         }}
+                        onPointerDown={(e) =>
+                          handleMarkerPointerDown(
+                            e,
+                            marker,
+                            isApiSnapshot,
+                            posX,
+                            posY,
+                          )
+                        }
+                        onPointerMove={handleMarkerPointerMove}
+                        onPointerUp={(e) =>
+                          handleMarkerPointerUp(e, marker, isApiSnapshot)
+                        }
+                        onPointerCancel={handleMarkerPointerCancel}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (justDraggedRef.current) return;
                           if (type === "confirm") {
                             openFullscreenSnapshot(marker, idx);
                             return;
@@ -1263,7 +1528,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           }, 300);
                         }}
                       >
-                        <CameraIcon width={20} height={20} />
+                        <span className="pointer-events-none flex items-center justify-center">
+                          <CameraIcon width={20} height={20} />
+                        </span>
                       </div>
                     );
                   })}

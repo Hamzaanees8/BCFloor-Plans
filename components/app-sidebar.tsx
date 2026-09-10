@@ -388,17 +388,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     >
       <SidebarHeader
         className="p-0 h-fit"
-        style={{ backgroundColor: roleSettings.pageTabColor }}
+        style={{
+          backgroundColor: roleSettings.pageTabColor,
+          paddingTop: "var(--env-banner-height, 0px)",
+        }}
       >
-        <div className="flex flex-col p-4 w-full h-[80px]">
-          <div className="flex items-center gap-x-2.5">
+        <div className={`flex flex-col p-4 w-full h-[80px] justify-center ${isCollapsed ? 'items-center !p-2' : ''}`}>
+          <div className={`flex items-center gap-x-2.5 ${isCollapsed ? 'justify-center w-full' : ''}`}>
             {orgLogo ? (
               <Image
                 src={orgLogo}
                 alt="Logo"
-                width={Number(roleSettings.logoWidth) || 120}
-                height={50}
-                style={{ width: `${roleSettings.logoWidth}px`, height: "auto" }}
+                width={isCollapsed ? 32 : (Number(roleSettings.logoWidth) || 120)}
+                height={isCollapsed ? 32 : 50}
+                style={{
+                  width: isCollapsed ? "32px" : `${roleSettings.logoWidth}px`,
+                  height: "auto",
+                  maxHeight: "45px",
+                  objectFit: "contain",
+                }}
                 className="shrink-0"
               />
             ) : (
@@ -434,8 +442,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <button
         onClick={toggleSidebar}
         aria-label="Toggle sidebar"
+        style={{
+          top: "calc(55px + var(--env-banner-height, 0px))",
+        }}
         className={`
-        absolute top-[55px]
+        absolute
         -right-3
         z-[70]
         flex items-center justify-center
