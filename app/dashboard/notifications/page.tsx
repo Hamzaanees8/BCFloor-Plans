@@ -281,13 +281,28 @@ const Page = () => {
     },
     {
       header: "Type",
-      cell: ({ row }) => (
-        <div className="text-[15px] font-[400] text-[#7D7D7D]">
-          {(row.original.type || row.original.Subject)
-            ?.replace(/_/g, " ")
-            ?.replace(/\b\w/g, (char: string) => char.toUpperCase())}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const isApproval =
+          row.original.type === "admin_approval_required" ||
+          (row.original.type || "").toLowerCase().includes("approval") ||
+          (row.original.Subject || "").toLowerCase().includes("approval");
+        const formattedType = (row.original.type || row.original.Subject)
+          ?.replace(/_/g, " ")
+          ?.replace(/\b\w/g, (char: string) => char.toUpperCase());
+
+        return isApproval ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-[600] text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
+              {formattedType}
+            </span>
+          </div>
+        ) : (
+          <div className="text-[15px] font-[400] text-[#7D7D7D]">
+            {formattedType}
+          </div>
+        );
+      },
     },
     {
       header: "Address",

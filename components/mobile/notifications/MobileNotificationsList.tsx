@@ -114,11 +114,20 @@ export default function MobileNotificationsList({
                     </span>
                   </div>
 
-                  <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5 mb-1">
+                  <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5 mb-1 flex-wrap">
                     {!notification.is_read && (
                       <span className={`w-2 h-2 rounded-full shrink-0 ${userType}-bg`} />
                     )}
-                    {displayType}
+                    {(notification.type === 'admin_approval_required' ||
+                      (notification.type || '').toLowerCase().includes('approval') ||
+                      (notification.Subject || '').toLowerCase().includes('approval')) ? (
+                      <span className="text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
+                        {displayType}
+                      </span>
+                    ) : (
+                      <span>{displayType}</span>
+                    )}
                   </h4>
 
                   {addressText && addressText !== '-' && (

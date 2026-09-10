@@ -7,6 +7,9 @@ import {
   X,
   File,
   Calendar,
+  Clock,
+  FolderOpen,
+  ExternalLink,
 } from "lucide-react";
 import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -17,6 +20,10 @@ import { Address, NotificationData } from "@/lib/types";
 import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { format, parse } from "date-fns";
+import { GetFilesData } from "@/app/dashboard/file-manager/file-manager";
+import { GetOneOrder } from "@/app/dashboard/orders/orders";
+import { GetServices } from "@/app/dashboard/services/services";
+import { GetOneListing } from "@/app/dashboard/listings/listing";
 
 export interface AgentData {
   uuid?: string;
@@ -141,6 +148,248 @@ export default function QuickViewCard({
   const { organization } = useOrganization();
   const orgCreatedByName = organization?.name || organization?.from_name || "Support Team";
   const [showDialog, setShowDialog] = useState(false);
+
+  // Notification-specific resolved values
+  const notifData = type === "notification" ? (data as NotificationData) : null;
+  const isApprovalNotification = Boolean(
+    notifData &&
+      (notifData.type === "admin_approval_required" ||
+        (notifData.type || "").toLowerCase().includes("approval") ||
+        (notifData.description || "").toLowerCase().includes("approval") ||
+        (notifData.Subject || "").toLowerCase().includes("approval"))
+  );
+  const notifOrderUuid =
+    (notifData?.meta_data as any)?.order_uuid ||
+    (notifData?.order as any)?.uuid ||
+    (notifData?.source?.toLowerCase() === "order" ? notifData?.source_id : undefined) ||
+    (notifData?.source === "AgentPayment"
+      ? (notifData?.diff_data?.payment_details?.after as any)?.order_uuid
+      : undefined);
+  const notifOrderId =
+    (notifData?.meta_data as any)?.order_id ||
+    (notifData?.order as any)?.id ||
+    (notifData?.source === "AgentPayment" &&
+    (notifData?.diff_data?.payment_details?.after as any)?.order_uuid
+      ? "Order"
+      : undefined);
+  // Prefer UUID from property, but only a numeric property_id may be available from the notification payload.
+  // We'll resolve it async after fetching the full order.
+  const initialListingId =
+    (notifData?.meta_data as any)?.property_uuid ||
+    (notifData?.order as any)?.property?.uuid;
+
+  const [detectedApprovalServiceUuid, setDetectedApprovalServiceUuid] = useState<string | null>(null);
+  const [detectedApprovalServiceName, setDetectedApprovalServiceName] = useState<string | null>(null);
+  const [unapprovedServiceSet, setUnapprovedServiceSet] = useState<Set<string>>(new Set());
+  const [resolvedListingId, setResolvedListingId] = useState<string | null>(initialListingId ? String(initialListingId) : null);
+  const [loadedOrderServices, setLoadedOrderServices] = useState<any[]>([]);
+  // Starts true for approval notifications so the link is blocked until service detection finishes
+  const [isResolvingService, setIsResolvingService] = useState<boolean>(
+    type === "notification" && isApprovalNotification && !!notifOrderUuid
+  );
+
+  React.useEffect(() => {
+    if (type !== "notification" || !notifOrderUuid) {
+      setDetectedApprovalServiceUuid(null);
+      setDetectedApprovalServiceName(null);
+      setUnapprovedServiceSet(new Set());
+      setLoadedOrderServices([]);
+      setIsResolvingService(false);
+      return;
+    }
+
+    // Start loading every time notifOrderUuid changes
+    setIsResolvingService(true);
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let isMounted = true;
+
+    Promise.allSettled([
+      GetFilesData(token, notifOrderUuid, true),
+      GetOneOrder(token, notifOrderUuid),
+      GetServices(token),
+    ]).then(async ([filesResult, orderResult, servicesResult]) => {
+      if (!isMounted) return;
+
+      const filesRes = filesResult.status === "fulfilled" ? filesResult.value : null;
+      const orderRes = orderResult.status === "fulfilled" ? orderResult.value : null;
+      const servicesRes = servicesResult.status === "fulfilled" ? servicesResult.value : null;
+
+      const orderData = orderRes?.data || notifData?.order || null;
+      const catalogServices: any[] = Array.isArray(servicesRes?.data) ? servicesRes.data : [];
+      const orderServices: any[] = orderData?.services || orderData?.order_services || (notifData?.order as any)?.services || [];
+
+      if (orderServices.length > 0) {
+        setLoadedOrderServices(orderServices);
+      }
+
+      // Resolve the listing UUID — prefer property.uuid from the full order response.
+      // If the full order only has a numeric property_id, fetch the listing to get the UUID.
+      let listingUuid: string | null =
+        orderData?.property?.uuid ||
+        orderData?.property_uuid ||
+        (notifData?.order as any)?.property?.uuid ||
+        null;
+
+      if (!listingUuid) {
+        const rawPropertyId =
+          orderData?.property_id ||
+          orderData?.property?.id ||
+          (notifData?.order as any)?.property_id ||
+          (notifData?.order as any)?.property?.id ||
+          (notifData?.meta_data as any)?.property_id;
+        if (rawPropertyId) {
+          try {
+            const listingRes = await GetOneListing(String(rawPropertyId));
+            const listingData = listingRes?.data || listingRes;
+            const fetchedUuid = listingData?.uuid || listingData?.data?.uuid;
+            if (fetchedUuid) listingUuid = fetchedUuid;
+          } catch {
+            // ignore — we'll link without listingId
+          }
+        }
+      }
+
+      if (!isMounted) return;
+      if (listingUuid) {
+        setResolvedListingId(String(listingUuid));
+      }
+
+      const isFileUnapproved = (f: any) => {
+        return (
+          f.is_admin_approved === false ||
+          f.is_admin_approved === 0 ||
+          f.is_admin_approved === "0" ||
+          f.is_admin_approved === "false" ||
+          f.is_admin_approved === null ||
+          (!f.is_admin_approved && f.is_admin_approved !== true && f.is_admin_approved !== 1 && f.is_admin_approved !== "1")
+        );
+      };
+
+      const tours: any[] = Array.isArray(filesRes?.data)
+        ? filesRes.data
+        : filesRes?.data
+          ? [filesRes.data]
+          : [];
+
+      const unapprovedUuids = new Set<string>();
+      let firstUnapprovedUuid: string | null = null;
+      let firstUnapprovedName: string | null = null;
+
+      for (const tour of tours) {
+        for (const f of tour.files || []) {
+          if (isFileUnapproved(f)) {
+            // The FileManager tab key is os.service?.uuid (catalog service UUID).
+            // Resolve it by matching the file's service_id against order services first.
+            let resolvedServiceUuid: string | null = null;
+            let resolvedServiceName: string | null = null;
+
+            // Step 1: if the file already carries the service uuid, use it directly
+            if (f.service?.uuid) {
+              resolvedServiceUuid = f.service.uuid;
+              resolvedServiceName = f.service.name || null;
+            }
+
+            // Step 2: match file's service_id (numeric) to an order service, then use os.service.uuid
+            if (!resolvedServiceUuid && (f.service_id != null || f.service?.id != null)) {
+              const targetId = f.service_id ?? f.service?.id;
+              const matchedOrderService = orderServices.find((os: any) =>
+                os.service_id === targetId ||
+                os.service?.id === targetId ||
+                Number(os.service_id) === Number(targetId) ||
+                Number(os.service?.id) === Number(targetId)
+              );
+              if (matchedOrderService?.service?.uuid) {
+                resolvedServiceUuid = matchedOrderService.service.uuid;
+                resolvedServiceName = matchedOrderService.service?.name || null;
+              } else if (matchedOrderService) {
+                // Fallback to catalog lookup if order service doesn't carry uuid
+                const cs = catalogServices.find(
+                  (c: any) =>
+                    c.id === matchedOrderService.service_id ||
+                    c.id === matchedOrderService.service?.id ||
+                    Number(c.id) === Number(matchedOrderService.service_id) ||
+                    Number(c.id) === Number(matchedOrderService.service?.id)
+                );
+                if (cs?.uuid) {
+                  resolvedServiceUuid = cs.uuid;
+                  resolvedServiceName = cs.name || null;
+                }
+              }
+            }
+
+            // Step 3: last resort — direct catalog lookup by numeric id
+            if (!resolvedServiceUuid && (f.service_id != null || f.service?.id != null)) {
+              const targetId = f.service_id ?? f.service?.id;
+              const cs = catalogServices.find(
+                (c: any) => c.id === targetId || Number(c.id) === Number(targetId)
+              );
+              if (cs?.uuid) {
+                resolvedServiceUuid = cs.uuid;
+                resolvedServiceName = cs.name || null;
+              }
+            }
+
+            // Always add numeric IDs to the unapproved set so per-service highlighting works
+            if (f.service_id != null) unapprovedUuids.add(String(f.service_id));
+            if (f.service?.id != null) unapprovedUuids.add(String(f.service.id));
+
+            if (resolvedServiceUuid) {
+              unapprovedUuids.add(resolvedServiceUuid);
+              if (!firstUnapprovedUuid) {
+                firstUnapprovedUuid = resolvedServiceUuid;
+                firstUnapprovedName = resolvedServiceName;
+              }
+            }
+          }
+        }
+      }
+
+      // If no unapproved files detected in files array, check notification text for service name
+      if (!firstUnapprovedUuid && isApprovalNotification) {
+        const desc = `${notifData?.description || ""} ${notifData?.Subject || ""}`.toLowerCase();
+        for (const os of orderServices) {
+          const sName = (os.service?.name || "").toLowerCase();
+          if (sName && desc.includes(sName)) {
+            const cs = catalogServices.find(
+              (c) => c.uuid === os.service?.uuid || c.id === os.service_id || c.id === os.service?.id
+            );
+            firstUnapprovedUuid = cs?.uuid || os.service?.uuid || String(os.service_id);
+            firstUnapprovedName = cs?.name || os.service?.name || "Service";
+            if (firstUnapprovedUuid) unapprovedUuids.add(firstUnapprovedUuid);
+            break;
+          }
+        }
+      }
+
+      setUnapprovedServiceSet(unapprovedUuids);
+      if (firstUnapprovedUuid) {
+        setDetectedApprovalServiceUuid(firstUnapprovedUuid);
+        setDetectedApprovalServiceName(firstUnapprovedName);
+      }
+      // Resolution finished — allow the link to be clicked
+      setIsResolvingService(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [type, notifOrderUuid, notifData, isApprovalNotification]);
+
+  const effectiveListingId = resolvedListingId || initialListingId;
+  const targetServiceUuid =
+    (notifData?.meta_data as any)?.service_uuid ||
+    (notifData?.meta_data as any)?.serviceId ||
+    detectedApprovalServiceUuid;
+
+  const notifFileManagerUrl = notifOrderUuid
+    ? `/dashboard/file-manager/${notifOrderUuid}?${new URLSearchParams({
+        ...(effectiveListingId ? { listingId: String(effectiveListingId) } : {}),
+        ...(targetServiceUuid ? { serviceId: String(targetServiceUuid) } : {}),
+      }).toString()}`
+    : null;
 
   function formatTimeRange(start: string, end: string): string {
     const startDate = parse(start, "HH:mm:ss", new Date());
@@ -269,15 +518,29 @@ export default function QuickViewCard({
 
             <div className="text-[#4290E9] font-[400] text-[15px]">
               {type === "notification" && (
-                <div className="text-[24px] font-[400] text-[#666666]">
-                  {" "}
-                  {data?.type
-                    ?.replace(/_/g, " ")
-                    ?.replace(/\b\w/g, (char) => char.toUpperCase())}{" "}
+                <div className="flex flex-col gap-1.5">
+                  <div className={`text-[22px] font-[500] leading-tight ${isApprovalNotification ? "text-amber-900 bg-amber-50 border border-amber-300 p-2.5 rounded-md" : "text-[#666666]"}`}>
+                    <div className="flex items-center gap-2">
+                      {isApprovalNotification && (
+                        <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse shrink-0" />
+                      )}
+                      <span>
+                        {data?.type
+                          ?.replace(/_/g, " ")
+                          ?.replace(/\b\w/g, (char) => char.toUpperCase())}
+                      </span>
+                    </div>
+                    {isApprovalNotification && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                        <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                        Approval Pending
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
               {type === "notification" && (
-                <span className="text-[15px] font-[400] text-[#666666] ]  ">
+                <span className="text-[15px] font-[400] text-[#666666] mt-1 block">
                   {data.source === "AgentPayment" ||
                     data.source === "VendorPayment" ? (
                     <>
@@ -371,36 +634,69 @@ export default function QuickViewCard({
 
           {/* Details Section */}
           <div className="space-y-2 text-sm">
-            {type === "notification" && (
+            {type === "notification" && isApprovalNotification && notifOrderUuid && (
+              <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-3.5 space-y-2.5 shadow-sm mb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 uppercase tracking-wide">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Approval Required</span>
+                  </div>
+                  {notifOrderId && (
+                    <span className="text-xs font-semibold text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded">
+                      Order #{notifOrderId}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[13px] text-amber-900 leading-snug">
+                  {data.description || "Vendor uploaded media requires admin approval."}
+                </p>
+                {detectedApprovalServiceName && (
+                  <div className="text-xs font-medium text-amber-800 bg-amber-100/90 px-2.5 py-1 rounded border border-amber-200">
+                    Service: <span className="font-bold text-amber-900">{detectedApprovalServiceName}</span>
+                  </div>
+                )}
+                {isResolvingService ? (
+                  /* Blocked until service URL is fully resolved */
+                  <div className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 text-[13px] font-semibold text-amber-200 bg-amber-500/70 rounded-md cursor-not-allowed select-none">
+                    <svg className="w-4 h-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a10 10 0 100 10v-2a8 8 0 01-8-8z" />
+                    </svg>
+                    <span>Resolving service...</span>
+                  </div>
+                ) : notifFileManagerUrl ? (
+                  <Link
+                    href={notifFileManagerUrl}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-md transition-all shadow cursor-pointer text-center"
+                  >
+                    <FolderOpen className="w-4 h-4 shrink-0" />
+                    <span>
+                      {detectedApprovalServiceName
+                        ? `Open ${detectedApprovalServiceName} in File Manager`
+                        : "Open in File Manager"}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-0.5" />
+                  </Link>
+                ) : null}
+              </div>
+            )}
+            {type === "notification" && (notifOrderUuid || notifOrderId) && (
               <div className="flex items-center space-x-[18px] ">
                 <File className="w-[24px] text-[#666666]" strokeWidth={1} />
-                {(() => {
-                  const orderUuid =
-                    data?.meta_data?.order_uuid ||
-                    (data.source === "AgentPayment"
-                      ? data.diff_data?.payment_details?.after?.order_uuid
-                      : undefined);
-                  const orderId =
-                    data?.meta_data?.order_id ||
-                    (data.source === "AgentPayment" &&
-                    data.diff_data?.payment_details?.after?.order_uuid
-                      ? "Order UUID"
-                      : "N/A");
-                  return orderUuid ? (
-                    <Link
-                      href={`/dashboard/orders/${orderUuid}`}
-                      className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
-                    >
-                      #{orderId}
-                    </Link>
-                  ) : (
-                    <p
-                      className={`text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
-                    >
-                      #{orderId}
-                    </p>
-                  );
-                })()}
+                {notifOrderUuid ? (
+                  <Link
+                    href={`/dashboard/orders/${notifOrderUuid}`}
+                    className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
+                  >
+                    #{notifOrderId || "View Order"}
+                  </Link>
+                ) : (
+                  <p
+                    className={`text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
+                  >
+                    #{notifOrderId || "N/A"}
+                  </p>
+                )}
               </div>
             )}
             {type === "vendors" && data.addresses?.length > 0 && (
@@ -964,7 +1260,7 @@ export default function QuickViewCard({
                       </div>
                     )}
                   </div>
-                ) : (data as NotificationData).source === "Order" ? (
+                ) : (data as NotificationData).source?.toLowerCase() === "order" || Boolean((data as NotificationData).order) ? (
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     <div className="flex flex-col gap-[4px] mb-2">
                       <span className="text-[15px] font-[400] text-[#666666]">
@@ -1047,25 +1343,59 @@ export default function QuickViewCard({
                       </div>
                     )}
 
-                    {data.order?.services && data.order.services.length > 0 && (
+                    {((data.order?.services && data.order.services.length > 0) || loadedOrderServices.length > 0) && (
                       <div className="bg-white p-3 border rounded-md">
                         <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-3">
                           Services & Slots
                         </div>
                         <div className="space-y-4">
-                          {data.order.services.map((service, idx) => {
-                            const currentserviceSlot = data.order?.slots?.find(
+                          {((data.order?.services && data.order.services.length > 0) ? data.order.services : loadedOrderServices).map((service, idx) => {
+                            const currentserviceSlot = (data.order?.slots || [])?.find(
                               (slot) => slot.service_id == service.service_id,
                             );
+                            const targetServiceId = (service as any).service?.uuid || (service as any).uuid || service.service_id;
+                            const isThisServiceUnapproved =
+                              ((service as any).service?.uuid && unapprovedServiceSet.has((service as any).service.uuid)) ||
+                              ((service as any).uuid && unapprovedServiceSet.has((service as any).uuid)) ||
+                              unapprovedServiceSet.has(String(service.service_id)) ||
+                              unapprovedServiceSet.has(String((service as any).service?.id));
+
+                            const serviceSpecificUrl = notifOrderUuid
+                              ? `/dashboard/file-manager/${notifOrderUuid}?${new URLSearchParams({
+                                  ...(effectiveListingId ? { listingId: String(effectiveListingId) } : {}),
+                                  ...(targetServiceId ? { serviceId: String(targetServiceId) } : {}),
+                                }).toString()}`
+                              : null;
                             return (
-                              <div key={idx} className="border-b last:border-b-0 pb-3 last:pb-0">
-                                <div className="text-[15px] font-[500] text-[#666666] flex justify-between">
-                                  <span>{service.service?.name}</span>
-                                  <span>${Number(service.amount).toFixed(2)}</span>
+                              <div key={idx} className={`border-b last:border-b-0 pb-3 last:pb-0 ${isThisServiceUnapproved ? "bg-amber-50/70 p-2 rounded border border-amber-300" : ""}`}>
+                                <div className="text-[15px] font-[500] text-[#666666] flex justify-between items-start flex-wrap gap-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span>{(service as any).service?.name || "Service"}</span>
+                                    {isThisServiceUnapproved && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-400">
+                                        <Clock className="w-2.5 h-2.5 text-amber-700 shrink-0" />
+                                        Needs Approval
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="font-semibold">${Number(service.amount).toFixed(2)}</span>
                                 </div>
                                 {service.option?.title && (
                                   <div className="text-[13px] text-[#8E8E8E] mb-1">
                                     Option: {service.option.title}
+                                  </div>
+                                )}
+                                {serviceSpecificUrl && (
+                                  <div className="mt-1 mb-1.5">
+                                    <Link
+                                      href={serviceSpecificUrl}
+                                      className={`inline-flex items-center gap-1 text-xs font-semibold hover:underline cursor-pointer ${isThisServiceUnapproved ? "text-amber-800" : "text-[#4290E9]"}`}
+                                      title={`Open ${(service as any).service?.name || "Service"} in File Manager`}
+                                    >
+                                      <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                                      <span>Open in File Manager</span>
+                                      <ExternalLink className="w-3 h-3 shrink-0" />
+                                    </Link>
                                   </div>
                                 )}
                                 {currentserviceSlot ? (
