@@ -801,6 +801,16 @@ export default function StyledInput({
       if (className.includes("text-right")) setTextAlign("right");
       if (className.includes("text-center")) setTextAlign("center");
       if (className.includes("text-justify")) setTextAlign("justify");
+
+      if (className.includes("font-extrabold")) setFontWeight("font-extrabold");
+      else if (className.includes("font-bold")) setFontWeight("font-bold");
+      else if (className.includes("font-medium")) setFontWeight("font-medium");
+      else if (className.includes("font-thin")) setFontWeight("font-thin");
+
+      if (className.includes("font-alexandria")) setFontFamily("font-alexandria");
+      else if (className.includes("font-raleway")) setFontFamily("font-raleway");
+      else if (className.includes("font-caslon-bold")) setFontFamily("font-caslon-bold");
+      else if (className.includes("font-caslon")) setFontFamily("font-caslon");
     }
   }, [className]);
 
