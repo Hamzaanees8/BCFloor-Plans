@@ -40,6 +40,7 @@ import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
 import VendorOrderEdit from "../components/VendorOrderEdit";
+import AddServiceDialog from "../components/AddServiceDialog";
 import CancelOrderDialog, { CancelPreviewData } from "../components/CancelOrderDialog";
 import OrderNotesDialog from "../components/OrderNotesDialog";
 import { Agent } from "@/lib/types";
@@ -155,6 +156,7 @@ function Page() {
   >([]);
   const [selectedVendors, setselectedVendors] = useState("");
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
+  const [openAddServiceDialog, setOpenAddServiceDialog] = useState<boolean>(false);
   const [openNotesPopup, setOpenNotesPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
@@ -659,6 +661,15 @@ function Page() {
           currentOrder={orderData ?? undefined}
           open={openEditPopup}
           onOpenChange={setOpenEditPopup}
+        />
+      )}
+      {openAddServiceDialog && orderData && (
+        <AddServiceDialog
+          open={openAddServiceDialog}
+          onOpenChange={setOpenAddServiceDialog}
+          orderData={orderData}
+          onSuccess={refreshOrders}
+          roleSettings={roleSettings}
         />
       )}
       {openNotesPopup && orderData && currentUser && (
@@ -1255,14 +1266,14 @@ function Page() {
                   {userType !== "vendor" && orderData?.order_status !== "Cancelled" && (
                     <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
                       <Button
-                        onClick={() => setOpenEditPopup(true)}
+                        onClick={() => setOpenAddServiceDialog(true)}
                         className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-85 font-raleway`}
                         style={{
                           backgroundColor: roleSettings.pageTabColor,
                           borderColor: roleSettings.pageTabColor,
                         }}
                       >
-                        Upgrade/Downgrade Order
+                        Add Service
                       </Button>
                     </div>
                   )}

@@ -760,6 +760,10 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
         if (formData.roadName) setRoadName(s(formData.roadName));
         if (formData.cityLine) setCityLine(s(formData.cityLine));
         if (formData.headline) setHeadline(s(formData.headline));
+        if (formData.disclaimerText)
+          setDisclaimerText(s(formData.disclaimerText));
+        if (formData.printedByText)
+          setPrintedByText(s(formData.printedByText));
 
         // Restore detail fields from context
         if (
@@ -842,6 +846,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
         roadName,
         cityLine,
         headline,
+        disclaimerText,
+        printedByText,
         leftDetailFields,
         rightDetailFields,
         deletedStandardFieldIds,
@@ -872,6 +878,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
       roadName,
       cityLine,
       headline,
+      disclaimerText,
+      printedByText,
       leftDetailFields,
       rightDetailFields,
       deletedStandardFieldIds,
@@ -1156,6 +1164,20 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
                 fontSize: fieldStyles.headline?.fontSize || "16px",
               },
             },
+            disclaimerText: {
+              value: disclaimerText,
+              style: {
+                ...fieldStyles.disclaimerText,
+                fontSize: fieldStyles.disclaimerText?.fontSize || "8px",
+              },
+            },
+            printedByText: {
+              value: printedByText,
+              style: {
+                ...fieldStyles.printedByText,
+                fontSize: fieldStyles.printedByText?.fontSize || "9px",
+              },
+            },
             _leftDetailFields: leftDetailFields,
             _rightDetailFields: rightDetailFields,
             fieldPositions,
@@ -1289,6 +1311,10 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
           if (details.mlsLabel) setMlsLabel(s(details.mlsLabel));
           if (details.propertyName) setPropertyName(s(details.propertyName));
           if (details.headline) setHeadline(s(details.headline));
+          if (details.disclaimerText)
+            setDisclaimerText(s(details.disclaimerText));
+          if (details.printedByText)
+            setPrintedByText(s(details.printedByText));
           if (details.fieldPositions) setFieldPositions(details.fieldPositions);
           if (details.deletedStandardFieldIds)
             setDeletedStandardFieldIds(details.deletedStandardFieldIds);
@@ -1369,6 +1395,9 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
           if (st(od.emailLabel)) styles.emailLabel = st(od.emailLabel);
           if (st(od.mlsLabel)) styles.mlsLabel = st(od.mlsLabel);
           if (st(od.headline)) styles.headline = st(od.headline);
+          if (st(od.disclaimerText))
+            styles.disclaimerText = st(od.disclaimerText);
+          if (st(od.printedByText)) styles.printedByText = st(od.printedByText);
         }
 
         setFieldStyles(styles);
@@ -1972,9 +2001,17 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
                         deleteTitle="Remove Disclaimer"
                       >
                         <div className="w-full text-start font-light flex items-start justify-between gap-2">
-                          <p className="text-[8px] text-white leading-[1.2] font-light select-none m-0 flex-1">
-                            {disclaimerText}
-                          </p>
+                          <StyledInput
+                            value={disclaimerText}
+                            onChange={(e) => setDisclaimerText(e.target.value)}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("disclaimerText", s)
+                            }
+                            inputStyle={fieldStyles.disclaimerText}
+                            className="text-[8px] text-white leading-[1.2] font-light bg-transparent border-none focus:outline-none w-full placeholder-white/50"
+                            rows={3}
+                            placeholder="Disclaimer text..."
+                          />
                           <span className="flex items-center shrink-0 gap-1 mt-0.5">
                             <House className="w-3.5 h-3.5 text-white" />
                             <svg
@@ -2047,9 +2084,16 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
                         }
                         deleteTitle="Remove Printed By"
                       >
-                        <p className="text-left font-semibold text-[9px] mt-0.5 text-white whitespace-nowrap tracking-wide select-none m-0">
-                          {printedByText}
-                        </p>
+                        <StyledInput
+                          value={printedByText}
+                          onChange={(e) => setPrintedByText(e.target.value)}
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("printedByText", s)
+                          }
+                          inputStyle={fieldStyles.printedByText}
+                          className="text-left font-semibold text-[9px] mt-0.5 text-white whitespace-nowrap tracking-wide bg-transparent border-none focus:outline-none w-full placeholder-white/50"
+                          placeholder="DESIGNED AND PRINTED BY BC FLOOR PLANS"
+                        />
                       </DraggableBox>
                     )}
                   </div>
