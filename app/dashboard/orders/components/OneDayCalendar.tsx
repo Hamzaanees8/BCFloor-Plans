@@ -799,6 +799,24 @@ export function getVendorValidStartSlots(
   };
 }
 
+/**
+ * Returns true when at least one slot in the proposed array falls within the
+ * vendor's lunch break window [breakStart, breakEnd).
+ * Used to trigger the admin confirmation dialog when allowBookingThroughLunch is ON.
+ */
+function proposedSlotsSpanLunch(
+  proposed: { start: string; end: string }[],
+  breakStart: ReturnType<typeof dayjs> | null,
+  breakEnd: ReturnType<typeof dayjs> | null,
+): boolean {
+  if (!breakStart || !breakEnd) return false;
+  return proposed.some((s) => {
+    const sStart = dayjs(s.start);
+    return sStart.isSameOrAfter(breakStart) && sStart.isBefore(breakEnd);
+  });
+}
+
+
 function generateAllDaySlots(
   date: string,
   interval = 15,
@@ -1179,6 +1197,16 @@ export default function OneDayCalendar({
     slotEnd: any;
   } | null>(null);
   const [unbookedSlotsKeys, setUnbookedSlotsKeys] = useState<Set<string>>(new Set());
+
+  // Book-through-lunch confirmation dialog state (admin only)
+  const [showConfirmLunchOverlap, setShowConfirmLunchOverlap] = useState(false);
+  const [pendingLunchOverlap, setPendingLunchOverlap] = useState<{
+    vendor: VendorData;
+    slots: { start: string; end: string }[];
+    lunchLabel: string;
+    forceProceed: boolean;
+  } | null>(null);
+
 
   const handleConfirmUnbookSlot = async () => {
     if (!pendingUnbookSlot || !pendingUnbookSlot.booking) {
@@ -2855,7 +2883,7 @@ export default function OneDayCalendar({
             clicked.start,
             requiredSlots,
           );
-          handleAssignVendor(adminVendor, overrideSlots, forceProceed);
+          assignVendorWithLunchCheck(adminVendor, overrideSlots, forceProceed);
           return;
         }
       }
@@ -2883,13 +2911,13 @@ export default function OneDayCalendar({
         (m) => m.vendor.uuid === currentAssignedVendorId,
       );
       if (sticky) {
-        handleAssignVendor(sticky.vendor, sticky.proposedSlots, forceProceed);
+        assignVendorWithLunchCheck(sticky.vendor, sticky.proposedSlots, forceProceed);
         return;
       }
     }
 
     if (matching.length === 1) {
-      handleAssignVendor(
+      assignVendorWithLunchCheck(
         matching[0].vendor,
         matching[0].proposedSlots,
         forceProceed,
@@ -3004,6 +3032,43 @@ export default function OneDayCalendar({
     await onEventClick(info, true);
   };
 
+  // ── Book-Through-Lunch confirm handler ──────────────────────────────────────
+  const handleConfirmLunchOverlap = async () => {
+    if (!pendingLunchOverlap) return;
+    const { vendor, slots, forceProceed } = pendingLunchOverlap;
+    setPendingLunchOverlap(null);
+    setShowConfirmLunchOverlap(false);
+    await handleAssignVendor(vendor, slots, forceProceed);
+  };
+
+  /**
+   * Wraps handleAssignVendor with a lunch-overlap confirmation check.
+   * Only fires for admin when allow_booking_through_lunch is ON and
+   * the proposed slots span the vendor's lunch break.
+   */
+  const assignVendorWithLunchCheck = async (
+    vendor: VendorData,
+    proposed: { start: string; end: string }[],
+    forceProceed = false,
+  ) => {
+    const allowBookingThroughLunchActive =
+      portalSettings?.allow_booking_through_lunch ?? false;
+    const isAdmin = userType === "admin";
+
+    if (allowBookingThroughLunchActive && isAdmin && vendor.work_hours?.break_start && vendor.work_hours?.break_end) {
+      const bStart = dayjs(`${currentDate}T${vendor.work_hours.break_start}`);
+      const bEnd   = dayjs(`${currentDate}T${vendor.work_hours.break_end}`);
+      if (bEnd.isAfter(bStart) && proposedSlotsSpanLunch(proposed, bStart, bEnd)) {
+        const lunchLabel = `${bStart.format("h:mm A")} – ${bEnd.format("h:mm A")}`;
+        setPendingLunchOverlap({ vendor, slots: proposed, lunchLabel, forceProceed });
+        setShowConfirmLunchOverlap(true);
+        return;
+      }
+    }
+    await handleAssignVendor(vendor, proposed, forceProceed);
+  };
+  // ────────────────────────────────────────────────────────────────────────────
+
   const handleConfirmVendorChange = async () => {
     if (!pendingVendorAssignment) return;
     const { vendor, slots } = pendingVendorAssignment;
@@ -3011,6 +3076,7 @@ export default function OneDayCalendar({
     setShowConfirmVendorChange(false);
     await handleAssignVendor(vendor, slots, true);
   };
+
 
   const handleAssignVendor = async (
     vendor: VendorData,
@@ -3729,7 +3795,7 @@ export default function OneDayCalendar({
                               clickedSlot.start,
                             );
                             if (proposed && proposed.length > 0) {
-                              handleAssignVendor(vendor, proposed, true);
+                              assignVendorWithLunchCheck(vendor, proposed, true);
                             } else {
                               toast.error(
                                 "Vendor is not available for the full duration starting at this time.",
@@ -3871,6 +3937,23 @@ export default function OneDayCalendar({
         toggleShowAgain={() => setShowAgain((prev) => !prev)}
         title="Trim / Unbook Slot?"
         description="Are you sure you want to trim this slot from the previously booked order? The updated schedule will be saved."
+      />
+      {/* Book-Through-Lunch confirmation dialog — admin only */}
+      <ConfirmationDialog
+        open={showConfirmLunchOverlap}
+        setOpen={(open) => {
+          setShowConfirmLunchOverlap(open);
+          if (!open) setPendingLunchOverlap(null);
+        }}
+        onConfirm={handleConfirmLunchOverlap}
+        onCancel={() => {
+          setShowConfirmLunchOverlap(false);
+          setPendingLunchOverlap(null);
+        }}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain((prev) => !prev)}
+        title="Book Through Lunch?"
+        description={`This appointment will run through the vendor's lunch break (${pendingLunchOverlap?.lunchLabel ?? ""}). The lunch break duration will be added to the total appointment time. Do you want to proceed?`}
       />
     </>
   );

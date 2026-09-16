@@ -516,6 +516,18 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     </p>
                 </div>
             </div>
+            {/* Book-Through-Lunch info banner — admin only, when setting is ON */}
+            {userType === 'admin' && portalSettings?.allow_booking_through_lunch && (
+                <div className="px-4 md:px-16 py-3 bg-white border-b border-[#EEEEEE]">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 shadow-sm">
+                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-[13px] text-amber-800 leading-relaxed">
+                            <span className="font-semibold">Book Through Lunch is enabled.</span>{' '}
+                            If an appointment overlaps a vendor&apos;s lunch break, you will be asked to confirm before booking through it. The lunch break duration will be added to the total appointment time.
+                        </p>
+                    </div>
+                </div>
+            )}
             <div className="flex justify-between items-center px-4 md:px-16 py-4 border-b border-[#EEEEEE] bg-white">
                 <div className="flex items-center gap-4">
                     <span className="text-[12px] text-[#7D7D7D]">Master Date Selection:</span>
