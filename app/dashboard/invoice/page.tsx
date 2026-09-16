@@ -128,111 +128,121 @@ const InvoiceListPage = () => {
         setRefundModal({ open: true, invoice })
     }
 
-    const columns: ColumnDef<Invoice>[] = [
-        {
-            accessorKey: "invoice_number",
-            header: "INVOICE #",
-            cell: ({ row }) => (
-                <div 
-                    className="font-bold cursor-pointer hover:underline" 
-                    style={{ color: roleSettings.pageTabColor }}
-                    onClick={() => router.push(`/dashboard/invoice/${row.original.uuid}`)}
-                >
-                    #{row.original.invoice_number || row.original.id}
-                </div>
-            )
-        },
-        {
-            accessorKey: "property",
-            header: "PROPERTY",
-            cell: ({ row }) => (
-                <div className="max-w-[250px] truncate" style={{ color: roleSettings.pageText }}>
-                    {row.original.order?.property?.address || "N/A"}
-                </div>
-            )
-        },
-        {
-            accessorKey: "agent",
-            header: "AGENT",
-            cell: ({ row }) => (
-                <div style={{ color: roleSettings.pageText }}>
-                    {row.original.agent?.first_name} {row.original.agent?.last_name}
-                </div>
-            )
-        },
-        {
-            accessorKey: "issued_at",
-            header: ({ column }) => {
-                const isSorted = column.getIsSorted();
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => {
-                            if (isSorted === "asc") column.toggleSorting(true);
-                            else if (isSorted === "desc") column.clearSorting();
-                            else column.toggleSorting(false);
-                        }}
-                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold h-auto"
+    const columns = useMemo<ColumnDef<Invoice>[]>(() => {
+        const baseCols: ColumnDef<Invoice>[] = [
+            {
+                accessorKey: "invoice_number",
+                header: "INVOICE #",
+                cell: ({ row }) => (
+                    <div 
+                        className="font-bold cursor-pointer hover:underline" 
+                        style={{ color: roleSettings.pageTabColor }}
+                        onClick={() => router.push(`/dashboard/invoice/${row.original.uuid}`)}
                     >
-                        DATE
-                        {isSorted === "asc" && <span><ChevronUp strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
-                        {isSorted === "desc" && <span><ChevronDown strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
-                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown strokeWidth={3} className="h-4 w-4 text-gray-400" /></span>}
-                    </Button>
+                        #{row.original.invoice_number || row.original.id}
+                    </div>
                 )
             },
-            cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>{new Date(row.original.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</div>,
-            enableSorting: true,
-        },
-        {
-            accessorKey: "total",
-            header: "TOTAL",
-            cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>${parseFloat(row.original.total).toFixed(2)}</div>
-        },
-        {
-            accessorKey: "status",
-            header: "STATUS",
-            cell: ({ row }) => {
-                const status = (row.original.status || 'unpaid').toUpperCase();
-                let bgColor = "#E06D5E"; // Unpaid
-                if (status === "PAID") bgColor = "#6BAE41";
-                else if (status === "ISSUED") bgColor = "#4A90E2";
-                else if (status === "VOID") bgColor = "#A0A0A0";
-                else if (status === "PARTIAL" || status === "PARTIALLY_PAID" || status === "PARTIAL_PAID") bgColor = "#F5A623";
-                else if (status === "REFUNDED") bgColor = "#D0021B";
-                else if (status === "PARTIALLY_REFUNDED" || status === "PARTIAL_REFUNDED") bgColor = "#D9534F";
-
-                return (
-                    <div
-                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit uppercase"
-                        style={{ backgroundColor: bgColor }}
-                    >
-                        {status.replace(/_/g, ' ')}
+            {
+                accessorKey: "property",
+                header: "PROPERTY",
+                cell: ({ row }) => (
+                    <div className="max-w-[250px] truncate" style={{ color: roleSettings.pageText }}>
+                        {row.original.order?.property?.address || "N/A"}
                     </div>
-                );
-            }
-        },
-        {
-            id: "actions",
-            header: "ACTIONS",
-            cell: ({ row }) => {
-                const inv = row.original;
-                const options = [
-                    {
-                        label: "View",
-                        onClick: () => router.push(`/dashboard/invoice/${inv.uuid}`),
-                    },
-                    ...((['paid', 'partially_refunded', 'partial_refunded'].includes((inv.status || '').toLowerCase()) &&
-                        (parseFloat(inv.paid_amount || inv.total || '0') - parseFloat(inv.refunded_amount || '0')) > 0) ? [{
-                        label: "Refund",
-                        onClick: () => handleRefund(inv),
-                    }] : []),
-                ];
+                )
+            },
+        ];
 
-                return <DropdownActions options={options} />
-            }
+        if (role !== "agent") {
+            baseCols.push({
+                accessorKey: "agent",
+                header: "AGENT",
+                cell: ({ row }) => (
+                    <div style={{ color: roleSettings.pageText }}>
+                        {row.original.agent?.first_name} {row.original.agent?.last_name}
+                    </div>
+                )
+            });
         }
-    ];
+
+        baseCols.push(
+            {
+                accessorKey: "issued_at",
+                header: ({ column }) => {
+                    const isSorted = column.getIsSorted();
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                if (isSorted === "asc") column.toggleSorting(true);
+                                else if (isSorted === "desc") column.clearSorting();
+                                else column.toggleSorting(false);
+                            }}
+                            className="p-0 hover:bg-transparent flex items-center gap-1 font-bold h-auto"
+                        >
+                            DATE
+                            {isSorted === "asc" && <span><ChevronUp strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
+                            {isSorted === "desc" && <span><ChevronDown strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
+                            {!isSorted && <span className="text-gray-400"><ChevronsUpDown strokeWidth={3} className="h-4 w-4 text-gray-400" /></span>}
+                        </Button>
+                    )
+                },
+                cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>{new Date(row.original.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</div>,
+                enableSorting: true,
+            },
+            {
+                accessorKey: "total",
+                header: "TOTAL",
+                cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>${parseFloat(row.original.total).toFixed(2)}</div>
+            },
+            {
+                accessorKey: "status",
+                header: "STATUS",
+                cell: ({ row }) => {
+                    const status = (row.original.status || 'unpaid').toUpperCase();
+                    let bgColor = "#E06D5E"; // Unpaid
+                    if (status === "PAID") bgColor = "#6BAE41";
+                    else if (status === "ISSUED") bgColor = "#4A90E2";
+                    else if (status === "VOID") bgColor = "#A0A0A0";
+                    else if (status === "PARTIAL" || status === "PARTIALLY_PAID" || status === "PARTIAL_PAID") bgColor = "#F5A623";
+                    else if (status === "REFUNDED") bgColor = "#D0021B";
+                    else if (status === "PARTIALLY_REFUNDED" || status === "PARTIAL_REFUNDED") bgColor = "#D9534F";
+
+                    return (
+                        <div
+                            className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit uppercase"
+                            style={{ backgroundColor: bgColor }}
+                        >
+                            {status.replace(/_/g, ' ')}
+                        </div>
+                    );
+                }
+            },
+            {
+                id: "actions",
+                header: "ACTIONS",
+                cell: ({ row }) => {
+                    const inv = row.original;
+                    const options = [
+                        {
+                            label: "View",
+                            onClick: () => router.push(`/dashboard/invoice/${inv.uuid}`),
+                        },
+                        ...((['paid', 'partially_refunded', 'partial_refunded'].includes((inv.status || '').toLowerCase()) &&
+                            (parseFloat(inv.paid_amount || inv.total || '0') - parseFloat(inv.refunded_amount || '0')) > 0) ? [{
+                            label: "Refund",
+                            onClick: () => handleRefund(inv),
+                        }] : []),
+                    ];
+
+                    return <DropdownActions options={options} />
+                }
+            }
+        );
+
+        return baseCols;
+    }, [role, roleSettings, router]);
 
     const agentOptions = useMemo(() => {
         const options = agents.map(a => ({
@@ -299,7 +309,7 @@ const InvoiceListPage = () => {
 
             {/* Filters Section */}
             <div className="p-4 border-b sticky top-[80px] z-40" style={{ backgroundColor: roleSettings.pageBg }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`grid grid-cols-1 md:grid-cols-2 ${role !== "agent" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}>
                     {/* Search Field */}
                     <div>
                         <label className="text-sm font-medium text-gray-700 mb-1 block">Address / Order ID</label>
@@ -312,26 +322,28 @@ const InvoiceListPage = () => {
                     </div>
 
                     {/* Agent Filter */}
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Agent</label>
-                        <SearchableSelect
-                            options={agentOptions}
-                            value={agentFilter}
-                            onChange={(val) => {
-                                setAgentFilter(val)
-                                // If current property filter doesn't belong to this agent, reset it
-                                if (propertyFilter !== 'all') {
-                                    const prop = properties.find(p => p.uuid === propertyFilter)
-                                    if (val !== 'all' && prop && prop.agent?.uuid !== val) {
-                                        setPropertyFilter('all')
+                    {role !== "agent" && (
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 mb-1 block">Agent</label>
+                            <SearchableSelect
+                                options={agentOptions}
+                                value={agentFilter}
+                                onChange={(val) => {
+                                    setAgentFilter(val)
+                                    // If current property filter doesn't belong to this agent, reset it
+                                    if (propertyFilter !== 'all') {
+                                        const prop = properties.find(p => p.uuid === propertyFilter)
+                                        if (val !== 'all' && prop && prop.agent?.uuid !== val) {
+                                            setPropertyFilter('all')
+                                        }
                                     }
-                                }
-                            }}
-                            placeholder="All Agents"
-                            searchPlaceholder="Search agent..."
-                            className="h-[40px] bg-white border-[#BBBBBB]"
-                        />
-                    </div>
+                                }}
+                                placeholder="All Agents"
+                                searchPlaceholder="Search agent..."
+                                className="h-[40px] bg-white border-[#BBBBBB]"
+                            />
+                        </div>
+                    )}
 
                     {/* Property Filter */}
                     <div>
@@ -405,9 +417,11 @@ const InvoiceListPage = () => {
                                                     <h3 className="text-sm font-bold text-gray-900" style={{ color: roleSettings?.pageTabColor }}>
                                                         {inv.invoice_number || `Invoice #${inv.id}`}
                                                     </h3>
-                                                    <p className="text-xs text-gray-500 mt-1 font-semibold">
-                                                        Agent: {inv.agent?.first_name} {inv.agent?.last_name}
-                                                    </p>
+                                                    {role !== "agent" && (
+                                                        <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                                            Agent: {inv.agent?.first_name} {inv.agent?.last_name}
+                                                        </p>
+                                                    )}
                                                     {inv.order?.property?.address && (
                                                         <p className="text-[11px] text-gray-400 mt-1 truncate">
                                                             Property: {inv.order.property.address}

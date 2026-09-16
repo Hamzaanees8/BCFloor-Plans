@@ -57,6 +57,7 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import RefundModal from "../../invoice/components/RefundModal";
+import ReleaseMediaConfirmDialog from "../components/ReleaseMediaConfirmDialog";
 import { useOrganization } from "@/app/context/OrganizationContext";
 export interface VendorAddress {
   type: "company" | "billing" | string;
@@ -186,6 +187,9 @@ function Page() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [agentData, setAgentData] = useState<Agent[]>([]);
   const [isChecked, setIsChecked] = useState(true);
+  const [releaseMediaBeforePayment, setReleaseMediaBeforePayment] = useState(false);
+  const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -222,6 +226,8 @@ function Page() {
       setProperty_website(data.data.property.property_website);
       setMls_property(data.data.property.mls_number);
       setselectedVendors(data.data.vendor?.uuid || data.data.slots?.[0]?.vendor?.uuid || "");
+      setIsChecked(data.data.lock_materials ?? true);
+      setReleaseMediaBeforePayment(data.data.release_media_before_payment ?? false);
     } catch (err) {
       console.log("Error refreshing order:", err);
     }
@@ -301,6 +307,8 @@ function Page() {
         setProperty_website(data.data.property.property_website);
         setMls_property(data.data.property.mls_number);
         setselectedVendors(data.data.vendor?.uuid || data.data.slots?.[0]?.vendor?.uuid || "");
+        setIsChecked(data.data.lock_materials ?? true);
+        setReleaseMediaBeforePayment(data.data.release_media_before_payment ?? false);
       })
       .catch((err) => console.log(err.message));
   }, [orderId]);
@@ -448,6 +456,53 @@ function Page() {
     return [];
   })();
 
+  const handleToggleReleaseMedia = (checked: boolean) => {
+    if (checked) {
+      setShowReleaseMediaConfirm(true);
+    } else {
+      executeReleaseMedia(false);
+    }
+  };
+
+  const executeReleaseMedia = async (enable: boolean) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    setIsReleaseMediaLoading(true);
+    try {
+      await EditOrderStatus(
+        orderId,
+        {
+          release_media_before_payment: enable,
+          _method: "PUT",
+        },
+        token
+      );
+      setReleaseMediaBeforePayment(enable);
+      setOrderData((prev) =>
+        prev ? { ...prev, release_media_before_payment: enable } : prev
+      );
+      setShowReleaseMediaConfirm(false);
+      toast.success(
+        enable
+          ? "Media released to agent before payment successfully"
+          : "Media release before payment revoked"
+      );
+    } catch (error) {
+      console.error("Error updating media release status:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update media release status"
+      );
+    } finally {
+      setIsReleaseMediaLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -460,6 +515,7 @@ function Page() {
       const payload = {
         order_status: order_status,
         lock_materials: isChecked,
+        release_media_before_payment: releaseMediaBeforePayment,
         property_website: property_website,
         mls_property: mls_property,
         vendor_uuid: selectedVendors,
@@ -706,7 +762,7 @@ function Page() {
         />
       )}
       <div
-        className="w-full h-[80px] font-alexandria  z-10 sticky top-0  flex justify-between px-[20px] items-center"
+        className="w-full h-[80px] font-alexandria z-50 sticky top-[var(--env-banner-height,0px)] flex justify-between px-[20px] items-center"
         style={{
           backgroundColor: headerBg,
           boxShadow: "0px 4px 4px #0000001F",
@@ -833,7 +889,7 @@ function Page() {
         </div>
       </div>
       <div
-        className="w-full h-[60px] font-alexandria pr-5 z-20 sticky top-[80px] flex items-center border-b border-[#BBBBBB]"
+        className="w-full h-[60px] font-alexandria pr-5 z-40 sticky top-[calc(var(--env-banner-height,0px)+80px)] flex items-center border-b border-[#BBBBBB]"
         style={{ backgroundColor: headerBg }}
       >
         <div className="flex items-center justify-center w-full px-2 md:px-0 overflow-x-auto whitespace-nowrap scrollbar-none">
@@ -1245,21 +1301,45 @@ function Page() {
                       Go To File Manager
                     </Button>
                     {userType === "admin" && (
-                      <div
-                        className="grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end"
-                        style={{ color: roleSettings.pageText }}
-                      >
-                        <p>Require payment before releasing materials</p>
-                        <Switch
-                          checked={isChecked}
-                          onCheckedChange={setIsChecked}
-                          className="data-[state=checked]:bg-transparent"
-                          style={{
-                            backgroundColor: isChecked
-                              ? roleSettings.pageTabColor
-                              : undefined,
-                          }}
-                        />
+                      <div className="flex flex-col gap-[16px] w-full">
+                        <div
+                          className="grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end items-center"
+                          style={{ color: roleSettings.pageText }}
+                        >
+                          <p>Require payment before releasing materials</p>
+                          <Switch
+                            checked={isChecked}
+                            onCheckedChange={setIsChecked}
+                            className="data-[state=checked]:bg-transparent"
+                            style={{
+                              backgroundColor: isChecked
+                                ? roleSettings.pageTabColor
+                                : undefined,
+                            }}
+                          />
+                        </div>
+                        <div
+                          className="grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end items-center"
+                          style={{ color: roleSettings.pageText }}
+                        >
+                          <div className="text-left w-full">
+                            <p className="font-semibold text-gray-800">Release Media Before Payment</p>
+                            <p className="text-[12px] text-gray-500">
+                              Allow agent to view and download media without paying
+                            </p>
+                          </div>
+                          <Switch
+                            checked={releaseMediaBeforePayment}
+                            onCheckedChange={handleToggleReleaseMedia}
+                            disabled={isReleaseMediaLoading}
+                            className="data-[state=checked]:bg-transparent"
+                            style={{
+                              backgroundColor: releaseMediaBeforePayment
+                                ? "#16a34a"
+                                : undefined,
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1955,6 +2035,14 @@ function Page() {
           fetchInvoices();
           refreshOrders();
         }}
+      />
+
+      <ReleaseMediaConfirmDialog
+        open={showReleaseMediaConfirm}
+        onOpenChange={setShowReleaseMediaConfirm}
+        orderData={orderData}
+        isLoading={isReleaseMediaLoading}
+        onConfirm={() => executeReleaseMedia(true)}
       />
     </div>
   );

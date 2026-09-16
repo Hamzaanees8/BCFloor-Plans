@@ -341,6 +341,7 @@ export interface ListingOrder {
     updated_at: string;
     services: OrderService[];
     lock_materials: boolean;
+    release_media_before_payment?: boolean;
     media_approval_required?: boolean;
     has_unapproved_media?: boolean;
     has_pending_approval?: boolean;

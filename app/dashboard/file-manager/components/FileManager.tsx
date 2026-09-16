@@ -24,6 +24,7 @@ import UpgradeServicePopup from "./UpgradeServicePopup";
 import BlockedMediaMessage from "./BlockedMediaMessage";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
+import ReleaseMediaConfirmDialog from "../../orders/components/ReleaseMediaConfirmDialog";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
@@ -413,6 +414,45 @@ const FileManager = () => {
       toast.error(err?.message || "Failed to update order status");
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
+
+  const handleToggleReleaseMedia = async (enable: boolean) => {
+    if (enable) {
+      setShowReleaseMediaConfirm(true);
+    } else {
+      executeReleaseMedia(false);
+    }
+  };
+
+  const executeReleaseMedia = async (enable: boolean) => {
+    if (!orderId) return;
+    const token = localStorage.getItem("token") || "";
+    setIsReleaseMediaLoading(true);
+    try {
+      await EditOrderStatus(
+        orderId as string,
+        { release_media_before_payment: enable, _method: "PUT" },
+        token
+      );
+      if (orderData) {
+        orderData.release_media_before_payment = enable;
+        setOrderData({ ...orderData, release_media_before_payment: enable });
+      }
+      setShowReleaseMediaConfirm(false);
+      toast.success(
+        enable
+          ? "Media released to agent before payment successfully"
+          : "Media release before payment revoked"
+      );
+    } catch (err: any) {
+      console.error("Failed to update media release:", err);
+      toast.error(err?.message || "Failed to update media release status");
+    } finally {
+      setIsReleaseMediaLoading(false);
     }
   };
 
@@ -2830,6 +2870,39 @@ const FileManager = () => {
                   )}
                 </div>
               )}
+              {userType === "admin" && (
+                <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-gray-300 shrink-0">
+                  <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase hidden lg:inline">
+                    Pre-Payment Release:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleReleaseMedia(!orderData?.release_media_before_payment)
+                    }
+                    disabled={isReleaseMediaLoading}
+                    title={
+                      orderData?.release_media_before_payment
+                        ? "Click to revoke pre-payment media release"
+                        : "Click to release media to agent before payment"
+                    }
+                    className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 transition-all shadow-sm flex items-center gap-1 border cursor-pointer ${
+                      orderData?.release_media_before_payment
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                        : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                    } ${isReleaseMediaLoading ? "opacity-70 cursor-not-allowed" : ""}`}
+                  >
+                    {isReleaseMediaLoading && (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    )}
+                    <span>
+                      {orderData?.release_media_before_payment
+                        ? "Media Released"
+                        : "Release Media"}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3341,6 +3414,14 @@ const FileManager = () => {
           onSuccess={() => fetchOrder()}
         />
       )}
+
+      <ReleaseMediaConfirmDialog
+        open={showReleaseMediaConfirm}
+        onOpenChange={setShowReleaseMediaConfirm}
+        orderData={orderData}
+        isLoading={isReleaseMediaLoading}
+        onConfirm={() => executeReleaseMedia(true)}
+      />
     </div>
   );
 };

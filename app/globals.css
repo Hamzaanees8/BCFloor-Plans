@@ -79,6 +79,9 @@
     --org-primary: #6BAE41;
     --org-secondary: #DC9600;
     --org-logo: none;
+
+    /* Environment Banner Height (0px when disabled/production) */
+    --env-banner-height: 0px;
   }
 
   .dark {
@@ -1204,3 +1207,11 @@ textarea::placeholder {
   font-style: normal;
   font-display: swap;
 }
+
+/* Environment Banner Adjustments */
+.sticky.top-0,
+.sticky.top-\[0px\],
+[class*="sticky"][class*="top-0"],
+[class*="sticky"][class*="top-[0px]"] {
+  top: var(--env-banner-height, 0px) !important;
+}

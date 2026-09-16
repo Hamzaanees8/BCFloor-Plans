@@ -400,12 +400,15 @@ export default function QuickViewCard({
     <>
       <Card
         style={{
-          maxHeight: "100vh",
-          minHeight: "100vh",
+          top: "var(--env-banner-height, 0px)",
+          height: "calc(100vh - var(--env-banner-height, 0px))",
+          maxHeight: "calc(100vh - var(--env-banner-height, 0px))",
+          minHeight: "calc(100vh - var(--env-banner-height, 0px))",
           backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
         }}
-        className="w-full sm:w-[405px] flex flex-col font-alexandria border-[1px] border-[#BBBBBB] rounded-none fixed top-[0px] right-0 z-[100]"
+        className="w-full sm:w-[405px] flex flex-col font-alexandria border-[1px] border-[#BBBBBB] rounded-none fixed right-0 z-[100]"
       >
+
         {/* Fixed Header */}
         <div className="flex justify-between items-center p-4 border-b border-[#CCCCCC] shrink-0">
           <h2 className="text-[24px] font-[400] text-[#666666] leading-8">

@@ -280,12 +280,16 @@ export default function MobileBillingOverview() {
                     <div className="flex items-start gap-1.5 mb-1">
                       <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                       <p className="text-sm font-medium text-gray-900 leading-tight truncate">
-                        {item.property_address || `Order #${item.order_id}`}
+                        {item.property_address
+                          ? `${item.property_address}${item.property_location ? `, ${item.property_location}` : ""}`
+                          : item.slots?.[0]?.address
+                            ? `${item.slots[0].address}${item.slots[0].location ? `, ${item.slots[0].location}` : ""}`
+                            : `Order #${item.order_id}`}
                       </p>
                     </div>
 
                     {/* Agent */}
-                    {item.agent_name && (
+                    {role !== "agent" && item.agent_name && (
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
                         <p className="text-xs text-gray-500 truncate">{item.agent_name}</p>

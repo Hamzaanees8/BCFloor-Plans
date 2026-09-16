@@ -313,11 +313,15 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
             <p className="text-sm font-medium text-gray-900 leading-tight">
-              {billing.property_address || `Order #${billing.order_id}`}
+              {billing.property_address
+                ? `${billing.property_address}${billing.property_location ? `, ${billing.property_location}` : ""}`
+                : billing.slots?.[0]?.address
+                  ? `${billing.slots[0].address}${billing.slots[0].location ? `, ${billing.slots[0].location}` : ""}`
+                  : `Order #${billing.order_id}`}
             </p>
           </div>
 
-          {role === 'admin' && billing.agent_name && (
+          {role !== 'agent' && billing.agent_name && (
             <div className="flex items-center gap-2">
               <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
               <p className="text-xs text-gray-600">{billing.agent_name}</p>

@@ -41,9 +41,15 @@ export default function BreakQuickViewCard({ data, onClose, vendorData, breakAct
 
     return (
         <Card
-            className="w-full sm:w-[405px] font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-50 h-[100dvh] overflow-y-auto flex flex-col justify-between"
-            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            className="w-full sm:w-[405px] font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed right-0 z-50 overflow-y-auto flex flex-col justify-between"
+            style={{
+              top: "var(--env-banner-height, 0px)",
+              height: "calc(100dvh - var(--env-banner-height, 0px))",
+              maxHeight: "calc(100dvh - var(--env-banner-height, 0px))",
+              backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+            }}
         >
+
             <CardContent className="flex flex-col gap-[12px] p-0">
                 <div className="flex justify-between items-center mb-2">
                     <h2 className="text-[24px] font-[400] text-[#666666] leading-8">

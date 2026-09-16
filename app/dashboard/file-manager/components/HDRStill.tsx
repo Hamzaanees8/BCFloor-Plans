@@ -504,7 +504,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }
                                 }}
                                 alt="preview"
-                                isRestricted={userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
+                                isRestricted={userType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                 className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
@@ -621,7 +621,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             }
                                         }}
                                     />
-                                ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                ) : (userType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                     <PdfPlaceholder
                                         className="w-full h-full object-contain cursor-pointer"
                                         isRestricted={true}
@@ -1025,7 +1025,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </span>
                             )}
 
-                            {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
+                            {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
                                     className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
@@ -1433,10 +1433,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
-                                    disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
+                                    title={!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
+                                    disabled={!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
                                     className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
-                                        } px-1 md:px-4 ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                        } px-1 md:px-4 ${!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download
                                 </Button>
                             </div>
@@ -1791,7 +1791,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'HDR Photo') : 'HDR Photo'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Exterior') : ''}
                     initialSubtype={editingFile ? (('file' in editingFile) ? (editingFile as any).subtype : (editingFile as Files).subtype) : null}
-                    isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
+                    isPaid={orderData?.release_media_before_payment || bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
                     onSave={(newName, newSubtype) => {
                         if (!editingFile) return;

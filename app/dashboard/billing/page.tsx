@@ -949,7 +949,13 @@ const Page = () => {
         style={{ backgroundColor: roleSettings.pageBg }}
       >
         <div
-          className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
+          className={`grid grid-cols-1 md:grid-cols-2 ${
+            isSuperAdmin
+              ? "lg:grid-cols-4"
+              : userType !== "agent"
+                ? "lg:grid-cols-3"
+                : "lg:grid-cols-2"
+          } gap-4`}
         >
           {/* Organization Filter - Super Admin Only */}
           {isSuperAdmin && (
@@ -1071,9 +1077,11 @@ const Page = () => {
                   )}
                 </div>
               </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
-                Agent
-              </TableHead>
+              {userType !== "agent" && (
+                <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                  Agent
+                </TableHead>
+              )}
               {isSuperAdmin && (
                 <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                   Organization
@@ -1111,9 +1119,16 @@ const Page = () => {
                   <TableCell className="py-4">
                     <Skeleton className="h-4 w-[60px] bg-gray-200" />
                   </TableCell>
-                  <TableCell className="py-4">
-                    <Skeleton className="h-4 w-[100px] bg-gray-200" />
-                  </TableCell>
+                  {userType !== "agent" && (
+                    <TableCell className="py-4">
+                      <Skeleton className="h-4 w-[100px] bg-gray-200" />
+                    </TableCell>
+                  )}
+                  {isSuperAdmin && (
+                    <TableCell className="py-4">
+                      <Skeleton className="h-4 w-[120px] bg-gray-200" />
+                    </TableCell>
+                  )}
                   <TableCell className="py-4">
                     <Skeleton className="h-4 w-[150px] bg-gray-200" />
                   </TableCell>
@@ -1137,7 +1152,11 @@ const Page = () => {
             ) : paginatedBillings.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={
+                    (userType !== "agent" ? 1 : 0) +
+                    (isSuperAdmin ? 1 : 0) +
+                    7
+                  }
                   className="py-10 text-center text-gray-500 text-lg"
                 >
                   No billings found.
@@ -1147,9 +1166,9 @@ const Page = () => {
               paginatedBillings.map((billing) => {
                 const orderInvoiceUrl = getOrderInvoiceUrl(billing);
                 const address = billing.property_address
-                  ? `${billing.property_address}, ${billing.property_location || ""} `
-                  : billing.slots[0]
-                    ? `${billing.slots[0].address}, ${billing.slots[0].location} `
+                  ? `${billing.property_address}${billing.property_location ? `, ${billing.property_location}` : ""}`
+                  : billing.slots?.[0]
+                    ? `${billing.slots[0].address}${billing.slots[0].location ? `, ${billing.slots[0].location}` : ""}`
                     : "N/A";
 
                 const orderInvoices = rowInvoices[billing.order_uuid] || [];
@@ -1178,11 +1197,13 @@ const Page = () => {
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                         #{billing.order_id}
                       </TableCell>
-                      <TableCell
-                        className={`text-[15px] py-[19px] font-[400] ${userType}-text`}
-                      >
-                        {billing.agent_name || "N/A"}
-                      </TableCell>
+                      {userType !== "agent" && (
+                        <TableCell
+                          className={`text-[15px] py-[19px] font-[400] ${userType}-text`}
+                        >
+                          {billing.agent_name || "N/A"}
+                        </TableCell>
+                      )}
                       {isSuperAdmin && (
                         <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                           {billing.organization?.name || "Global / None"}
@@ -1357,7 +1378,11 @@ const Page = () => {
                         return (
                           <TableRow className="bg-gray-50/50">
                             <TableCell
-                              colSpan={isSuperAdmin ? 9 : 8}
+                              colSpan={
+                                (userType !== "agent" ? 1 : 0) +
+                                (isSuperAdmin ? 1 : 0) +
+                                7
+                              }
                               className="p-0"
                             >
                               <div className="overflow-visible transition-all duration-300 p-6">

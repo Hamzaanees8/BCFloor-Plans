@@ -23,6 +23,7 @@ import { Order } from "../../orders/page";
 import { useAppContext } from "@/app/context/AppContext";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import { useS3Upload } from "@/hooks/useS3Upload";
 import { EditAgent } from "@/app/dashboard/agents/agents";
 
@@ -119,7 +120,17 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             setAvatarFileName(orderData.agent.avatar)
             setwebsite(orderData.agent.website || '')
             setlicense_number(orderData.agent.license_number || '')
-            setTourActivated(orderData.property?.tour_activated)
+            const isActivated = Boolean(
+                orderData.property?.tour_activated === true ||
+                (orderData.property?.tour_activated as any) === 1 ||
+                (orderData.property?.tour_activated as any) === "1" ||
+                (orderData.property?.tour_activated as any) === "true" ||
+                orderData.property?.status === true ||
+                (orderData.property?.status as any) === 1 ||
+                (orderData.property?.status as any) === "1" ||
+                (orderData.property?.status as any) === "true"
+            );
+            setTourActivated(isActivated);
             setPrimaryColor((orderData.property as any)?.primary_color || "#6BAE41");
             setSecondaryColor((orderData.property as any)?.secondary_color || "#DC9600");
 
@@ -193,6 +204,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                     province: orderData?.property?.province || "",
                     country: orderData?.property?.country || "Canada",
                     tour_activated: tourActivated,
+                    status: tourActivated,
                     primary_color: primaryColor,
                     secondary_color: secondaryColor,
                 })
@@ -369,16 +381,38 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
 
                                                 {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                             </div> */}
-                                            {/* <div className="col-span-2 flex items-center gap-[16px]">
+                                            <div className="col-span-2 flex items-center gap-[16px]">
                                                 <Switch
-                                                    checked={tourActivated}
-                                                    onCheckedChange={setTourActivated}
-                                                    className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50] "
+                                                    checked={Boolean(tourActivated)}
+                                                    onCheckedChange={async (checked: boolean) => {
+                                                        setTourActivated(checked);
+                                                        if (orderData?.property?.uuid) {
+                                                            try {
+                                                                const token = localStorage.getItem("token");
+                                                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+                                                                await fetch(`${apiUrl}/orders/edit/properties/${orderData.property.uuid}`, {
+                                                                    method: 'PATCH',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        'Authorization': `Bearer ${token}`
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                        tour_activated: checked,
+                                                                        status: checked,
+                                                                    })
+                                                                });
+                                                                toast.success(`Tour status updated to ${checked ? 'ACTIVE' : 'INACTIVE'}`);
+                                                            } catch (e) {
+                                                                console.warn("Immediate tour status update failed:", e);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50]"
                                                 />
                                                 <Label className="text-[14px] text-[#424242]">
                                                     Activate Tour
                                                 </Label>
-                                            </div> */}
+                                            </div>
                                             <div className="col-span-2">
                                                 <label htmlFor="">Address</label>
                                                 <Input

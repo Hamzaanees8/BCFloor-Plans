@@ -26,11 +26,13 @@ const slugify = (text: string) => {
 
 const Page = () => {
     const { userType } = useAppContext();
-    const { organization } = useOrganization();
+    const { organization, isOrganizationLoaded } = useOrganization();
     const params = useParams();
     
     const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
     const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+    // Prefer the explicit URL param (set by middleware rewrite or direct URL visit),
+    // then fall back to the whitelabel slug resolved from OrganizationContext.
     const orgSlug = (params?.org_slug as string) || resolvedWhitelabelSlug || null;
     
     const pageBg = '#EFEFEF';
@@ -69,6 +71,12 @@ const Page = () => {
     };
 
     useEffect(() => {
+        // On a whitelabel (non-default) domain, wait until OrganizationContext has
+        // finished loading before fetching. This prevents firing GetPublicTours(undefined)
+        // on first render (before the org slug is known), which would return ALL public
+        // tours across all organizations instead of just the whitelabel org's tours.
+        if (!isDefault && !isOrganizationLoaded) return;
+
         setLoading(true);
         setError(false);
         GetPublicTours(orgSlug || undefined)
@@ -82,7 +90,7 @@ const Page = () => {
             .finally(() => {
                 setLoading(false);
             });
-    }, [orgSlug]);
+    }, [orgSlug, isOrganizationLoaded, isDefault]);
 
     const filteredTours = toursData.filter((tour) => {
         const search = searchQuery.toLowerCase();

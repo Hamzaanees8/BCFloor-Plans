@@ -49,6 +49,7 @@ const QuoteServiceTab: React.FC<QuoteServiceTabProps> = ({
   const rawPrice = currentBookedService?.option?.amount || currentBookedService?.amount || 0;
   const price = parseFloat(rawPrice.toString()) || 0;
   const isPaid =
+    orderData?.release_media_before_payment ||
     orderData?.payment_status === "PAID" ||
     currentBookedService?.payment_status === "PAID";
 

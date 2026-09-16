@@ -40,6 +40,7 @@ export interface EditOrderPayload {
   order_status?: "Processing" | "Completed" | "Cancelled" | string;
   payment_status?: "UNPAID" | "PAID" | string;
   lock_materials?: boolean,
+  release_media_before_payment?: boolean,
   property_website?: string,
   mls_property?: string,
   vendor_uuid?: string,

@@ -603,19 +603,198 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     }
   };
 
-  const handlePhotoClick = (file: any) => {
-    // Only handle replacement if a snapshot is currently selected for editing
-    if (activeMarkerIndex === null && !activeApiSnapshotUuid) return;
+  const updateSnapshotImage = async (activeFile: any) => {
+    if (!activeFile) return;
 
-    if ("uuid" in file) {
-      // Server file
-      setSnapshotFile(null);
-      if (previewMarker) {
-        setPreviewMarker({
-          ...previewMarker,
+    if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) {
+      toast.error("Please select a snapshot marker first to update its image");
+      return;
+    }
+
+    const currentUuid = activeApiSnapshotUuid || previewMarker?.uuid;
+    const isLocalFile = !!activeFile.file;
+
+    const filePayload = isLocalFile
+      ? {
+          file: activeFile.file,
+          isApi: false,
+          file_path: undefined,
+          url: undefined,
+          thumbnail_url: undefined,
+          variant_urls: undefined,
+        }
+      : {
           file: undefined,
           isApi: true,
-          file_path: file.file_path,
+          file_path: activeFile.file_path,
+          url:
+            activeFile.url ||
+            activeFile.variant_urls?.landing ||
+            activeFile.variant_urls?.popup ||
+            activeFile.variant_urls?.thumb,
+          thumbnail_url:
+            activeFile.variant_urls?.popup ||
+            activeFile.variant_urls?.thumb ||
+            activeFile.thumbnail_url ||
+            activeFile.url,
+          variant_urls: activeFile.variant_urls,
+        };
+
+    setSnapshotFile(isLocalFile ? activeFile.file : null);
+    if (previewMarker) {
+      setPreviewMarker({
+        ...previewMarker,
+        ...filePayload,
+      });
+    }
+
+    let activeSnapshots: any[] = [];
+    const targetPosX =
+      tempMarkerPos?.x !== undefined && tempMarkerPos?.x !== null
+        ? Number(tempMarkerPos.x)
+        : Number(previewMarker?.x ?? 0);
+    const targetPosY =
+      tempMarkerPos?.y !== undefined && tempMarkerPos?.y !== null
+        ? Number(tempMarkerPos.y)
+        : Number(previewMarker?.y ?? 0);
+
+    if (currentUuid) {
+      activeSnapshots = [
+        ...(filesData?.snapshots || [])
+          .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+          .map((snap) => {
+            if (snap.uuid === currentUuid) {
+              return {
+                uuid: snap.uuid,
+                x: targetPosX,
+                y: targetPosY,
+                floorImageUrl: snap.file_name ?? selectedImageId ?? "",
+                name: snapshotName || snap.name || undefined,
+                description: snapshotDescription || snap.description || undefined,
+                ...filePayload,
+              };
+            }
+            return {
+              uuid: snap.uuid,
+              x: Number(snap.x_axis ?? 0),
+              y: Number(snap.y_axis ?? 0),
+              floorImageUrl: snap.file_name ?? "",
+              isApi: true as const,
+              name: snap.name ?? undefined,
+              description: snap.description ?? undefined,
+              file_path: snap.file_path,
+              url: snap.url,
+              thumbnail_url: snap.thumbnail_url,
+              variant_urls: snap.variant_urls,
+            };
+          }),
+        ...droppedMarkers,
+      ];
+    } else if (activeMarkerIndex !== null && droppedMarkers[activeMarkerIndex]) {
+      const updatedMarkers = droppedMarkers.map((m, idx) => {
+        if (idx === activeMarkerIndex) {
+          return {
+            ...m,
+            x: targetPosX || m.x,
+            y: targetPosY || m.y,
+            name: snapshotName || m.name,
+            description: snapshotDescription || m.description,
+            ...filePayload,
+          };
+        }
+        return m;
+      });
+      setDroppedMarkers(updatedMarkers);
+
+      activeSnapshots = [
+        ...(filesData?.snapshots || [])
+          .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
+          .map((snap) => ({
+            uuid: snap.uuid,
+            x: Number(snap.x_axis ?? 0),
+            y: Number(snap.y_axis ?? 0),
+            floorImageUrl: snap.file_name ?? "",
+            isApi: true as const,
+            name: snap.name ?? undefined,
+            description: snap.description ?? undefined,
+            file_path: snap.file_path,
+            url: snap.url,
+            thumbnail_url: snap.thumbnail_url,
+            variant_urls: snap.variant_urls,
+          })),
+        ...updatedMarkers,
+      ];
+    }
+
+    if (activeSnapshots.length > 0) {
+      const success = await persistSnapshots(activeSnapshots, {
+        showToast: true,
+        successToastMsg: "Snapshot image updated successfully",
+      });
+
+      if (success) {
+        const token = localStorage.getItem("token");
+        const orderUuid =
+          orderData?.uuid ||
+          ((filesData as any)?.tour_id ? String((filesData as any).tour_id) : "");
+        if (token && orderUuid) {
+          const fresh = await GetFilesData(token, orderUuid);
+          const freshSnapshots = fresh?.data?.[0]?.snapshots || [];
+
+          let found: any = null;
+          if (currentUuid) {
+            found = freshSnapshots.find((s: any) => s.uuid === currentUuid);
+          }
+          if (!found && selectedImageId) {
+            found = freshSnapshots.find(
+              (s: any) =>
+                normalizeName(s.file_name) === normalizeName(selectedImageId) &&
+                Math.abs(Number(s.x_axis) - targetPosX) < 2 &&
+                Math.abs(Number(s.y_axis) - targetPosY) < 2,
+            );
+          }
+
+          if (found) {
+            setActiveApiSnapshotUuid(found.uuid);
+            setActiveMarkerIndex(null);
+            setSnapshotFile(null);
+            setSnapshotName(found.name || "");
+            setSnapshotDescription(found.description || "");
+            setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+            setPreviewMarker({
+              x: Number(found.x_axis),
+              y: Number(found.y_axis),
+              floorImageUrl: found.file_name,
+              name: found.name || "",
+              description: found.description || "",
+              file_path: found.file_path,
+              url: found.url,
+              thumbnail_url: found.thumbnail_url,
+              variant_urls: found.variant_urls,
+              isApi: true,
+            });
+          }
+        }
+      }
+    }
+  };
+
+  const handlePhotoClick = async (file: any) => {
+    // Only handle replacement if a snapshot is currently selected for editing
+    if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) return;
+
+    const fileObj = !("uuid" in file)
+      ? {
+          file: (file as any).file,
+          thumbnail_url: URL.createObjectURL((file as any).file),
+          url: URL.createObjectURL((file as any).file),
+        }
+      : {
+          file_path:
+            file.file_path ||
+            (file as any).variants?.thumb ||
+            (file as any).variants?.landing ||
+            (file as any).variants?.popup,
           url:
             file.url ||
             file.variant_urls?.landing ||
@@ -627,57 +806,20 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             file.thumbnail_url ||
             file.url,
           variant_urls: file.variant_urls,
-        });
-      }
-    } else {
-      // Local file
-      setSnapshotFile(file.file);
-      if (previewMarker) {
-        setPreviewMarker({
-          ...previewMarker,
-          file: file.file,
-          isApi: false,
-          url: undefined,
-          file_path: undefined,
-        });
-      }
-    }
-    toast.info("Snapshot image replaced. Click Update to save.");
+        };
+
+    await updateSnapshotImage(fileObj);
   };
 
-  const handleSnapshotImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleSnapshotImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile) return;
 
-    if (activeFile.file) {
-      setSnapshotFile(activeFile.file);
-      if (previewMarker) {
-        setPreviewMarker({
-          ...previewMarker,
-          file: activeFile.file,
-          isApi: false,
-          url: undefined,
-          file_path: undefined,
-        });
-      }
-    } else {
-      setSnapshotFile(null);
-      if (previewMarker) {
-        setPreviewMarker({
-          ...previewMarker,
-          file: undefined,
-          isApi: true,
-          file_path: activeFile.file_path,
-          url: activeFile.url,
-          thumbnail_url: activeFile.thumbnail_url,
-          variant_urls: activeFile.variant_urls,
-        });
-      }
-    }
     setDraggedFile(null);
     draggedFileRef.current = null;
-    toast.info("Snapshot image updated");
+
+    await updateSnapshotImage(activeFile);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1307,6 +1449,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                   </p>
                 </div>
               ) : userType === "agent" &&
+                !orderData?.release_media_before_payment &&
                 !(orderData?.payment_status === "PAID") &&
                 !(
                   selectedFile &&
@@ -1783,6 +1926,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
                             if (
                               userType === "agent" &&
+                              !orderData?.release_media_before_payment &&
                               orderData?.payment_status !== "PAID" &&
                               !(file as any).is_complimentary
                             ) {

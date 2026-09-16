@@ -45,6 +45,8 @@ export type Order = {
     agent: Agent;
     paid_amount: string;
     refunded_amount?: string;
+    lock_materials?: boolean;
+    release_media_before_payment?: boolean;
     services: OrderService[];
     logs: {
         id: number;

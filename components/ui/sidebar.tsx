@@ -208,6 +208,8 @@ const Sidebar = React.forwardRef<
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                top: "var(--env-banner-height, 0px)",
+                height: "calc(100% - var(--env-banner-height, 0px))",
               } as React.CSSProperties
             }
             side={side}
@@ -254,6 +256,11 @@ const Sidebar = React.forwardRef<
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
             className
           )}
+          style={{
+            top: "var(--env-banner-height, 0px)",
+            height: "calc(100svh - var(--env-banner-height, 0px))",
+            ...props.style,
+          }}
           {...props}
         >
           <div
@@ -265,6 +272,7 @@ const Sidebar = React.forwardRef<
         </div>
       </div>
     )
+
   }
 )
 Sidebar.displayName = "Sidebar"

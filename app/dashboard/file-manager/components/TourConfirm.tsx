@@ -676,10 +676,11 @@ const TourConfirm = ({
     try {
       const nextStatus = !isPublished;
 
-      // Prevent publishing if order is not paid (only for non-admin users)
+      // Prevent publishing if order is not paid (only for non-admin users, unless release_media_before_payment is true)
       if (
         nextStatus &&
         userType !== "admin" &&
+        !orderData?.release_media_before_payment &&
         orderData?.payment_status !== "PAID"
       ) {
         toast.error(
@@ -2210,6 +2211,7 @@ const TourConfirm = ({
                       <AccordionContent>
                         <div className="w-full flex flex-col items-center gap-10 py-[30px]">
                           {userType === "agent" &&
+                          !orderData?.release_media_before_payment &&
                           !(
                             orderData?.payment_status === "PAID" ||
                             orderData?.services?.find(

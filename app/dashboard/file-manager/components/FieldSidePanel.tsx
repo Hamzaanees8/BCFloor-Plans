@@ -286,11 +286,16 @@ export default function FieldSidePanel({
       {/* Slide-in panel */}
       <div
         data-html2canvas-ignore="true"
-        className={`fixed top-0 right-0 h-full z-[9999] flex flex-col bg-white border-l border-gray-200 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 z-[9999] flex flex-col bg-white border-l border-gray-200 shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
-        style={{ width: 280 }}
+        style={{
+          width: 280,
+          top: "var(--env-banner-height, 0px)",
+          height: "calc(100% - var(--env-banner-height, 0px))",
+        }}
       >
+
         {/* ── Header ────────────────────────────────────────────────── */}
         <div
           className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 ${userType}-bg`}

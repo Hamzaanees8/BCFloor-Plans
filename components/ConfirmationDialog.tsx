@@ -24,12 +24,12 @@ type Props = {
   onCancel?: () => void
   showAgain: boolean
   toggleShowAgain: () => void
-  dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' // ADD THIS PROP
+  dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' | 'address_change'
   title?: string
   description?: string
 }
 
-const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' = 'delete') => {
+const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' | 'address_change' = 'delete') => {
   switch (type) {
     case 'merge':
       return 'confirmation_dialog_merge_show_again';
@@ -41,6 +41,8 @@ const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | '
       return 'confirmation_dialog_file_upload_cancel_show_again';
     case 'deselect':
       return 'confirmation_dialog_deselect_show_again';
+    case 'address_change':
+      return 'confirmation_dialog_address_change_show_again';
     default:
       return 'confirmation_dialog_delete_show_again';
   }

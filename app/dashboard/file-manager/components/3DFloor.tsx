@@ -142,7 +142,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
 
     const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
-    const isPaid = bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID';
+    const isPaid = orderData?.release_media_before_payment || bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID';
     const canAgentView = userType !== 'agent' || isPaid;
 
     const maskLink = (link: string) => {

@@ -117,6 +117,21 @@ const ListingsFrom = () => {
   const [pendingAgentSelection, setPendingAgentSelection] = useState("");
   const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
   const [showAgainAgent, setShowAgainAgent] = useState(true);
+
+  // Interactive map address change state
+  const [pendingAddressChange, setPendingAddressChange] = useState<{
+    address_line_1: string;
+    city: string;
+    province: string;
+    country: string;
+    postal_code: string;
+    full_address: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [showAddressChangeConfirm, setShowAddressChangeConfirm] = useState(false);
+  const [showAgainAddressConfirm, setShowAgainAddressConfirm] = useState(true);
+  const [mapResetKey, setMapResetKey] = useState(0);
   // const [origin, setOrigin] = useState("");
 
   // useEffect(() => {
@@ -188,6 +203,10 @@ const ListingsFrom = () => {
     const showAgain = localStorage.getItem('confirmation_dialog_agent_change_show_again');
     if (showAgain !== null) {
       setShowAgainAgent(JSON.parse(showAgain));
+    }
+    const showAgainAddress = localStorage.getItem('confirmation_dialog_address_change_show_again');
+    if (showAgainAddress !== null) {
+      setShowAgainAddressConfirm(JSON.parse(showAgainAddress));
     }
   }, []);
 
@@ -753,6 +772,64 @@ const ListingsFrom = () => {
     toast.success("New agent added and can now be selected");
   };
 
+  const applyAddressChange = (data: {
+    address_line_1: string;
+    city: string;
+    province: string;
+    country: string;
+    postal_code: string;
+    full_address: string;
+    lat: number;
+    lng: number;
+  }) => {
+    if (data.address_line_1) setAddress(data.address_line_1);
+    if (data.city) setCity(data.city);
+    if (data.province) setProvince(data.province);
+    if (data.country) setCountry(data.country);
+    if (data.postal_code) setPostalCode(data.postal_code);
+
+    markDirty();
+
+    if (fieldErrors.address) {
+      const newErrors = { ...fieldErrors };
+      delete newErrors.address;
+      setFieldErrors(newErrors);
+    }
+    toast.success("Address updated from map!");
+  };
+
+  const handleMapLocationSelect = (data: {
+    address_line_1: string;
+    city: string;
+    province: string;
+    country: string;
+    postal_code: string;
+    full_address: string;
+    lat: number;
+    lng: number;
+  }) => {
+    if (!showAgainAddressConfirm) {
+      applyAddressChange(data);
+      return;
+    }
+    setPendingAddressChange(data);
+    setShowAddressChangeConfirm(true);
+  };
+
+  const confirmAddressChange = () => {
+    if (pendingAddressChange) {
+      applyAddressChange(pendingAddressChange);
+    }
+    setShowAddressChangeConfirm(false);
+    setPendingAddressChange(null);
+  };
+
+  const cancelAddressChange = () => {
+    setShowAddressChangeConfirm(false);
+    setPendingAddressChange(null);
+    setMapResetKey((prev) => prev + 1);
+  };
+
   // const inputRef = useRef<HTMLInputElement>(null);
 
   // const openCalendar = () => {
@@ -763,7 +840,7 @@ const ListingsFrom = () => {
     <div className="font-alexandria">
       <div
         ref={headerRef}
-        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
+        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria sticky top-[var(--env-banner-height,0px)] z-50 flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
         <p
@@ -820,9 +897,9 @@ const ListingsFrom = () => {
         </div>
       </div>
       {listingId && (
-        <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]">
-          <div className="flex items-center justify-center w-full">
-            <div className="flex items-center justify-center gap-x-6 w-full">
+        <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 sticky top-[calc(var(--env-banner-height,0px)+80px)] z-40 flex items-center border-b border-[#BBBBBB]">
+          <div className="flex items-center justify-center w-full px-2 md:px-0 overflow-x-auto whitespace-nowrap scrollbar-none">
+            <div className="flex items-center justify-center gap-x-2 md:gap-x-6 shrink-0 w-full md:w-auto">
               <div
                 onClick={() => {
                   if (!(currentListing as Listings)?.orders?.[0]?.uuid) return;
@@ -1485,6 +1562,9 @@ const ListingsFrom = () => {
                       city={city}
                       province={province}
                       country={country}
+                      interactive={true}
+                      onLocationSelect={handleMapLocationSelect}
+                      resetKey={mapResetKey}
                     />
                   </div>
                 </div>
@@ -1578,7 +1658,7 @@ const ListingsFrom = () => {
                       {" "}
                       No Order Found
                     </p>
-                    {(userType === "admin" || userType === "agent") && (
+                    {(userType === "admin" || userType === "agent" || userType === "vendor") && (
                       <div className="flex items-center gap-[16px]">
                         <Switch
                           checked={tourActivated}
@@ -1957,6 +2037,24 @@ const ListingsFrom = () => {
         dialogType="agent_change"
         title="Change Agent?"
         description="Are you sure you want to change the agent associated with this property? This is usually rarely changed."
+      />
+      <ConfirmationDialog
+        open={showAddressChangeConfirm}
+        setOpen={(open) => {
+          if (!open) cancelAddressChange();
+          else setShowAddressChangeConfirm(true);
+        }}
+        onConfirm={confirmAddressChange}
+        onCancel={cancelAddressChange}
+        showAgain={showAgainAddressConfirm}
+        toggleShowAgain={() => setShowAgainAddressConfirm(!showAgainAddressConfirm)}
+        dialogType="address_change"
+        title="UPDATE PROPERTY LOCATION?"
+        description={
+          pendingAddressChange
+            ? `Do you want to update the address to: "${pendingAddressChange.full_address || pendingAddressChange.address_line_1}"?`
+            : "Do you want to update the property address and location based on the selected map pin?"
+        }
       />
       <AddAgentDialog
         open={openAddAgentDialog}

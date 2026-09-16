@@ -412,6 +412,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
     (imageUrl: string | File, file: SelectedFiles | Files) => {
       if (
         userType === "agent" &&
+        !orderData?.release_media_before_payment &&
         !(
           bookingToUse?.payment_status === "PAID" ||
           orderData?.payment_status === "PAID"
@@ -431,6 +432,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
       currentService?.name,
       onOpenInvoice,
       orderData?.payment_status,
+      orderData?.release_media_before_payment,
       userType,
     ],
   );
@@ -729,6 +731,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                   )}
                 </div>
               ) : userType === "agent" &&
+                !orderData?.release_media_before_payment &&
                 bookingToUse?.payment_status !== "PAID" &&
                 orderData?.payment_status !== "PAID" &&
                 !file.is_complimentary ? (
@@ -782,6 +785,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                 </div>
               ) : isPdf ? (
                 userType === "agent" &&
+                !orderData?.release_media_before_payment &&
                 bookingToUse?.payment_status !== "PAID" &&
                 orderData?.payment_status !== "PAID" &&
                 !file.is_complimentary ? (

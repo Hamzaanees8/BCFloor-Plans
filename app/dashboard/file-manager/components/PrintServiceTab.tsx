@@ -192,7 +192,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
     currentBookedService?.payment_status?.toUpperCase() ||
     orderData?.payment_status?.toUpperCase() ||
     "UNPAID";
-  const isPaid = paymentStatus === "PAID";
+  const isPaid = Boolean(orderData?.release_media_before_payment) || paymentStatus === "PAID";
   const isRefunded = paymentStatus === "REFUNDED";
 
   // Extract quantity/copies from option or custom fields

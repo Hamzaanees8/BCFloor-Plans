@@ -128,6 +128,11 @@ export const isPaymentAuthorizationValid = ({
 }): boolean => {
   if (!file) return false;
 
+  // Rule 0: Admin explicitly released media before payment
+  if (orderData?.release_media_before_payment) {
+    return true;
+  }
+
   // File must be marked as paid or complimentary
   if (!file.is_paid && !file.is_complimentary) {
     return false;
@@ -181,6 +186,11 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
 
   if (userType === 'agent') {
     if (requiresAgentApproval && file.is_agent_approved === false) return 'File requires approval';
+
+    // If admin released media before payment, bypass payment restriction reason
+    if (orderData?.release_media_before_payment) {
+      return '';
+    }
 
     if (!file.is_paid && !file.is_complimentary) {
       return 'File is not available for download';

@@ -165,7 +165,7 @@ export async function middleware(request: NextRequest) {
       const baseApiUrl = (
         process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com'
       ).replace(/\/api\/?$/, '');
-      const resolveUrl = `${baseApiUrl}/api/domains/resolve?domain=${hostname}`;
+      const resolveUrl = `${baseApiUrl}/api/domains/resolve?domain=${domainWithoutPort}`;
       console.log('Resolving domain:', resolveUrl);
 
       const res = await fetch(resolveUrl, {

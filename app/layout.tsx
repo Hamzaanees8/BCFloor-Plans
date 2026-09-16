@@ -186,6 +186,7 @@ export default async function RootLayout({
   const rootStyle: React.CSSProperties = {
     ...brandedStyle,
     ...(isDevelop ? { '--env-banner-height': '36px' } : { '--env-banner-height': '0px' }),
+    paddingTop: 'var(--env-banner-height, 0px)',
   };
 
   return (

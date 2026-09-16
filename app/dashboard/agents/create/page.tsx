@@ -17,11 +17,15 @@ import { uploadAudioFile } from '@/lib/upload/audio-upload'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Pencil, Plus, X, Eye, Image as ImageIcon } from 'lucide-react'
 import ImagePopup from '@/components/ImagePopup'
+import { api } from '@/lib/api'
+import { UpdateListingStatus } from '@/app/dashboard/listings/listing'
+import { PublishTour, GetFilesData } from '@/app/dashboard/file-manager/file-manager'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
 //import SaveDialog from '@/components/SaveDialog'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { SaveModal } from '@/components/SaveModal'
 import ConfirmationDialog from '@/components/ConfirmationDialog'
@@ -235,6 +239,326 @@ const AgentForm = () => {
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [audioToDelete, setAudioToDelete] = useState<string | null>(null);
     const [showAgain, setShowAgain] = useState(true);
+    const [updatingTourUuids, setUpdatingTourUuids] = useState<Record<string, boolean>>({});
+    const [updatingPropertyUuids, setUpdatingPropertyUuids] = useState<Record<string, boolean>>({});
+
+    const slugify = (text: string) => {
+        return text
+            .toString()
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/[^\w-]+/g, "")
+            .replace(/--+/g, "-")
+            .replace(/^-+/, "")
+            .replace(/-+$/, "");
+    };
+
+    const getPropertyTourInfo = (property: Listings) => {
+        let targetTour: any = null;
+        let targetOrder: any = null;
+
+        if (property.orders && Array.isArray(property.orders) && property.orders.length > 0) {
+            const sortedOrders = [...property.orders].sort(
+                (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+            );
+            targetOrder = sortedOrders[0];
+
+            if (targetOrder.tours && Array.isArray(targetOrder.tours) && targetOrder.tours.length > 0) {
+                targetTour = targetOrder.tours[0];
+            } else if ((targetOrder as any).tour) {
+                targetTour = (targetOrder as any).tour;
+            } else {
+                for (const order of sortedOrders) {
+                    if (order.tours && Array.isArray(order.tours) && order.tours.length > 0) {
+                        targetTour = order.tours[0];
+                        targetOrder = order;
+                        break;
+                    } else if ((order as any).tour) {
+                        targetTour = (order as any).tour;
+                        targetOrder = order;
+                        break;
+                    }
+                }
+            }
+        }
+
+        const tourUuid = targetTour?.uuid || null;
+        // Strictly check actual public tour publish status (targetTour.is_publish)
+        const isPublished = Boolean(
+            targetTour &&
+            (targetTour.is_publish === true ||
+             (targetTour.is_publish as any) === 1 ||
+             (targetTour.is_publish as any) === "1" ||
+             (targetTour.is_publish as any) === "true")
+        );
+
+        const isOrderPaid = Boolean(
+            targetOrder &&
+            (targetOrder.payment_status === "PAID" ||
+             (targetOrder.services && Array.isArray(targetOrder.services) && targetOrder.services.length > 0 && targetOrder.services.some((s: any) => s.payment_status === "PAID")))
+        );
+
+        const agentRequiresPayment = currentUser?.requires_payment !== false;
+        const canPublish = Boolean(
+            targetOrder && (userType === "admin" || !agentRequiresPayment || isOrderPaid)
+        );
+
+        let disabledReason = "";
+        if (!targetOrder) {
+            disabledReason = "No orders found for this property yet.";
+        } else if (!canPublish && !isPublished) {
+            disabledReason = "This order must be paid in full before the tour can be published.";
+        }
+
+        const addressSlug = property.suite
+            ? `${property.suite} - ${property.address || ""}`
+            : property.address || "";
+        const publicTourUrl = targetOrder?.uuid
+            ? `/tour/${slugify(addressSlug)}/${targetOrder.uuid}?preview=true`
+            : "";
+
+        return {
+            tour: targetTour,
+            order: targetOrder,
+            tourUuid,
+            isPublished,
+            isOrderPaid,
+            canPublish,
+            disabledReason,
+            publicTourUrl,
+        };
+    };
+
+    const isPropertyStatusActive = (property: Listings): boolean => {
+        return Boolean(
+            property.status === true ||
+            (property.status as any) === 1 ||
+            (property.status as any) === "1" ||
+            (property.status as any) === "true"
+        );
+    };
+
+    const handleToggleTourStatus = async (property: Listings, newStatus: boolean) => {
+        const propUuid = property.uuid;
+        if (!propUuid) return;
+
+        const tourInfo = getPropertyTourInfo(property);
+
+        if (newStatus && !tourInfo.canPublish) {
+            toast.error(tourInfo.disabledReason || "This order must be paid in full before the tour can be published.");
+            return;
+        }
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+            toast.error("Authorization token not found.");
+            return;
+        }
+
+        setUpdatingTourUuids(prev => ({ ...prev, [propUuid]: true }));
+
+        // Optimistically update tour.is_publish in currentUser.properties for instant UI feedback
+        setCurrentUser(prev => {
+            if (!prev || !prev.properties) return prev;
+            return {
+                ...prev,
+                properties: prev.properties.map(p => {
+                    if (p.uuid === propUuid) {
+                        return {
+                            ...p,
+                            tour_activated: newStatus,
+                            orders: p.orders ? p.orders.map(o => {
+                                const hasTour = o.tours && o.tours.length > 0;
+                                return {
+                                    ...o,
+                                    tour_activated: newStatus,
+                                    tours: hasTour
+                                        ? o.tours!.map(t => ({ ...t, is_publish: newStatus }))
+                                        : [{ uuid: tourInfo.tourUuid || o.uuid, is_publish: newStatus } as any]
+                                };
+                            }) : p.orders
+                        };
+                    }
+                    return p;
+                })
+            };
+        });
+
+        try {
+            // The agent API (/agents/:id) does NOT include tour.is_publish in nested data.
+            // Always fetch the real tour UUID + state from GetFilesData.
+            let resolvedTourUuid: string | null = tourInfo.tourUuid;
+
+            if (tourInfo.order?.uuid) {
+                try {
+                    const filesRes = await GetFilesData(token, tourInfo.order.uuid);
+                    const tourData = filesRes?.data?.[0] ?? (filesRes as any);
+                    if (tourData?.uuid) {
+                        resolvedTourUuid = tourData.uuid;
+                    }
+                } catch (err) {
+                    console.warn("Could not fetch tour UUID from GetFilesData:", err);
+                }
+            }
+
+            if (!resolvedTourUuid) {
+                throw new Error("No tour found for this property. Please open the file manager to upload media first.");
+            }
+
+            // Call PublishTour with the real tour UUID
+            await PublishTour(token, resolvedTourUuid, newStatus);
+
+            // Patch local state with the confirmed value.
+            // Do NOT re-fetch /agents/:id — that endpoint omits tour.is_publish and would reset the status.
+            const finalTourUuid = resolvedTourUuid;
+            setCurrentUser(prev => {
+                if (!prev || !prev.properties) return prev;
+                return {
+                    ...prev,
+                    properties: prev.properties.map(p => {
+                        if (p.uuid !== propUuid) return p;
+                        return {
+                            ...p,
+                            tour_activated: newStatus,
+                            orders: p.orders ? p.orders.map(o => {
+                                if (o.uuid !== tourInfo.order?.uuid) return o;
+                                return {
+                                    ...o,
+                                    tour_activated: newStatus,
+                                    tours: [{ ...(o.tours?.[0] ?? {}), uuid: finalTourUuid, is_publish: newStatus }]
+                                };
+                            }) : p.orders
+                        };
+                    })
+                };
+            });
+
+            toast.success(newStatus ? "Tour published successfully!" : "Tour unpublished successfully!");
+        } catch (error: any) {
+            console.error("Failed to update tour status:", error);
+            toast.error(error.message || "Failed to update tour status");
+            // Revert optimistic update on failure
+            setCurrentUser(prev => {
+                if (!prev || !prev.properties) return prev;
+                return {
+                    ...prev,
+                    properties: prev.properties.map(p => {
+                        if (p.uuid === propUuid) {
+                            return {
+                                ...p,
+                                tour_activated: !newStatus,
+                                orders: p.orders ? p.orders.map(o => {
+                                    const hasTour = o.tours && o.tours.length > 0;
+                                    return {
+                                        ...o,
+                                        tour_activated: !newStatus,
+                                        tours: hasTour
+                                            ? o.tours!.map(t => ({ ...t, is_publish: !newStatus }))
+                                            : [{ uuid: tourInfo.tourUuid || o.uuid, is_publish: !newStatus } as any]
+                                    };
+                                }) : p.orders
+                            };
+                        }
+                        return p;
+                    })
+                };
+            });
+        } finally {
+            setUpdatingTourUuids(prev => ({ ...prev, [propUuid]: false }));
+        }
+    };
+
+    const handleTogglePropertyStatus = async (property: Listings, newStatus: boolean) => {
+        const propUuid = property.uuid;
+        if (!propUuid) return;
+
+        setUpdatingPropertyUuids(prev => ({ ...prev, [propUuid]: true }));
+
+        // Optimistically update property.status in currentUser.properties
+        setCurrentUser(prev => {
+            if (!prev || !prev.properties) return prev;
+            return {
+                ...prev,
+                properties: prev.properties.map(p => {
+                    if (p.uuid === propUuid) {
+                        return {
+                            ...p,
+                            status: newStatus,
+                        };
+                    }
+                    return p;
+                })
+            };
+        });
+
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+            let statusUpdated = false;
+            // 1. Update via UpdateListingStatus (/properties/${propUuid}/status)
+            try {
+                await UpdateListingStatus(propUuid, {
+                    status: newStatus,
+                    _method: "POST",
+                } as any);
+                statusUpdated = true;
+            } catch (e) {
+                console.warn("UpdateListingStatus failed, trying properties edit endpoint:", e);
+            }
+
+            // 2. Fallback to PATCH /orders/edit/properties/${propUuid}
+            if (!statusUpdated && token) {
+                try {
+                    await fetch(`${apiUrl}/orders/edit/properties/${propUuid}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            status: newStatus,
+                        })
+                    });
+                    statusUpdated = true;
+                } catch (e) {
+                    console.warn("Edit property PATCH failed:", e);
+                }
+            }
+
+            // 3. Fallback to POST /properties/${propUuid} with _method: PUT
+            if (!statusUpdated) {
+                await api.post(`/properties/${propUuid}`, {
+                    status: newStatus,
+                    _method: "PUT"
+                });
+            }
+
+            toast.success(`Property status updated to ${newStatus ? 'ACTIVE' : 'INACTIVE'}`);
+        } catch (error: any) {
+            console.error("Failed to update property status:", error);
+            toast.error(error.message || "Failed to update property status");
+            // Revert optimistic update
+            setCurrentUser(prev => {
+                if (!prev || !prev.properties) return prev;
+                return {
+                    ...prev,
+                    properties: prev.properties.map(p => {
+                        if (p.uuid === propUuid) {
+                            return {
+                                ...p,
+                                status: !newStatus,
+                            };
+                        }
+                        return p;
+                    })
+                };
+            });
+        } finally {
+            setUpdatingPropertyUuids(prev => ({ ...prev, [propUuid]: false }));
+        }
+    };
 
     useEffect(() => {
         const storedShowAgain = localStorage.getItem('confirmation_dialog_delete_show_again');
@@ -677,11 +1001,48 @@ const AgentForm = () => {
 
         if (idToUse) {
             GetOne(idToUse)
-                .then(data => {
-                    setCurrentUser(data.data);
+                .then(async (data) => {
+                    const agentData = data.data;
+                    setCurrentUser(agentData);
                     // Pre-select organization from logged in user if not in edit mode
-                    if (!userId && data.data?.organization_id) {
-                        setOrganizationId(String(data.data.organization_id));
+                    if (!userId && agentData?.organization_id) {
+                        setOrganizationId(String(agentData.organization_id));
+                    }
+
+                    // /agents/:id does NOT include tour.is_publish in nested order data.
+                    // Fetch real is_publish for each property from GetFilesData and merge it in.
+                    if (agentData?.properties && Array.isArray(agentData.properties)) {
+                        const enriched = await Promise.all(
+                            agentData.properties.map(async (prop: any) => {
+                                if (!prop.orders || prop.orders.length === 0) return prop;
+                                const sortedOrders = [...prop.orders].sort(
+                                    (a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                                );
+                                const latestOrder = sortedOrders[0];
+                                if (!latestOrder?.uuid) return prop;
+                                try {
+                                    const filesRes = await GetFilesData(token, latestOrder.uuid);
+                                    const tourData = filesRes?.data?.[0] ?? (filesRes as any);
+                                    if (tourData?.uuid) {
+                                        // Merge the real is_publish into the tour inside this order
+                                        return {
+                                            ...prop,
+                                            orders: prop.orders.map((o: any) => {
+                                                if (o.uuid !== latestOrder.uuid) return o;
+                                                return {
+                                                    ...o,
+                                                    tours: [{ ...(o.tours?.[0] ?? {}), uuid: tourData.uuid, is_publish: !!tourData.is_publish }]
+                                                };
+                                            })
+                                        };
+                                    }
+                                } catch {
+                                    // ignore per-property errors
+                                }
+                                return prop;
+                            })
+                        );
+                        setCurrentUser((prev: any) => prev ? { ...prev, properties: enriched } : prev);
                     }
                 })
                 .catch(err => console.log(err.message));
@@ -1677,126 +2038,209 @@ const AgentForm = () => {
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="rounded-none border border-[#BBBBBB] w-full">
-                                            <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-[#666666] font-bold h-[54px] items-center" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                                                <div className="col-span-3">PROPERTY / TOUR</div>
-                                                <div className="col-span-2 text-nowrap">TOUR STATUS</div>
-                                                <div className="col-span-1">ORDERS</div>
-                                                <div className="col-span-2">PAYMENT STATUS</div>
-                                                <div className="col-span-2">ADDED</div>
-                                                <div className="col-span-1">ACTIONS</div>
-                                            </div>
+                                             <div className="rounded-none border border-[#BBBBBB] w-full overflow-x-auto">
+                                             <div className="min-w-[1250px]">
+                                                 <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-[#666666] font-bold h-[54px] items-center" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                     <div className="col-span-2">PROPERTY / TOUR</div>
+                                                     <div className="col-span-2 text-nowrap">TOUR STATUS</div>
+                                                     <div className="col-span-2 text-nowrap">PROPERTY STATUS</div>
+                                                     <div className="col-span-1">ORDERS</div>
+                                                     <div className="col-span-1">PAYMENT STATUS</div>
+                                                     <div className="col-span-1">ADDED</div>
+                                                     <div className="col-span-3 text-right pr-6">ACTIONS</div>
+                                                 </div>
 
-                                            {/* Properties List */}
-                                            <Accordion type="multiple" className="w-full">
-                                                {currentUser?.properties?.map((property) => {
-                                                    const hasOrders = property.orders && property.orders.length > 0;
+                                                 {/* Properties List */}
+                                                 <Accordion type="multiple" className="w-full">
+                                                     {currentUser?.properties?.map((property) => {
+                                                         const hasOrders = property.orders && property.orders.length > 0;
+                                                         const tourInfo = getPropertyTourInfo(property);
+                                                         const isPropActive = isPropertyStatusActive(property);
+                                                         const isTourUpdating = !!updatingTourUuids[property.uuid || ""] || (tourInfo.tourUuid ? !!updatingTourUuids[tourInfo.tourUuid] : false);
+                                                         const isPropUpdating = !!updatingPropertyUuids[property.uuid || ""];
 
-                                                    return (
-                                                        <AccordionItem
-                                                            key={property.id}
-                                                            value={`property-${property.id}`}
-                                                            className="border-b border-[#BBBBBB]"
-                                                        >
-                                                            {/* Property Row - Accordion Trigger */}
-                                                            <div className="px-6 py-4 hover:bg-[#F9F9F9]">
-                                                                <AccordionTrigger className="p-0 hover:no-underline">
-                                                                    <div className="grid grid-cols-12 gap-4 items-center w-full">
+                                                         return (
+                                                             <AccordionItem
+                                                                 key={property.id || property.uuid}
+                                                                 value={`property-${property.id || property.uuid}`}
+                                                                 className="border-b border-[#BBBBBB]"
+                                                             >
+                                                                 {/* Property Row */}
+                                                                 <div className="px-6 py-4 hover:bg-[#F9F9F9]">
+                                                                     <div className="grid grid-cols-12 gap-4 items-center w-full">
 
-                                                                        <div className="col-span-3">
-                                                                            <div className="text-xs text-[#666666]">
-                                                                                {property.address || "No address"}, {property.city || ""}, {property.province || ""}
-                                                                            </div>
+                                                                         <div className="col-span-2">
+                                                                             <div className="text-xs text-[#666666] truncate" title={`${property.address || "No address"}, ${property.city || ""}, ${property.province || ""}`}>
+                                                                                 {property.address || "No address"}{property.city ? `, ${property.city}` : ""}{property.province ? `, ${property.province}` : ""}
+                                                                             </div>
+                                                                         </div>
+                                                                         <div className="col-span-2">
+                                                                             {tourInfo.disabledReason ? (
+                                                                                 <TooltipProvider delayDuration={100}>
+                                                                                     <Tooltip>
+                                                                                         <TooltipTrigger asChild>
+                                                                                             <div className="flex items-center gap-2.5 cursor-not-allowed w-fit">
+                                                                                                 <Switch
+                                                                                                     checked={tourInfo.isPublished}
+                                                                                                     disabled={true}
+                                                                                                     className={`${tourInfo.isPublished ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E] shrink-0 opacity-50 pointer-events-none`}
+                                                                                                 />
+                                                                                                 <span
+                                                                                                     className={`text-white px-2.5 py-1 rounded-full text-[10px] font-medium w-fit shrink-0 ${
+                                                                                                         tourInfo.isPublished ? "bg-[#6BAE41]" : "bg-[#E06D5E]"
+                                                                                                     }`}
+                                                                                                 >
+                                                                                                     {tourInfo.isPublished ? "ACTIVE" : "INACTIVE"}
+                                                                                                 </span>
+                                                                                             </div>
+                                                                                         </TooltipTrigger>
+                                                                                         <TooltipContent side="top" className="bg-gray-900 text-white text-xs max-w-[240px] text-center p-2 rounded shadow-lg z-50">
+                                                                                             <p>{tourInfo.disabledReason}</p>
+                                                                                         </TooltipContent>
+                                                                                     </Tooltip>
+                                                                                 </TooltipProvider>
+                                                                             ) : (
+                                                                                 <div className="flex items-center gap-2.5">
+                                                                                     <Switch
+                                                                                         checked={tourInfo.isPublished}
+                                                                                         disabled={isTourUpdating}
+                                                                                         onCheckedChange={(checked) => handleToggleTourStatus(property, checked)}
+                                                                                         className={`${tourInfo.isPublished ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E] shrink-0 cursor-pointer`}
+                                                                                     />
+                                                                                     <span
+                                                                                         className={`text-white px-2.5 py-1 rounded-full text-[10px] font-medium w-fit shrink-0 ${
+                                                                                             tourInfo.isPublished ? "bg-[#6BAE41]" : "bg-[#E06D5E]"
+                                                                                         }`}
+                                                                                     >
+                                                                                         {tourInfo.isPublished ? "ACTIVE" : "INACTIVE"}
+                                                                                     </span>
+                                                                                 </div>
+                                                                             )}
+                                                                         </div>
+                                                                         <div className="col-span-2">
+                                                                             <div className="flex items-center gap-2.5">
+                                                                                 <Switch
+                                                                                     checked={isPropActive}
+                                                                                     disabled={isPropUpdating}
+                                                                                     onCheckedChange={(checked) => handleTogglePropertyStatus(property, checked)}
+                                                                                     className={`${isPropActive ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E] shrink-0`}
+                                                                                 />
+                                                                                 <span
+                                                                                     className={`text-white px-2.5 py-1 rounded-full text-[10px] font-medium w-fit shrink-0 ${
+                                                                                         isPropActive
+                                                                                             ? "bg-[#6BAE41]"
+                                                                                             : "bg-[#E06D5E]"
+                                                                                         }`}
+                                                                                 >
+                                                                                     {isPropActive ? "ACTIVE" : "INACTIVE"}
+                                                                                 </span>
+                                                                             </div>
+                                                                         </div>
+                                                                         <div className="col-span-1">
+                                                                             <div className="text-[#666666] text-xs">
+                                                                                 {property.orders?.length || 0} order{property.orders?.length !== 1 ? "s" : ""}
+                                                                             </div>
+                                                                         </div>
+                                                                         <div className="col-span-1">
+                                                                             <div className="flex flex-col gap-1">
+                                                                                 {(() => {
+                                                                                     if (!property.orders || property.orders.length === 0) {
+                                                                                         return (
+                                                                                             <div className="text-[#999999] text-xs">No orders</div>
+                                                                                         );
+                                                                                     }
 
-                                                                        </div>
-                                                                        <div className="col-span-2">
-                                                                            <div
-                                                                                className={`text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit ${property.tour_activated
-                                                                                    ? "bg-[#6BAE41]"
-                                                                                    : "bg-[#E06D5E]"
-                                                                                    }`}
-                                                                            >
-                                                                                {property.tour_activated ? "ACTIVE" : "INACTIVE"}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="col-span-1">
-                                                                            <div className="text-[#666666]">
-                                                                                {property.orders?.length || 0} order{property.orders?.length !== 1 ? "s" : ""}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="col-span-2">
-                                                                            <div className="flex flex-col gap-1">
-                                                                                {(() => {
-                                                                                    if (!property.orders || property.orders.length === 0) {
-                                                                                        return (
-                                                                                            <div className="text-[#999999] text-xs">No orders</div>
-                                                                                        );
-                                                                                    }
+                                                                                     const paidOrders = property.orders.filter(order => order.payment_status === "PAID").length;
+                                                                                     const unpaidOrders = property.orders.filter(order => order.payment_status === "UNPAID").length;
+                                                                                     const partialOrders = property.orders.filter(order => order.payment_status === "PARTIALLY_PAID").length;
 
-                                                                                    const paidOrders = property.orders.filter(order => order.payment_status === "PAID").length;
-                                                                                    const unpaidOrders = property.orders.filter(order => order.payment_status === "UNPAID").length;
-                                                                                    const partialOrders = property.orders.filter(order => order.payment_status === "PARTIALLY_PAID").length;
-
-                                                                                    return (
-                                                                                        <div className="flex flex-col gap-1">
-                                                                                            {paidOrders > 0 && (
-                                                                                                <div className="flex items-center gap-1">
-                                                                                                    <div className="w-2 h-2 rounded-full bg-[#6BAE41]"></div>
-                                                                                                    <span className="text-xs text-[#666666]">
-                                                                                                        Paid: <span className="font-semibold">{paidOrders}</span>
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            )}
-                                                                                            {unpaidOrders > 0 && (
-                                                                                                <div className="flex items-center gap-1">
-                                                                                                    <div className="w-2 h-2 rounded-full bg-[#E06D5E]"></div>
-                                                                                                    <span className="text-xs text-[#666666]">
-                                                                                                        Unpaid: <span className="font-semibold">{unpaidOrders}</span>
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            )}
-                                                                                            {partialOrders > 0 && (
-                                                                                                <div className="flex items-center gap-1">
-                                                                                                    <div className="w-2 h-2 rounded-full bg-[#4290E9]"></div>
-                                                                                                    <span className="text-xs text-[#666666]">
-                                                                                                        Partial: <span className="font-semibold">{partialOrders}</span>
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    );
-                                                                                })()}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="col-span-2">
-                                                                            <div className="text-[#666666]">
-                                                                                {property.created_at
-                                                                                    ? new Date(property.created_at).toLocaleDateString("en-US", {
-                                                                                        year: "numeric",
-                                                                                        month: "short",
-                                                                                        day: "2-digit",
-                                                                                    })
-                                                                                    : "N/A"}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="col-span-2">
-                                                                            <div className="flex gap-2">
-                                                                                <Link
-                                                                                    href={`/dashboard/listings/create/${property.uuid}`}
-                                                                                    className={`w-[90px] h-[30px] justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px] font-[400] text-white flex gap-[5px] items-center hover:opacity-95`}
-
-                                                                                >
-                                                                                    <span>View Tour</span>
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                                                                    </svg>
-                                                                                </Link>
-
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </AccordionTrigger>
-                                                            </div>
+                                                                                     return (
+                                                                                         <div className="flex flex-col gap-1">
+                                                                                             {paidOrders > 0 && (
+                                                                                                 <div className="flex items-center gap-1">
+                                                                                                     <div className="w-2 h-2 rounded-full bg-[#6BAE41]"></div>
+                                                                                                     <span className="text-xs text-[#666666]">
+                                                                                                         Paid: <span className="font-semibold">{paidOrders}</span>
+                                                                                                     </span>
+                                                                                                 </div>
+                                                                                             )}
+                                                                                             {unpaidOrders > 0 && (
+                                                                                                 <div className="flex items-center gap-1">
+                                                                                                     <div className="w-2 h-2 rounded-full bg-[#E06D5E]"></div>
+                                                                                                     <span className="text-xs text-[#666666]">
+                                                                                                         Unpaid: <span className="font-semibold">{unpaidOrders}</span>
+                                                                                                     </span>
+                                                                                                 </div>
+                                                                                             )}
+                                                                                             {partialOrders > 0 && (
+                                                                                                 <div className="flex items-center gap-1">
+                                                                                                     <div className="w-2 h-2 rounded-full bg-[#4290E9]"></div>
+                                                                                                     <span className="text-xs text-[#666666]">
+                                                                                                         Partial: <span className="font-semibold">{partialOrders}</span>
+                                                                                                     </span>
+                                                                                                 </div>
+                                                                                             )}
+                                                                                         </div>
+                                                                                     );
+                                                                                 })()}
+                                                                             </div>
+                                                                         </div>
+                                                                         <div className="col-span-1">
+                                                                             <div className="text-[#666666] text-xs">
+                                                                                 {property.created_at
+                                                                                     ? new Date(property.created_at).toLocaleDateString("en-US", {
+                                                                                         year: "numeric",
+                                                                                         month: "short",
+                                                                                         day: "2-digit",
+                                                                                     })
+                                                                                     : "N/A"}
+                                                                             </div>
+                                                                         </div>
+                                                                         <div className="col-span-3 flex items-center justify-end gap-2 pr-2">
+                                                                             <Link
+                                                                                 href={`/dashboard/listings/create/${property.uuid}`}
+                                                                                 target="_blank"
+                                                                                 className="h-[30px] px-2.5 shrink-0 justify-center rounded-[6px] border border-[#BBBBBB] bg-white hover:bg-gray-100 text-[12px] font-medium text-[#424242] flex gap-1.5 items-center transition-colors"
+                                                                                 title="Property Detail"
+                                                                             >
+                                                                                 <span>Property Detail</span>
+                                                                                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                                 </svg>
+                                                                             </Link>
+                                                                             {tourInfo.publicTourUrl ? (
+                                                                                 <a
+                                                                                     href={tourInfo.publicTourUrl}
+                                                                                     target="_blank"
+                                                                                     rel="noopener noreferrer"
+                                                                                     className={`h-[30px] px-2.5 shrink-0 justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px] font-[400] text-white flex gap-1.5 items-center hover:opacity-95 transition-opacity`}
+                                                                                     title="View Public Tour"
+                                                                                 >
+                                                                                     <span>View Tour</span>
+                                                                                     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                                     </svg>
+                                                                                 </a>
+                                                                             ) : (
+                                                                                 <button
+                                                                                     disabled
+                                                                                     className="h-[30px] px-2.5 shrink-0 justify-center rounded-[6px] border border-gray-300 bg-gray-200 text-[12px] font-[400] text-gray-400 flex gap-1.5 items-center cursor-not-allowed opacity-60"
+                                                                                     title="No tour order available"
+                                                                                 >
+                                                                                     <span>View Tour</span>
+                                                                                     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                                     </svg>
+                                                                                 </button>
+                                                                             )}
+                                                                             {hasOrders ? (
+                                                                                 <AccordionTrigger className="p-1 shrink-0 hover:no-underline [&>svg]:w-4 [&>svg]:h-4 text-[#666666]" />
+                                                                             ) : (
+                                                                                 <div className="w-6 shrink-0" />
+                                                                             )}
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
 
                                                             {/* Orders Content - Accordion Content */}
                                                             <AccordionContent className="p-0">
@@ -1862,7 +2306,12 @@ const AgentForm = () => {
                                                                                             </div>
                                                                                         </div>
                                                                                         <div className="col-span-1">
-                                                                                            {order?.lock_materials ? (
+                                                                                            {order?.release_media_before_payment ? (
+                                                                                                <div className="flex items-center gap-1" title="Media Released Before Payment">
+                                                                                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                                                                    <span className="text-xs text-blue-600 font-medium">Released</span>
+                                                                                                </div>
+                                                                                            ) : order?.lock_materials ? (
                                                                                                 <div className="flex items-center gap-1">
                                                                                                     <div className="w-2 h-2 rounded-full bg-[#E06D5E]"></div>
                                                                                                     <span className="text-xs text-[#E06D5E] font-medium">Yes</span>
@@ -1954,9 +2403,9 @@ const AgentForm = () => {
                                                 </div>
                                             )}
 
-
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                             <AccordionItem value="branding">
