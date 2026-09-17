@@ -1,13 +1,22 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import WhitelabelLogo from "./WhitelabelLogo";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isTourDomain } from "@/lib/config/domains";
+import { getAppHostname } from "@/lib/utils";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const [isToursPortal, setIsToursPortal] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsToursPortal(isTourDomain(getAppHostname()));
+    }
+  }, []);
 
   const parts = pathname.split('/').filter(Boolean);
   let slug = "";
@@ -32,7 +41,7 @@ const Header: React.FC = () => {
     >
       {/* Logo */}
       <div className="flex items-center md:absolute md:left-6">
-        <Link href="/">
+        <Link href={isToursPortal ? toursHref : "/"}>
           <WhitelabelLogo width={isMobile ? 120 : 160} height={isMobile ? 40 : 50} className="mx-0" />
         </Link>
       </div>
@@ -54,15 +63,18 @@ const Header: React.FC = () => {
           Tours
         </Link>
 
-        <Link
-          href={bookNowHref}
-          className={`hover:underline ${parts.includes('book-now') ? "underline font-semibold" : ""}`}
-        >
-          BOOK NOW
-        </Link>
+        {!isToursPortal && (
+          <Link
+            href={bookNowHref}
+            className={`hover:underline ${parts.includes('book-now') ? "underline font-semibold" : ""}`}
+          >
+            BOOK NOW
+          </Link>
+        )}
       </nav>
     </header>
   );
 };
 
 export default Header;
+

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getDefaultDomains } from '@/lib/config/domains';
+import { getDefaultDomains, isTourDomain } from '@/lib/config/domains';
 
 // Auth routes that are always accessible (no rewrite needed)
 const AUTH_ROUTES = [
@@ -34,7 +34,7 @@ function guessPortalTypeFromHostname(hostname: string): string {
   if (h === teams) return 'admin';
 
   // 2. Detect tours subdomains (tours.* or tour.*)
-  if (h.startsWith('tours.') || h.startsWith('tour.') || h === 'tours.localhost' || h === 'tour.localhost') {
+  if (isTourDomain(h)) {
     return 'tours';
   }
 
@@ -178,11 +178,7 @@ export async function middleware(request: NextRequest) {
 
   // tours.localhost / tour.localhost are intentionally NOT in defaultDomains so
   // they fall through to guessPortalTypeFromHostname which returns 'tours'.
-  const isToursDomain =
-    domainWithoutPort.startsWith('tours.') ||
-    domainWithoutPort.startsWith('tour.') ||
-    domainWithoutPort === 'tours.localhost' ||
-    domainWithoutPort === 'tour.localhost';
+  const isToursDomain = isTourDomain(domainWithoutPort);
 
   const isDefaultDomain = !isToursDomain && defaultDomains.includes(domainWithoutPort);
 

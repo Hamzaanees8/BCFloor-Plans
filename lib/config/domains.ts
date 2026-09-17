@@ -93,6 +93,22 @@ export function isDefaultDomain(domain: string): boolean {
 }
 
 /**
+ * Check if a domain is a tours subdomain (tours.* or tour.*)
+ * @param domain Domain to check
+ * @returns true if domain is a tours subdomain
+ */
+export function isTourDomain(domain: string): boolean {
+  if (!domain) return false;
+  const normalizedDomain = domain.trim().toLowerCase();
+  return (
+    normalizedDomain.startsWith('tours.') ||
+    normalizedDomain.startsWith('tour.') ||
+    normalizedDomain === 'tours.localhost' ||
+    normalizedDomain === 'tour.localhost'
+  );
+}
+
+/**
  * Validate that a subdomain's base matches the custom domain
  * Examples:
  * - customDomain="commerx.com", subdomain="teams.commerx.com" → true
