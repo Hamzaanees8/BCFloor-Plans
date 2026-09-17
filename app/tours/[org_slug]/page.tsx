@@ -238,7 +238,7 @@ const Page = () => {
                                 error={error}
                                 userType={userType}
                                 headerBgOverride="#F5F5F5"
-                                dataName="Properties"
+                                dataName="Tours"
                             />
                         </div>
                     )}
@@ -264,7 +264,7 @@ const Page = () => {
                                 </div>
                             ) : filteredTours.length === 0 ? (
                                 <div className="w-full flex justify-center items-center p-20 bg-white rounded-lg border">
-                                    <p className="text-gray-500 text-lg font-medium">No properties found.</p>
+                                    <p className="text-gray-500 text-lg font-medium">No tours found.</p>
                                 </div>
                             ) : (
                                 <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

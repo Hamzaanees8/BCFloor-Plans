@@ -33,7 +33,12 @@ function guessPortalTypeFromHostname(hostname: string): string {
   if (h === vendors) return 'vendor';
   if (h === teams) return 'admin';
 
-  // 2. Fallback to keyword matching (useful for localhost or custom subdomains if API fails)
+  // 2. Detect tours subdomains (tours.* or tour.*)
+  if (h.startsWith('tours.') || h.startsWith('tour.') || h === 'tours.localhost' || h === 'tour.localhost') {
+    return 'tours';
+  }
+
+  // 3. Fallback to keyword matching (useful for localhost or custom subdomains if API fails)
   if (
     h.includes('booking') ||
     h.includes('agent') ||
@@ -70,6 +75,20 @@ function buildResponse(
   if (isSharedRoute) {
     return NextResponse.next();
   }
+
+  // ─── Tours-only portal ───────────────────────────────────────────────────
+  // Domains: tours.* / tour.* subdomains (e.g. tours.dev.tojuco.com,
+  // tours.localhost:3000). Only /tours/* and /tour/* are allowed — everything
+  // else is redirected to /tours so the slug-rewrite block can append {org_slug}.
+  if (portalType === 'tours') {
+    if (pathname.startsWith('/tours') || pathname.startsWith('/tour')) {
+      return NextResponse.next();
+    }
+    // Redirect root and all other paths to /tours (slug will be injected by
+    // the rewrite block above, or the page reads ?org_slug= from the query).
+    return NextResponse.redirect(new URL(`/tours${search}`, request.url));
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (portalType === 'agent') {
     // Block vendor-specific pages
@@ -157,7 +176,15 @@ export async function middleware(request: NextRequest) {
     "127.0.0.1"
   ];
 
-  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
+  // tours.localhost / tour.localhost are intentionally NOT in defaultDomains so
+  // they fall through to guessPortalTypeFromHostname which returns 'tours'.
+  const isToursDomain =
+    domainWithoutPort.startsWith('tours.') ||
+    domainWithoutPort.startsWith('tour.') ||
+    domainWithoutPort === 'tours.localhost' ||
+    domainWithoutPort === 'tour.localhost';
+
+  const isDefaultDomain = !isToursDomain && defaultDomains.includes(domainWithoutPort);
 
   if (!isDefaultDomain) {
     // Always resolve the domain via the API — single source of truth for portal_type
@@ -201,14 +228,38 @@ export async function middleware(request: NextRequest) {
     console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 
-  // For custom domains, check if we need to rewrite to slug-based URLs.
-  // IMPORTANT: This block must run BEFORE buildResponse so that shared routes
-  // like /tours and /tour are rewritten with the org_slug before any early-return.
+  // Always enforce tours portal type on tours subdomains — regardless of what
+  // the API returned. This guarantees the lockdown applies even if the backend
+  // doesn't explicitly set portal_type:'tours' for the domain.
+  if (isToursDomain) {
+    portalType = 'tours';
+    console.log('[Middleware] Tours domain detected — forcing portalType to "tours"');
+  }
+
+  // For custom domains (and tours domains), check if we need to rewrite to
+  // slug-based URLs. IMPORTANT: This block must run BEFORE buildResponse so
+  // that shared routes like /tours and /tour are rewritten with the org_slug
+  // before any early-return.
   if (!isDefaultDomain && orgData && orgData.slug) {
     const slug = orgData.slug as string;
     const pathname = url.pathname;
     const search = url.search;
     const segments = pathname.split('/').filter(Boolean);
+
+    // 0. Tours-portal root redirect: "/" -> "/tours/[org_slug]"
+    //    Also covers any unrecognised path that buildResponse would redirect
+    //    back to /tours — catch it here to avoid a double-redirect loop.
+    if (isToursDomain && (pathname === '/' || segments.length === 0)) {
+      const targetUrl = new URL(`/tours/${slug}${search}`, request.url);
+      console.log(`[Middleware] Tours portal root redirect: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.redirect(targetUrl);
+      response.cookies.set('org_data', JSON.stringify(orgData), {
+        path: '/',
+        maxAge: 3600,
+        sameSite: 'lax',
+      });
+      return response;
+    }
 
     // 1. Rewrite "/tours" or "/tours/" -> "/tours/[org_slug]"
     if (segments.length === 1 && segments[0] === 'tours') {
@@ -238,7 +289,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // 3. Rewrite "/book-now" -> "/agent/book-now/[org_slug]"
-    if (segments.length === 1 && segments[0] === 'book-now') {
+    //    (not applicable on tours portals, but kept for non-tours custom domains)
+    if (!isToursDomain && segments.length === 1 && segments[0] === 'book-now') {
       const targetUrl = new URL(`/agent/book-now/${slug}${search}`, request.url);
       console.log(`[Middleware] Rewriting whitelabel book-now: ${pathname} -> ${targetUrl.pathname}`);
       const response = NextResponse.rewrite(targetUrl);
@@ -252,7 +304,7 @@ export async function middleware(request: NextRequest) {
 
     // 4. Rewrite "/book-now/[anything]" -> "/agent/book-now/[org_slug]/[anything]"
     //    (e.g. nested pages under book-now if they ever exist)
-    if (segments.length >= 2 && segments[0] === 'book-now' && segments[1] !== slug) {
+    if (!isToursDomain && segments.length >= 2 && segments[0] === 'book-now' && segments[1] !== slug) {
       const rest = segments.slice(1).join('/');
       const targetUrl = new URL(`/agent/book-now/${slug}/${rest}${search}`, request.url);
       console.log(`[Middleware] Rewriting whitelabel book-now nested: ${pathname} -> ${targetUrl.pathname}`);
@@ -264,6 +316,18 @@ export async function middleware(request: NextRequest) {
       });
       return response;
     }
+  }
+
+  // Tours-portal on localhost (no API data): when isToursDomain but no org slug
+  // from the API, buildResponse will handle the /tours redirect. The page itself
+  // then reads ?org_slug= from the query string.
+  if (isToursDomain && (!orgData || !orgData.slug) && url.pathname === '/') {
+    const orgSlugParam = url.searchParams.get('org_slug') || '';
+    const redirectTarget = orgSlugParam
+      ? `/tours/${orgSlugParam}${url.search}`
+      : `/tours${url.search}`;
+    console.log(`[Middleware] Tours portal localhost root redirect -> ${redirectTarget}`);
+    return NextResponse.redirect(new URL(redirectTarget, request.url));
   }
 
   // Build the routing response based on portal_type
