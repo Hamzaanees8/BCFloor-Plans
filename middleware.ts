@@ -230,100 +230,88 @@ export async function middleware(request: NextRequest) {
   if (isToursDomain) {
     portalType = 'tours';
     console.log('[Middleware] Tours domain detected — forcing portalType to "tours"');
-  }
 
-  // For custom domains (and tours domains), check if we need to rewrite to
-  // slug-based URLs. IMPORTANT: This block must run BEFORE buildResponse so
-  // that shared routes like /tours and /tour are rewritten with the org_slug
-  // before any early-return.
-  if (!isDefaultDomain && orgData && orgData.slug) {
-    const slug = orgData.slug as string;
     const pathname = url.pathname;
     const search = url.search;
     const segments = pathname.split('/').filter(Boolean);
+    const orgSlug = (orgData?.slug as string) || '';
 
-    // 0. Tours-portal root redirect: "/" -> "/tours/[org_slug]"
-    //    Also covers any unrecognised path that buildResponse would redirect
-    //    back to /tours — catch it here to avoid a double-redirect loop.
-    if (isToursDomain && (pathname === '/' || segments.length === 0)) {
-      const targetUrl = new URL(`/tours/${slug}${search}`, request.url);
-      console.log(`[Middleware] Tours portal root redirect: ${pathname} -> ${targetUrl.pathname}`);
+    // 1. Root "/" on a dedicated tour domain with known org slug: redirect to "/[slug]"
+    if (orgSlug && (pathname === '/' || segments.length === 0)) {
+      const targetUrl = new URL(`/${orgSlug}${search}`, request.url);
+      console.log(`[Middleware] Tours dedicated domain root redirect: ${pathname} -> ${targetUrl.pathname}`);
       const response = NextResponse.redirect(targetUrl);
-      response.cookies.set('org_data', JSON.stringify(orgData), {
-        path: '/',
-        maxAge: 3600,
-        sameSite: 'lax',
-      });
+      if (orgData) {
+        response.cookies.set('org_data', JSON.stringify(orgData), {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+      }
       return response;
     }
 
-    // 1. Rewrite "/tours" or "/tours/" -> "/tours/[org_slug]"
-    if (segments.length === 1 && segments[0] === 'tours') {
-      const targetUrl = new URL(`/tours/${slug}${search}`, request.url);
-      console.log(`[Middleware] Rewriting whitelabel tours list: ${pathname} -> ${targetUrl.pathname}`);
+    // 2. Root "/" on generic tours domain with ?org_slug= query param: redirect to "/[org_slug]"
+    if (pathname === '/' && url.searchParams.get('org_slug')) {
+      const slugFromQuery = url.searchParams.get('org_slug');
+      const targetUrl = new URL(`/${slugFromQuery}${search}`, request.url);
+      console.log(`[Middleware] Tours query param root redirect: ${pathname} -> ${targetUrl.pathname}`);
+      return NextResponse.redirect(targetUrl);
+    }
+
+    // 3. Single slug path: "/[org_slug]" (e.g. "/bcfloorplans")
+    //    Rewrite to "/tours/[org_slug]" so app/tours/[org_slug]/page.tsx renders,
+    //    while browser URL stays https://tours.tojuco.com/bcfloorplans
+    if (segments.length === 1 && segments[0] !== 'tours' && segments[0] !== 'tour' && segments[0] !== 'whitelabel') {
+      const slugParam = segments[0];
+      const targetUrl = new URL(`/tours/${slugParam}${search}`, request.url);
+      console.log(`[Middleware] Rewriting tours slug route: ${pathname} -> ${targetUrl.pathname}`);
       const response = NextResponse.rewrite(targetUrl);
-      response.cookies.set('org_data', JSON.stringify(orgData), {
-        path: '/',
-        maxAge: 3600,
-        sameSite: 'lax',
-      });
+      if (orgData) {
+        response.cookies.set('org_data', JSON.stringify(orgData), {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+      }
       return response;
     }
 
-    // 2. Rewrite "/tour/[orderuuid]" -> "/tour/[org_slug]/[orderuuid]"
-    if (segments.length === 2 && segments[0] === 'tour' && segments[1] !== slug) {
-      const orderuuid = segments[1];
-      const targetUrl = new URL(`/tour/${slug}/${orderuuid}${search}`, request.url);
-      console.log(`[Middleware] Rewriting whitelabel single tour: ${pathname} -> ${targetUrl.pathname}`);
-      const response = NextResponse.rewrite(targetUrl);
-      response.cookies.set('org_data', JSON.stringify(orgData), {
-        path: '/',
-        maxAge: 3600,
-        sameSite: 'lax',
-      });
+    // 4. Direct "/tours/[org_slug]" -> redirect to "/[org_slug]" for clean URLs
+    if (segments.length === 2 && segments[0] === 'tours') {
+      const targetUrl = new URL(`/${segments[1]}${search}`, request.url);
+      console.log(`[Middleware] Redirecting /tours/[slug] -> /[slug]: ${pathname} -> ${targetUrl.pathname}`);
+      return NextResponse.redirect(targetUrl);
+    }
+
+    // 5. Allow "/tour/..." as-is (e.g. "/tour/[address]/[uuid]" or "/tour/feature-sheet/[uuid]")
+    if (pathname.startsWith('/tour')) {
+      const response = NextResponse.next();
+      if (orgData) {
+        response.cookies.set('org_data', JSON.stringify(orgData), {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+      }
       return response;
     }
 
-    // 3. Rewrite "/book-now" -> "/agent/book-now/[org_slug]"
-    //    (not applicable on tours portals, but kept for non-tours custom domains)
-    if (!isToursDomain && segments.length === 1 && segments[0] === 'book-now') {
-      const targetUrl = new URL(`/agent/book-now/${slug}${search}`, request.url);
-      console.log(`[Middleware] Rewriting whitelabel book-now: ${pathname} -> ${targetUrl.pathname}`);
-      const response = NextResponse.rewrite(targetUrl);
-      response.cookies.set('org_data', JSON.stringify(orgData), {
-        path: '/',
-        maxAge: 3600,
-        sameSite: 'lax',
-      });
+    // 6. Allow "/tours" as-is (fallback when no slug available)
+    if (pathname === '/tours' || pathname === '/tours/') {
+      const response = NextResponse.next();
+      if (orgData) {
+        response.cookies.set('org_data', JSON.stringify(orgData), {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+      }
       return response;
     }
 
-    // 4. Rewrite "/book-now/[anything]" -> "/agent/book-now/[org_slug]/[anything]"
-    //    (e.g. nested pages under book-now if they ever exist)
-    if (!isToursDomain && segments.length >= 2 && segments[0] === 'book-now' && segments[1] !== slug) {
-      const rest = segments.slice(1).join('/');
-      const targetUrl = new URL(`/agent/book-now/${slug}/${rest}${search}`, request.url);
-      console.log(`[Middleware] Rewriting whitelabel book-now nested: ${pathname} -> ${targetUrl.pathname}`);
-      const response = NextResponse.rewrite(targetUrl);
-      response.cookies.set('org_data', JSON.stringify(orgData), {
-        path: '/',
-        maxAge: 3600,
-        sameSite: 'lax',
-      });
-      return response;
-    }
-  }
-
-  // Tours-portal on localhost (no API data): when isToursDomain but no org slug
-  // from the API, buildResponse will handle the /tours redirect. The page itself
-  // then reads ?org_slug= from the query string.
-  if (isToursDomain && (!orgData || !orgData.slug) && url.pathname === '/') {
-    const orgSlugParam = url.searchParams.get('org_slug') || '';
-    const redirectTarget = orgSlugParam
-      ? `/tours/${orgSlugParam}${url.search}`
-      : `/tours${url.search}`;
-    console.log(`[Middleware] Tours portal localhost root redirect -> ${redirectTarget}`);
-    return NextResponse.redirect(new URL(redirectTarget, request.url));
+    // 7. Any other path on tours portal (e.g. /dashboard, /agent, /vendor, /login) -> 404
+    return NextResponse.rewrite(new URL('/404', request.url));
   }
 
   // Build the routing response based on portal_type

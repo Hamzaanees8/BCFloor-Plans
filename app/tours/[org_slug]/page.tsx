@@ -71,11 +71,9 @@ const Page = () => {
     };
 
     useEffect(() => {
-        // On a whitelabel (non-default) domain, wait until OrganizationContext has
-        // finished loading before fetching. This prevents firing GetPublicTours(undefined)
-        // on first render (before the org slug is known), which would return ALL public
-        // tours across all organizations instead of just the whitelabel org's tours.
-        if (!isDefault && !isOrganizationLoaded) return;
+        // On a whitelabel (non-default) domain without an explicit orgSlug in URL, wait
+        // until OrganizationContext has finished loading before fetching.
+        if (!isDefault && !orgSlug && !isOrganizationLoaded) return;
 
         setLoading(true);
         setError(false);

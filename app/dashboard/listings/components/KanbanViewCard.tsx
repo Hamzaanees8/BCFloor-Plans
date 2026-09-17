@@ -113,7 +113,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
     const address = suite ? `${suite} - ${rawAddress}` : rawAddress;
     const city = tourData.orders?.property?.city || "";
     addressLine = address + (city ? ", " + city : "");
-    href = `${agentDomainUrl}/tour/${slugify(address)}/${tourData.orders?.uuid}`;
+    href = `/tour/${slugify(address)}/${tourData.orders?.uuid}`;
     latestOrder = tourData.orders;
   } else {
     const listingData = data as Listings;

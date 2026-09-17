@@ -30,9 +30,17 @@ const Header: React.FC = () => {
     }
   }
 
+  // If on tours portal with /:slug (e.g. /bcfloorplans)
+  if (!slug && isToursPortal && parts.length === 1 && parts[0] !== 'tours' && parts[0] !== 'tour') {
+    slug = parts[0];
+  }
+
   // const aboutHref = slug ? `/about/${slug}` : "/about";
-  const toursHref = slug ? `/tours/${slug}` : "/tours";
+  const toursHref = isToursPortal
+    ? (slug ? `/${slug}` : "/tours")
+    : (slug ? `/tours/${slug}` : "/tours");
   const bookNowHref = slug ? `/book-now/${slug}` : "/book-now";
+  const isToursActive = parts.includes('tours') || parts.includes('tour') || (isToursPortal && parts.length === 1);
 
   return (
     <header
@@ -58,7 +66,7 @@ const Header: React.FC = () => {
 
         <Link
           href={toursHref}
-          className={`hover:underline ${parts.includes('tours') || parts.includes('tour') ? "underline " : ""}`}
+          className={`hover:underline ${isToursActive ? "underline " : ""}`}
         >
           Tours
         </Link>
