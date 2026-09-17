@@ -7,7 +7,6 @@ import React, { useState } from 'react'
 import { login } from './login'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { VendorLoginIcon } from '@/components/Icons'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext'
 import WhitelabelLogo from '@/components/WhitelabelLogo'
@@ -26,8 +25,6 @@ function LoginUser() {
     const { setUserType } = useAppContext();
     const { organization } = useOrganization();
     const router = useRouter();
-
-    const hasCustomLogo = !!organization?.branding?.logo;
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -79,13 +76,7 @@ function LoginUser() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                {hasCustomLogo ? (
-                    <WhitelabelLogo width={180} height={100} />
-                ) : (
-                    <div className='flex justify-center'>
-                        <VendorLoginIcon width='110px' height='110px' />
-                    </div>
-                )}
+                <WhitelabelLogo width={180} height={100} />
                 <Link href={'#'} className='hidden justify-center items-center bg-[var(--vendor-bg-color,#DC9600)] hover:bg-[var(--vendor-bg-color,#DC9600)] hover:opacity-85 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>

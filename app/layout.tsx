@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import { Alexandria, Geist, Geist_Mono, Raleway } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
-import { getDefaultDomains } from "@/lib/config/domains";
+import { isDefaultDomain } from "@/lib/config/domains";
 
 import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
-import { UploadQueueProvider } from '@/context/UploadQueueContext';
-import { UploadProgressToast } from '@/components/upload/UploadProgressToast';
-import { GlobalFileUploadProvider } from '@/context/GlobalFileUploadContext';
-import { GlobalUploadProgressOverlay } from '@/components/upload/GlobalUploadProgressOverlay';
-import { GlobalDownloadProvider } from '@/context/GlobalDownloadContext';
-import { GlobalDownloadProgressOverlay } from '@/components/download/GlobalDownloadProgressOverlay';
-import EnvironmentBanner from '@/components/EnvironmentBanner';
+import { UploadQueueProvider } from "@/context/UploadQueueContext";
+import { UploadProgressToast } from "@/components/upload/UploadProgressToast";
+import { GlobalFileUploadProvider } from "@/context/GlobalFileUploadContext";
+import { GlobalUploadProgressOverlay } from "@/components/upload/GlobalUploadProgressOverlay";
+import { GlobalDownloadProvider } from "@/context/GlobalDownloadContext";
+import { GlobalDownloadProgressOverlay } from "@/components/download/GlobalDownloadProgressOverlay";
+import EnvironmentBanner from "@/components/EnvironmentBanner";
+import { isDevEnvironment } from "@/lib/config/environment";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,42 +25,31 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 const alexandria = Alexandria({
-  subsets: ['latin'],
-  variable: '--font-alexandria',
+  subsets: ["latin"],
+  variable: "--font-alexandria",
 });
 const raleway = Raleway({
-  subsets: ['latin'],
-  variable: '--font-raleway',
+  subsets: ["latin"],
+  variable: "--font-raleway",
 });
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
-  const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
-  const domainWithoutPort = host.split(':')[0];
-  const envDefaultDomains = getDefaultDomains();
-  const defaultDomains = [
-    ...envDefaultDomains,
-    "booking-new.localhost",
-    "teams-new.localhost",
-    "vendors-new.localhost",
-    "agents-new.localhost",
-    "localhost",
-    "127.0.0.1"
-  ];
-
-  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
+  const host =
+    headersList.get("x-forwarded-host") || headersList.get("host") || "";
+  const domainWithoutPort = host.split(":")[0];
+  const isDefault = isDefaultDomain(domainWithoutPort);
 
   let title = "Tojuco Solutions";
-  let favicon = "/tojuco.png";
+  let favicon = "/default-favicon.png";
 
-  if (!isDefaultDomain) {
+  if (!isDefault) {
     try {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com')
-        .replace(/\/api\/?$/, '');
-      const protocol = headersList.get("x-forwarded-proto") || "http";
-      const fullBaseUrl = `${protocol}://${host}`;
-      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
+      const apiUrl = (
+        process.env.NEXT_PUBLIC_API_URL || "https://api-stage.bcfloorplans.com"
+      ).replace(/\/api\/?$/, "");
+      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${domainWithoutPort}`;
 
-      const res = await fetch(fetchUrl, { cache: 'no-store' });
+      const res = await fetch(fetchUrl, { cache: "no-store" });
       if (res.ok) {
         const whitelabelData = await res.json();
         if (whitelabelData?.name || whitelabelData?.from_name) {
@@ -70,7 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
         }
       }
     } catch (e) {
-      console.error('Failed to fetch branding in generateMetadata:', e);
+      console.error("Failed to fetch branding in generateMetadata:", e);
     }
   }
 
@@ -84,7 +74,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 }
-
 
 import { headers } from "next/headers";
 import { OrganizationProvider } from "./context/OrganizationContext";
@@ -100,7 +89,7 @@ import { OrganizationProvider } from "./context/OrganizationContext";
 // async function getWhitelabelInfo(domain: string): Promise<WhitelabelInfo | null> {
 //   try {
 //     const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
-//     const baseApiUrl = rawApiUrl.replace(/\/api$/, ''); 
+//     const baseApiUrl = rawApiUrl.replace(/\/api$/, '');
 //     const res = await fetch(`${baseApiUrl}/api/domains/resolve?domain=${domain}`, {
 //       next: { revalidate: 3600 },
 //     });
@@ -117,89 +106,90 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const headersList = await headers();
-  const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
-  console.log('>>> LAYOUT RESOLVED HOST:', host);
-  console.log('--- LAYOUT ALL HEADERS ---');
+  const host =
+    headersList.get("x-forwarded-host") || headersList.get("host") || "";
+  console.log(">>> LAYOUT RESOLVED HOST:", host);
+  console.log("--- LAYOUT ALL HEADERS ---");
   headersList.forEach((value, key) => {
     console.log(`  [Layout Header] ${key}: ${value}`);
   });
-  console.log('--------------------------');
-
+  console.log("--------------------------");
 
   let whitelabelData: any = null;
 
   // Fetch branding for any host that isn't bare localhost or a default system domain
-  const domainWithoutPort = host.split(':')[0];
-  const envDefaultDomains = getDefaultDomains();
-  const defaultDomains = [
-    ...envDefaultDomains,
-    "booking-new.localhost",
-    "teams-new.localhost",
-    "vendors-new.localhost",
-    "agents-new.localhost",
-    "localhost",
-    "127.0.0.1"
-  ];
+  const domainWithoutPort = host.split(":")[0];
+  const isDefault = isDefaultDomain(domainWithoutPort);
 
-  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
-
-  if (!isDefaultDomain) {
+  if (!isDefault) {
     try {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com')
-        .replace(/\/api\/?$/, '');
-      const protocol = headersList.get("x-forwarded-proto") || "http";
-      const fullBaseUrl = `${protocol}://${host}`;
-      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
-      console.log('Layout: fetching branding for', fullBaseUrl);
+      const apiUrl = (
+        process.env.NEXT_PUBLIC_API_URL || "https://api-stage.bcfloorplans.com"
+      ).replace(/\/api\/?$/, "");
+      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${domainWithoutPort}`;
+      console.log("Layout: fetching branding for", domainWithoutPort);
 
-      const res = await fetch(fetchUrl, { cache: 'no-store' });
+      const res = await fetch(fetchUrl, { cache: "no-store" });
       if (res.ok) {
         whitelabelData = await res.json();
       }
     } catch (e) {
-      console.error('Failed to fetch branding in layout:', e);
+      console.error("Failed to fetch branding in layout:", e);
     }
   }
 
   // API returns colors as { value: "#..." } objects — extract the plain string
   const extractColor = (c: any, fallback: string) =>
-    (typeof c === 'object' ? c?.value : c) || fallback;
+    (typeof c === "object" ? c?.value : c) || fallback;
 
-  const envMode = (
-    process.env.NETX_ENV ||
-    process.env.NEXT_ENV ||
-    process.env.NEXT_PUBLIC_ENV ||
-    ""
-  ).trim().toLowerCase();
-  const isDevelop = envMode === "develop";
+  const isDevelop = isDevEnvironment(host);
 
-  const brandedStyle = whitelabelData?.branding ? {
-    '--org-primary': extractColor(whitelabelData.branding.primary_color, '#6BAE41'),
-    '--org-secondary': extractColor(whitelabelData.branding.secondary_color, '#DC9600'),
-    '--org-logo': whitelabelData.branding.logo ? `url(${whitelabelData.branding.logo})` : 'none',
-    // Maintain legacy variables for compatibility
-    '--primary-color': extractColor(whitelabelData.branding.primary_color, '#6BAE41'),
-    '--secondary-color': extractColor(whitelabelData.branding.secondary_color, '#DC9600'),
-    '--logo-url': whitelabelData.branding.logo ? `url(${whitelabelData.branding.logo})` : 'none',
-  } as React.CSSProperties : {};
+  const brandedStyle = whitelabelData?.branding
+    ? ({
+        "--org-primary": extractColor(
+          whitelabelData.branding.primary_color,
+          "#6BAE41",
+        ),
+        "--org-secondary": extractColor(
+          whitelabelData.branding.secondary_color,
+          "#DC9600",
+        ),
+        "--org-logo": whitelabelData.branding.logo
+          ? `url(${whitelabelData.branding.logo})`
+          : "none",
+        // Maintain legacy variables for compatibility
+        "--primary-color": extractColor(
+          whitelabelData.branding.primary_color,
+          "#6BAE41",
+        ),
+        "--secondary-color": extractColor(
+          whitelabelData.branding.secondary_color,
+          "#DC9600",
+        ),
+        "--logo-url": whitelabelData.branding.logo
+          ? `url(${whitelabelData.branding.logo})`
+          : "none",
+      } as React.CSSProperties)
+    : {};
 
   const rootStyle: React.CSSProperties = {
     ...brandedStyle,
-    ...(isDevelop ? { '--env-banner-height': '36px' } : { '--env-banner-height': '0px' }),
-    paddingTop: 'var(--env-banner-height, 0px)',
+    ...(isDevelop
+      ? { "--env-banner-height": "36px" }
+      : { "--env-banner-height": "0px" }),
+    paddingTop: "var(--env-banner-height, 0px)",
   };
 
   return (
     <html lang="en">
-      <head>
-      </head>
+      <head></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
         suppressHydrationWarning
       >
         <OrganizationProvider>
           <div id="global-whitelabel-root" style={rootStyle}>
-            {isDevelop && <EnvironmentBanner />}
+            <EnvironmentBanner initialVisible={isDevelop} />
             <GlobalFileUploadProvider>
               <GlobalDownloadProvider>
                 <UploadQueueProvider>
@@ -221,4 +211,3 @@ export default async function RootLayout({
     </html>
   );
 }
-

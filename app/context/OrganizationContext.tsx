@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getDefaultDomains } from "@/lib/config/domains";
+import { isDefaultDomain } from "@/lib/config/domains";
 import { getAppOrigin } from "@/lib/utils";
 
 
@@ -44,15 +44,29 @@ function extractColorValue(color: string | ColorValue | undefined, fallback: str
   return color || fallback;
 }
 
-function updatePageMetadata(org: OrganizationData) {
+function updatePageMetadata(org: OrganizationData | null) {
   if (typeof document === "undefined") return;
 
-  // Only update when we have real org data — never overwrite with defaults
-  // before the API response arrives (avoids the flash of "Tojuco Solutions").
+  if (!org) {
+    document.title = "Tojuco Solutions";
+    const faviconUrl = "/default-favicon.png";
+    const relTypes = ["icon", "shortcut icon", "apple-touch-icon"];
+    relTypes.forEach((rel) => {
+      let link: HTMLLinkElement | null = document.querySelector(`link[rel="${rel}"]`);
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = rel;
+        document.head.appendChild(link);
+      }
+      link.href = faviconUrl;
+    });
+    return;
+  }
+
   const title = org.name || org.from_name;
   if (title) document.title = title;
 
-  const faviconUrl = org.branding?.logo;
+  const faviconUrl = org.branding?.logo || "/default-favicon.png";
   if (!faviconUrl) return;
 
   const relTypes = ["icon", "shortcut icon", "apple-touch-icon"];
@@ -115,18 +129,8 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
     const resolveDomain = async (fullUrl: string) => {
       const hostname = fullUrl.replace(/^https?:\/\//, '').split(':')[0];
       const domainWithoutPort = hostname.split(':')[0];
-      const envDefaultDomains = getDefaultDomains();
-      const defaultDomains = [
-        ...envDefaultDomains,
-        "bookings-new.localhost",
-        "booking-new.localhost",
-        "teams-new.localhost",
-        "vendors-new.localhost",
-        "agents-new.localhost",
-        "localhost"
-      ];
       
-      if (defaultDomains.includes(domainWithoutPort)) {
+      if (isDefaultDomain(domainWithoutPort)) {
          console.log("OrganizationProvider: skipping resolution for default domain:", domainWithoutPort);
          return;
       }

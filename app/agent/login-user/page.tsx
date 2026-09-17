@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import WhitelabelLogo from '@/components/WhitelabelLogo'
-import { AgentLoginIcon } from '@/components/Icons'
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { login } from './login'
@@ -26,8 +25,6 @@ function LoginUser() {
     const { setUserType } = useAppContext();
     const { organization } = useOrganization();
     const router = useRouter();
-
-    const hasCustomLogo = !!organization?.branding?.logo;
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -79,13 +76,7 @@ function LoginUser() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                {hasCustomLogo ? (
-                    <WhitelabelLogo width={180} height={100} />
-                ) : (
-                    <div className='flex justify-center'>
-                        <AgentLoginIcon width='110px' height='110px' />
-                    </div>
-                )}
+                <WhitelabelLogo width={180} height={100} />
                 <Link href={'#'} className='hidden justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--agent-bg-color)] hover:opacity-90 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>

@@ -38,6 +38,24 @@ export function getDefaultBaseDomain(): string {
 }
 
 /**
+ * Clean and sanitize domain input by removing protocols, port numbers, and trailing slashes.
+ * Examples:
+ * - "https://booking.bcfloorplans.com/" -> "booking.bcfloorplans.com"
+ * - "http://media.commerx.com:3000" -> "media.commerx.com"
+ * @param domain Raw input domain string
+ * @returns Clean hostname
+ */
+export function cleanDomain(domain: string): string {
+  if (!domain) return '';
+  return domain
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//i, '')
+    .split(':')[0]
+    .replace(/\/+$/, '');
+}
+
+/**
  * Extract the base domain from a subdomain or full domain
  * Examples:
  * - "teams.commerx.com" → "commerx.com"
@@ -47,11 +65,11 @@ export function getDefaultBaseDomain(): string {
  * @returns Base domain (e.g., "commerx.com")
  */
 export function extractBaseDomain(domain: string): string {
-  const parts = domain.trim().toLowerCase().split('.');
+  const parts = cleanDomain(domain).split('.');
 
   // If less than 2 parts, return as-is
   if (parts.length < 2) {
-    return domain.trim().toLowerCase();
+    return cleanDomain(domain);
   }
 
   // Return the last two parts (e.g., "commerx.com" from "teams.commerx.com")
@@ -59,37 +77,72 @@ export function extractBaseDomain(domain: string): string {
 }
 
 /**
- * Check if a domain is one of the default domains or the bcfloorplans.com base
+ * Check if a domain is a localhost or development domain
  * @param domain Domain to check
- * @returns true if domain is a default domain or bcfloorplans.com
+ * @returns true if domain is localhost or development loopback
+ */
+export function isLocalhostDomain(domain: string): boolean {
+  if (!domain) return false;
+  const normalizedDomain = domain.trim().toLowerCase();
+  return (
+    normalizedDomain === 'localhost' ||
+    normalizedDomain === '127.0.0.1' ||
+    normalizedDomain.endsWith('.localhost')
+  );
+}
+
+/**
+ * Fallback portal type resolution for localhost/development testing ONLY.
+ * For production / live domains, dynamic database resolution must always be used.
+ * @param domain Localhost domain string
+ * @returns 'agent' | 'vendor' | 'tours' | 'admin'
+ */
+export function getLocalhostPortalType(domain: string): string {
+  const h = domain.trim().toLowerCase();
+
+  if (isTourDomain(h)) {
+    return 'tours';
+  }
+
+  if (
+    h.includes('booking') ||
+    h.includes('agent') ||
+    h.includes('booking-new') ||
+    h.includes('agents-new')
+  ) {
+    return 'agent';
+  }
+
+  if (
+    h.includes('vendors-new') ||
+    h.includes('vendor') ||
+    h.includes('vendors')
+  ) {
+    return 'vendor';
+  }
+
+  return 'admin';
+}
+
+/**
+ * Check if a domain is one of the 3 configured default domains from environment variables
+ * or a localhost/dev domain.
+ * @param domain Domain to check
+ * @returns true if domain is a default domain or localhost
  */
 export function isDefaultDomain(domain: string): boolean {
   if (!domain) return false;
 
   const normalizedDomain = domain.trim().toLowerCase();
-  const baseDomain = getDefaultBaseDomain();
   const defaultDomains = getDefaultDomains();
 
-  // 1. Check if it's the base domain (bcfloorplans.com)
-  if (normalizedDomain === baseDomain) {
-    return true;
-  }
-
-  // 2. Check if it's one of the three default domains from env (e.g. teams-new.bcfloorplans.com)
+  // 1. Check if it matches one of the 3 default domains from env (teams.tojuco.com, bookings.tojuco.com, vendors.tojuco.com)
   if (defaultDomains.some((d) => d && normalizedDomain === d.toLowerCase())) {
     return true;
   }
 
-  // 3. Check for localhost and development environments
-  const devDomains = [
-    'localhost',
-    '127.0.0.1',
-    'booking-new.localhost',
-    'teams-new.localhost',
-    'vendors-new.localhost',
-  ];
-
-  return devDomains.includes(normalizedDomain);
+  // 2. Check for localhost and development environments
+  return isLocalhostDomain(normalizedDomain);
 }
 
 /**

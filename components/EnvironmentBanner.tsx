@@ -1,12 +1,29 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { isDevEnvironment } from '@/lib/config/environment';
 
-export default function EnvironmentBanner() {
+interface EnvironmentBannerProps {
+  initialVisible?: boolean;
+}
+
+export default function EnvironmentBanner({ initialVisible = false }: EnvironmentBannerProps) {
+  const [isVisible, setIsVisible] = useState<boolean>(initialVisible);
   const bannerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    // Check client-side location & environment if not already determined or to ensure sync
+    const devActive = isDevEnvironment(typeof window !== 'undefined' ? window.location.hostname : '');
+    setIsVisible(devActive);
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) {
+      document.documentElement.style.setProperty('--env-banner-height', '0px');
+      return;
+    }
+
     const updateHeight = () => {
       if (bannerRef.current) {
         const height = bannerRef.current.offsetHeight;
@@ -27,7 +44,11 @@ export default function EnvironmentBanner() {
       window.removeEventListener('resize', updateHeight);
       document.documentElement.style.setProperty('--env-banner-height', '0px');
     };
-  }, []);
+  }, [isVisible]);
+
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <aside
@@ -60,4 +81,3 @@ export default function EnvironmentBanner() {
     </aside>
   );
 }
-

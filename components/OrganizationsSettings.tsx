@@ -48,6 +48,7 @@ import {
     getDefaultDomainErrorMessage,
     getSubdomainMismatchWarning,
     getDefaultDomains,
+    cleanDomain,
 } from "@/lib/config/domains";
 import { AudioLibrary } from "@/app/dashboard/agents/components/AudioLibrary";
 
@@ -154,7 +155,7 @@ const OrganizationsSettings = React.forwardRef<
             return;
         }
 
-        const customDomain = formState.domain.trim();
+        const customDomain = cleanDomain(formState.domain);
         if (isDefaultDomain(customDomain)) {
             setDomainValidationError(getDefaultDomainErrorMessage(customDomain));
         } else {
@@ -169,12 +170,13 @@ const OrganizationsSettings = React.forwardRef<
             return;
         }
 
-        const customDomain = formState.domain.trim().toLowerCase();
+        const customDomain = cleanDomain(formState.domain);
         const newWarnings = new Map<number, string>();
 
         formState.domains.forEach((domainObj, index) => {
-            if (domainObj.domain && !isDomainMatchingSubdomain(customDomain, domainObj.domain)) {
-                const subdomainBase = extractBaseDomain(domainObj.domain);
+            const cleanSub = cleanDomain(domainObj.domain);
+            if (cleanSub && !isDomainMatchingSubdomain(customDomain, cleanSub)) {
+                const subdomainBase = extractBaseDomain(cleanSub);
                 newWarnings.set(index, getSubdomainMismatchWarning(customDomain, subdomainBase));
             }
         });
@@ -399,13 +401,14 @@ const OrganizationsSettings = React.forwardRef<
 
         // Custom domain validations (same as CreateOrganizationDialog)
         if (formState.is_whitelabel) {
+            const cleanOrgDomain = cleanDomain(formState.domain);
             const isValidDomain = (value: string): boolean => {
                 const val = value.trim().toLowerCase();
                 if (val.includes("localhost")) return true;
                 return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(val);
             };
-            if (formState.domain && !isValidDomain(formState.domain)) {
-                toast.error("Enter a valid domain (e.g. myportalmedia.com)");
+            if (cleanOrgDomain && !isValidDomain(cleanOrgDomain)) {
+                toast.error("Enter a valid domain without protocol (e.g. myportalmedia.com)");
                 return;
             }
             if (domainValidationError) {
@@ -434,10 +437,10 @@ const OrganizationsSettings = React.forwardRef<
                 is_whitelabel: formState.is_whitelabel,
                 portal_type: formState.portal_type || undefined,
                 slug: formState.slug || undefined,
-                domain: formState.is_whitelabel ? (formState.domain?.trim() || null) : null,
+                domain: formState.is_whitelabel ? (cleanDomain(formState.domain) || null) : null,
                 from_name: formState.is_whitelabel ? (formState.from_name?.trim() || null) : null,
                 from_email: formState.is_whitelabel ? (formState.from_email?.trim() || null) : null,
-                domains: formState.is_whitelabel ? formState.domains : [],
+                domains: formState.is_whitelabel ? (formState.domains?.map(d => ({ ...d, domain: cleanDomain(d.domain) })) || []) : [],
                 logo: formState.logo,
                 disable_next_day_booking: formState.disable_next_day_booking,
                 booking_cutoff_time: formState.booking_cutoff_time,
@@ -463,7 +466,8 @@ const OrganizationsSettings = React.forwardRef<
     };
 
     const handleAddDomain = () => {
-        if (!newDomain.trim()) {
+        const sanitized = cleanDomain(newDomain);
+        if (!sanitized) {
             toast.error("Please enter a domain.");
             return;
         }
@@ -472,12 +476,12 @@ const OrganizationsSettings = React.forwardRef<
             if (val.includes("localhost")) return true;
             return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(val);
         };
-        if (!isValidDomain(newDomain)) {
+        if (!isValidDomain(sanitized)) {
             toast.error("Enter a valid domain (e.g. media.commerx.com)");
             return;
         }
 
-        const trimmedDomain = newDomain.trim().toLowerCase();
+        const trimmedDomain = sanitized;
         const domains = [...(formState.domains || [])];
 
         const domainExists = domains.some((d, idx) => d.domain.toLowerCase() === trimmedDomain && idx !== editDomainIndex);

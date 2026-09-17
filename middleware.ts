@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getDefaultDomains, isTourDomain } from '@/lib/config/domains';
+import { getDefaultDomains, isTourDomain, isLocalhostDomain, getLocalhostPortalType, isDefaultDomain } from '@/lib/config/domains';
 
 // Auth routes that are always accessible (no rewrite needed)
 const AUTH_ROUTES = [
@@ -19,14 +19,11 @@ const SHARED_ROUTES = [
   '/whitelabel',
 ];
 
-// Emergency fallback: guess portal type from domain name
-// Only used if the API call fails completely or for default domains
-function guessPortalTypeFromHostname(hostname: string): string {
+// Determine portal type for default or localhost domains ONLY
+function getDefaultOrLocalhostPortalType(hostname: string): string {
   const h = hostname.toLowerCase();
   const defaultDomains = getDefaultDomains();
   const [teams, bookings, vendors] = defaultDomains.map(d => d.toLowerCase());
-  console.log(teams, bookings, vendors, "teams, bookings, vendors");
-  console.log(h, "h");
 
   // 1. Check for exact matches with default domains
   if (h === bookings) return 'agent';
@@ -38,20 +35,11 @@ function guessPortalTypeFromHostname(hostname: string): string {
     return 'tours';
   }
 
-  // 3. Fallback to keyword matching (useful for localhost or custom subdomains if API fails)
-  if (
-    h.includes('booking') ||
-    h.includes('agent') ||
-    h.includes('booking-new') ||
-    h.includes('agents-new')
-  )
-    return 'agent';
-  if (
-    h.includes('vendors-new') ||
-    h.includes('vendor') ||
-    h.includes('vendors')
-  )
-    return 'vendor';
+  // 3. For localhost/development only, support keyword matching
+  if (isLocalhostDomain(h)) {
+    return getLocalhostPortalType(h);
+  }
+
   return 'admin';
 }
 
@@ -166,23 +154,12 @@ export async function middleware(request: NextRequest) {
   let orgData: Record<string, unknown> | null = null;
 
   const domainWithoutPort = hostname.split(':')[0];
-  const envDefaultDomains = getDefaultDomains();
-  const defaultDomains = [
-    ...envDefaultDomains,
-    "booking-new.localhost",
-    "teams-new.localhost",
-    "vendors-new.localhost",
-    "localhost",
-    "127.0.0.1"
-  ];
 
-  // tours.localhost / tour.localhost are intentionally NOT in defaultDomains so
-  // they fall through to guessPortalTypeFromHostname which returns 'tours'.
+  // tours.localhost / tour.localhost are tours subdomains
   const isToursDomain = isTourDomain(domainWithoutPort);
+  const isDefault = isDefaultDomain(domainWithoutPort);
 
-  const isDefaultDomain = !isToursDomain && defaultDomains.includes(domainWithoutPort);
-
-  if (!isDefaultDomain) {
+  if (!isDefault && !isToursDomain) {
     // Always resolve the domain via the API — single source of truth for portal_type
     try {
       const baseApiUrl = (
@@ -200,28 +177,20 @@ export async function middleware(request: NextRequest) {
         orgData = await res.json();
         portalType = (orgData?.portal_type as string) ?? 'admin';
         console.log('Resolved portal_type:', portalType, 'for', hostname);
-      } else if (res.status === 404) {
-        // If the domain is not found in our database, it's invalid.
-        // We should not guess the portal type here.
-        console.warn('Domain not found in database:', hostname);
-        return NextResponse.rewrite(new URL('/404', request.url));
       } else {
-        console.warn(
-          'Resolve API returned',
-          res.status,
-          '— using fallback for',
-          hostname
-        );
-        portalType = guessPortalTypeFromHostname(domainWithoutPort);
+        // If the domain is not found or fails resolution, strictly return 404.
+        // Never guess portal type or silently fallback for custom/public domains.
+        console.warn('Domain resolution failed with status', res.status, 'for', hostname);
+        return NextResponse.rewrite(new URL('/404', request.url));
       }
     } catch (err) {
-      console.error('Domain resolution error:', err);
-      portalType = guessPortalTypeFromHostname(domainWithoutPort);
+      console.error('Domain resolution network error for', hostname, ':', err);
+      return NextResponse.rewrite(new URL('/404', request.url));
     }
   } else {
-    // For default domains, skip API and guess directly
-    portalType = guessPortalTypeFromHostname(domainWithoutPort);
-    console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
+    // For default domains and localhost, determine portal directly
+    portalType = getDefaultOrLocalhostPortalType(domainWithoutPort);
+    console.log('Default/Localhost domain detected, using portal_type:', portalType, 'for', hostname);
   }
 
   // Always enforce tours portal type on tours subdomains — regardless of what

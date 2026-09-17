@@ -34,6 +34,7 @@ import {
     getDefaultDomainErrorMessage,
     getSubdomainMismatchWarning,
     getDefaultDomains,
+    cleanDomain,
 } from "@/lib/config/domains";
 
 import {
@@ -54,6 +55,7 @@ interface Props {
 interface FormErrors {
     name?: string;
     contact_email?: string;
+    from_email?: string;
     contact_phone?: string;
     slug?: string;
     trial_ends_at?: string;
@@ -218,7 +220,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             return;
         }
 
-        const customDomain = form.domain.trim();
+        const customDomain = cleanDomain(form.domain);
         if (isDefaultDomain(customDomain)) {
             setDomainValidationError(getDefaultDomainErrorMessage(customDomain));
         } else {
@@ -233,12 +235,13 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             return;
         }
 
-        const customDomain = form.domain.trim().toLowerCase();
+        const customDomain = cleanDomain(form.domain);
         const newWarnings = new Map<number, string>();
 
         form.domains.forEach((domainObj, index) => {
-            if (domainObj.domain && !isDomainMatchingSubdomain(customDomain, domainObj.domain)) {
-                const subdomainBase = extractBaseDomain(domainObj.domain);
+            const cleanSub = cleanDomain(domainObj.domain);
+            if (cleanSub && !isDomainMatchingSubdomain(customDomain, cleanSub)) {
+                const subdomainBase = extractBaseDomain(cleanSub);
                 newWarnings.set(index, getSubdomainMismatchWarning(customDomain, subdomainBase));
             }
         });
@@ -253,17 +256,21 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
         }
     };
 
-    const validate = (): boolean => {
+    const validate = () => {
         const newErrors: FormErrors = {};
 
         if (!form.name.trim()) {
             newErrors.name = "Organization name is required.";
         } else if (form.name.trim().length < 2) {
-            newErrors.name = "Name must be at least 2 characters.";
+            newErrors.name = "Organization name must be at least 2 characters.";
         }
 
         if (form.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) {
             newErrors.contact_email = "Please enter a valid email address.";
+        }
+
+        if (form.from_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.from_email)) {
+            newErrors.from_email = "Please enter a valid email address.";
         }
 
         if (form.contact_phone && !/^[\d\s\+\-\(\)]{7,20}$/.test(form.contact_phone)) {
@@ -278,8 +285,11 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             newErrors.trial_ends_at = "Please enter a valid date.";
         }
 
-        if (form.domain && !isValidDomain(form.domain)) {
-            newErrors.domain = "Enter a valid domain (e.g. myportalmedia.com)";
+        if (form.domain) {
+            const cleanOrgDomain = cleanDomain(form.domain);
+            if (!isValidDomain(cleanOrgDomain)) {
+                newErrors.domain = "Enter a valid domain without protocol (e.g. myportalmedia.com)";
+            }
         }
 
         // Check for domain validation errors (default domain attempts) for whitelabel orgs
@@ -314,13 +324,13 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 logo: form.logo,
                 portal_type: form.portal_type,
                 is_whitelabel: form.is_whitelabel,
-                domain: form.is_whitelabel ? (form.domain?.trim() || null) : null,
+                domain: form.is_whitelabel ? (cleanDomain(form.domain || '') || null) : null,
                 from_name: form.is_whitelabel ? (form.from_name?.trim() || null) : null,
                 from_email: form.is_whitelabel ? (form.from_email?.trim() || null) : null,
-                domains: form.is_whitelabel ? form.domains : [],
+                domains: form.is_whitelabel ? (form.domains?.map(d => ({ ...d, domain: cleanDomain(d.domain || '') })) || []) : [],
             };
 
-            if (isEdit && initialData) {
+            if (isEdit && initialData?.uuid) {
                 await UpdateOrganization(initialData.uuid, payload);
 
                 // Update branding
@@ -412,16 +422,17 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     };
 
     const handleAddDomain = () => {
-        if (!newDomain.trim()) {
+        const sanitized = cleanDomain(newDomain);
+        if (!sanitized) {
             toast.error("Please enter a domain.");
             return;
         }
-        if (!isValidDomain(newDomain)) {
+        if (!isValidDomain(sanitized)) {
             toast.error("Enter a valid domain (e.g. media.commerx.com)");
             return;
         }
 
-        const trimmedDomain = newDomain.trim().toLowerCase();
+        const trimmedDomain = sanitized;
         const domains = [...(form.domains || [])];
 
         // Check for duplicate domain (excluding current item if editing)
