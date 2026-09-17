@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getDefaultDomains, isTourDomain, isLocalhostDomain, getLocalhostPortalType, isDefaultDomain } from '@/lib/config/domains';
+import { getDefaultDomains, isTourDomain, isLocalhostDomain, getLocalhostPortalType, isDefaultDomain, cleanDomain } from '@/lib/config/domains';
 
 // Auth routes that are always accessible (no rewrite needed)
 const AUTH_ROUTES = [
@@ -153,7 +153,7 @@ export async function middleware(request: NextRequest) {
   let portalType = 'admin';
   let orgData: Record<string, unknown> | null = null;
 
-  const domainWithoutPort = hostname.split(':')[0];
+  const domainWithoutPort = cleanDomain(hostname);
 
   // tours.localhost / tour.localhost are tours subdomains
   const isToursDomain = isTourDomain(domainWithoutPort);

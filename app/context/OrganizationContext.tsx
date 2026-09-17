@@ -1,9 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { isDefaultDomain } from "@/lib/config/domains";
-import { getAppOrigin } from "@/lib/utils";
-
+import { isDefaultDomain, cleanDomain } from "@/lib/config/domains";
 
 interface ColorValue {
   value: string;
@@ -86,17 +84,17 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
   const [isOrganizationLoaded, setIsOrganizationLoaded] = useState(false);
 
   useEffect(() => {
-    // Only update metadata when we actually have org data loaded.
-    // Skipping the null case prevents the tab from briefly showing
-    // "Tojuco Solutions" before the API response arrives.
     if (organization) {
       updatePageMetadata(organization);
     }
   }, [organization]);
 
   useEffect(() => {
-    const origin = getAppOrigin();
-    console.log("OrganizationProvider: resolving for origin:", origin);
+    if (typeof window === "undefined") return;
+
+    const hostname = window.location.hostname;
+    const cleanHost = cleanDomain(hostname);
+    console.log("OrganizationProvider: initializing for hostname:", cleanHost);
 
     const getCookie = (name: string) => {
       if (typeof document === "undefined") return null;
@@ -126,32 +124,32 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const resolveDomain = async (fullUrl: string) => {
-      const hostname = fullUrl.replace(/^https?:\/\//, '').split(':')[0];
-      const domainWithoutPort = hostname.split(':')[0];
-      
-      if (isDefaultDomain(domainWithoutPort)) {
-         console.log("OrganizationProvider: skipping resolution for default domain:", domainWithoutPort);
-         return;
-      }
+    // If default domain or bare localhost without subdomain
+    if (isDefaultDomain(cleanHost)) {
+      console.log("OrganizationProvider: default domain detected:", cleanHost);
+      updatePageMetadata(null);
+      setIsOrganizationLoaded(true);
+      return;
+    }
 
+    const resolveDomain = async (targetDomain: string) => {
       try {
-        console.log("OrganizationProvider: fetching resolution for hostname:", domainWithoutPort);
+        console.log("OrganizationProvider: fetching resolution for hostname:", targetDomain);
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com').replace(/\/api\/?$/, '');
-        // Use cache: 'no-store' so each client fetch is fresh.
-        // The middleware + cookie already cache org_data for 1 hour;
-        // this path only runs when the cookie is missing.
-        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${domainWithoutPort}`, { cache: 'no-store' });
+        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${targetDomain}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          console.log("OrganizationProvider: resolved:", data.slug, data.portal_type);
+          console.log("OrganizationProvider: resolved:", data.slug, data.portal_type, data.branding?.logo);
           applyBranding(data);
           setOrganization(data);
+          updatePageMetadata(data);
         } else {
           console.warn("OrganizationProvider: resolution failed with status:", res.status);
         }
       } catch (err) {
         console.warn("OrganizationProvider: resolution error:", err);
+      } finally {
+        setIsOrganizationLoaded(true);
       }
     };
 
@@ -162,16 +160,14 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         console.log("OrganizationProvider: loaded from cookie:", parsedData.slug);
         setOrganization(parsedData);
         applyBranding(parsedData);
+        updatePageMetadata(parsedData);
       } catch (e) {
         console.error("OrganizationProvider: failed to parse org_data cookie:", e);
-        resolveDomain(origin);
       }
-    } else {
-      console.warn("OrganizationProvider: no org_data cookie found — resolving directly.");
-      resolveDomain(origin);
     }
 
-    setIsOrganizationLoaded(true);
+    // Always resolve domain on client to ensure freshest branding & validation
+    resolveDomain(cleanHost);
   }, []);
 
   return (

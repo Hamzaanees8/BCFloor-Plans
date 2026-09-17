@@ -47,8 +47,8 @@ export function getDefaultBaseDomain(): string {
  */
 export function cleanDomain(domain: string): string {
   if (!domain) return '';
-  return domain
-    .trim()
+  const firstHost = domain.split(',')[0].trim();
+  return firstHost
     .toLowerCase()
     .replace(/^https?:\/\//i, '')
     .split(':')[0]

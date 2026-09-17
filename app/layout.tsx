@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Alexandria, Geist, Geist_Mono, Raleway } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
-import { isDefaultDomain } from "@/lib/config/domains";
+import { isDefaultDomain, cleanDomain } from "@/lib/config/domains";
 
 import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
@@ -36,13 +36,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
   const host =
     headersList.get("x-forwarded-host") || headersList.get("host") || "";
-  const domainWithoutPort = host.split(":")[0];
+  const domainWithoutPort = cleanDomain(host);
   const isDefault = isDefaultDomain(domainWithoutPort);
 
   let title = "Tojuco Solutions";
   let favicon = "/default-favicon.png";
 
-  if (!isDefault) {
+  if (!isDefault && domainWithoutPort) {
     try {
       const apiUrl = (
         process.env.NEXT_PUBLIC_API_URL || "https://api-stage.bcfloorplans.com"
@@ -118,10 +118,10 @@ export default async function RootLayout({
   let whitelabelData: any = null;
 
   // Fetch branding for any host that isn't bare localhost or a default system domain
-  const domainWithoutPort = host.split(":")[0];
+  const domainWithoutPort = cleanDomain(host);
   const isDefault = isDefaultDomain(domainWithoutPort);
 
-  if (!isDefault) {
+  if (!isDefault && domainWithoutPort) {
     try {
       const apiUrl = (
         process.env.NEXT_PUBLIC_API_URL || "https://api-stage.bcfloorplans.com"

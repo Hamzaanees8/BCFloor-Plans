@@ -10,8 +10,8 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext'
-import { isDefaultDomain } from '@/lib/config/domains'
-import { getAppOrigin, getAppHostname } from '@/lib/utils'
+import { isDefaultDomain, cleanDomain, isLocalhostDomain } from '@/lib/config/domains'
+import { getAppHostname } from '@/lib/utils'
 
 
 function LoginUser() {
@@ -44,15 +44,16 @@ function LoginUser() {
         setIsLoading(true)
         try {
             const currentHostname = getAppHostname();
-            const isDefault = isDefaultDomain(currentHostname);
-            console.log('currentHostname', currentHostname)
-            console.log('isDefault', isDefault)
+            const cleanHost = cleanDomain(currentHostname);
+            const isDefault = isDefaultDomain(cleanHost);
+            console.log('currentHostname', currentHostname, 'cleanHost', cleanHost);
+            console.log('isDefault', isDefault);
             const response = await login({
                 email,
                 password,
                 role: 'agent',
                 organization_id: organization?.org_id,
-                domain: !isDefault && !currentHostname.includes('localhost') ? getAppOrigin() : undefined
+                domain: !isDefault && !isLocalhostDomain(cleanHost) ? cleanHost : undefined
             });
 
             console.log('Login successful:', response);

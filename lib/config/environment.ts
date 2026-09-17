@@ -11,109 +11,63 @@ const DEV_VALUES = new Set([
   'stage',
   'sandbox',
   'preview',
-  'local',
   'test',
 ]);
 
+const PROD_VALUES = new Set([
+  'production',
+  'prod',
+  'live',
+]);
+
 /**
- * Checks if the current execution context or hostname represents a development/staging environment.
+ * Checks if the current execution context represents a development/staging environment.
+ * Strictly respects NEXT_PUBLIC_ENV:
+ * - Returns true if NEXT_PUBLIC_ENV is set to develop/staging/dev
+ * - Returns true on localhost/127.0.0.1
+ * - Returns false on production or when NEXT_PUBLIC_ENV is not set
  * @param host Optional hostname string (from request headers on server or window.location on client)
  */
 export function isDevEnvironment(host?: string): boolean {
   // 1. Check explicit environment variables
   const envVars = [
-    process.env.NEXT_PUBLIC_NETX_ENV,
-    process.env.NETX_ENV,
-    process.env.NEXT_PUBLIC_NEXT_ENV,
-    process.env.NEXT_ENV,
     process.env.NEXT_PUBLIC_ENV,
     process.env.NEXT_PUBLIC_ENVIRONMENT,
-    process.env.ENVIRONMENT,
-    process.env.APP_ENV,
     process.env.NEXT_PUBLIC_APP_ENV,
-    process.env.VERCEL_ENV,
-    process.env.NODE_ENV,
+    process.env.APP_ENV,
+    process.env.NEXT_PUBLIC_NETX_ENV,
+    process.env.NEXT_ENV,
+    process.env.NEXT_PUBLIC_NEXT_ENV,
   ];
 
   for (const env of envVars) {
     if (env) {
       const val = env.trim().toLowerCase();
+      if (PROD_VALUES.has(val)) {
+        return false;
+      }
       if (DEV_VALUES.has(val)) {
         return true;
       }
     }
   }
 
-  // 2. Check API URL or Frontend URL
-  const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').toLowerCase();
-  if (
-    apiUrl.includes('api-dev.') ||
-    apiUrl.includes('api-stage.') ||
-    apiUrl.includes('localhost') ||
-    apiUrl.includes('127.0.0.1')
-  ) {
-    return true;
-  }
-
-  const frontendUrl = (
-    process.env.FRONTEND_URL ||
-    process.env.NEXT_PUBLIC_FRONTEND_URL ||
-    ''
-  ).toLowerCase();
-  if (
-    frontendUrl.includes('.dev.') ||
-    frontendUrl.includes('//dev.') ||
-    frontendUrl.includes('stage') ||
-    frontendUrl.includes('localhost')
-  ) {
-    return true;
-  }
-
-  // 3. Check Default Domains configured in env
-  const defaultDomains = [
-    process.env.NEXT_PUBLIC_DEFAULT_TEAMS_DOMAIN,
-    process.env.NEXT_PUBLIC_DEFAULT_BOOKINGS_DOMAIN,
-    process.env.NEXT_PUBLIC_DEFAULT_VENDORS_DOMAIN,
-  ].filter(Boolean) as string[];
-
-  for (const d of defaultDomains) {
-    const dLower = d.toLowerCase();
-    if (
-      dLower.includes('.dev.') ||
-      dLower.startsWith('dev.') ||
-      dLower.includes('stage.') ||
-      dLower.includes('localhost')
-    ) {
-      return true;
-    }
-  }
-
-  // 4. Check Host / Domain name (server-provided or window.location.hostname)
+  // 2. Check for local development loopback
   const currentHost = (
     host || (typeof window !== 'undefined' ? window.location.hostname : '')
   ).trim().toLowerCase();
 
   if (currentHost) {
-    // Strip port if present
     const cleanHost = currentHost.split(':')[0];
-
     if (
-      cleanHost.includes('.dev.') ||
-      cleanHost.startsWith('dev.') ||
-      cleanHost.includes('dev.tojuco.com') ||
-      cleanHost.endsWith('.dev.tojuco.com') ||
-      cleanHost.includes('.staging.') ||
-      cleanHost.startsWith('stage.') ||
-      cleanHost.startsWith('staging.') ||
-      cleanHost.includes('localhost') ||
+      cleanHost === 'localhost' ||
       cleanHost === '127.0.0.1' ||
-      cleanHost.endsWith('.localhost') ||
-      cleanHost.endsWith('.test') ||
-      cleanHost.endsWith('.local')
+      cleanHost.endsWith('.localhost')
     ) {
       return true;
     }
   }
 
+  // If no DEV env variable is configured, it is production -> Do NOT show banner
   return false;
 }

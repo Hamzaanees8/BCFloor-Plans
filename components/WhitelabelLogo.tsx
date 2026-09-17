@@ -20,15 +20,16 @@ export default function WhitelabelLogo({
 }: WhitelabelLogoProps) {
   const { organization, isOrganizationLoaded } = useOrganization();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [isResolved, setIsResolved] = useState(false);
 
   useEffect(() => {
-    let foundLogo = null;
     // 1. Priority: Organization Branding from Context
     if (organization?.branding?.logo) {
-      foundLogo = organization.branding.logo;
-    } else {
-      // 2. Fallback: CSS Variable (from SSR or previous system)
+      setLogoUrl(organization.branding.logo);
+      return;
+    }
+
+    // 2. Fallback: CSS Variable (from SSR)
+    if (typeof document !== 'undefined') {
       const wrapper = document.getElementById('global-whitelabel-root');
       if (wrapper) {
         const style = window.getComputedStyle(wrapper);
@@ -37,30 +38,30 @@ export default function WhitelabelLogo({
         if (urlVar && urlVar !== 'none') {
           const match = urlVar.match(/url\(["']?(.*?)["']?\)/);
           if (match && match[1]) {
-            foundLogo = match[1];
+            setLogoUrl(match[1]);
+            return;
           }
         }
       }
     }
 
-    if (foundLogo) {
-      setLogoUrl(foundLogo);
+    // If loaded and no custom logo found, use defaultSrc
+    if (isOrganizationLoaded) {
+      setLogoUrl(defaultSrc);
     }
+  }, [organization, isOrganizationLoaded, defaultSrc]);
 
-    // We consider it resolved if organization is loaded, OR if we found a logo via fallback immediately
-    if (isOrganizationLoaded || foundLogo) {
-      setIsResolved(true);
-    }
-  }, [organization, isOrganizationLoaded]);
-
-  if (!isResolved) {
+  // Don't render until loaded or logo is available to prevent wrong logo flash
+  if (!isOrganizationLoaded && !logoUrl) {
     return <div className={`relative ${className}`} style={{ width: `${width}px`, height: `${height}px` }} />;
   }
+
+  const finalSrc = logoUrl || organization?.branding?.logo || defaultSrc;
 
   return (
     <div className={`relative ${className}`} style={{ width: `${width}px`, height: `${height}px` }}>
       <Image
-        src={logoUrl || defaultSrc}
+        src={finalSrc}
         alt={alt}
         fill
         sizes={`${width}px`}
