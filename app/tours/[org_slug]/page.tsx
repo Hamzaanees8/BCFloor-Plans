@@ -11,7 +11,7 @@ import { DataTable } from '@/components/DataTable';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import Header from '@/components/Header';
 import { useOrganization } from '@/app/context/OrganizationContext';
-import { isDefaultDomain } from '@/lib/config/domains';
+import { isLocalhostDomain, cleanDomain } from '@/lib/config/domains';
 import { getAppHostname } from '@/lib/utils';
 
 const slugify = (text: string) => {
@@ -29,8 +29,9 @@ const Page = () => {
     const { organization, isOrganizationLoaded } = useOrganization();
     const params = useParams();
     
-    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
-    const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+    const hostname = typeof window !== "undefined" ? cleanDomain(getAppHostname()) : '';
+    const isLocalDomain = isLocalhostDomain(hostname);
+    const resolvedWhitelabelSlug = (!isLocalDomain && organization?.slug) ? organization.slug : null;
     // Prefer the explicit URL param (set by middleware rewrite or direct URL visit),
     // then fall back to the whitelabel slug resolved from OrganizationContext.
     const orgSlug = (params?.org_slug as string) || resolvedWhitelabelSlug || null;
@@ -73,7 +74,7 @@ const Page = () => {
     useEffect(() => {
         // On a whitelabel (non-default) domain without an explicit orgSlug in URL, wait
         // until OrganizationContext has finished loading before fetching.
-        if (!isDefault && !orgSlug && !isOrganizationLoaded) return;
+        if (!isLocalDomain && !orgSlug && !isOrganizationLoaded) return;
 
         setLoading(true);
         setError(false);
@@ -88,7 +89,7 @@ const Page = () => {
             .finally(() => {
                 setLoading(false);
             });
-    }, [orgSlug, isOrganizationLoaded, isDefault]);
+    }, [orgSlug, isOrganizationLoaded, isLocalDomain]);
 
     const filteredTours = toursData.filter((tour) => {
         const search = searchQuery.toLowerCase();

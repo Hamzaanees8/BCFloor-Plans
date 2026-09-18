@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { isDefaultDomain, cleanDomain } from "@/lib/config/domains";
+import { isDefaultDomain, isLocalhostDomain, cleanDomain } from "@/lib/config/domains";
 
 interface ColorValue {
   value: string;
@@ -91,9 +91,11 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let cancelled = false;
 
     const hostname = window.location.hostname;
     const cleanHost = cleanDomain(hostname);
+    const isConfiguredDefaultDomain = isDefaultDomain(cleanHost);
     console.log("OrganizationProvider: initializing for hostname:", cleanHost);
 
     const getCookie = (name: string) => {
@@ -117,16 +119,16 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         root.style.setProperty('--org-secondary', secondaryColor);
         root.style.setProperty('--secondary-color', secondaryColor);   // legacy compat
 
-        if (data.branding.logo) {
-          root.style.setProperty('--org-logo', `url(${data.branding.logo})`);
-          root.style.setProperty('--logo-url', `url(${data.branding.logo})`); // legacy compat
-        }
+        const logoValue = data.branding.logo ? `url(${data.branding.logo})` : 'none';
+        root.style.setProperty('--org-logo', logoValue);
+        root.style.setProperty('--logo-url', logoValue); // legacy compat
       }
     };
 
-    // If default domain or bare localhost without subdomain
-    if (isDefaultDomain(cleanHost)) {
-      console.log("OrganizationProvider: default domain detected:", cleanHost);
+    // Localhost and configured platform domains do not have organization
+    // mappings. Custom production hostnames are resolved by exact hostname.
+    if (isLocalhostDomain(cleanHost) || isConfiguredDefaultDomain) {
+      console.log("OrganizationProvider: local/default domain detected:", cleanHost);
       updatePageMetadata(null);
       setIsOrganizationLoaded(true);
       return;
@@ -139,17 +141,26 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${targetDomain}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
+          if (cancelled) return;
           console.log("OrganizationProvider: resolved:", data.slug, data.portal_type, data.branding?.logo);
           applyBranding(data);
           setOrganization(data);
           updatePageMetadata(data);
         } else {
           console.warn("OrganizationProvider: resolution failed with status:", res.status);
+          if (!cancelled) {
+            setOrganization(null);
+            updatePageMetadata(null);
+          }
         }
       } catch (err) {
         console.warn("OrganizationProvider: resolution error:", err);
+        if (!cancelled) {
+          setOrganization(null);
+          updatePageMetadata(null);
+        }
       } finally {
-        setIsOrganizationLoaded(true);
+        if (!cancelled) setIsOrganizationLoaded(true);
       }
     };
 
@@ -168,6 +179,10 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
 
     // Always resolve domain on client to ensure freshest branding & validation
     resolveDomain(cleanHost);
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

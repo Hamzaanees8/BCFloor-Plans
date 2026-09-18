@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext'
-import { isDefaultDomain, cleanDomain, isLocalhostDomain } from '@/lib/config/domains'
+import { cleanDomain, isDefaultDomain, isLocalhostDomain } from '@/lib/config/domains'
 import { getAppHostname } from '@/lib/utils'
 
 
@@ -24,7 +24,9 @@ function LoginUser() {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { setUserType } = useAppContext()
-    const { organization } = useOrganization()
+    const { organization, isOrganizationLoaded } = useOrganization()
+    const currentHost = cleanDomain(getAppHostname());
+    const requiresOrganization = !isLocalhostDomain(currentHost) && !isDefaultDomain(currentHost);
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -41,18 +43,20 @@ function LoginUser() {
 
         const hasError = Object.values(newErrors).some(Boolean)
         if (hasError) return
+        const cleanHost = cleanDomain(getAppHostname());
+        const isConfiguredDefaultDomain = isDefaultDomain(cleanHost);
+        if (!isOrganizationLoaded || (requiresOrganization && !organization)) {
+            toast.error('Please wait while this organization is loading.');
+            return;
+        }
         setIsLoading(true)
         try {
-            const currentHostname = getAppHostname();
-            const cleanHost = cleanDomain(currentHostname);
-            const isDefault = isDefaultDomain(cleanHost);
-
             const response = await login({
                 email,
                 password,
                 role: 'admin',
                 organization_id: organization?.org_id,
-                domain: !isDefault && !isLocalhostDomain(cleanHost) ? cleanHost : undefined
+                domain: !isLocalhostDomain(cleanHost) && !isConfiguredDefaultDomain ? cleanHost : undefined
             });
 
             console.log('Login successful:', response);
@@ -118,7 +122,7 @@ function LoginUser() {
                 </div>
                 <Button
                     type='submit'
-                    disabled={isLoading}
+                    disabled={isLoading || !isOrganizationLoaded || (requiresOrganization && !organization)}
                     className={`flex justify-center items-center ${isLoading ? 'bg-[var(--admin-bg-color,#4290E9)]' : 'bg-[#fff]'}  hover:bg-[var(--admin-bg-color,#4290E9)] hover:text-[#fff] border-[1px] border-[var(--admin-bg-color,#4290E9)] text-[var(--admin-bg-color,#4290E9)] transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px]`}
                     style={{ borderColor: 'var(--admin-bg-color, #4290E9)', color: isLoading ? '#fff' : undefined }}>
                     {isLoading ? (

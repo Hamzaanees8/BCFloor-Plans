@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getDefaultDomains, isTourDomain, isLocalhostDomain, getLocalhostPortalType, isDefaultDomain, cleanDomain } from '@/lib/config/domains';
+import { getConfiguredDefaultPortalType, isTourDomain, isLocalhostDomain, isDefaultDomain, getLocalhostPortalType, cleanDomain } from '@/lib/config/domains';
 
 // Auth routes that are always accessible (no rewrite needed)
 const AUTH_ROUTES = [
@@ -22,13 +22,8 @@ const SHARED_ROUTES = [
 // Determine portal type for default or localhost domains ONLY
 function getDefaultOrLocalhostPortalType(hostname: string): string {
   const h = hostname.toLowerCase();
-  const defaultDomains = getDefaultDomains();
-  const [teams, bookings, vendors] = defaultDomains.map(d => d.toLowerCase());
-
-  // 1. Check for exact matches with default domains
-  if (h === bookings) return 'agent';
-  if (h === vendors) return 'vendor';
-  if (h === teams) return 'admin';
+  const configuredPortalType = getConfiguredDefaultPortalType(h);
+  if (configuredPortalType) return configuredPortalType;
 
   // 2. Detect tours subdomains (tours.* or tour.*)
   if (isTourDomain(h)) {
@@ -157,10 +152,12 @@ export async function middleware(request: NextRequest) {
 
   // tours.localhost / tour.localhost are tours subdomains
   const isToursDomain = isTourDomain(domainWithoutPort);
-  const isDefault = isDefaultDomain(domainWithoutPort);
+  const isLocalDomain = isLocalhostDomain(domainWithoutPort);
+  const isConfiguredDefaultDomain = isDefaultDomain(domainWithoutPort);
 
-  if (!isDefault && !isToursDomain) {
-    // Always resolve the domain via the API — single source of truth for portal_type
+  if (!isLocalDomain && !isConfiguredDefaultDomain) {
+    // Resolve every non-default production hostname so organization-owned
+    // aliases cannot silently inherit a platform portal.
     try {
       const baseApiUrl = (
         process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com'
@@ -178,8 +175,7 @@ export async function middleware(request: NextRequest) {
         portalType = (orgData?.portal_type as string) ?? 'admin';
         console.log('Resolved portal_type:', portalType, 'for', hostname);
       } else {
-        // If the domain is not found or fails resolution, strictly return 404.
-        // Never guess portal type or silently fallback for custom/public domains.
+        // Never guess a portal type for an unmapped production hostname.
         console.warn('Domain resolution failed with status', res.status, 'for', hostname);
         return NextResponse.rewrite(new URL('/404', request.url));
       }
@@ -188,9 +184,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(new URL('/404', request.url));
     }
   } else {
-    // For default domains and localhost, determine portal directly
+    // Localhost and configured default domains use direct portal routing.
     portalType = getDefaultOrLocalhostPortalType(domainWithoutPort);
-    console.log('Default/Localhost domain detected, using portal_type:', portalType, 'for', hostname);
+    console.log('Localhost/tours domain detected, using portal_type:', portalType, 'for', hostname);
   }
 
   // Always enforce tours portal type on tours subdomains — regardless of what
@@ -226,6 +222,14 @@ export async function middleware(request: NextRequest) {
       const targetUrl = new URL(`/${slugFromQuery}${search}`, request.url);
       console.log(`[Middleware] Tours query param root redirect: ${pathname} -> ${targetUrl.pathname}`);
       return NextResponse.redirect(targetUrl);
+    }
+
+    // Root on a default tour domain is the public tour index. Render the
+    // existing tours page internally so the browser URL remains "/".
+    if (pathname === '/' || segments.length === 0) {
+      const targetUrl = new URL(`/tours${search}`, request.url);
+      console.log(`[Middleware] Rewriting tour domain root: ${pathname} -> ${targetUrl.pathname}`);
+      return NextResponse.rewrite(targetUrl);
     }
 
     // 3. Single slug path: "/[org_slug]" (e.g. "/bcfloorplans")

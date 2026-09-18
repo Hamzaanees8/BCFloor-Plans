@@ -27,7 +27,8 @@ import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
 import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
 import { useOrganization } from '@/app/context/OrganizationContext';
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
-import { isDefaultDomain } from '@/lib/config/domains';
+import { isLocalhostDomain } from '@/lib/config/domains';
+import { cleanDomain } from '@/lib/config/domains';
 import { getAppHostname } from '@/lib/utils';
 
 const OrderForm = () => {
@@ -69,8 +70,8 @@ const OrderForm = () => {
     const searchParamsSlug = searchParams.get('slug');
     const { organization } = useOrganization();
 
-    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
-    const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+    const hostname = typeof window !== "undefined" ? cleanDomain(getAppHostname()) : '';
+    const resolvedWhitelabelSlug = (!isLocalhostDomain(hostname) && organization?.slug) ? organization.slug : null;
 
     const orgSlug = resolvedWhitelabelSlug || ctxOrgSlug || searchParamsSlug || null;
 

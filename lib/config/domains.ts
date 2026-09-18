@@ -30,6 +30,35 @@ export function getDefaultDomains(): string[] {
 }
 
 /**
+ * Resolve the portal type for a configured platform domain.
+ * Development aliases are enabled only in the develop environment.
+ */
+export function getConfiguredDefaultPortalType(domain: string): string | null {
+  const normalizedDomain = cleanDomain(domain);
+  if (!normalizedDomain) return null;
+
+  const [teams, bookings, vendors] = getDefaultDomains().map((item) => cleanDomain(item));
+  if (normalizedDomain === teams) return 'admin';
+  if (normalizedDomain === bookings) return 'agent';
+  if (normalizedDomain === vendors) return 'vendor';
+
+  const productionToursDomain = cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_TOURS_DOMAIN || '');
+  if (productionToursDomain && normalizedDomain === productionToursDomain) return 'tours';
+
+  if (process.env.NEXT_PUBLIC_ENV !== 'develop') return null;
+
+  const developmentDomains: Record<string, string> = {
+    [cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_ROOT_DOMAIN || '')]: 'admin',
+    [cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_ADMIN_DOMAIN || '')]: 'admin',
+    [cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_VENDOR_DOMAIN || '')]: 'vendor',
+    [cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_AGENT_DOMAIN || '')]: 'agent',
+    [cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_DEV_TOURS_DOMAIN || '')]: 'tours',
+  };
+
+  return developmentDomains[normalizedDomain] || null;
+}
+
+/**
  * Get the base domain for default organizations (tojuco.com)
  * @returns Base domain string
  */
@@ -134,10 +163,7 @@ export function isDefaultDomain(domain: string): boolean {
   if (!domain) return false;
 
   const normalizedDomain = domain.trim().toLowerCase();
-  const defaultDomains = getDefaultDomains();
-
-  // 1. Check if it matches one of the 3 default domains from env (teams.tojuco.com, bookings.tojuco.com, vendors.tojuco.com)
-  if (defaultDomains.some((d) => d && normalizedDomain === d.toLowerCase())) {
+  if (getConfiguredDefaultPortalType(normalizedDomain)) {
     return true;
   }
 

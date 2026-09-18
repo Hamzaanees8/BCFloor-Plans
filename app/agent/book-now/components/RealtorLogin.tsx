@@ -14,8 +14,8 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { agentLogin, agentSignup, fetchOrganizationsForBookNow } from "../book-now";
-import { isDefaultDomain } from "@/lib/config/domains";
-import { getAppOrigin, getAppHostname } from "@/lib/utils";
+import { cleanDomain, isLocalhostDomain } from "@/lib/config/domains";
+import { getAppHostname } from "@/lib/utils";
 import { X } from "lucide-react";
 import {
     Select,
@@ -65,8 +65,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
     const [lastName, setLastName] = React.useState("");
     const [organizations, setOrganizations] = React.useState<any[]>([]);
     const [selectedOrgId, setSelectedOrgId] = React.useState<string>("");
-
-    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+    const hasResolvedOrganization = !!organization;
 
     React.useEffect(() => {
         if (mode === "signup") {
@@ -96,12 +95,13 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
         setIsLoading(true);
         try {
             const currentHostname = getAppHostname();
+            const cleanHost = cleanDomain(currentHostname);
 
             const response = await agentLogin(
                 email,
                 password,
                 organization?.org_id,
-                !isDefault && !currentHostname.includes('localhost') ? getAppOrigin() : undefined
+                !isLocalhostDomain(cleanHost) ? cleanHost : undefined
             );
             const token = response?.data?.token || response?.token;
             let user = response?.data?.user || response?.user;
@@ -188,7 +188,9 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                 email,
                 password,
                 password_confirmation: confirmPassword,
-                organization_id: !isDefault && organization?.org_id ? Number(organization.org_id) : (selectedOrgId ? Number(selectedOrgId) : undefined),
+                organization_id: hasResolvedOrganization && organization?.org_id
+                    ? Number(organization.org_id)
+                    : (selectedOrgId ? Number(selectedOrgId) : undefined),
             });
 
             const token = response?.data?.token || response?.token;
@@ -403,7 +405,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 </div>
                             </div>
 
-                            {isDefault ? (
+                            {!hasResolvedOrganization ? (
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-normal text-[#666666]">
                                         Organization

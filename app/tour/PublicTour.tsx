@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import TourConfirm from "../dashboard/file-manager/components/TourConfirm";
 import { useOrganization } from "@/app/context/OrganizationContext";
-import { isDefaultDomain } from "@/lib/config/domains";
+import { isLocalhostDomain, cleanDomain } from "@/lib/config/domains";
 import { getAppHostname } from "@/lib/utils";
 
 export interface Snapshoots {
@@ -41,10 +41,10 @@ const PublicTour = () => {
   const orderuuid = params.orderuuid as string;
   const { organization } = useOrganization();
 
-  const isDefault =
-    typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+  const hostname =
+    typeof window !== "undefined" ? cleanDomain(getAppHostname()) : "";
   const resolvedWhitelabelSlug =
-    !isDefault && organization?.slug ? organization.slug : null;
+    !isLocalhostDomain(hostname) && organization?.slug ? organization.slug : null;
   const queryOrgSlug = searchParams.get("org_slug");
   const orgSlug = queryOrgSlug || resolvedWhitelabelSlug || undefined;
 
