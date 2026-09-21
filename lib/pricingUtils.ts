@@ -11,20 +11,27 @@ export interface AreaSettingDefinition {
   status: boolean;
 }
 
+export interface OtherAreaAllowanceSettings {
+  enabled: boolean;
+  freeAllowance: number;
+  rateAboveAllowance: number;
+}
+
 /**
  * Calculates billable square footage and area charges according to business rules:
  * 1. Finished & Sub Areas: Always included in billable sqft.
- * 2. Other Areas ($0 charge rate): Pooled into Free Allowance limit (default 2000 sq ft).
- *    - Footage up to limit = $0 (free)
- *    - Excess footage above limit = Added to billable sqft / charged at rate above allowance.
- * 3. Other Areas (> $0 charge rate): Excluded from Free Allowance pool.
- *    - Charged directly per sq. ft. from sq. ft. 1 based on defined charge rate.
+ * 2. Other Areas without a defined charge use the configured allowance.
+ * 3. Other Areas with a defined charge are fixed-price items and are excluded
+ *    from the allowance pool.
  */
 export const calculateAreaMetrics = (
   areas: AreaItemInput[],
   tourSettings: AreaSettingDefinition[] = [],
-  freeAllowanceLimit: number = 2000,
-  rateAboveAllowance: number = 0
+  allowanceSettings: OtherAreaAllowanceSettings = {
+    enabled: true,
+    freeAllowance: 2000,
+    rateAboveAllowance: 0,
+  }
 ) => {
   const tourSettingMap = new Map<string, AreaSettingDefinition>();
   (tourSettings || []).forEach((setting) => {
@@ -52,7 +59,7 @@ export const calculateAreaMetrics = (
       finishedSubFootage += footage;
     } else {
       if (definedCharge > 0) {
-        customOtherCharges += footage * definedCharge;
+        customOtherCharges += definedCharge;
         customOtherFootage += footage;
       } else {
         zeroChargeOtherFootage += footage;
@@ -60,16 +67,27 @@ export const calculateAreaMetrics = (
     }
   });
 
-  const excessOtherFootage = Math.max(0, zeroChargeOtherFootage - freeAllowanceLimit);
-  const excessOtherCharge = excessOtherFootage * rateAboveAllowance;
-  const freeAllowanceUsed = Math.min(zeroChargeOtherFootage, freeAllowanceLimit);
+  const freeAllowanceLimit = Math.max(0, allowanceSettings.freeAllowance);
+  const rateAboveAllowance = Math.max(0, allowanceSettings.rateAboveAllowance);
+  const freeAllowanceUsed = allowanceSettings.enabled
+    ? Math.min(zeroChargeOtherFootage, freeAllowanceLimit)
+    : 0;
+  const excessOtherFootage = allowanceSettings.enabled
+    ? Math.max(0, zeroChargeOtherFootage - freeAllowanceLimit)
+    : zeroChargeOtherFootage;
+  const excessOtherCharge = allowanceSettings.enabled
+    ? excessOtherFootage * rateAboveAllowance
+    : 0;
 
-  const totalBillableSqft = finishedSubFootage + excessOtherFootage;
+  const totalBillableSqft = allowanceSettings.enabled
+    ? finishedSubFootage
+    : finishedSubFootage + zeroChargeOtherFootage;
   const totalAreaCharges = customOtherCharges + excessOtherCharge;
 
   return {
     finishedSubFootage,
     zeroChargeOtherFootage,
+    allowanceEnabled: allowanceSettings.enabled,
     freeAllowanceLimit,
     freeAllowanceUsed,
     excessOtherFootage,

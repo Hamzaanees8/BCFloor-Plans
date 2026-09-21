@@ -10,13 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Area } from './OrderDetailView';
 import { SquareFootageTitles, defaultTitles } from './SquareFootageSettings';
 import { useAppContext } from '@/app/context/AppContext';
-import { GetTourSettings } from '../../global-settings/global-settings';
+import { GetTourSettings, PortalAreaAllowanceSettings } from '../../global-settings/global-settings';
+import { calculateAreaMetrics } from '@/lib/pricingUtils';
 
 interface TourSetting {
   uuid: string;
   area: string;
   type: string;
   status: boolean;
+  charge?: number;
 }
 
 interface Field {
@@ -48,6 +50,11 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
   const [subtotalAreas, setSubtotalAreas] = useState<Field[]>([]);
   const [otherAreas, setOtherAreas] = useState<Field[]>([]);
   const [tourSettings, setTourSettings] = useState<TourSetting[]>([]);
+  const [allowanceSettings, setAllowanceSettings] = useState<PortalAreaAllowanceSettings>({
+    other_areas_enable_allowance: false,
+    other_areas_free_allowance: 1000,
+    other_areas_rate_per_sq_ft: 0.10,
+  });
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [dialogDefaultCategory, setDialogDefaultCategory] = useState<"Finished" | "Subtotal" | "Other">("Finished");
@@ -60,6 +67,7 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
           (s: TourSetting) => s.status
         );
         setTourSettings(settings);
+        setAllowanceSettings(res?.data?.portal_settings ?? {});
       })
       .catch((err) => console.error("Failed to fetch tour settings:", err));
   }, []);
@@ -145,6 +153,23 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
     list.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0);
 
   const grandTotal = total(finishedAreas) + total(subtotalAreas);
+
+  const areaInputs = [...finishedAreas, ...subtotalAreas, ...otherAreas].map(field => ({
+    type: field.category,
+    footage: field.value,
+    custom_title: field.label,
+  }));
+
+  const metrics = calculateAreaMetrics(areaInputs, tourSettings.map(setting => ({
+    area: setting.area,
+    type: setting.type,
+    charge: setting.charge ?? 0,
+    status: setting.status,
+  })), {
+    enabled: allowanceSettings.other_areas_enable_allowance ?? false,
+    freeAllowance: Number(allowanceSettings.other_areas_free_allowance ?? 0),
+    rateAboveAllowance: Number(allowanceSettings.other_areas_rate_per_sq_ft ?? 0),
+  });
 
   const handleAddExtra = (label: string, sqft: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => {
     const newField: Field = {
@@ -301,6 +326,29 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
           <span className="text-xl font-bold text-gray-900">
             {grandTotal.toLocaleString()} <span className="text-sm font-normal text-gray-400">sq ft</span>
           </span>
+        </div>
+
+        <div className="flex flex-col gap-1 px-4 py-3 bg-white border border-gray-200 rounded my-2 text-xs text-gray-700">
+          <div className="flex justify-between font-semibold">
+            <span>Service Billable Sq. Ft.</span>
+            <span className="text-[#4290E9]">{metrics.totalBillableSqft.toLocaleString()} Sq.ft</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>{metrics.allowanceEnabled ? 'Free Other Area Allowance Used' : 'Other Areas Billable'}</span>
+            <span>{metrics.allowanceEnabled ? `${metrics.freeAllowanceUsed} / ${metrics.freeAllowanceLimit} Sq.ft` : `${metrics.zeroChargeOtherFootage} Sq.ft`}</span>
+          </div>
+          {metrics.excessOtherFootage > 0 && metrics.allowanceEnabled && (
+            <div className="flex justify-between text-gray-500">
+              <span>Other Area Excess Charge</span>
+              <span>${metrics.excessOtherCharge.toFixed(2)}</span>
+            </div>
+          )}
+          {metrics.customOtherCharges > 0 && (
+            <div className="flex justify-between text-gray-500">
+              <span>Fixed Other Area Charges</span>
+              <span>${metrics.customOtherCharges.toFixed(2)}</span>
+            </div>
+          )}
         </div>
 
         {renderSection('other', otherAreas, setOtherAreas)}

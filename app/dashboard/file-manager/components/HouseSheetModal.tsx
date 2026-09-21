@@ -35,9 +35,15 @@ const HouseSheetModal: React.FC<Props> = ({
 }) => {
   const [orderData, setOrderData] = React.useState<Order | null>(null);
   const [tempArea, setTempArea] = useState<Area[]>([]);
-  const [updateInvoice, setUpdateInvoice] = useState(false);
+  const [updateInvoice, setUpdateInvoice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { userType } = useAppContext();
+
+  useEffect(() => {
+    if (open) {
+      setUpdateInvoice(userType === "admin");
+    }
+  }, [open, userType]);
 
   useEffect(() => {
     if (!open || !uuid) return;
@@ -72,7 +78,7 @@ const HouseSheetModal: React.FC<Props> = ({
       console.log("areato send", tempArea);
       const payload = {
         areas: tempArea,
-        update_invoice: updateInvoice ? 1 : 0,
+        update_invoice: userType === "admin" && updateInvoice ? 1 : 0,
       };
       console.log("payload", payload);
       const updatedPayload = { ...payload, _method: "PUT" };
@@ -182,20 +188,22 @@ const HouseSheetModal: React.FC<Props> = ({
               </Button>
             </DialogTitle>
             <hr className="w-full h-[1px] text-[#BBBBBB] mt-2" />
-            <div className="flex items-center justify-end space-x-2 py-2">
-              <Switch
-                id="update-invoice-housesheet"
-                checked={updateInvoice}
-                onCheckedChange={setUpdateInvoice}
-                className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]"
-              />
-              <Label
-                htmlFor="update-invoice-housesheet"
-                className="text-[14px] font-[500] text-[#424242]"
-              >
-                Update Invoice
-              </Label>
-            </div>
+            {userType === "admin" && (
+              <div className="flex items-center justify-end space-x-2 py-2">
+                <Switch
+                  id="update-invoice-housesheet"
+                  checked={updateInvoice}
+                  onCheckedChange={setUpdateInvoice}
+                  className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]"
+                />
+                <Label
+                  htmlFor="update-invoice-housesheet"
+                  className="text-[14px] font-[500] text-[#424242]"
+                >
+                  Update Invoice
+                </Label>
+              </div>
+            )}
           </DialogHeader>
         </div>
 

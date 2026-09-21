@@ -7,7 +7,7 @@ import { Order } from '../../orders/page';
 import { Area } from './OrderDetailView';
 import AddExtraDialog from '../../calendar/components/AddExtraDialog';
 import { SquareFootageTitles, defaultTitles } from '../../calendar/components/SquareFootageSettings';
-import { GetTourSettings } from '../../global-settings/global-settings';
+import { GetTourSettings, PortalAreaAllowanceSettings } from '../../global-settings/global-settings';
 import { useAppContext } from '@/app/context/AppContext';
 
 import { calculateAreaMetrics } from '@/lib/pricingUtils';
@@ -45,6 +45,11 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
   const [subtotalAreas, setSubtotalAreas] = useState<Field[]>([]);
   const [otherAreas, setOtherAreas] = useState<Field[]>([]);
   const [tourSettings, setTourSettings] = useState<TourSetting[]>([]);
+  const [allowanceSettings, setAllowanceSettings] = useState<PortalAreaAllowanceSettings>({
+    other_areas_enable_allowance: false,
+    other_areas_free_allowance: 1000,
+    other_areas_rate_per_sq_ft: 0.10,
+  });
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [dialogDefaultCategory, setDialogDefaultCategory] = useState<"Finished" | "Subtotal" | "Other">("Finished");
@@ -57,6 +62,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
           (s: TourSetting) => s.status
         );
         setTourSettings(settings);
+        setAllowanceSettings(res?.data?.portal_settings ?? {});
       })
       .catch((err) => console.error("Failed to fetch tour settings:", err));
   }, []);
@@ -144,7 +150,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
   const total = (list: Field[]) =>
     list.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0);
 
-  const grandTotal = total(finishedAreas) + total(subtotalAreas) + total(otherAreas);
+  const propertySquareFootage = total(finishedAreas) + total(subtotalAreas);
 
   const areaInputs = [...finishedAreas, ...subtotalAreas, ...otherAreas].map(f => ({
     type: f.category,
@@ -157,7 +163,11 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
     type: s.type,
     charge: s.charge ?? 0,
     status: s.status
-  })));
+  })), {
+    enabled: allowanceSettings.other_areas_enable_allowance ?? false,
+    freeAllowance: Number(allowanceSettings.other_areas_free_allowance ?? 0),
+    rateAboveAllowance: Number(allowanceSettings.other_areas_rate_per_sq_ft ?? 0),
+  });
 
   const handleAddExtra = (label: string, sqft: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => {
     const newField: Field = {
@@ -281,7 +291,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
       <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded my-2">
         <span className="font-bold pl-2">Grand Total</span>
-        <span className="font-bold">{grandTotal} Sq.ft</span>
+        <span className="font-bold">{propertySquareFootage} Sq.ft</span>
       </div>
 
       <div className="flex flex-col gap-1 px-4 py-3 bg-white border border-gray-200 rounded my-2 text-xs text-gray-700 max-w-[400px]">

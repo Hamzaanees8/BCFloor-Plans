@@ -657,6 +657,12 @@ export interface PortalSettingsPayload {
   finished_areas_enable_allowance?: boolean;
 }
 
+export interface PortalAreaAllowanceSettings {
+  other_areas_enable_allowance?: boolean;
+  other_areas_free_allowance?: number;
+  other_areas_rate_per_sq_ft?: number;
+}
+
 export async function SavePortalSettings(payload: PortalSettingsPayload) {
   const response = await api.post(`/global-settings`, { portal_settings: payload });
 

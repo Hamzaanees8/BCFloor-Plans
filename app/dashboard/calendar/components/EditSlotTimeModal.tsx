@@ -8,6 +8,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, Calendar, User, MapPin } from "lucide-react";
 import { CalendarEvent } from "./BigCalendar";
@@ -17,6 +27,9 @@ import OneDayCalendar from "../../orders/components/OneDayCalendar";
 import { useOrderContext, Slot } from "../../orders/context/OrderContext";
 import { splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
 import { UpdateSlotTime, getPropertyTimezone } from "../../orders/orders";
+import { sendEmailNotification } from "../calendar";
+import { api } from "@/lib/api";
+import { useAppContext } from "@/app/context/AppContext";
 import { toast } from "sonner";
 import dayjs from "dayjs";
 import { addMinutes, format, parse, differenceInMinutes } from "date-fns";
@@ -41,8 +54,11 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
   refreshOrders,
 }) => {
   const context = useOrderContext();
+  const { userType } = useAppContext();
+  const theme = userType || "admin";
   const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAgentNotificationPrompt, setShowAgentNotificationPrompt] = useState(false);
 
   // Form inputs
   const [startTime, setStartTime] = useState<string>("08:00:00");
@@ -388,7 +404,18 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
     updateTimeRange(format(newStart, "HH:mm:ss"), endTime);
   };
 
-  const handleSave = async () => {
+  const agentNotificationValue = (
+    currentOrder?.agent as unknown as
+      | { notification_email?: boolean | number | string }
+      | undefined
+  )?.notification_email;
+  const agentNotificationsEnabled =
+    agentNotificationValue === true ||
+    agentNotificationValue === 1 ||
+    agentNotificationValue === "1" ||
+    agentNotificationValue === "true";
+
+  const saveSlotTime = async (notifyAgent: boolean) => {
     if (
       !event ||
       !currentOrder ||
@@ -428,7 +455,61 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
         },
         token,
       );
-      toast.success("Slot time updated successfully.");
+
+      if (notifyAgent && currentOrder.agent?.email) {
+        const agentName = `${currentOrder.agent.first_name || ""} ${currentOrder.agent.last_name || ""}`.trim();
+        const serviceName = globalService.name || "appointment";
+        const notificationDescription = `Your ${serviceName} appointment has been rescheduled to ${dateStr} from ${start_time} to ${end_time}.`;
+        const notificationHtml = `
+          <h1>Appointment Change</h1>
+          <p>Hello ${agentName || "there"},</p>
+          <p>${notificationDescription}</p>
+          <p><strong>New schedule:</strong> ${dateStr} | ${start_time} - ${end_time}</p>
+          <p>Please contact us if you have any questions about this change.</p>
+        `;
+
+        try {
+          const agentUuid = (currentOrder.agent as unknown as { uuid?: string }).uuid;
+          const notificationRequests: Promise<unknown>[] = [
+            sendEmailNotification(
+              {
+                to: currentOrder.agent.email,
+                subject: "Your appointment has changed",
+                html: notificationHtml,
+              },
+              token,
+            ),
+          ];
+
+          if (agentUuid) {
+            notificationRequests.push(
+              api.post(
+                "/notifications",
+                {
+                  source: "order",
+                  source_id: currentOrder.uuid,
+                  type: "slot_rescheduled",
+                  Subject: "Your appointment has changed",
+                  description: notificationDescription,
+                  agent_uuid: agentUuid,
+                  role: "agent",
+                  created_by_name: "Admin",
+                },
+                { headers: { Authorization: `Bearer ${token}` } },
+              ),
+            );
+          }
+
+          await Promise.all(notificationRequests);
+          toast.success("Slot time updated and agent notified by email and in-app.");
+        } catch (notificationError) {
+          console.error("Failed to notify agent after slot update:", notificationError);
+          toast.warning("Slot time updated, but one or more agent notifications could not be sent.");
+        }
+      } else {
+        toast.success("Slot time updated successfully.");
+      }
+
       refreshOrders();
       onClose();
     } catch (err: any) {
@@ -437,6 +518,15 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (agentNotificationsEnabled && currentOrder?.agent?.email) {
+      setShowAgentNotificationPrompt(true);
+      return;
+    }
+
+    await saveSlotTime(false);
   };
 
   if (!event || !currentOrder || !globalService) return null;
@@ -645,6 +735,44 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog
+        open={showAgentNotificationPrompt}
+        onOpenChange={setShowAgentNotificationPrompt}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[520px] min-h-[150px] p-5 font-alexandria rounded-[8px]">
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle className={`${theme}-text text-[17px] font-semibold`}>
+              Notify Agent of Schedule Change?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] leading-5 text-gray-600">
+              The agent&apos;s notification setting is enabled. Send an email about this appointment change?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-1 flex-row justify-end gap-2">
+            <AlertDialogCancel
+              disabled={isSaving}
+              className={`mt-0 h-9 px-3 text-xs ${theme}-text ${theme}-border`}
+              onClick={() => {
+                setShowAgentNotificationPrompt(false);
+                void saveSlotTime(false);
+              }}
+            >
+              No, update silently
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              className={`h-9 px-3 text-xs text-white ${theme}-bg hover:opacity-90`}
+              onClick={() => {
+                setShowAgentNotificationPrompt(false);
+                void saveSlotTime(true);
+              }}
+            >
+              Yes, notify agent
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
