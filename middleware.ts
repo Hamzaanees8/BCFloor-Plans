@@ -150,8 +150,10 @@ export async function middleware(request: NextRequest) {
 
   const domainWithoutPort = cleanDomain(hostname);
 
-  // tours.localhost / tour.localhost are tours subdomains
-  const isToursDomain = isTourDomain(domainWithoutPort);
+  // Default/local tour hosts are configured explicitly. Custom hosts become
+  // tour portals only when the resolver returns portal_type: "tours".
+  const isDefaultTourDomain = getConfiguredDefaultPortalType(domainWithoutPort) === 'tours';
+  const isLocalTourDomain = isLocalhostDomain(domainWithoutPort) && isTourDomain(domainWithoutPort);
   const isLocalDomain = isLocalhostDomain(domainWithoutPort);
   const isConfiguredDefaultDomain = isDefaultDomain(domainWithoutPort);
 
@@ -189,23 +191,32 @@ export async function middleware(request: NextRequest) {
     console.log('Localhost/tours domain detected, using portal_type:', portalType, 'for', hostname);
   }
 
-  // Always enforce tours portal type on tours subdomains — regardless of what
-  // the API returned. This guarantees the lockdown applies even if the backend
-  // doesn't explicitly set portal_type:'tours' for the domain.
-  if (isToursDomain) {
+  // A custom hostname is a tours portal only when the resolver explicitly
+  // returns portal_type: "tours". Configured platform tour domains are
+  // identified locally and do not have organization data.
+  const isResolvedToursDomain = portalType === 'tours' && !!orgData;
+  const isToursPortal = isDefaultTourDomain || isLocalTourDomain || isResolvedToursDomain;
+
+  if (isToursPortal) {
     portalType = 'tours';
-    console.log('[Middleware] Tours domain detected — forcing portalType to "tours"');
+    console.log('[Middleware] Tours portal selected:', domainWithoutPort);
 
     const pathname = url.pathname;
     const search = url.search;
     const segments = pathname.split('/').filter(Boolean);
     const orgSlug = (orgData?.slug as string) || '';
 
-    // 1. Root "/" on a dedicated tour domain with known org slug: redirect to "/[slug]"
+    if (isResolvedToursDomain && !orgSlug) {
+      console.warn('[Middleware] Resolved tours domain has no organization slug:', domainWithoutPort);
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
+
+    // A resolved whitelabel tour domain gets its organization from the
+    // resolver response, not from the browser path.
     if (orgSlug && (pathname === '/' || segments.length === 0)) {
-      const targetUrl = new URL(`/${orgSlug}${search}`, request.url);
-      console.log(`[Middleware] Tours dedicated domain root redirect: ${pathname} -> ${targetUrl.pathname}`);
-      const response = NextResponse.redirect(targetUrl);
+      const targetUrl = new URL(`/tours/${orgSlug}${search}`, request.url);
+      console.log(`[Middleware] Rewriting resolved tour root: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.rewrite(targetUrl);
       if (orgData) {
         response.cookies.set('org_data', JSON.stringify(orgData), {
           path: '/',
@@ -216,7 +227,7 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    // 2. Root "/" on generic tours domain with ?org_slug= query param: redirect to "/[org_slug]"
+    // 2. Root "/" on generic default tours domain with ?org_slug= query param
     if (pathname === '/' && url.searchParams.get('org_slug')) {
       const slugFromQuery = url.searchParams.get('org_slug');
       const targetUrl = new URL(`/${slugFromQuery}${search}`, request.url);
@@ -235,7 +246,7 @@ export async function middleware(request: NextRequest) {
     // 3. Single slug path: "/[org_slug]" (e.g. "/bcfloorplans")
     //    Rewrite to "/tours/[org_slug]" so app/tours/[org_slug]/page.tsx renders,
     //    while browser URL stays https://tours.tojuco.com/bcfloorplans
-    if (segments.length === 1 && segments[0] !== 'tours' && segments[0] !== 'tour' && segments[0] !== 'whitelabel') {
+    if (!isResolvedToursDomain && segments.length === 1 && segments[0] !== 'tours' && segments[0] !== 'tour' && segments[0] !== 'whitelabel') {
       const slugParam = segments[0];
       const targetUrl = new URL(`/tours/${slugParam}${search}`, request.url);
       console.log(`[Middleware] Rewriting tours slug route: ${pathname} -> ${targetUrl.pathname}`);
@@ -258,7 +269,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // 5. Allow "/tour/..." as-is (e.g. "/tour/[address]/[uuid]" or "/tour/feature-sheet/[uuid]")
-    if (pathname.startsWith('/tour')) {
+    if (pathname === '/tour' || pathname.startsWith('/tour/')) {
       const response = NextResponse.next();
       if (orgData) {
         response.cookies.set('org_data', JSON.stringify(orgData), {
@@ -272,6 +283,16 @@ export async function middleware(request: NextRequest) {
 
     // 6. Allow "/tours" as-is (fallback when no slug available)
     if (pathname === '/tours' || pathname === '/tours/') {
+      if (isResolvedToursDomain && orgSlug) {
+        const targetUrl = new URL(`/tours/${orgSlug}${search}`, request.url);
+        const response = NextResponse.rewrite(targetUrl);
+        response.cookies.set('org_data', JSON.stringify(orgData), {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+        return response;
+      }
       const response = NextResponse.next();
       if (orgData) {
         response.cookies.set('org_data', JSON.stringify(orgData), {

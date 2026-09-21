@@ -29,6 +29,15 @@ export function getDefaultDomains(): string[] {
   return domains;
 }
 
+/** Return the platform tour domain for the active environment. */
+export function getDefaultToursDomain(): string {
+  if (process.env.NEXT_PUBLIC_ENV === 'develop') {
+    return cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_DEV_TOURS_DOMAIN || '') || 'tours.dev.tojuco.com';
+  }
+
+  return cleanDomain(process.env.NEXT_PUBLIC_DEFAULT_TOURS_DOMAIN || '') || 'tours.tojuco.com';
+}
+
 /**
  * Resolve the portal type for a configured platform domain.
  * Development aliases are enabled only in the develop environment.

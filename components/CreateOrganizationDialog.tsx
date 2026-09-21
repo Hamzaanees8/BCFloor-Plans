@@ -34,6 +34,7 @@ import {
     getDefaultDomainErrorMessage,
     getSubdomainMismatchWarning,
     getDefaultDomains,
+    getDefaultToursDomain,
     cleanDomain,
 } from "@/lib/config/domains";
 
@@ -182,7 +183,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     }, [open, isEdit, initialData?.uuid]);
 
     const [newDomain, setNewDomain] = useState("");
-    const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor'>('agent');
+    const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor' | 'tours'>('agent');
     const [isDomainsManuallyEdited, setIsDomainsManuallyEdited] = useState(false);
     const [editIndex, setEditIndex] = useState<number | null>(null);
 
@@ -200,11 +201,13 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 { domain: `booking-new.${customDomain}`, portal_type: 'agent' },
                 { domain: `vendors.${customDomain}`, portal_type: 'vendor' },
                 { domain: `teams-new.${customDomain}`, portal_type: 'admin' },
+                { domain: `tours.${customDomain}`, portal_type: 'tours' },
             ]
             : slug ? [
                 { domain: `${slug}.${envDefaultDomains[0] || 'teams.tojuco.com'}`, portal_type: 'admin' },
                 { domain: `${slug}.${envDefaultDomains[1] || 'bookings.tojuco.com'}`, portal_type: 'agent' },
                 { domain: `${slug}.${envDefaultDomains[2] || 'vendors.tojuco.com'}`, portal_type: 'vendor' },
+                { domain: `${slug}.${getDefaultToursDomain()}`, portal_type: 'tours' },
             ] : [];
 
         if (defaultMappings.length > 0) {
@@ -896,7 +899,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                             <Label className="text-[11px] text-slate-500">Portal Type</Label>
                                             <Select
                                                 value={newPortalType}
-                                                onValueChange={(val: any) => setNewPortalType(val)}
+                                                onValueChange={(val: 'admin' | 'agent' | 'vendor' | 'tours') => setNewPortalType(val)}
                                             >
                                                 <SelectTrigger className="h-[36px] mt-1 bg-white">
                                                     <SelectValue />
@@ -905,6 +908,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                                     <SelectItem value="admin">Admin Portal</SelectItem>
                                                     <SelectItem value="agent">Agent Portal</SelectItem>
                                                     <SelectItem value="vendor">Vendor Portal</SelectItem>
+                                                    <SelectItem value="tours">Tours Portal</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>

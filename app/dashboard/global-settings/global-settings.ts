@@ -677,7 +677,7 @@ export interface OrganizationDomain {
   id?: number;
   uuid?: string;
   domain: string;
-  portal_type: 'admin' | 'agent' | 'vendor';
+  portal_type: 'admin' | 'agent' | 'vendor' | 'tours';
 }
 
 // Domain resolution precedence (backend):
@@ -856,4 +856,4 @@ export async function UpdateOrganizationBranding(uuid: string, payload: FormData
 }
 
 // ─── Tax Settings ─────────────────────────────────────────────────────────────
-export * from "./tax-settings";
+export * from "./tax-settings";

@@ -48,6 +48,7 @@ import {
     getDefaultDomainErrorMessage,
     getSubdomainMismatchWarning,
     getDefaultDomains,
+    getDefaultToursDomain,
     cleanDomain,
 } from "@/lib/config/domains";
 import { AudioLibrary } from "@/app/dashboard/agents/components/AudioLibrary";
@@ -143,7 +144,7 @@ const OrganizationsSettings = React.forwardRef<
     const orgLogoRef = useRef<HTMLInputElement>(null);
 
     const [newDomain, setNewDomain] = useState("");
-    const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor'>('agent');
+    const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor' | 'tours'>('agent');
     const [editDomainIndex, setEditDomainIndex] = useState<number | null>(null);
     const [domainValidationError, setDomainValidationError] = useState<string | null>(null);
     const [subdomainWarnings, setSubdomainWarnings] = useState<Map<number, string>>(new Map());
@@ -423,6 +424,19 @@ const OrganizationsSettings = React.forwardRef<
 
         setIsSaving(true);
         try {
+            const domains = [...(formState.domains || [])];
+            const hasToursMapping = domains.some((mapping) => mapping.portal_type === 'tours');
+            const customDomain = cleanDomain(formState.domain || '');
+            const toursDomain = customDomain
+                ? `tours.${customDomain}`
+                : formState.slug
+                    ? `${formState.slug}.${getDefaultToursDomain()}`
+                    : '';
+
+            if (formState.is_whitelabel && !hasToursMapping && toursDomain) {
+                domains.push({ domain: toursDomain, portal_type: 'tours' });
+            }
+
             // Update base details
             await UpdateOrganization(ownOrg.uuid, {
                 name: formState.name,
@@ -440,7 +454,7 @@ const OrganizationsSettings = React.forwardRef<
                 domain: formState.is_whitelabel ? (cleanDomain(formState.domain) || null) : null,
                 from_name: formState.is_whitelabel ? (formState.from_name?.trim() || null) : null,
                 from_email: formState.is_whitelabel ? (formState.from_email?.trim() || null) : null,
-                domains: formState.is_whitelabel ? (formState.domains?.map(d => ({ ...d, domain: cleanDomain(d.domain) })) || []) : [],
+                domains: formState.is_whitelabel ? domains.map(d => ({ ...d, domain: cleanDomain(d.domain) })) : [],
                 logo: formState.logo,
                 disable_next_day_booking: formState.disable_next_day_booking,
                 booking_cutoff_time: formState.booking_cutoff_time,
@@ -966,7 +980,7 @@ const OrganizationsSettings = React.forwardRef<
                                                 <Label className="text-[11px] text-slate-500">Portal Type</Label>
                                                 <Select
                                                     value={newPortalType}
-                                                    onValueChange={(val: any) => setNewPortalType(val)}
+                                                    onValueChange={(val: 'admin' | 'agent' | 'vendor' | 'tours') => setNewPortalType(val)}
                                                 >
                                                     <SelectTrigger className="h-[36px] mt-1 bg-white">
                                                         <SelectValue />
@@ -975,6 +989,7 @@ const OrganizationsSettings = React.forwardRef<
                                                         <SelectItem value="admin">Admin Portal</SelectItem>
                                                         <SelectItem value="agent">Agent Portal</SelectItem>
                                                         <SelectItem value="vendor">Vendor Portal</SelectItem>
+                                                        <SelectItem value="tours">Tours Portal</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>

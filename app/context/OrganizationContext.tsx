@@ -19,7 +19,7 @@ interface OrganizationData {
   uuid: string;
   slug: string;
   name?: string;
-  portal_type: "admin" | "agent" | "vendor";
+  portal_type: "admin" | "agent" | "vendor" | "tours";
   is_whitelabel: boolean;
   from_name: string;
   from_email: string;
