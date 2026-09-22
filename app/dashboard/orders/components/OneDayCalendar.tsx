@@ -5,6 +5,7 @@ import React, {
   useState,
   useEffect,
   useMemo,
+  useCallback,
   Dispatch,
   SetStateAction,
 } from "react";
@@ -453,7 +454,12 @@ export function getVendorValidStartSlots(
   isTravelRequired: boolean = true,
   currentPropertyAddress?: string,
 ): ValidStartSlotResult {
-  if (!workHours) return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
+  if (!workHours)
+    return {
+      startSlots: [],
+      proposedSlotsMap: new Map(),
+      travelSlotsSet: new Set(),
+    };
 
   const currentDateObj = dayjs(date);
   const dayOfWeek = currentDateObj.format("ddd").toLowerCase();
@@ -467,7 +473,11 @@ export function getVendorValidStartSlots(
 
   // For a twilight service, vendor MUST have is_twilight enabled for this day
   if (isTwilightService && !isTwilightChecked) {
-    return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
+    return {
+      startSlots: [],
+      proposedSlotsMap: new Map(),
+      travelSlotsSet: new Set(),
+    };
   }
 
   // If vendor has work_days and is off today, return no slots (unless twilight checked and it's a twilight service)
@@ -478,7 +488,11 @@ export function getVendorValidStartSlots(
       daySchedule.is_off === true)
   ) {
     if (!isTwilightService || !isTwilightChecked) {
-      return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
+      return {
+        startSlots: [],
+        proposedSlotsMap: new Map(),
+        travelSlotsSet: new Set(),
+      };
     }
   }
 
@@ -491,7 +505,11 @@ export function getVendorValidStartSlots(
   }
 
   if (!effectiveStartTime || !effectiveEndTime)
-    return { startSlots: [], proposedSlotsMap: new Map(), travelSlotsSet: new Set() };
+    return {
+      startSlots: [],
+      proposedSlotsMap: new Map(),
+      travelSlotsSet: new Set(),
+    };
 
   const vendorId = vendor.uuid ?? "";
   const start = dayjs(`${date}T${effectiveStartTime}`);
@@ -501,11 +519,15 @@ export function getVendorValidStartSlots(
     end = end.add(1, "day");
   }
 
-  const breakStart = workHours.break_start
-    ? dayjs(`${date}T${workHours.break_start}`)
+  const effectiveBreakStartStr =
+    (daySchedule as any)?.break_start || workHours.break_start;
+  const effectiveBreakEndStr =
+    (daySchedule as any)?.break_end || workHours.break_end;
+  const breakStart = effectiveBreakStartStr
+    ? dayjs(`${date}T${effectiveBreakStartStr}`)
     : null;
-  const breakEnd = workHours.break_end
-    ? dayjs(`${date}T${workHours.break_end}`)
+  const breakEnd = effectiveBreakEndStr
+    ? dayjs(`${date}T${effectiveBreakEndStr}`)
     : null;
   const hasLunchBreak = !!(
     breakStart &&
@@ -799,22 +821,90 @@ export function getVendorValidStartSlots(
   };
 }
 
-/**
- * Returns true when at least one slot in the proposed array falls within the
- * vendor's lunch break window [breakStart, breakEnd).
- * Used to trigger the admin confirmation dialog when allowBookingThroughLunch is ON.
- */
-function proposedSlotsSpanLunch(
-  proposed: { start: string; end: string }[],
-  breakStart: ReturnType<typeof dayjs> | null,
-  breakEnd: ReturnType<typeof dayjs> | null,
-): boolean {
-  if (!breakStart || !breakEnd) return false;
-  return proposed.some((s) => {
-    const sStart = dayjs(s.start);
-    return sStart.isSameOrAfter(breakStart) && sStart.isBefore(breakEnd);
-  });
+export interface BreakOverlapDetail {
+  spansBreak: boolean;
+  lunchLabel: string;
+  preBreakMinutes: number;
+  breakMinutes: number;
+  postBreakMinutes: number;
+  breakStartStr: string;
+  breakEndStr: string;
 }
+
+/**
+ * Returns overlap details when proposed slots span across a vendor's break window (lunch or additional break).
+ */
+export function getVendorBreakOverlapInfo(
+  vendor: VendorData,
+  date: string,
+  proposed: { start: string; end: string }[],
+): BreakOverlapDetail | null {
+  if (!proposed || proposed.length === 0) return null;
+
+  const breaks: { start: dayjs.Dayjs; end: dayjs.Dayjs }[] = [];
+
+  if (vendor.work_hours) {
+    const dayOfWeek = dayjs(date).format("ddd").toLowerCase();
+    const daySchedule = vendor.work_hours.work_days?.find(
+      (d) => d.day === dayOfWeek,
+    );
+    const bStartStr =
+      (daySchedule as any)?.break_start || vendor.work_hours.break_start;
+    const bEndStr =
+      (daySchedule as any)?.break_end || vendor.work_hours.break_end;
+    if (bStartStr && bEndStr) {
+      const bStart = dayjs(`${date}T${bStartStr}`);
+      const bEnd = dayjs(`${date}T${bEndStr}`);
+      if (bEnd.isAfter(bStart)) {
+        breaks.push({ start: bStart, end: bEnd });
+      }
+    }
+  }
+
+  (vendor.additional_breaks || []).forEach((brk) => {
+    if (brk.start_time && brk.end_time) {
+      const bStart = dayjs(`${date}T${brk.start_time}`);
+      const bEnd = dayjs(`${date}T${brk.end_time}`);
+      if (bEnd.isAfter(bStart)) {
+        breaks.push({ start: bStart, end: bEnd });
+      }
+    }
+  });
+
+  for (const brk of breaks) {
+    const breakSlots = proposed.filter((s) => {
+      const sStart = dayjs(s.start);
+      return sStart.isSameOrAfter(brk.start) && sStart.isBefore(brk.end);
+    });
+
+    if (breakSlots.length > 0) {
+      const preBreakSlots = proposed.filter((s) =>
+        dayjs(s.start).isBefore(brk.start),
+      );
+      const postBreakSlots = proposed.filter((s) =>
+        dayjs(s.start).isSameOrAfter(brk.end),
+      );
+
+      const preBreakMinutes = preBreakSlots.length * 15;
+      const breakMinutes = breakSlots.length * 15;
+      const postBreakMinutes = postBreakSlots.length * 15;
+      const lunchLabel = `${brk.start.format("h:mm A")} – ${brk.end.format("h:mm A")}`;
+
+      return {
+        spansBreak: true,
+        lunchLabel,
+        preBreakMinutes,
+        breakMinutes,
+        postBreakMinutes,
+        breakStartStr: brk.start.format("HH:mm:ss"),
+        breakEndStr: brk.end.format("HH:mm:ss"),
+      };
+    }
+  }
+
+  return null;
+}
+
 
 
 function generateAllDaySlots(
@@ -933,7 +1023,10 @@ export function getVendorDayBounds(
             twilightData.sunset,
             targetTimezone,
           );
-          const twStart = dayjs(`${date}T${sunsetLocalStr}`).subtract(45, "minute");
+          const twStart = dayjs(`${date}T${sunsetLocalStr}`).subtract(
+            45,
+            "minute",
+          );
           windowStartStr = twStart.format("HH:mm:ss");
         }
 
@@ -1064,7 +1157,10 @@ export default function OneDayCalendar({
   const servicesData = externalServicesData || contextServicesData;
   const { userType } = useAppContext();
   const { id } = useParams();
-  const activeSquareFootage = Number(squareFootage) || tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+  const activeSquareFootage =
+    Number(squareFootage) ||
+    tempPropertyData?.square_footage ||
+    selectedCurrentListing?.square_footage;
 
   const minDate = React.useMemo(() => {
     const serviceSlotDates =
@@ -1196,7 +1292,9 @@ export default function OneDayCalendar({
     slotStart: any;
     slotEnd: any;
   } | null>(null);
-  const [unbookedSlotsKeys, setUnbookedSlotsKeys] = useState<Set<string>>(new Set());
+  const [unbookedSlotsKeys, setUnbookedSlotsKeys] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Book-through-lunch confirmation dialog state (admin only)
   const [showConfirmLunchOverlap, setShowConfirmLunchOverlap] = useState(false);
@@ -1204,9 +1302,12 @@ export default function OneDayCalendar({
     vendor: VendorData;
     slots: { start: string; end: string }[];
     lunchLabel: string;
+    preBreakMinutes: number;
+    breakMinutes: number;
+    postBreakMinutes: number;
+    requiredDurationMinutes: number;
     forceProceed: boolean;
   } | null>(null);
-
 
   const handleConfirmUnbookSlot = async () => {
     if (!pendingUnbookSlot || !pendingUnbookSlot.booking) {
@@ -1238,10 +1339,7 @@ export default function OneDayCalendar({
         String(o.id) === String(booking.order_id || booking.order?.id),
     );
     const orderUuid =
-      matchedOrder?.uuid ||
-      booking.order?.uuid ||
-      booking.order_uuid ||
-      "";
+      matchedOrder?.uuid || booking.order?.uuid || booking.order_uuid || "";
 
     // Find the specific OrderService item inside matchedOrder.services
     const matchedOrderService = matchedOrder?.services?.find(
@@ -1256,7 +1354,8 @@ export default function OneDayCalendar({
       matchedOrderService?.uuid ||
       booking.order_service?.uuid ||
       booking.order_service_uuid ||
-      (typeof booking.order_service_id === "string" && booking.order_service_id.includes("-")
+      (typeof booking.order_service_id === "string" &&
+      booking.order_service_id.includes("-")
         ? booking.order_service_id
         : "");
 
@@ -1265,7 +1364,8 @@ export default function OneDayCalendar({
         s.uuid === matchedOrderService?.service?.uuid ||
         s.uuid === booking.service?.uuid ||
         s.uuid === booking.service_uuid ||
-        String(s.id) === String(booking.service_id || matchedOrderService?.service_id),
+        String(s.id) ===
+          String(booking.service_id || matchedOrderService?.service_id),
     );
     const serviceUuid =
       matchedOrderService?.service?.uuid ||
@@ -1274,10 +1374,7 @@ export default function OneDayCalendar({
       booking.service_uuid ||
       "";
 
-    const slotUuid =
-      booking.slot_uuid ||
-      booking.uuid ||
-      "";
+    const slotUuid = booking.slot_uuid || booking.uuid || "";
 
     const matchedVendor = vendorsData.find(
       (v) =>
@@ -1316,7 +1413,9 @@ export default function OneDayCalendar({
       const token =
         localStorage.getItem("token") || localStorage.getItem("agentToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const endpoint = API_URL ? `${API_URL}/orders/update-slot-time` : "/api/orders/update-slot-time";
+      const endpoint = API_URL
+        ? `${API_URL}/orders/update-slot-time`
+        : "/api/orders/update-slot-time";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -1374,7 +1473,9 @@ export default function OneDayCalendar({
                 s.uuid === slotUuid ||
                 s.uuid === booking.uuid ||
                 String(s.id) === String(booking.id) ||
-                (s.service_id === booking.service_id && (s.vendor_id === booking.vendor_id || s.vendor?.uuid === vendorUuid))
+                (s.service_id === booking.service_id &&
+                  (s.vendor_id === booking.vendor_id ||
+                    s.vendor?.uuid === vendorUuid))
               ) {
                 return {
                   ...s,
@@ -1406,8 +1507,8 @@ export default function OneDayCalendar({
           const ordersList = Array.isArray(freshData.data)
             ? freshData.data
             : Array.isArray(freshData)
-            ? freshData
-            : null;
+              ? freshData
+              : null;
           if (ordersList) {
             setOrdersData(ordersList);
           }
@@ -1419,7 +1520,9 @@ export default function OneDayCalendar({
       toast.success(data?.message || "Order slot time successfully updated.");
     } catch (err: any) {
       console.log("Error invoking /orders/update-slot-time:", err);
-      toast.error(err?.message || "An error occurred while updating slot time.");
+      toast.error(
+        err?.message || "An error occurred while updating slot time.",
+      );
     } finally {
       setShowConfirmUnbookSlot(false);
       setPendingUnbookSlot(null);
@@ -1489,25 +1592,42 @@ export default function OneDayCalendar({
         .map((order: Order) => {
           return (order.slots || []).map((s) => {
             const serviceObj = servicesData.find(
-              (srv) => String(srv.id) === String(s.service_id) || srv.uuid === String(s.service_id)
+              (srv) =>
+                String(srv.id) === String(s.service_id) ||
+                srv.uuid === String(s.service_id),
             );
             const vendorObj = vendorsData.find(
-              (v) => String((v as any).id) === String(s.vendor_id) || v.uuid === String(s.vendor_id)
+              (v) =>
+                String((v as any).id) === String(s.vendor_id) ||
+                v.uuid === String(s.vendor_id),
             );
             return {
               ...s,
               order_id: order.id,
               order_uuid: order.uuid,
               property_address: order.property_address || "",
-              agent_name: order.agent ? `${order.agent.first_name} ${order.agent.last_name}` : "N/A",
-              service_name: serviceObj?.name || (s as any).service?.name || "Service",
-              vendor_name: vendorObj ? `${vendorObj.first_name} ${vendorObj.last_name}` : (s as any).vendor ? `${(s as any).vendor.first_name} ${(s as any).vendor.last_name}` : "N/A",
+              agent_name: order.agent
+                ? `${order.agent.first_name} ${order.agent.last_name}`
+                : "N/A",
+              service_name:
+                serviceObj?.name || (s as any).service?.name || "Service",
+              vendor_name: vendorObj
+                ? `${vendorObj.first_name} ${vendorObj.last_name}`
+                : (s as any).vendor
+                  ? `${(s as any).vendor.first_name} ${(s as any).vendor.last_name}`
+                  : "N/A",
             };
           });
         })
         .flat() || []
     );
-  }, [ordersData, orderIdParam, externalBookedSlots, servicesData, vendorsData]);
+  }, [
+    ordersData,
+    orderIdParam,
+    externalBookedSlots,
+    servicesData,
+    vendorsData,
+  ]);
 
   const computedEvents = useMemo(() => {
     const date = currentDate;
@@ -1634,7 +1754,10 @@ export default function OneDayCalendar({
     const bookedVendorsMap = new Map<string, Set<string>>();
     const travelVendorsMap = new Map<string, Set<string>>();
     const breakVendorsMap = new Map<string, Set<string>>();
-    const bookingInfoMap = new Map<string, { booking: any; isFirst: boolean; isLast: boolean }>();
+    const bookingInfoMap = new Map<
+      string,
+      { booking: any; isFirst: boolean; isLast: boolean }
+    >();
 
     // Collect booked slots, travel buffers, and breaks per vendor
     filteredVendors.forEach((vendor) => {
@@ -1650,15 +1773,20 @@ export default function OneDayCalendar({
         let inBreak = false;
         if (vendor.work_hours) {
           const dayOfWeek = dayjs(date).format("ddd").toLowerCase();
-          const daySchedule = vendor.work_hours.work_days?.find((d) => d.day === dayOfWeek);
-          const breakStartStr = (daySchedule as any)?.break_start || vendor.work_hours.break_start;
-          const breakEndStr = (daySchedule as any)?.break_end || vendor.work_hours.break_end;
+          const daySchedule = vendor.work_hours.work_days?.find(
+            (d) => d.day === dayOfWeek,
+          );
+          const breakStartStr =
+            (daySchedule as any)?.break_start || vendor.work_hours.break_start;
+          const breakEndStr =
+            (daySchedule as any)?.break_end || vendor.work_hours.break_end;
           if (breakStartStr && breakEndStr) {
             const brkStart = dayjs(`${date}T${breakStartStr}`);
             const brkEnd = dayjs(`${date}T${breakEndStr}`);
             if (brkEnd.isAfter(brkStart)) {
               if (
-                (slotStart.isSameOrAfter(brkStart) && slotStart.isBefore(brkEnd)) ||
+                (slotStart.isSameOrAfter(brkStart) &&
+                  slotStart.isBefore(brkEnd)) ||
                 (slotEnd.isAfter(brkStart) && slotEnd.isSameOrBefore(brkEnd))
               ) {
                 inBreak = true;
@@ -1673,14 +1801,16 @@ export default function OneDayCalendar({
             const brkStart = dayjs(`${date}T${brk.start_time}`);
             const brkEnd = dayjs(`${date}T${brk.end_time}`);
             return (
-              (slotStart.isSameOrAfter(brkStart) && slotStart.isBefore(brkEnd)) ||
+              (slotStart.isSameOrAfter(brkStart) &&
+                slotStart.isBefore(brkEnd)) ||
               (slotEnd.isAfter(brkStart) && slotEnd.isSameOrBefore(brkEnd))
             );
           });
         }
 
         if (inBreak) {
-          if (!breakVendorsMap.has(slotKey)) breakVendorsMap.set(slotKey, new Set());
+          if (!breakVendorsMap.has(slotKey))
+            breakVendorsMap.set(slotKey, new Set());
           breakVendorsMap.get(slotKey)!.add(vId);
         }
       });
@@ -1692,14 +1822,17 @@ export default function OneDayCalendar({
             s?.vendor?.uuid ||
             (s as any).vendor_uuid ||
             vendorsData.find(
-              (v) => v.uuid === s?.vendor_id || String((v as any).id) === String(s?.vendor_id),
+              (v) =>
+                v.uuid === s?.vendor_id ||
+                String((v as any).id) === String(s?.vendor_id),
             )?.uuid ||
             s?.vendor_id;
           const isSameVendor =
             slotVendorUuid === vId ||
             String(slotVendorUuid) === String(vId) ||
             String(s?.vendor_id) === String(vId) ||
-            ((vendor as any).id && String(s?.vendor_id) === String((vendor as any).id));
+            ((vendor as any).id &&
+              String(s?.vendor_id) === String((vendor as any).id));
           return isSameVendor && s?.date === date;
         })
         .map((s) => {
@@ -1718,10 +1851,16 @@ export default function OneDayCalendar({
           fullDaySlots.forEach((slot) => {
             const slotStart = dayjs(slot.start);
             const slotEnd = dayjs(slot.end);
-            if (slotStart.isSameOrAfter(bStart) && slotEnd.isSameOrBefore(bEnd)) {
+            if (
+              slotStart.isSameOrAfter(bStart) &&
+              slotEnd.isSameOrBefore(bEnd)
+            ) {
               const chunkKey = `${date}_${vId}_${slotStart.format("HH:mm:ss")}_${slotEnd.format("HH:mm:ss")}`;
               const chunkKeyAlt = `${date}_${s.vendor_id}_${slotStart.format("HH:mm:ss")}_${slotEnd.format("HH:mm:ss")}`;
-              if (unbookedSlotsKeys.has(chunkKey) || unbookedSlotsKeys.has(chunkKeyAlt)) {
+              if (
+                unbookedSlotsKeys.has(chunkKey) ||
+                unbookedSlotsKeys.has(chunkKeyAlt)
+              ) {
                 if (slotStart.isSame(bStart, "minute")) {
                   bStart = slotEnd;
                 } else if (slotEnd.isSame(bEnd, "minute")) {
@@ -1735,7 +1874,8 @@ export default function OneDayCalendar({
             rawSlot: s,
             start: bStart,
             end: bEnd,
-            address: (s as any).order?.property?.address || (s as any).address || "",
+            address:
+              (s as any).order?.property?.address || (s as any).address || "",
           };
         })
         .filter((b) => b.end.isAfter(b.start))
@@ -1747,13 +1887,21 @@ export default function OneDayCalendar({
           const slotEnd = dayjs(slot.end);
           const slotKey = `${slot.start}_${slot.end}`;
 
-          if (slotStart.isSameOrAfter(b.start) && slotEnd.isSameOrBefore(b.end)) {
-            if (!bookedVendorsMap.has(slotKey)) bookedVendorsMap.set(slotKey, new Set());
+          if (
+            slotStart.isSameOrAfter(b.start) &&
+            slotEnd.isSameOrBefore(b.end)
+          ) {
+            if (!bookedVendorsMap.has(slotKey))
+              bookedVendorsMap.set(slotKey, new Set());
             bookedVendorsMap.get(slotKey)!.add(vId);
 
             const isFirst = slotStart.isSame(b.start, "minute");
             const isLast = slotEnd.isSame(b.end, "minute");
-            bookingInfoMap.set(slotKey, { booking: b.rawSlot, isFirst, isLast });
+            bookingInfoMap.set(slotKey, {
+              booking: b.rawSlot,
+              isFirst,
+              isLast,
+            });
           }
         });
       });
@@ -1771,7 +1919,8 @@ export default function OneDayCalendar({
           if (slotStart.isSameOrAfter(tStart) && slotEnd.isSameOrBefore(tEnd)) {
             const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
             if (!inBreak) {
-              if (!travelVendorsMap.has(slotKey)) travelVendorsMap.set(slotKey, new Set());
+              if (!travelVendorsMap.has(slotKey))
+                travelVendorsMap.set(slotKey, new Set());
               travelVendorsMap.get(slotKey)!.add(vId);
             }
           }
@@ -1829,24 +1978,25 @@ export default function OneDayCalendar({
           ],
         };
 
-        const { startSlots, travelSlotsSet: vendorTravelSlots } = getVendorValidStartSlots(
-          vendor,
-          currentDate,
-          fullDayWorkHours,
-          AllBookedSlots,
-          otherServiceSlots,
-          vendor.additional_breaks || [],
-          vendor.calendar_events || [],
-          requiredSlotsCountForService,
-          allowBookingThroughLunch,
-          shouldEnforceForVendor,
-          service.uuid,
-          selectedSlots,
-          15,
-          isTwilightService,
-          currentServiceDataForSlots?.is_travel_required !== false,
-          destinationAddress,
-        );
+        const { startSlots, travelSlotsSet: vendorTravelSlots } =
+          getVendorValidStartSlots(
+            vendor,
+            currentDate,
+            fullDayWorkHours,
+            AllBookedSlots,
+            otherServiceSlots,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsCountForService,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightService,
+            currentServiceDataForSlots?.is_travel_required !== false,
+            destinationAddress,
+          );
 
         vendorTravelSlots?.forEach((key) => {
           if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
@@ -1872,24 +2022,25 @@ export default function OneDayCalendar({
           targetTimezone,
         );
 
-        const { startSlots, travelSlotsSet: vendorTravelSlots } = getVendorValidStartSlots(
-          vendor,
-          currentDate,
-          convertedWorkHours,
-          AllBookedSlots,
-          otherServiceSlots,
-          vendor.additional_breaks || [],
-          vendor.calendar_events || [],
-          requiredSlotsCountForService,
-          allowBookingThroughLunch,
-          shouldEnforceForVendor,
-          service.uuid,
-          selectedSlots,
-          15,
-          isTwilightService,
-          currentServiceDataForSlots?.is_travel_required !== false,
-          destinationAddress,
-        );
+        const { startSlots, travelSlotsSet: vendorTravelSlots } =
+          getVendorValidStartSlots(
+            vendor,
+            currentDate,
+            convertedWorkHours,
+            AllBookedSlots,
+            otherServiceSlots,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsCountForService,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightService,
+            currentServiceDataForSlots?.is_travel_required !== false,
+            destinationAddress,
+          );
 
         vendorTravelSlots?.forEach((key) => {
           if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
@@ -1923,8 +2074,12 @@ export default function OneDayCalendar({
         (twilightData as any).window_start &&
         (twilightData as any).window_end
       ) {
-        twilightWindowStart = dayjs(`${date}T${(twilightData as any).window_start}`);
-        twilightWindowEnd = dayjs(`${date}T${(twilightData as any).window_end}`);
+        twilightWindowStart = dayjs(
+          `${date}T${(twilightData as any).window_start}`,
+        );
+        twilightWindowEnd = dayjs(
+          `${date}T${(twilightData as any).window_end}`,
+        );
       } else {
         const targetTimezone = propertyTimezone || "America/Vancouver";
         const sunsetLocalTimeStr = convertUTCToTimezone(
@@ -1936,14 +2091,23 @@ export default function OneDayCalendar({
         twilightWindowEnd = twilightTime.add(15, "minute");
       }
 
-      const windowMinutes = twilightWindowEnd.diff(twilightWindowStart, "minute");
+      const windowMinutes = twilightWindowEnd.diff(
+        twilightWindowStart,
+        "minute",
+      );
       const windowSlots = Math.max(1, Math.round(windowMinutes / 15));
-      const overflowSlots = Math.max(0, requiredSlotsCountForService - windowSlots);
+      const overflowSlots = Math.max(
+        0,
+        requiredSlotsCountForService - windowSlots,
+      );
 
       if (overflowSlots > 0) {
         const extraEnd = Math.floor(overflowSlots / 2);
         const extraStart = overflowSlots - extraEnd; // odd -> extra slot goes to start
-        expandedWindowStart = twilightWindowStart.subtract(extraStart * 15, "minute");
+        expandedWindowStart = twilightWindowStart.subtract(
+          extraStart * 15,
+          "minute",
+        );
         expandedWindowEnd = twilightWindowEnd.add(extraEnd * 15, "minute");
       } else {
         expandedWindowStart = twilightWindowStart;
@@ -1965,7 +2129,11 @@ export default function OneDayCalendar({
         service?.title?.includes("Twilight") ||
         (service as any)?.is_twilight === true;
 
-      if (isTwilightServiceForSlot && expandedWindowStart && expandedWindowEnd) {
+      if (
+        isTwilightServiceForSlot &&
+        expandedWindowStart &&
+        expandedWindowEnd
+      ) {
         const slotStartTime = dayjs(slot.start);
         if (
           slotStartTime.isBefore(expandedWindowStart) ||
@@ -2295,6 +2463,160 @@ export default function OneDayCalendar({
     hasScrolledToFirstSlot.current = false;
   }, [currentDate]);
 
+  // ── Helper to get matching eligible vendors and their valid proposed slots for a clicked start ISO ──
+  const getMatchingVendorsForClick = useCallback(
+    (startISO: string, targetDate: string = currentDate) => {
+      const candidates: {
+        vendor: VendorData;
+        proposedSlots: { start: string; end: string }[];
+      }[] = [];
+
+      const currentServiceClick = servicesData?.find(
+        (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
+      );
+      const productOptionClick = currentServiceClick?.product_options?.find(
+        (option) =>
+          (service.option_id && option.uuid === service.option_id) ||
+          (service.option_id &&
+            String(option.id) === String(service.option_id)),
+      );
+      const requiredDurationClick = getEffectiveServiceDuration(
+        productOptionClick,
+        currentServiceClick,
+        activeSquareFootage,
+      );
+      const requiredSlotsClick = Math.ceil(requiredDurationClick / 15);
+
+      const isFloorPlanClick = isFloorPlanService(
+        service.title,
+        service.uuid,
+        service.id,
+        servicesData,
+      );
+      const isMatterportClick = isMatterportService(
+        service.title,
+        service.uuid,
+        service.id,
+        servicesData,
+      );
+      const isSpecialServiceClick = isFloorPlanClick || isMatterportClick;
+      const allowBookingThroughLunch =
+        portalSettings?.allow_booking_through_lunch ?? false;
+
+      vendorsData.forEach((vendor) => {
+        if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return;
+
+        const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+        const shouldEnforceForVendor = isSpecialServiceClick
+          ? vendorHasNextBookingFlag
+          : true;
+        const useFullDayClick =
+          scheduleOverride === 1 &&
+          !(isSpecialServiceClick && vendorHasNextBookingFlag);
+
+        const otherSlotsForDate = selectedSlots.filter(
+          (s: Slot) => s.service_id !== service.uuid && s.date === targetDate,
+        );
+
+        let validResult: ValidStartSlotResult;
+        if (useFullDayClick) {
+          const fullDayWorkHours: WorkHours = {
+            start_time: "00:00:00",
+            end_time: "23:59:59",
+            timezone: propertyTimezone || "America/Vancouver",
+            work_days: [
+              {
+                day: dayjs(targetDate).format("ddd").toLowerCase(),
+                start_time: "00:00:00",
+                end_time: "23:59:59",
+                is_off: 0,
+                is_twilight: 0,
+              },
+            ],
+          };
+          const isTwilightSvc =
+            currentServiceClick?.category?.name === "Twilight Photos" ||
+            service?.title?.includes("Twilight") ||
+            (service as any)?.is_twilight === true;
+          validResult = getVendorValidStartSlots(
+            vendor,
+            targetDate,
+            fullDayWorkHours,
+            AllBookedSlots,
+            otherSlotsForDate,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsClick,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightSvc,
+            currentServiceClick?.is_travel_required !== false,
+            destinationAddress,
+          );
+        } else {
+          if (!vendor.work_hours) return;
+          const vendorTimezone =
+            vendor.work_hours.timezone || "America/Vancouver";
+          const targetTimezone = propertyTimezone || "America/Vancouver";
+          const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
+            targetDate,
+            vendor.work_hours,
+            vendorTimezone,
+            targetTimezone,
+          );
+          const isTwilightSvc =
+            currentServiceClick?.category?.name === "Twilight Photos" ||
+            service?.title?.includes("Twilight") ||
+            (service as any)?.is_twilight === true;
+          validResult = getVendorValidStartSlots(
+            vendor,
+            targetDate,
+            convertedWorkHours,
+            AllBookedSlots,
+            otherSlotsForDate,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsClick,
+            allowBookingThroughLunch,
+            shouldEnforceForVendor,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightSvc,
+            currentServiceClick?.is_travel_required !== false,
+            destinationAddress,
+          );
+        }
+
+        if (validResult.proposedSlotsMap.has(startISO)) {
+          candidates.push({
+            vendor,
+            proposedSlots: validResult.proposedSlotsMap.get(startISO)!,
+          });
+        }
+      });
+
+      return candidates;
+    },
+    [
+      servicesData,
+      service,
+      activeSquareFootage,
+      portalSettings?.allow_booking_through_lunch,
+      vendorsData,
+      selectedVendors,
+      scheduleOverride,
+      selectedSlots,
+      currentDate,
+      propertyTimezone,
+      AllBookedSlots,
+      destinationAddress,
+    ],
+  );
+
   // ── Hover preview computation ──────────────────────────────────────────────
   // Determines which slots to highlight and whether the preview is valid
   // (i.e., enough consecutive available slots exist for the full service duration).
@@ -2302,10 +2624,12 @@ export default function OneDayCalendar({
     if (!hoveredSlotStart) return { slots: [] as string[], isValid: false };
 
     const currentServiceForHover = servicesData?.find(
-      (s) => s.uuid === service.uuid,
+      (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
     );
     const productOptionForHover = currentServiceForHover?.product_options?.find(
-      (opt) => opt.uuid === service.option_id,
+      (opt) =>
+        (service.option_id && opt.uuid === service.option_id) ||
+        (service.option_id && String(opt.id) === String(service.option_id)),
     );
     const squareFootageForHover = activeSquareFootage;
     const requiredDurationForHover = getEffectiveServiceDuration(
@@ -2332,6 +2656,20 @@ export default function OneDayCalendar({
       return { slots: [] as string[], isValid: false };
     }
 
+    if (alreadySelectedCount === 0) {
+      const matching = getMatchingVendorsForClick(
+        hoveredSlotStart,
+        currentDate,
+      );
+      if (matching.length > 0 && matching[0].proposedSlots.length > 0) {
+        const availableMins = matching[0].proposedSlots.length * 15;
+        return {
+          slots: matching[0].proposedSlots.map((s) => s.start),
+          isValid: availableMins >= requiredDurationForHover,
+        };
+      }
+    }
+
     const preview: string[] = [];
     for (let i = 0; i < remainingNeeded; i++) {
       const slotStart = dayjs(hoveredSlotStart)
@@ -2350,10 +2688,13 @@ export default function OneDayCalendar({
     hoveredSlotStart,
     events,
     service.uuid,
+    service.id,
     service.option_id,
     servicesData,
     activeSquareFootage,
     selectedSlots,
+    getMatchingVendorsForClick,
+    currentDate,
   ]);
 
   const prevDateRef = React.useRef<string>(currentDate);
@@ -2669,127 +3010,7 @@ export default function OneDayCalendar({
       ? []
       : currentServiceSlots;
 
-    const isFloorPlanClick = isFloorPlanService(
-      service.title,
-      service.uuid,
-      service.id,
-      servicesData,
-    );
-    const isMatterportClick = isMatterportService(
-      service.title,
-      service.uuid,
-      service.id,
-      servicesData,
-    );
-    const isSpecialServiceClick = isFloorPlanClick || isMatterportClick;
-    const allowBookingThroughLunch =
-      portalSettings?.allow_booking_through_lunch ?? false;
 
-    // Helper to get matching eligible vendors and their valid proposed slots for a clicked start ISO
-    const getMatchingVendorsForClick = (startISO: string) => {
-      const candidates: {
-        vendor: VendorData;
-        proposedSlots: { start: string; end: string }[];
-      }[] = [];
-
-      vendorsData.forEach((vendor) => {
-        if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return;
-
-        const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-        const shouldEnforceForVendor = isSpecialServiceClick
-          ? vendorHasNextBookingFlag
-          : true;
-        const useFullDayClick =
-          scheduleOverride === 1 &&
-          !(isSpecialServiceClick && vendorHasNextBookingFlag);
-
-        const otherSlotsForDate = selectedSlots.filter(
-          (s: Slot) => s.service_id !== service.uuid && s.date === selectedDate,
-        );
-
-        let validResult: ValidStartSlotResult;
-        if (useFullDayClick) {
-          const fullDayWorkHours: WorkHours = {
-            start_time: "00:00:00",
-            end_time: "23:59:59",
-            timezone: propertyTimezone || "America/Vancouver",
-            work_days: [
-              {
-                day: dayjs(selectedDate).format("ddd").toLowerCase(),
-                start_time: "00:00:00",
-                end_time: "23:59:59",
-                is_off: 0,
-                is_twilight: 0,
-              },
-            ],
-          };
-          const isTwilightSvc =
-            currentService?.category?.name === "Twilight Photos" ||
-            service?.title?.includes("Twilight") ||
-            (service as any)?.is_twilight === true;
-          validResult = getVendorValidStartSlots(
-            vendor,
-            selectedDate,
-            fullDayWorkHours,
-            AllBookedSlots,
-            otherSlotsForDate,
-            vendor.additional_breaks || [],
-            vendor.calendar_events || [],
-            requiredSlots,
-            allowBookingThroughLunch,
-            shouldEnforceForVendor,
-            service.uuid,
-            selectedSlots,
-            15,
-            isTwilightSvc,
-            currentService?.is_travel_required !== false,
-            destinationAddress,
-          );
-        } else {
-          if (!vendor.work_hours) return;
-          const vendorTimezone =
-            vendor.work_hours.timezone || "America/Vancouver";
-          const targetTimezone = propertyTimezone || "America/Vancouver";
-          const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
-            selectedDate,
-            vendor.work_hours,
-            vendorTimezone,
-            targetTimezone,
-          );
-          const isTwilightSvc =
-            currentService?.category?.name === "Twilight Photos" ||
-            service?.title?.includes("Twilight") ||
-            (service as any)?.is_twilight === true;
-          validResult = getVendorValidStartSlots(
-            vendor,
-            selectedDate,
-            convertedWorkHours,
-            AllBookedSlots,
-            otherSlotsForDate,
-            vendor.additional_breaks || [],
-            vendor.calendar_events || [],
-            requiredSlots,
-            allowBookingThroughLunch,
-            shouldEnforceForVendor,
-            service.uuid,
-            selectedSlots,
-            15,
-            isTwilightSvc,
-            currentService?.is_travel_required !== false,
-            destinationAddress,
-          );
-        }
-
-        if (validResult.proposedSlotsMap.has(startISO)) {
-          candidates.push({
-            vendor,
-            proposedSlots: validResult.proposedSlotsMap.get(startISO)!,
-          });
-        }
-      });
-
-      return candidates;
-    };
 
     const getAdminOverrideSlots = (startISO: string, slotsCount: number) => {
       const slots: { start: string; end: string }[] = [];
@@ -2839,7 +3060,10 @@ export default function OneDayCalendar({
         }
       }
 
-      const candidateMatches = getMatchingVendorsForClick(clicked.start);
+      const candidateMatches = getMatchingVendorsForClick(
+        clicked.start,
+        selectedDate,
+      );
       if (candidateMatches.length === 0) {
         if (isAdmin) {
           const overrideSlots = getAdminOverrideSlots(
@@ -2860,16 +3084,25 @@ export default function OneDayCalendar({
         return;
       }
 
+      const repMatch = candidateMatches[0];
+      const repDurationMins = repMatch.proposedSlots.length * 15;
+      if (repDurationMins < requiredDuration && !isAdmin) {
+        toast.error(
+          `Selected available duration (${repDurationMins} min) is less than the required service duration (${requiredDuration} min). Please select another slot.`,
+        );
+        return;
+      }
+
       setPendingReplaceSelection({
         info,
-        proposedSlots: candidateMatches[0].proposedSlots,
+        proposedSlots: repMatch.proposedSlots,
         slotTime: dayjs(clicked.start).format("hh:mm A"),
       });
       setShowConfirmReplaceSelection(true);
       return;
     }
 
-    const matching = getMatchingVendorsForClick(clicked.start);
+    const matching = getMatchingVendorsForClick(clicked.start, selectedDate);
     if (matching.length === 0) {
       if (isAdmin) {
         const adminVendor =
@@ -2911,7 +3144,11 @@ export default function OneDayCalendar({
         (m) => m.vendor.uuid === currentAssignedVendorId,
       );
       if (sticky) {
-        assignVendorWithLunchCheck(sticky.vendor, sticky.proposedSlots, forceProceed);
+        assignVendorWithLunchCheck(
+          sticky.vendor,
+          sticky.proposedSlots,
+          forceProceed,
+        );
         return;
       }
     }
@@ -2977,13 +3214,17 @@ export default function OneDayCalendar({
     );
 
     const currentServiceForDeselect = servicesData?.find(
-      (s) => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)),
+      (s) =>
+        s.uuid === service.uuid ||
+        (service.id && String(s.id) === String(service.id)),
     );
-    const productOptionForDeselect = currentServiceForDeselect?.product_options?.find(
-      (option) =>
-        (service.option_id && option.uuid === service.option_id) ||
-        (service.option_id && String(option.id) === String(service.option_id)),
-    );
+    const productOptionForDeselect =
+      currentServiceForDeselect?.product_options?.find(
+        (option) =>
+          (service.option_id && option.uuid === service.option_id) ||
+          (service.option_id &&
+            String(option.id) === String(service.option_id)),
+      );
     const requiredDuration = getEffectiveServiceDuration(
       productOptionForDeselect,
       currentServiceForDeselect,
@@ -3055,12 +3296,39 @@ export default function OneDayCalendar({
       portalSettings?.allow_booking_through_lunch ?? false;
     const isAdmin = userType === "admin";
 
-    if (allowBookingThroughLunchActive && isAdmin && vendor.work_hours?.break_start && vendor.work_hours?.break_end) {
-      const bStart = dayjs(`${currentDate}T${vendor.work_hours.break_start}`);
-      const bEnd   = dayjs(`${currentDate}T${vendor.work_hours.break_end}`);
-      if (bEnd.isAfter(bStart) && proposedSlotsSpanLunch(proposed, bStart, bEnd)) {
-        const lunchLabel = `${bStart.format("h:mm A")} – ${bEnd.format("h:mm A")}`;
-        setPendingLunchOverlap({ vendor, slots: proposed, lunchLabel, forceProceed });
+    if (allowBookingThroughLunchActive && isAdmin && !forceProceed) {
+      const currentServiceDataForCheck = servicesData?.find(
+        (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
+      );
+      const productOptionForCheck =
+        currentServiceDataForCheck?.product_options?.find(
+          (option) =>
+            (service.option_id && option.uuid === service.option_id) ||
+            (service.option_id &&
+              String(option.id) === String(service.option_id)),
+        );
+      const requiredDurationForCheck = getEffectiveServiceDuration(
+        productOptionForCheck,
+        currentServiceDataForCheck,
+        activeSquareFootage,
+      );
+
+      const overlap = getVendorBreakOverlapInfo(vendor, currentDate, proposed);
+      if (
+        overlap &&
+        overlap.spansBreak &&
+        overlap.preBreakMinutes < requiredDurationForCheck
+      ) {
+        setPendingLunchOverlap({
+          vendor,
+          slots: proposed,
+          lunchLabel: overlap.lunchLabel,
+          preBreakMinutes: overlap.preBreakMinutes,
+          breakMinutes: overlap.breakMinutes,
+          postBreakMinutes: overlap.postBreakMinutes,
+          requiredDurationMinutes: requiredDurationForCheck,
+          forceProceed,
+        });
         setShowConfirmLunchOverlap(true);
         return;
       }
@@ -3076,7 +3344,6 @@ export default function OneDayCalendar({
     setShowConfirmVendorChange(false);
     await handleAssignVendor(vendor, slots, true);
   };
-
 
   const handleAssignVendor = async (
     vendor: VendorData,
@@ -3169,7 +3436,9 @@ export default function OneDayCalendar({
     // Show informational message about slot selection progress
     // Recalculate service duration and current slots for toast message
     const currentService = servicesData?.find(
-      (s) => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)),
+      (s) =>
+        s.uuid === service.uuid ||
+        (service.id && String(s.id) === String(service.id)),
     );
     const productOption = currentService?.product_options?.find(
       (option) =>
@@ -3258,11 +3527,12 @@ export default function OneDayCalendar({
       opacity: 1;
       transition: background-color 0.08s ease, border-color 0.08s ease;
     }
-    /* Hover preview: insufficient consecutive slots — soft red warning on hovered slot only */
+    /* Hover preview: insufficient consecutive slots — light red warning */
     .slot-hover-preview-error:not(.slot-selected):not(.slot-unavailable) {
       background-color: #ffb3b3 !important;
-      opacity: 0.85;
-      transition: background-color 0.08s ease;
+      border: 1.5px solid #ff4d4d !important;
+      opacity: 0.9;
+      transition: background-color 0.08s ease, border-color 0.08s ease;
     }
     .slot-booked {
       background-color: #F1F5F9 !important;
@@ -3435,7 +3705,10 @@ export default function OneDayCalendar({
                   </TooltipProvider>
                 ) : eventInfo.event.classNames.includes("slot-booked") ? (
                   (() => {
-                    const isAdmin = userType === "admin" || (userType as string)?.toLowerCase() === "admin" || !userType;
+                    const isAdmin =
+                      userType === "admin" ||
+                      (userType as string)?.toLowerCase() === "admin" ||
+                      !userType;
                     const booking = eventInfo.event.extendedProps?.booking;
 
                     const format12h = (timeStr?: string) => {
@@ -3454,27 +3727,34 @@ export default function OneDayCalendar({
                         <span className="fc-event-title text-[9px] text-[#64748B] font-semibold text-center w-full truncate">
                           Booked
                         </span>
-                        {isAdmin && (eventInfo.event.extendedProps?.isFirstOfGroup || eventInfo.event.extendedProps?.isLastOfGroup) && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setPendingUnbookSlot({
-                                booking: eventInfo.event.extendedProps?.booking,
-                                isFirstOfGroup: eventInfo.event.extendedProps?.isFirstOfGroup,
-                                isLastOfGroup: eventInfo.event.extendedProps?.isLastOfGroup,
-                                slotStart: eventInfo.event.start,
-                                slotEnd: eventInfo.event.end,
-                              });
-                              setShowConfirmUnbookSlot(true);
-                            }}
-                            className="absolute right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm"
-                            title="Trim/Unselect this slot"
-                          >
-                            <X className="w-2.5 h-2.5 stroke-[3]" />
-                          </button>
-                        )}
+                        {isAdmin &&
+                          (eventInfo.event.extendedProps?.isFirstOfGroup ||
+                            eventInfo.event.extendedProps?.isLastOfGroup) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setPendingUnbookSlot({
+                                  booking:
+                                    eventInfo.event.extendedProps?.booking,
+                                  isFirstOfGroup:
+                                    eventInfo.event.extendedProps
+                                      ?.isFirstOfGroup,
+                                  isLastOfGroup:
+                                    eventInfo.event.extendedProps
+                                      ?.isLastOfGroup,
+                                  slotStart: eventInfo.event.start,
+                                  slotEnd: eventInfo.event.end,
+                                });
+                                setShowConfirmUnbookSlot(true);
+                              }}
+                              className="absolute right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shrink-0 z-50 cursor-pointer shadow-sm"
+                              title="Trim/Unselect this slot"
+                            >
+                              <X className="w-2.5 h-2.5 stroke-[3]" />
+                            </button>
+                          )}
                       </div>
                     );
 
@@ -3483,36 +3763,63 @@ export default function OneDayCalendar({
                         <TooltipProvider delayDuration={150}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="w-full h-full cursor-pointer flex items-center justify-center">{eventInner}</div>
+                              <div className="w-full h-full cursor-pointer flex items-center justify-center">
+                                {eventInner}
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent
                               side="top"
                               className="bg-white border border-gray-200 shadow-xl p-3 text-xs text-gray-700 space-y-1.5 font-alexandria rounded-md z-[999] min-w-[220px]"
                             >
                               <div className="font-semibold text-gray-800 border-b border-gray-100 pb-1 flex items-center justify-between gap-4">
-                                <span>Order #{booking.order_id || booking.order?.id || "N/A"}</span>
+                                <span>
+                                  Order #
+                                  {booking.order_id ||
+                                    booking.order?.id ||
+                                    "N/A"}
+                                </span>
                                 {(booking.start_time || booking.end_time) && (
                                   <span className="text-[10px] text-gray-400 font-normal">
-                                    {format12h(booking.start_time)} - {format12h(booking.end_time)}
+                                    {format12h(booking.start_time)} -{" "}
+                                    {format12h(booking.end_time)}
                                   </span>
                                 )}
                               </div>
                               <div className="space-y-1">
                                 <p className="truncate">
-                                  <span className="font-medium text-gray-400">Service:</span>{" "}
-                                  {booking.service_name || booking.service?.name || "N/A"}
+                                  <span className="font-medium text-gray-400">
+                                    Service:
+                                  </span>{" "}
+                                  {booking.service_name ||
+                                    booking.service?.name ||
+                                    "N/A"}
                                 </p>
                                 <p className="truncate">
-                                  <span className="font-medium text-gray-400">Vendor:</span>{" "}
-                                  {booking.vendor_name || (booking.vendor ? `${booking.vendor.first_name} ${booking.vendor.last_name}` : "N/A")}
+                                  <span className="font-medium text-gray-400">
+                                    Vendor:
+                                  </span>{" "}
+                                  {booking.vendor_name ||
+                                    (booking.vendor
+                                      ? `${booking.vendor.first_name} ${booking.vendor.last_name}`
+                                      : "N/A")}
                                 </p>
                                 <p className="truncate">
-                                  <span className="font-medium text-gray-400">Address:</span>{" "}
-                                  {booking.property_address || booking.address || booking.order?.property_address || "N/A"}
+                                  <span className="font-medium text-gray-400">
+                                    Address:
+                                  </span>{" "}
+                                  {booking.property_address ||
+                                    booking.address ||
+                                    booking.order?.property_address ||
+                                    "N/A"}
                                 </p>
                                 <p className="truncate">
-                                  <span className="font-medium text-gray-400">Agent:</span>{" "}
-                                  {booking.agent_name || (booking.agent ? `${booking.agent.first_name} ${booking.agent.last_name}` : "N/A")}
+                                  <span className="font-medium text-gray-400">
+                                    Agent:
+                                  </span>{" "}
+                                  {booking.agent_name ||
+                                    (booking.agent
+                                      ? `${booking.agent.first_name} ${booking.agent.last_name}`
+                                      : "N/A")}
                                 </p>
                               </div>
                             </TooltipContent>
@@ -3795,7 +4102,11 @@ export default function OneDayCalendar({
                               clickedSlot.start,
                             );
                             if (proposed && proposed.length > 0) {
-                              assignVendorWithLunchCheck(vendor, proposed, true);
+                              assignVendorWithLunchCheck(
+                                vendor,
+                                proposed,
+                                true,
+                              );
                             } else {
                               toast.error(
                                 "Vendor is not available for the full duration starting at this time.",
@@ -3952,8 +4263,8 @@ export default function OneDayCalendar({
         }}
         showAgain={showAgain}
         toggleShowAgain={() => setShowAgain((prev) => !prev)}
-        title="Book Through Lunch?"
-        description={`This appointment will run through the vendor's lunch break (${pendingLunchOverlap?.lunchLabel ?? ""}). The lunch break duration will be added to the total appointment time. Do you want to proceed?`}
+        title="Book Through Lunch Time?"
+        description="The available time before the vendor's break is less than the required service duration and there is a break ahead. Do you want to book through lunch time? The break duration will be added to the appointment."
       />
     </>
   );

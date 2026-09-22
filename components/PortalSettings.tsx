@@ -448,77 +448,79 @@ const PortalSettings = React.forwardRef<
                                     })}
                                 </div>
 
-                                {/* Group Free Allowance Configuration Card */}
-                                <div className="mx-1 mb-5 p-4 rounded-lg border border-[#BBBBBB] bg-white shadow-xs">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-sm text-[#424242]">
-                                                    {activeCategory === "Finished Area" ? "Finished Areas" : activeCategory === "Sub Area" ? "Sub Areas" : "Other Areas"} Group Free Allowance
-                                                </span>
-                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isAllowanceEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                                    {isAllowanceEnabled ? "Active" : "Disabled"}
-                                                </span>
+                                {/* Group Free Allowance Configuration Card (Only for Other Areas) */}
+                                {activeCategory === "Other Area" && (
+                                    <div className="mx-1 mb-5 p-4 rounded-lg border border-[#BBBBBB] bg-white shadow-xs">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-sm text-[#424242]">
+                                                        Other Areas Group Free Allowance
+                                                    </span>
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isAllowanceEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                                        {isAllowanceEnabled ? "Active" : "Disabled"}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-[#777777] mt-0.5">
+                                                    Set a shared square footage allowance (e.g. first 1,000 sq.ft. free across other areas in an order before charges apply).
+                                                </p>
                                             </div>
-                                            <p className="text-xs text-[#777777] mt-0.5">
-                                                Set a shared square footage allowance (e.g. first 1,000 sq.ft. free across {activeCategory.toLowerCase()}s in an order before charges apply).
-                                            </p>
+                                            <div className="flex items-center gap-3">
+                                                <Label htmlFor="category-allowance-switch" className="text-xs font-semibold text-[#666666] cursor-pointer">
+                                                    Enable Free Allowance
+                                                </Label>
+                                                <Switch
+                                                    id="category-allowance-switch"
+                                                    checked={isAllowanceEnabled}
+                                                    onCheckedChange={(checked) => handleUpdateAllowance('enable', checked)}
+                                                    className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <Label htmlFor="category-allowance-switch" className="text-xs font-semibold text-[#666666] cursor-pointer">
-                                                Enable Free Allowance
-                                            </Label>
-                                            <Switch
-                                                id="category-allowance-switch"
-                                                checked={isAllowanceEnabled}
-                                                onCheckedChange={(checked) => handleUpdateAllowance('enable', checked)}
-                                                className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
-                                            />
-                                        </div>
-                                    </div>
 
-                                    {isAllowanceEnabled && (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#EEEEEE]">
-                                            <div>
-                                                <Label className="text-xs font-semibold text-[#666666] block mb-1.5">
-                                                    Free Allowance (Sq. Ft.)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    placeholder="e.g. 1000"
-                                                    value={currentFreeAllowance}
-                                                    onChange={(e) => handleUpdateAllowance('allowance', e.target.value)}
-                                                    className="h-[38px] border-[#BBBBBB] text-sm bg-white"
-                                                />
+                                        {isAllowanceEnabled && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#EEEEEE]">
+                                                <div>
+                                                    <Label className="text-xs font-semibold text-[#666666] block mb-1.5">
+                                                        Free Allowance (Sq. Ft.)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="e.g. 1000"
+                                                        value={currentFreeAllowance}
+                                                        onChange={(e) => handleUpdateAllowance('allowance', e.target.value)}
+                                                        className="h-[38px] border-[#BBBBBB] text-sm bg-white"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs font-semibold text-[#666666] block mb-1.5">
+                                                        Rate Above Allowance ($ CAD / sq. ft.)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        placeholder="e.g. 0.10"
+                                                        value={currentRatePerSqFt}
+                                                        onChange={(e) => handleUpdateAllowance('rate', e.target.value)}
+                                                        className="h-[38px] border-[#BBBBBB] text-sm bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex items-end">
+                                                    <Button
+                                                        type="button"
+                                                        onClick={handleSave}
+                                                        disabled={isSaving}
+                                                        className={`h-[38px] px-5 text-xs font-semibold ${userType}-bg hover-${userType}-bg text-white shadow-xs`}
+                                                    >
+                                                        {isSaving ? "Saving..." : "Save Allowance"}
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <Label className="text-xs font-semibold text-[#666666] block mb-1.5">
-                                                    Rate Above Allowance ($ CAD / sq. ft.)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    placeholder="e.g. 0.10"
-                                                    value={currentRatePerSqFt}
-                                                    onChange={(e) => handleUpdateAllowance('rate', e.target.value)}
-                                                    className="h-[38px] border-[#BBBBBB] text-sm bg-white"
-                                                />
-                                            </div>
-                                            <div className="flex items-end">
-                                                <Button
-                                                    type="button"
-                                                    onClick={handleSave}
-                                                    disabled={isSaving}
-                                                    className={`h-[38px] px-5 text-xs font-semibold ${userType}-bg hover-${userType}-bg text-white shadow-xs`}
-                                                >
-                                                    {isSaving ? "Saving..." : "Save Allowance"}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 <DataTable
                                     data={currentCategoryAreas}
