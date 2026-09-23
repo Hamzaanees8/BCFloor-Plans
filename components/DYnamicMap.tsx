@@ -6,7 +6,7 @@ import {
   Marker,
   useLoadScript,
 } from '@react-google-maps/api';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2, MapPin, RefreshCw, Crosshair } from 'lucide-react';
 
 const containerStyle = {
   width: '100%',
@@ -24,13 +24,28 @@ export interface MapAddressData {
   lng: number;
 }
 
+export interface MapSettings {
+  lat: number;
+  lng: number;
+  zoom: number;
+  mapType: string;
+  centerLat: number;
+  centerLng: number;
+}
+
 interface Props {
   address?: string;
   city?: string;
   province?: string;
   country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  zoom?: number | null;
+  mapTypeId?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain' | string | null;
+  centerLat?: number | null;
+  centerLng?: number | null;
   interactive?: boolean;
-  onLocationSelect?: (addressData: MapAddressData) => void;
+  onMapSettingsChange?: (settings: MapSettings) => void;
   resetKey?: number;
   className?: string;
 }
@@ -45,8 +60,14 @@ export default function DynamicMap({
   city,
   province,
   country,
+  latitude,
+  longitude,
+  zoom,
+  mapTypeId,
+  centerLat,
+  centerLng,
   interactive = false,
-  onLocationSelect,
+  onMapSettingsChange,
   resetKey,
   className,
 }: Props) {
@@ -56,12 +77,82 @@ export default function DynamicMap({
     version: '3.64',
   });
 
-  const [center, setCenter] = useState<google.maps.LatLngLiteral>(defaultCoords);
-  const [markerPosition, setMarkerPosition] = useState<google.maps.LatLngLiteral>(defaultCoords);
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const isInternalPinShift = useRef(false);
+  const hasExplicitCoords =
+    latitude !== undefined &&
+    latitude !== null &&
+    !isNaN(Number(latitude)) &&
+    longitude !== undefined &&
+    longitude !== null &&
+    !isNaN(Number(longitude));
 
-  // Forward geocode when address props change externally or on resetKey change
+  const initialMarkerLat = hasExplicitCoords ? Number(latitude) : defaultCoords.lat;
+  const initialMarkerLng = hasExplicitCoords ? Number(longitude) : defaultCoords.lng;
+  const initialCenterLat = centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat))
+    ? Number(centerLat)
+    : initialMarkerLat;
+  const initialCenterLng = centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng))
+    ? Number(centerLng)
+    : initialMarkerLng;
+  const initialZoom = zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && Number(zoom) > 0
+    ? Number(zoom)
+    : 15;
+  const initialMapType = mapTypeId || 'roadmap';
+
+  const [center, setCenter] = useState<google.maps.LatLngLiteral>({
+    lat: initialCenterLat,
+    lng: initialCenterLng,
+  });
+  const [markerPosition, setMarkerPosition] = useState<google.maps.LatLngLiteral>({
+    lat: initialMarkerLat,
+    lng: initialMarkerLng,
+  });
+  const [currentZoom, setCurrentZoom] = useState<number>(initialZoom);
+  const [currentMapType, setCurrentMapType] = useState<string>(initialMapType);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const isInternalUpdate = useRef(false);
+
+  // Synchronize when explicit coordinate / settings props change externally
+  useEffect(() => {
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      return;
+    }
+
+    if (hasExplicitCoords) {
+      const newMarker = { lat: Number(latitude), lng: Number(longitude) };
+      const newCenter = {
+        lat: centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat))
+          ? Number(centerLat)
+          : Number(latitude),
+        lng: centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng))
+          ? Number(centerLng)
+          : Number(longitude),
+      };
+      setMarkerPosition(newMarker);
+      setCenter(newCenter);
+      if (mapRef.current) {
+        mapRef.current.setCenter(newCenter);
+      }
+    }
+
+    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && Number(zoom) > 0) {
+      setCurrentZoom(Number(zoom));
+      if (mapRef.current) {
+        mapRef.current.setZoom(Number(zoom));
+      }
+    }
+
+    if (mapTypeId) {
+      setCurrentMapType(mapTypeId);
+      if (mapRef.current) {
+        mapRef.current.setMapTypeId(mapTypeId);
+      }
+    }
+  }, [latitude, longitude, zoom, mapTypeId, centerLat, centerLng, hasExplicitCoords]);
+
+  // Forward geocode fallback when address props change and no custom coordinates are present
   const forwardGeocode = useCallback(() => {
     const fullAddress = [address, city, province, country].filter(Boolean).join(', ');
     const isAnyAddressFieldProvided = address || city || province || country;
@@ -72,6 +163,7 @@ export default function DynamicMap({
       return;
     }
 
+    setIsGeocoding(true);
     fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
         fullAddress
@@ -79,127 +171,86 @@ export default function DynamicMap({
     )
       .then((res) => res.json())
       .then((data) => {
+        setIsGeocoding(false);
         if (data.status === 'OK' && data.results.length > 0) {
           const location = data.results[0].geometry.location;
           setCenter(location);
           setMarkerPosition(location);
+          if (mapRef.current) {
+            mapRef.current.setCenter(location);
+          }
+
+          if (interactive && onMapSettingsChange) {
+            isInternalUpdate.current = true;
+            onMapSettingsChange({
+              lat: location.lat,
+              lng: location.lng,
+              zoom: currentZoom,
+              mapType: currentMapType,
+              centerLat: location.lat,
+              centerLng: location.lng,
+            });
+          }
         } else {
           setCenter(defaultCoords);
           setMarkerPosition(defaultCoords);
         }
       })
       .catch(() => {
+        setIsGeocoding(false);
         setCenter(defaultCoords);
         setMarkerPosition(defaultCoords);
       });
-  }, [address, city, province, country]);
+  }, [address, city, province, country, interactive, onMapSettingsChange, currentZoom, currentMapType]);
 
+  // When address changes and no explicit coords are set yet, geocode address
   useEffect(() => {
-    if (isInternalPinShift.current) {
-      isInternalPinShift.current = false;
-      return;
-    }
+    if (hasExplicitCoords) return;
     const timeout = setTimeout(forwardGeocode, 500);
     return () => clearTimeout(timeout);
-  }, [address, city, province, country, forwardGeocode]);
+  }, [address, city, province, country, hasExplicitCoords, forwardGeocode]);
 
-  // If resetKey changes (e.g. user cancelled confirmation), revert pin to current saved address
+  // If resetKey changes (e.g. user requested reset), revert pin to geocoded address
   useEffect(() => {
     if (resetKey !== undefined && resetKey > 0) {
       forwardGeocode();
     }
   }, [resetKey, forwardGeocode]);
 
-  // Reverse geocode handler for interactive double-clicks and pin dragging
-  const handleCoordsChange = useCallback(
-    (lat: number, lng: number) => {
-      if (!interactive || !onLocationSelect || !isLoaded || !window.google?.maps?.Geocoder) {
-        return;
-      }
+  // Notify parent of changes in interactive mode
+  const emitMapSettings = useCallback(
+    (overrides?: Partial<MapSettings>) => {
+      if (!interactive || !onMapSettingsChange) return;
 
-      // Immediately move pin & center to clicked/dragged position
-      setMarkerPosition({ lat, lng });
-      setCenter({ lat, lng });
-      setIsGeocoding(true);
+      const currentC = mapRef.current?.getCenter();
+      const currentZ = mapRef.current?.getZoom() ?? currentZoom;
+      const currentT = mapRef.current?.getMapTypeId() ?? currentMapType;
 
-      const geocoder = new window.google.maps.Geocoder();
+      const newSettings: MapSettings = {
+        lat: overrides?.lat ?? markerPosition.lat,
+        lng: overrides?.lng ?? markerPosition.lng,
+        zoom: overrides?.zoom ?? currentZ,
+        mapType: overrides?.mapType ?? (typeof currentT === 'string' ? currentT : 'roadmap'),
+        centerLat: overrides?.centerLat ?? (currentC ? currentC.lat() : center.lat),
+        centerLng: overrides?.centerLng ?? (currentC ? currentC.lng() : center.lng),
+      };
 
-      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-        setIsGeocoding(false);
-
-        if (status === window.google.maps.GeocoderStatus.OK && results && results.length > 0) {
-          const result =
-            results.find(
-              (r) =>
-                r.types.includes('street_address') ||
-                r.types.includes('premise') ||
-                r.types.includes('subpremise')
-            ) || results[0];
-
-          let streetNumber = '';
-          let route = '';
-          let locality = '';
-          let sublocality = '';
-          let provinceVal = '';
-          let countryVal = '';
-          let postalCodeVal = '';
-
-          result.address_components.forEach((component) => {
-            const types = component.types;
-            if (types.includes('street_number')) {
-              streetNumber = component.long_name;
-            } else if (types.includes('route')) {
-              route = component.long_name;
-            } else if (types.includes('locality')) {
-              locality = component.long_name;
-            } else if (types.includes('sublocality') || types.includes('sublocality_level_1')) {
-              sublocality = component.long_name;
-            } else if (types.includes('administrative_area_level_1')) {
-              provinceVal = component.short_name || component.long_name;
-            } else if (types.includes('country')) {
-              countryVal = component.short_name || component.long_name;
-            } else if (types.includes('postal_code')) {
-              postalCodeVal = component.long_name;
-            }
-          });
-
-          const addressLine1 =
-            streetNumber && route
-              ? `${streetNumber} ${route}`
-              : route || (result.formatted_address ? result.formatted_address.split(',')[0] : '');
-
-          const cityVal = locality || sublocality || '';
-
-          const resolvedAddress: MapAddressData = {
-            address_line_1: addressLine1.trim(),
-            city: cityVal.trim(),
-            province: provinceVal.trim(),
-            country: countryVal.trim(),
-            postal_code: postalCodeVal.trim(),
-            full_address: result.formatted_address || '',
-            lat,
-            lng,
-          };
-
-          isInternalPinShift.current = true;
-          onLocationSelect(resolvedAddress);
-        } else {
-          console.warn('Geocode was not successful:', status);
-        }
-      });
+      isInternalUpdate.current = true;
+      onMapSettingsChange(newSettings);
     },
-    [interactive, onLocationSelect, isLoaded]
+    [interactive, onMapSettingsChange, markerPosition, currentZoom, currentMapType, center]
   );
 
-  // Trigger location update on double click (so single-click pan / grab is unaffected)
+  // Trigger location update on double click
   const onMapDblClick = useCallback(
     (e: google.maps.MapMouseEvent) => {
       if (!interactive || !e.latLng) return;
       const lat = e.latLng.lat();
       const lng = e.latLng.lng();
-      handleCoordsChange(lat, lng);
+      setMarkerPosition({ lat, lng });
+      emitMapSettings({ lat, lng });
     },
-    [interactive, handleCoordsChange]
+    [interactive, emitMapSettings]
   );
 
   // Trigger location update when user drags and releases the pin marker
@@ -208,14 +259,59 @@ export default function DynamicMap({
       if (!interactive || !e.latLng) return;
       const lat = e.latLng.lat();
       const lng = e.latLng.lng();
-      handleCoordsChange(lat, lng);
+      setMarkerPosition({ lat, lng });
+      emitMapSettings({ lat, lng });
     },
-    [interactive, handleCoordsChange]
+    [interactive, emitMapSettings]
   );
+
+  // Handle map panning
+  const onDragEnd = useCallback(() => {
+    if (!interactive || !mapRef.current) return;
+    const mapCenter = mapRef.current.getCenter();
+    if (mapCenter) {
+      const cLat = mapCenter.lat();
+      const cLng = mapCenter.lng();
+      setCenter({ lat: cLat, lng: cLng });
+      emitMapSettings({ centerLat: cLat, centerLng: cLng });
+    }
+  }, [interactive, emitMapSettings]);
+
+  // Handle zoom changes
+  const onZoomChanged = useCallback(() => {
+    if (!interactive || !mapRef.current) return;
+    const newZoom = mapRef.current.getZoom();
+    if (newZoom !== undefined && newZoom !== currentZoom) {
+      setCurrentZoom(newZoom);
+      emitMapSettings({ zoom: newZoom });
+    }
+  }, [interactive, currentZoom, emitMapSettings]);
+
+  // Handle map type changes (roadmap, satellite, hybrid, terrain)
+  const onMapTypeIdChanged = useCallback(() => {
+    if (!interactive || !mapRef.current) return;
+    const newType = mapRef.current.getMapTypeId();
+    if (newType && newType !== currentMapType) {
+      const typeStr = typeof newType === 'string' ? newType : 'roadmap';
+      setCurrentMapType(typeStr);
+      emitMapSettings({ mapType: typeStr });
+    }
+  }, [interactive, currentMapType, emitMapSettings]);
+
+  const handleCenterOnPin = () => {
+    if (mapRef.current) {
+      mapRef.current.panTo(markerPosition);
+      setCenter(markerPosition);
+      emitMapSettings({
+        centerLat: markerPosition.lat,
+        centerLng: markerPosition.lng,
+      });
+    }
+  };
 
   if (!isLoaded) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 rounded-[6px]">
+      <div className="w-full h-full min-h-[250px] flex items-center justify-center bg-gray-100 text-gray-500 rounded-[6px]">
         <Loader2 className="w-5 h-5 animate-spin mr-2" />
         <span>Loading map...</span>
       </div>
@@ -225,31 +321,68 @@ export default function DynamicMap({
   return (
     <div className={`relative w-full h-full overflow-hidden rounded-[6px] ${className || ''}`}>
       {interactive && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 pointer-events-none whitespace-nowrap">
-          {isGeocoding ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-              <span>Fetching address for pin...</span>
-            </>
-          ) : (
-            <>
-              <MapPin className="w-3.5 h-3.5 text-red-500" />
-              <span>Double-click map or drag pin to update address</span>
-            </>
-          )}
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 pointer-events-auto">
+            {isGeocoding ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <span>Geocoding address...</span>
+              </>
+            ) : (
+              <>
+                <MapPin className="w-3.5 h-3.5 text-red-500" />
+                <span>Drag pin, pan, zoom, or toggle satellite to customize tour view</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <span className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-semibold text-gray-700">
+              Zoom: {currentZoom}
+            </span>
+            <button
+              type="button"
+              onClick={handleCenterOnPin}
+              title="Center map on pin"
+              className="bg-white/95 hover:bg-white backdrop-blur-sm px-2.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1 transition-colors"
+            >
+              <Crosshair className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">Center Pin</span>
+            </button>
+            <button
+              type="button"
+              onClick={forwardGeocode}
+              title="Reset pin and view to address"
+              className="bg-white/95 hover:bg-white backdrop-blur-sm px-2.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-gray-600" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          </div>
         </div>
       )}
 
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={center}
-        zoom={14}
+        zoom={currentZoom}
+        mapTypeId={currentMapType}
+        onLoad={(map) => {
+          mapRef.current = map;
+        }}
+        onUnmount={() => {
+          mapRef.current = null;
+        }}
         onDblClick={onMapDblClick}
+        onDragEnd={onDragEnd}
+        onZoomChanged={onZoomChanged}
+        onMapTypeIdChanged={onMapTypeIdChanged}
         options={{
           disableDoubleClickZoom: interactive,
           streetViewControl: false,
           mapTypeControl: true,
           fullscreenControl: true,
+          gestureHandling: 'greedy',
         }}
       >
         <Marker

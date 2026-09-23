@@ -118,20 +118,13 @@ const ListingsFrom = () => {
   const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
   const [showAgainAgent, setShowAgainAgent] = useState(true);
 
-  // Interactive map address change state
-  const [pendingAddressChange, setPendingAddressChange] = useState<{
-    address_line_1: string;
-    city: string;
-    province: string;
-    country: string;
-    postal_code: string;
-    full_address: string;
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [showAddressChangeConfirm, setShowAddressChangeConfirm] = useState(false);
-  const [showAgainAddressConfirm, setShowAgainAddressConfirm] = useState(true);
-  const [mapResetKey, setMapResetKey] = useState(0);
+
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [mapZoom, setMapZoom] = useState<number>(15);
+  const [mapType, setMapType] = useState<string>("roadmap");
+  const [mapCenterLat, setMapCenterLat] = useState<number | null>(null);
+  const [mapCenterLng, setMapCenterLng] = useState<number | null>(null);
   // const [origin, setOrigin] = useState("");
 
   // useEffect(() => {
@@ -204,10 +197,6 @@ const ListingsFrom = () => {
     if (showAgain !== null) {
       setShowAgainAgent(JSON.parse(showAgain));
     }
-    const showAgainAddress = localStorage.getItem('confirmation_dialog_address_change_show_again');
-    if (showAgainAddress !== null) {
-      setShowAgainAddressConfirm(JSON.parse(showAgainAddress));
-    }
   }, []);
 
   const fetchAgents = async () => {
@@ -256,6 +245,12 @@ const ListingsFrom = () => {
             setCity(data.city || "");
             setPostalCode(data.postal_code || "");
             setCountry(data.country || "CA");
+            setLatitude(data.latitude !== undefined && data.latitude !== null ? Number(data.latitude) : null);
+            setLongitude(data.longitude !== undefined && data.longitude !== null ? Number(data.longitude) : null);
+            setMapZoom(data.map_zoom ? Number(data.map_zoom) : 15);
+            setMapType(data.map_type || "roadmap");
+            setMapCenterLat(data.map_center_lat !== undefined && data.map_center_lat !== null ? Number(data.map_center_lat) : null);
+            setMapCenterLng(data.map_center_lng !== undefined && data.map_center_lng !== null ? Number(data.map_center_lng) : null);
             setTourActivated(!!data.tour_activated);
             setPublishDate(
               typeof data.publish_date === "string"
@@ -405,6 +400,12 @@ const ListingsFrom = () => {
         province,
         postal_code: postalCode,
         country,
+        latitude: latitude !== null && !isNaN(Number(latitude)) ? Number(latitude) : null,
+        longitude: longitude !== null && !isNaN(Number(longitude)) ? Number(longitude) : null,
+        map_zoom: mapZoom ? Number(mapZoom) : 15,
+        map_type: mapType || "roadmap",
+        map_center_lat: mapCenterLat !== null && !isNaN(Number(mapCenterLat)) ? Number(mapCenterLat) : null,
+        map_center_lng: mapCenterLng !== null && !isNaN(Number(mapCenterLng)) ? Number(mapCenterLng) : null,
         tour_activated: tourActivated,
         publish_date: publishDate || null,
         property_website: propertyWebsite || null,
@@ -772,63 +773,24 @@ const ListingsFrom = () => {
     toast.success("New agent added and can now be selected");
   };
 
-  const applyAddressChange = (data: {
-    address_line_1: string;
-    city: string;
-    province: string;
-    country: string;
-    postal_code: string;
-    full_address: string;
+  const handleMapSettingsChange = (settings: {
     lat: number;
     lng: number;
+    zoom: number;
+    mapType: string;
+    centerLat: number;
+    centerLng: number;
   }) => {
-    if (data.address_line_1) setAddress(data.address_line_1);
-    if (data.city) setCity(data.city);
-    if (data.province) setProvince(data.province);
-    if (data.country) setCountry(data.country);
-    if (data.postal_code) setPostalCode(data.postal_code);
-
+    setLatitude(settings.lat);
+    setLongitude(settings.lng);
+    setMapZoom(settings.zoom);
+    setMapType(settings.mapType);
+    setMapCenterLat(settings.centerLat);
+    setMapCenterLng(settings.centerLng);
     markDirty();
-
-    if (fieldErrors.address) {
-      const newErrors = { ...fieldErrors };
-      delete newErrors.address;
-      setFieldErrors(newErrors);
-    }
-    toast.success("Address updated from map!");
   };
 
-  const handleMapLocationSelect = (data: {
-    address_line_1: string;
-    city: string;
-    province: string;
-    country: string;
-    postal_code: string;
-    full_address: string;
-    lat: number;
-    lng: number;
-  }) => {
-    if (!showAgainAddressConfirm) {
-      applyAddressChange(data);
-      return;
-    }
-    setPendingAddressChange(data);
-    setShowAddressChangeConfirm(true);
-  };
 
-  const confirmAddressChange = () => {
-    if (pendingAddressChange) {
-      applyAddressChange(pendingAddressChange);
-    }
-    setShowAddressChangeConfirm(false);
-    setPendingAddressChange(null);
-  };
-
-  const cancelAddressChange = () => {
-    setShowAddressChangeConfirm(false);
-    setPendingAddressChange(null);
-    setMapResetKey((prev) => prev + 1);
-  };
 
   // const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1544,6 +1506,10 @@ const ListingsFrom = () => {
                           setProvince(comp.province);
                           setCountry(comp.country);
                           setPostalCode(comp.postal_code);
+                          setLatitude(null);
+                          setLongitude(null);
+                          setMapCenterLat(null);
+                          setMapCenterLng(null);
                           markDirty();
 
                           if (fieldErrors.address) {
@@ -1562,9 +1528,14 @@ const ListingsFrom = () => {
                       city={city}
                       province={province}
                       country={country}
+                      latitude={latitude}
+                      longitude={longitude}
+                      zoom={mapZoom}
+                      mapTypeId={mapType}
+                      centerLat={mapCenterLat}
+                      centerLng={mapCenterLng}
                       interactive={true}
-                      onLocationSelect={handleMapLocationSelect}
-                      resetKey={mapResetKey}
+                      onMapSettingsChange={handleMapSettingsChange}
                     />
                   </div>
                 </div>
@@ -2038,24 +2009,7 @@ const ListingsFrom = () => {
         title="Change Agent?"
         description="Are you sure you want to change the agent associated with this property? This is usually rarely changed."
       />
-      <ConfirmationDialog
-        open={showAddressChangeConfirm}
-        setOpen={(open) => {
-          if (!open) cancelAddressChange();
-          else setShowAddressChangeConfirm(true);
-        }}
-        onConfirm={confirmAddressChange}
-        onCancel={cancelAddressChange}
-        showAgain={showAgainAddressConfirm}
-        toggleShowAgain={() => setShowAgainAddressConfirm(!showAgainAddressConfirm)}
-        dialogType="address_change"
-        title="UPDATE PROPERTY LOCATION?"
-        description={
-          pendingAddressChange
-            ? `Do you want to update the address to: "${pendingAddressChange.full_address || pendingAddressChange.address_line_1}"?`
-            : "Do you want to update the property address and location based on the selected map pin?"
-        }
-      />
+
       <AddAgentDialog
         open={openAddAgentDialog}
         setOpen={setOpenAddAgentDialog}

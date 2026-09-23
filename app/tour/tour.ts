@@ -113,6 +113,20 @@ export interface OrderData {
         company_logo_url: string;
         company_banner_url: string;
     };
+    co_agents?: Array<{
+        name?: string;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        primary_phone?: string;
+        phone?: string;
+        company_name?: string;
+        avatar?: string;
+        avatar_url?: string;
+        logo_url?: string;
+        company_logo_url?: string;
+        company_logo?: string;
+    }> | string;
 }
 
 export interface TourStatsPayload {

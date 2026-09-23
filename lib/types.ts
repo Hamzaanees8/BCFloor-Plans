@@ -33,6 +33,8 @@ export type Agent = {
     company_name: string;
     notes: string;
     activity?: string;
+    agent_type?: 'standard' | 'co_agent';
+    parent_agent_id?: number | string | null;
     co_agents?: {
         name: string;
         email: string;
@@ -396,11 +398,20 @@ export interface Listings {
     province?: string;
     city?: string;
     country?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    map_zoom?: number | null;
+    map_type?: string | null;
+    map_center_lat?: number | null;
+    map_center_lng?: number | null;
     created_at?: string | Date;
     status?: boolean;
     orders?: ListingOrder[];
     tour_activated?: boolean;
     suite?: string;
+    agent_id?: number | string;
+    co_agents?: any[];
+    is_co_listing?: boolean;
 }
 
 export interface TourFile {

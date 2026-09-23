@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Listings } from '@/lib/types';
 import { checkMediaApprovalStatus, getMediaApprovalBadge } from '@/app/dashboard/listings/utils/approvalHelper';
+import { getCoListingStatus } from '@/app/dashboard/listings/utils/coListingHelper';
 
 interface MobileListingsListProps {
   listings: Listings[];
@@ -173,6 +174,9 @@ export default function MobileListingsList({
           approvalLink = `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ''}`;
         }
 
+        const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('userInfo') || '{}') : {};
+        const coStatus = getCoListingStatus(listing, userType, userInfo);
+
         const files = listing.orders?.[0]?.tours?.[0]?.files;
         const featuredFile = files?.find((file: any) => file.is_featured) || files?.[0];
         const file_path = featuredFile?.thumbnail_url || featuredFile?.file_path || "";
@@ -259,6 +263,18 @@ export default function MobileListingsList({
 
                     {/* Badges */}
                     <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      {coStatus.badgeLabel && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-2 py-0.5 border ${
+                            coStatus.isCoListing || coStatus.badgeLabel === 'Co-Listing'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}
+                        >
+                          {coStatus.badgeLabel}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${projStatus.color}`}>
                         <ClipboardList className="w-3 h-3 mr-1" />
                         {projStatus.label}

@@ -306,6 +306,12 @@ type Property = {
     province: string;
     postal_code: string;
     country: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    map_zoom?: number | null;
+    map_type?: string | null;
+    map_center_lat?: number | null;
+    map_center_lng?: number | null;
     tour_activated: boolean;
     publish_date: string | null;
     property_website: string | null;

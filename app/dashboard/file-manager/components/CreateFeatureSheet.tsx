@@ -1290,9 +1290,23 @@ const CreateFeatureSheet = forwardRef<
       // Saved sheet UUID is set, but featureSheets list hasn't updated in state closure yet — DO NOT WIPE FORM DATA!
       return;
     } else {
-      // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData
+      // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData with dual branding if co-agents exist
+      const primaryAgentName = `${orderData?.agent?.first_name || ""} ${orderData?.agent?.last_name || ""}`.trim();
+      const rawCo = (orderData as any)?.co_agents || (orderData as any)?.property?.co_agents || (orderData as any)?.coagents;
+      let coList: any[] = [];
+      if (Array.isArray(rawCo)) coList = rawCo;
+      else if (typeof rawCo === "string") {
+        try { const p = JSON.parse(rawCo); if (Array.isArray(p)) coList = p; } catch {}
+      }
+      const coNames = coList.map((c: any) => c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim()).filter(Boolean);
+      const combinedAgentNames = coNames.length > 0 
+        ? `${primaryAgentName} & ${coNames.join(" & ")}`
+        : (primaryAgentName || initialFormData.fullName);
+
       updateFormData({
         ...initialFormData,
+        fullName: combinedAgentNames,
+        realtorName: combinedAgentNames,
         avatar_url: orderData?.agent.avatar_url || "",
         AvatarfileName: orderData?.agent.avatar || "",
         images: {},
@@ -1312,8 +1326,7 @@ const CreateFeatureSheet = forwardRef<
     selectedSheetUuid,
     featureSheets,
     updateFormData,
-    orderData?.agent.avatar,
-    orderData?.agent.avatar_url,
+    orderData,
   ]);
 
   // Fetch PDF with authentication header to bypass 403 Forbidden on protected storage URLs

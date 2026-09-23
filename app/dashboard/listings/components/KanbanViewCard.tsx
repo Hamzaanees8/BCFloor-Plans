@@ -7,6 +7,7 @@ import { Listings, Tour, TourFile } from "@/lib/types";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
 import { getAppOrigin } from "@/lib/utils";
 import { checkMediaApprovalStatus, getMediaApprovalBadge } from "../utils/approvalHelper";
+import { getCoListingStatus } from "../utils/coListingHelper";
 
 interface KanbanViewCardProps {
   data: Listings | Tour;
@@ -168,6 +169,9 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
     }
   };
 
+  const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('userInfo') || '{}') : {};
+  const coStatus = type === 'listing' ? getCoListingStatus(data, userType, userInfo) : { badgeLabel: null, isCoListing: false, coAgentNames: [] };
+
   const content = (
     <div className="flex flex-col w-full bg-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg overflow-hidden border border-gray-100 group relative">
       <div
@@ -199,11 +203,23 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
         {/* Badges Overlay */}
         {type === 'listing' && (
           <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm ${projStatus.color}`}>
+            {coStatus.badgeLabel && (
+              <span
+                className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm w-fit ${
+                  coStatus.isCoListing || coStatus.badgeLabel === 'Co-Listing'
+                    ? 'bg-purple-100/90 text-purple-800 border-purple-200'
+                    : 'bg-blue-100/90 text-blue-800 border-blue-200'
+                }`}
+                title={coStatus.coAgentNames?.length > 0 ? `Co-Agents: ${coStatus.coAgentNames.join(', ')}` : undefined}
+              >
+                {coStatus.badgeLabel}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm w-fit ${projStatus.color}`}>
               {projStatus.label}
             </span>
             {latestOrder && (
-              <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm ${payStatus.color}`}>
+              <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold backdrop-blur-[2px] shadow-sm w-fit ${payStatus.color}`}>
                 {payStatus.label}
               </span>
             )}

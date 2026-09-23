@@ -448,6 +448,23 @@ const TourConfirm = ({
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
+  const coAgentsList = React.useMemo(() => {
+    const rawCoAgents =
+      (orderData as any)?.co_agents ||
+      (orderData as any)?.property?.co_agents ||
+      (orderData as any)?.coagents;
+    if (Array.isArray(rawCoAgents)) return rawCoAgents;
+    if (typeof rawCoAgents === "string") {
+      try {
+        const parsed = JSON.parse(rawCoAgents);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [orderData]);
+
   const currentVideoFiles = React.useMemo(() => {
     let files = isPublicView
       ? publicVideoFiles
@@ -1227,68 +1244,132 @@ const TourConfirm = ({
                   {/* Agent Contact + About Property Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     {activeTourType !== "unbranded" && orderData?.agent && (
-                      <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col items-center md:items-start text-center md:text-left gap-5 h-fit">
-                        {orderData?.agent?.logo_url || getAgentLogo() ? (
-                          <div className="w-[200px] sm:w-[220px] aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 mx-auto md:mx-0 bg-gray-50 flex items-center justify-center">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={getAgentLogo() || orderData?.agent?.logo_url}
-                              alt="Agent Photo"
-                              className="w-full h-full object-contain p-2"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                                const parent = e.currentTarget.parentElement;
-                                if (parent) parent.style.display = "none";
-                              }}
-                            />
+                      <div className="lg:col-span-5 flex flex-col gap-5">
+                        {/* Primary Listing Agent */}
+                        <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col items-center md:items-start text-center md:text-left gap-5 h-fit">
+                          {orderData?.agent?.logo_url || getAgentLogo() ? (
+                            <div className="w-[200px] sm:w-[220px] aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 mx-auto md:mx-0 bg-gray-50 flex items-center justify-center">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={getAgentLogo() || orderData?.agent?.logo_url}
+                                alt="Agent Photo"
+                                className="w-full h-full object-contain p-2"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const parent = e.currentTarget.parentElement;
+                                  if (parent) parent.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          ) : null}
+
+                          <div className="text-left w-full flex flex-col gap-2 items-center md:items-start">
+                            <span className="text-xs font-bold text-gray-400 font-alexandria uppercase tracking-widest">
+                              {coAgentsList.length > 0 ? "Primary Listing Agent" : "Listing Agent"}
+                            </span>
+                            <h3 className="text-xl sm:text-2xl font-bold text-[#1b365d] font-alexandria">
+                              {orderData?.agent?.first_name}{" "}
+                              {orderData?.agent?.last_name}
+                            </h3>
+                            {orderData?.agent?.company_name && (
+                              <p className="text-sm font-medium italic text-gray-600 font-alexandria">
+                                {orderData.agent.company_name}
+                              </p>
+                            )}
+
+                            {orderData?.agent?.primary_phone && (
+                              <a
+                                href={`tel:${orderData.agent.primary_phone}`}
+                                className="text-base font-semibold text-[#2b6cb0] hover:underline font-alexandria mt-1 flex items-center gap-2"
+                              >
+                                <Phone size={16} />
+                                <span>{orderData.agent.primary_phone}</span>
+                              </a>
+                            )}
+
+                            {orderData?.agent?.website && (
+                              <a
+                                href={orderData.agent.website}
+                                className="text-xs text-gray-500 hover:text-[#2b6cb0] break-all font-alexandria hover:underline mt-0.5"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {orderData.agent.website}
+                              </a>
+                            )}
+
+                            {orderData?.agent?.email && (
+                              <a
+                                href={`mailto:${orderData.agent.email}?subject=${encodeURIComponent(orderData?.property_address || "Inquiry regarding property")}`}
+                                className="mt-3 flex items-center justify-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs font-semibold px-4 py-2.5 rounded-xl w-full transition-colors shadow-sm"
+                              >
+                                <Mail size={15} />
+                                <span>Email Agent</span>
+                              </a>
+                            )}
                           </div>
-                        ) : null}
-
-                        <div className="text-left w-full flex flex-col gap-2 items-center md:items-start">
-                          <span className="text-xs font-bold text-gray-400 font-alexandria uppercase tracking-widest">
-                            Listing Agent
-                          </span>
-                          <h3 className="text-xl sm:text-2xl font-bold text-[#1b365d] font-alexandria">
-                            {orderData?.agent?.first_name}{" "}
-                            {orderData?.agent?.last_name}
-                          </h3>
-                          {orderData?.agent?.company_name && (
-                            <p className="text-sm font-medium italic text-gray-600 font-alexandria">
-                              {orderData.agent.company_name}
-                            </p>
-                          )}
-
-                          {orderData?.agent?.primary_phone && (
-                            <a
-                              href={`tel:${orderData.agent.primary_phone}`}
-                              className="text-base font-semibold text-[#2b6cb0] hover:underline font-alexandria mt-1 flex items-center gap-2"
-                            >
-                              <Phone size={16} />
-                              <span>{orderData.agent.primary_phone}</span>
-                            </a>
-                          )}
-
-                          {orderData?.agent?.website && (
-                            <a
-                              href={orderData.agent.website}
-                              className="text-xs text-gray-500 hover:text-[#2b6cb0] break-all font-alexandria hover:underline mt-0.5"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {orderData.agent.website}
-                            </a>
-                          )}
-
-                          {orderData?.agent?.email && (
-                            <a
-                              href={`mailto:${orderData.agent.email}?subject=${encodeURIComponent(orderData?.property_address || "Inquiry regarding property")}`}
-                              className="mt-3 flex items-center justify-center gap-2 bg-[#1b365d] hover:bg-[#2b6cb0] text-white text-xs font-semibold px-4 py-2.5 rounded-xl w-full transition-colors shadow-sm"
-                            >
-                              <Mail size={15} />
-                              <span>Email Agent</span>
-                            </a>
-                          )}
                         </div>
+
+                        {/* Co-Listing Agents */}
+                        {coAgentsList.map((coAgent: any, idx: number) => {
+                          const coName = coAgent.name || `${coAgent.first_name || ""} ${coAgent.last_name || ""}`.trim() || `Co-Agent ${idx + 1}`;
+                          const coLogo = coAgent.avatar_url || coAgent.avatar || coAgent.logo_url || coAgent.company_logo_url || coAgent.logo;
+                          const coPhone = coAgent.primary_phone || coAgent.phone;
+                          const coEmail = coAgent.email;
+                          const coCompany = coAgent.company_name || orderData?.agent?.company_name;
+
+                          return (
+                            <div key={`overview-co-agent-${idx}`} className="bg-white rounded-2xl p-6 border border-purple-100 shadow-sm flex flex-col items-center md:items-start text-center md:text-left gap-5 h-fit">
+                              {coLogo ? (
+                                <div className="w-[180px] aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 mx-auto md:mx-0 bg-gray-50 flex items-center justify-center">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={coLogo.startsWith("http") ? coLogo : `${API_URL}/${coLogo}`}
+                                    alt={coName}
+                                    className="w-full h-full object-contain p-2"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                </div>
+                              ) : null}
+
+                              <div className="text-left w-full flex flex-col gap-2 items-center md:items-start">
+                                <span className="text-xs font-bold text-purple-600 font-alexandria uppercase tracking-widest">
+                                  Co-Listing Agent
+                                </span>
+                                <h3 className="text-xl font-bold text-[#1b365d] font-alexandria">
+                                  {coName}
+                                </h3>
+                                {coCompany && (
+                                  <p className="text-sm font-medium italic text-gray-600 font-alexandria">
+                                    {coCompany}
+                                  </p>
+                                )}
+
+                                {coPhone && (
+                                  <a
+                                    href={`tel:${coPhone}`}
+                                    className="text-base font-semibold text-[#2b6cb0] hover:underline font-alexandria mt-1 flex items-center gap-2"
+                                  >
+                                    <Phone size={16} />
+                                    <span>{coPhone}</span>
+                                  </a>
+                                )}
+
+                                {coEmail && (
+                                  <a
+                                    href={`mailto:${coEmail}?subject=${encodeURIComponent(orderData?.property_address || "Inquiry regarding property")}`}
+                                    className="mt-3 flex items-center justify-center gap-2 bg-[#5B32A8] hover:bg-[#472288] text-white text-xs font-semibold px-4 py-2.5 rounded-xl w-full transition-colors shadow-sm"
+                                  >
+                                    <Mail size={15} />
+                                    <span>Email Co-Agent</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -1489,6 +1570,12 @@ const TourConfirm = ({
                         city={orderData?.property.city}
                         province={orderData?.property.province}
                         country={orderData?.property.country}
+                        latitude={orderData?.property.latitude}
+                        longitude={orderData?.property.longitude}
+                        zoom={orderData?.property.map_zoom || 15}
+                        mapTypeId={orderData?.property.map_type || 'roadmap'}
+                        centerLat={orderData?.property.map_center_lat}
+                        centerLng={orderData?.property.map_center_lng}
                       />
                     </div>
                   </div>
@@ -1496,78 +1583,147 @@ const TourConfirm = ({
               )}
 
               {activeTab === "Contact" && (
-                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 flex flex-col items-center gap-8 max-w-4xl mx-auto w-full pb-16">
+                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 flex flex-col items-center gap-8 max-w-5xl mx-auto w-full pb-16">
                   <h2 className="text-2xl font-semibold text-[#424242]">
                     Contact
                   </h2>
 
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-white p-6 sm:p-10 rounded-xl shadow-sm border border-gray-100 w-full justify-center">
-                    {/* Agent Image / Logo */}
-                    <div className="w-[200px] sm:w-[240px] aspect-square rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
-                      {orderData?.agent.logo_url || getAgentLogo() ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={getAgentLogo() || orderData?.agent.logo_url}
-                          alt="Agent photo"
-                          className="w-full h-full object-contain p-2"
-                        />
-                      ) : (
-                        <div className="text-gray-400 font-medium">
-                          No Image
-                        </div>
-                      )}
-                    </div>
+                  <div className={`grid ${coAgentsList.length > 0 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} gap-6 w-full`}>
+                    {/* Primary Agent Card */}
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-gray-100 justify-center">
+                      {/* Agent Image / Logo */}
+                      <div className="w-[180px] sm:w-[200px] aspect-square rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
+                        {orderData?.agent.logo_url || getAgentLogo() ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={getAgentLogo() || orderData?.agent.logo_url}
+                            alt="Agent photo"
+                            className="w-full h-full object-contain p-2"
+                          />
+                        ) : (
+                          <div className="text-gray-400 font-medium">
+                            No Image
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Agent Info */}
-                    <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-3 text-[#424242]">
-                      <h3 className="text-xl sm:text-2xl font-semibold">
-                        {orderData?.agent.first_name}{" "}
-                        {orderData?.agent.last_name}
-                      </h3>
-                      <p className="text-base italic text-gray-600">
-                        {orderData?.agent.company_name || ""}
-                      </p>
-
-                      {/* <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toast.info("Showing all tours for this agent");
-                        }}
-                        className="text-sm text-gray-600 hover:underline underline"
-                      >
-                        View All My Tours
-                      </a> */}
-
-                      {/* Company name styled */}
-                      <div className="mt-1 flex items-center">
-                        <span className="text-base font-bold tracking-wider text-[#d92525]">
-                          {orderData?.agent.company_name?.toUpperCase() || ""}
+                      {/* Agent Info */}
+                      <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2.5 text-[#424242] flex-1">
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                          {coAgentsList.length > 0 ? "Listing Agent" : "Presented By"}
                         </span>
-                      </div>
+                        <h3 className="text-xl font-semibold text-[#1b365d]">
+                          {orderData?.agent.first_name}{" "}
+                          {orderData?.agent.last_name}
+                        </h3>
+                        <p className="text-sm italic text-gray-600">
+                          {orderData?.agent.company_name || ""}
+                        </p>
 
-                      {/* Email + Phone action buttons */}
-                      <div className="flex flex-wrap gap-3 mt-4 items-center justify-center sm:justify-start">
-                        {orderData?.agent?.email && (
-                          <a
-                            href={`mailto:${orderData.agent.email}?subject=Inquiry about ${encodeURIComponent(orderData?.property_address || "Property")}`}
-                            className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap"
-                          >
-                            <Mail size={16} className="shrink-0" />
-                            <span>{orderData.agent.email}</span>
-                          </a>
-                        )}
-                        {orderData?.agent?.primary_phone && (
-                          <a
-                            href={`tel:${orderData.agent.primary_phone}`}
-                            className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap shrink-0"
-                          >
-                            <Phone size={16} className="shrink-0" />
-                            <span>{orderData.agent.primary_phone}</span>
-                          </a>
-                        )}
+                        {/* Company name styled */}
+                        <div className="mt-1 flex items-center">
+                          <span className="text-sm font-bold tracking-wider text-[#d92525]">
+                            {orderData?.agent.company_name?.toUpperCase() || ""}
+                          </span>
+                        </div>
+
+                        {/* Email + Phone action buttons */}
+                        <div className="flex flex-wrap gap-2.5 mt-3 items-center justify-center sm:justify-start">
+                          {orderData?.agent?.email && (
+                            <a
+                              href={`mailto:${orderData.agent.email}?subject=Inquiry about ${encodeURIComponent(orderData?.property_address || "Property")}`}
+                              className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-4 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap"
+                            >
+                              <Mail size={14} className="shrink-0" />
+                              <span>{orderData.agent.email}</span>
+                            </a>
+                          )}
+                          {orderData?.agent?.primary_phone && (
+                            <a
+                              href={`tel:${orderData.agent.primary_phone}`}
+                              className="inline-flex items-center justify-center gap-2 bg-[#1b365d] text-white px-4 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-[#132744] transition-colors whitespace-nowrap shrink-0"
+                            >
+                              <Phone size={14} className="shrink-0" />
+                              <span>{orderData.agent.primary_phone}</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Co-Listing Agents Cards */}
+                    {coAgentsList.map((coAgent: any, idx: number) => {
+                      const coName = coAgent.name || `${coAgent.first_name || ""} ${coAgent.last_name || ""}`.trim() || `Co-Agent ${idx + 1}`;
+                      const coLogo = coAgent.avatar_url || coAgent.avatar || coAgent.logo_url || coAgent.company_logo_url || coAgent.logo;
+                      const coPhone = coAgent.primary_phone || coAgent.phone;
+                      const coEmail = coAgent.email;
+                      const coCompany = coAgent.company_name || orderData?.agent?.company_name;
+
+                      return (
+                        <div key={`contact-tab-co-agent-${idx}`} className="flex flex-col sm:flex-row items-center sm:items-start gap-6 bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-purple-100 justify-center">
+                          <div className="w-[180px] sm:w-[200px] aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center shrink-0 border border-gray-100">
+                            {coLogo ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={coLogo.startsWith("http") ? coLogo : `${API_URL}/${coLogo}`}
+                                alt={coName}
+                                className="w-full h-full object-contain p-2"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="text-gray-400 font-medium">
+                                No Image
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2.5 text-[#424242] flex-1">
+                            <span className="text-[11px] font-bold text-purple-600 uppercase tracking-widest">
+                              Co-Listing Agent
+                            </span>
+                            <h3 className="text-xl font-semibold text-[#1b365d]">
+                              {coName}
+                            </h3>
+                            {coCompany && (
+                              <p className="text-sm italic text-gray-600">
+                                {coCompany}
+                              </p>
+                            )}
+
+                            {coCompany && (
+                              <div className="mt-1 flex items-center">
+                                <span className="text-sm font-bold tracking-wider text-[#5B32A8]">
+                                  {coCompany.toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-2.5 mt-3 items-center justify-center sm:justify-start">
+                              {coEmail && (
+                                <a
+                                  href={`mailto:${coEmail}?subject=Inquiry about ${encodeURIComponent(orderData?.property_address || "Property")}`}
+                                  className="inline-flex items-center justify-center gap-2 bg-[#5B32A8] text-white px-4 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-[#472288] transition-colors whitespace-nowrap"
+                                >
+                                  <Mail size={14} className="shrink-0" />
+                                  <span>{coEmail}</span>
+                                </a>
+                              )}
+                              {coPhone && (
+                                <a
+                                  href={`tel:${coPhone}`}
+                                  className="inline-flex items-center justify-center gap-2 bg-[#5B32A8] text-white px-4 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-[#472288] transition-colors whitespace-nowrap shrink-0"
+                                >
+                                  <Phone size={14} className="shrink-0" />
+                                  <span>{coPhone}</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

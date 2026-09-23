@@ -218,6 +218,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     });
   };
 
+  const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
+  const isCoAgent = userType === "agent" && agentType === "co_agent";
+
   const filteredNavMain = data.navMain
     .filter((group) => {
       // Hide entire PEOPLE group for agents
@@ -231,8 +234,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           : group.title,
       items: group.items
         .filter((item) => {
-          // Matterport is admin only
-          if (item.url === "/dashboard/matterport" && userType !== "admin") {
+          // Matterport visibility: Admin & Co-Agent
+          if (item.url === "/dashboard/matterport" && userType !== "admin" && !isCoAgent) {
             return false;
           }
 
@@ -343,6 +346,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           // Restricted sections for agents
           if (userType === "agent") {
+            // Scoped navigation for Co-Agents: Listings, Matterport, Billing, Notifications, Settings
+            if (isCoAgent) {
+              const coAgentAllowedUrls = [
+                "/dashboard/listings",
+                "/dashboard/matterport",
+                "/dashboard/notifications",
+                "/dashboard/billing",
+                "/dashboard/global-settings",
+                "/dashboard/settings",
+              ];
+              return coAgentAllowedUrls.includes(item.url);
+            }
+
             const restrictedUrls = [
               "/dashboard/admin",
               "/dashboard/services",
@@ -368,7 +384,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             (userType === "agent" || userType === "vendor") &&
             item.url === "/dashboard/global-settings"
           ) {
-            return { ...item, title: "Settings", url: "/dashboard/settings" };
+            return { ...item, title: isCoAgent ? "Profile & Branding" : "Settings", url: "/dashboard/settings" };
           }
           return item;
         }),

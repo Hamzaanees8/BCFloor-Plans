@@ -27,6 +27,7 @@ import { Listings, Agent } from "@/lib/types";
 import { Get as GetAgents } from "@/app/dashboard/agents/agents";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileListingsList from "@/components/mobile/listings/MobileListingsList";
+import { getCoListingStatus } from "./utils/coListingHelper";
 const getLatestOrder = (orders?: any[]) => {
   if (!orders || orders.length === 0) return null;
   return [...orders].sort(
@@ -556,26 +557,42 @@ const Page = () => {
       header: "Location",
       cell: ({ row }: { row: Row<Listings> }) => {
         const listing = row.original;
+        const userInfo = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("userInfo") || "{}") : {};
+        const coStatus = getCoListingStatus(listing, userType, userInfo);
         return (
-          <div
-            onClick={() => {
-              setShowCard(true);
-              setType("listing");
-              setSelectedData(listing);
-            }}
-            className={`text-[15px] font-[400] ${userType}-text cursor-pointer hover:underline`}
-          >
-            {[
-              listing?.address && listing?.suite
-                ? `${listing.suite} - ${listing.address}`
-                : listing?.address || listing?.suite,
-              listing?.city,
-              listing?.province,
-              listing?.postal_code,
-              listing?.country,
-            ]
-              .filter(Boolean)
-              .join(", ")}
+          <div className="flex flex-col gap-1 items-start">
+            <div
+              onClick={() => {
+                setShowCard(true);
+                setType("listing");
+                setSelectedData(listing);
+              }}
+              className={`text-[15px] font-[400] ${userType}-text cursor-pointer hover:underline`}
+            >
+              {[
+                listing?.address && listing?.suite
+                  ? `${listing.suite} - ${listing.address}`
+                  : listing?.address || listing?.suite,
+                listing?.city,
+                listing?.province,
+                listing?.postal_code,
+                listing?.country,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+            </div>
+            {coStatus.badgeLabel && (
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                  coStatus.isCoListing || coStatus.badgeLabel === "Co-Listing"
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }`}
+                title={coStatus.coAgentNames.length > 0 ? `Co-Agents: ${coStatus.coAgentNames.join(", ")}` : undefined}
+              >
+                {coStatus.badgeLabel}
+              </span>
+            )}
           </div>
         );
       },
