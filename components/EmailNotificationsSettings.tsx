@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { RefreshCcw, Save, Bell } from "lucide-react";
+import { RefreshCcw, Save, Bell, Clock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -9,23 +9,12 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { 
     fetchNotificationEvents, 
     fetchNotificationPreferences, 
-    updateNotificationPreferences 
+    updateNotificationPreferences,
+    NotificationEvent,
+    UserPreference,
+    TimingInterval
 } from "@/lib/email-templates";
-
-interface NotificationEvent {
-    event_type: string;
-    label: string;
-    description: string;
-    recipients: string[];
-    defaults: Record<string, boolean>;
-    always_send: boolean;
-}
-
-interface UserPreference {
-    role: string;
-    event_type: string;
-    email_enabled: boolean;
-}
+import IntervalSelector from "./IntervalSelector";
 
 const EmailNotificationsSettings = () => {
     const { userType } = useAppContext();
@@ -35,8 +24,46 @@ const EmailNotificationsSettings = () => {
 
     const [events, setEvents] = useState<NotificationEvent[]>([]);
     const [preferences, setPreferences] = useState<UserPreference[]>([]);
+    const [eventIntervals, setEventIntervals] = useState<Record<string, TimingInterval[]>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Helpers to determine timing support with fallbacks
+    const isEventTimed = (ev: NotificationEvent) => {
+        return Boolean(
+            ev.has_timing ||
+            ev.event_type === "booking_reminder" ||
+            ev.event_type === "matterport_expiry_reminder"
+        );
+    };
+
+    const getSupportedUnitsForEvent = (ev: NotificationEvent) => {
+        if (ev.supported_units && ev.supported_units.length > 0) {
+            return ev.supported_units;
+        }
+        if (ev.event_type === "matterport_expiry_reminder") {
+            return ["days", "weeks"];
+        }
+        return ["hours", "days"];
+    };
+
+    const getDefaultIntervalsForEvent = (ev: NotificationEvent): TimingInterval[] => {
+        if (ev.default_intervals && ev.default_intervals.length > 0) {
+            return ev.default_intervals;
+        }
+        if (ev.event_type === "matterport_expiry_reminder") {
+            return [
+                { value: 30, unit: "days" },
+                { value: 14, unit: "days" },
+                { value: 7, unit: "days" },
+                { value: 1, unit: "days" },
+            ];
+        }
+        return [
+            { value: 24, unit: "hours" },
+            { value: 1, unit: "hours" },
+        ];
+    };
 
     const loadSettings = useCallback(async () => {
         setLoading(true);
@@ -46,13 +73,24 @@ const EmailNotificationsSettings = () => {
                 fetchNotificationPreferences()
             ]);
 
-            if (eventsRes.success && eventsRes.data) {
-                setEvents(eventsRes.data);
-            }
-            
-            if (prefsRes.success && prefsRes.data) {
-                setPreferences(prefsRes.data);
-            }
+            const fetchedEvents: NotificationEvent[] = eventsRes.success && eventsRes.data ? eventsRes.data : [];
+            const fetchedPrefs: UserPreference[] = prefsRes.success && prefsRes.data ? prefsRes.data : [];
+
+            setEvents(fetchedEvents);
+            setPreferences(fetchedPrefs);
+
+            // Populate event intervals map
+            const initialIntervals: Record<string, TimingInterval[]> = {};
+            fetchedEvents.forEach((ev) => {
+                if (isEventTimed(ev)) {
+                    // Check if any role has saved intervals for this event
+                    const savedPref = fetchedPrefs.find(
+                        (p) => p.event_type === ev.event_type && Array.isArray(p.intervals) && p.intervals.length > 0
+                    );
+                    initialIntervals[ev.event_type] = savedPref?.intervals || getDefaultIntervalsForEvent(ev);
+                }
+            });
+            setEventIntervals(initialIntervals);
         } catch (err) {
             console.error(err);
             toast.error("Failed to load email preferences");
@@ -100,21 +138,39 @@ const EmailNotificationsSettings = () => {
         });
     };
 
+    // Handle interval updates for timed events
+    const handleIntervalChange = (eventType: string, updatedIntervals: TimingInterval[]) => {
+        setEventIntervals((prev) => ({
+            ...prev,
+            [eventType]: updatedIntervals,
+        }));
+    };
+
     // Save preferences to backend
     const handleSave = async () => {
         setSaving(true);
         try {
             // Build the list of all preferences to save (both overridden and defaults to be explicit)
-            const payload: Array<{ role: string; event_type: string; email_enabled: boolean }> = [];
+            const payload: Array<{
+                role: string;
+                event_type: string;
+                email_enabled: boolean;
+                intervals?: TimingInterval[] | null;
+            }> = [];
             
             events.forEach((event) => {
                 if (event.always_send) return; // Skip saving always_send defaults
+
+                const intervalsForEvent = isEventTimed(event)
+                    ? (eventIntervals[event.event_type] || getDefaultIntervalsForEvent(event))
+                    : null;
 
                 event.recipients.forEach((roleName) => {
                     payload.push({
                         role: roleName,
                         event_type: event.event_type,
                         email_enabled: isEnabled(event.event_type, roleName),
+                        intervals: intervalsForEvent,
                     });
                 });
             });
@@ -173,68 +229,94 @@ const EmailNotificationsSettings = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E5E7EB]">
-                        {events.map((event) => (
-                            <tr key={event.event_type} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="px-6 py-5">
-                                    <div className="text-sm font-semibold text-[#111827]">{event.label}</div>
-                                    <div className="text-xs text-[#6B7280] mt-1">{event.description}</div>
-                                </td>
-                                
-                                {/* Admin Switch */}
-                                <td className="px-6 py-5 text-center">
-                                    {event.recipients.includes("admin") ? (
-                                        event.always_send ? (
-                                            <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
-                                        ) : (
-                                            <div className="flex justify-center">
-                                                <Switch 
-                                                    checked={isEnabled(event.event_type, "admin")}
-                                                    onCheckedChange={() => handleToggle(event.event_type, "admin")}
-                                                />
-                                            </div>
-                                        )
-                                    ) : (
-                                        <span className="text-xs text-gray-300">—</span>
-                                    )}
-                                </td>
+                        {events.map((event) => {
+                            const timed = isEventTimed(event);
+                            const supportedUnits = getSupportedUnitsForEvent(event);
+                            const defaultIntervals = getDefaultIntervalsForEvent(event);
 
-                                {/* Agent Switch */}
-                                <td className="px-6 py-5 text-center">
-                                    {event.recipients.includes("agent") ? (
-                                        event.always_send ? (
-                                            <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
-                                        ) : (
-                                            <div className="flex justify-center">
-                                                <Switch 
-                                                    checked={isEnabled(event.event_type, "agent")}
-                                                    onCheckedChange={() => handleToggle(event.event_type, "agent")}
-                                                />
-                                            </div>
-                                        )
-                                    ) : (
-                                        <span className="text-xs text-gray-300">—</span>
-                                    )}
-                                </td>
+                            return (
+                                <tr key={event.event_type} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="px-6 py-5 align-top">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold text-[#111827]">{event.label}</span>
+                                            {timed && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] px-2 py-0.5 rounded-full border border-[#BFDBFE]">
+                                                    <Clock className="w-2.5 h-2.5" />
+                                                    TIMED REMINDER
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-[#6B7280] mt-1">{event.description}</div>
 
-                                {/* Vendor Switch */}
-                                <td className="px-6 py-5 text-center">
-                                    {event.recipients.includes("vendor") ? (
-                                        event.always_send ? (
-                                            <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
+                                        {/* Dynamic Timing Configuration Selector */}
+                                        {timed && (
+                                            <IntervalSelector
+                                                intervals={eventIntervals[event.event_type] ?? defaultIntervals}
+                                                supportedUnits={supportedUnits}
+                                                defaultIntervals={defaultIntervals}
+                                                eventType={event.event_type}
+                                                onChange={(newIntervals) => handleIntervalChange(event.event_type, newIntervals)}
+                                                disabled={saving}
+                                            />
+                                        )}
+                                    </td>
+                                    
+                                    {/* Admin Switch */}
+                                    <td className="px-6 py-5 text-center align-top pt-6">
+                                        {event.recipients.includes("admin") ? (
+                                            event.always_send ? (
+                                                <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
+                                            ) : (
+                                                <div className="flex justify-center">
+                                                    <Switch 
+                                                        checked={isEnabled(event.event_type, "admin")}
+                                                        onCheckedChange={() => handleToggle(event.event_type, "admin")}
+                                                    />
+                                                </div>
+                                            )
                                         ) : (
-                                            <div className="flex justify-center">
-                                                <Switch 
-                                                    checked={isEnabled(event.event_type, "vendor")}
-                                                    onCheckedChange={() => handleToggle(event.event_type, "vendor")}
-                                                />
-                                            </div>
-                                        )
-                                    ) : (
-                                        <span className="text-xs text-gray-300">—</span>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                            <span className="text-xs text-gray-300">—</span>
+                                        )}
+                                    </td>
+
+                                    {/* Agent Switch */}
+                                    <td className="px-6 py-5 text-center align-top pt-6">
+                                        {event.recipients.includes("agent") ? (
+                                            event.always_send ? (
+                                                <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
+                                            ) : (
+                                                <div className="flex justify-center">
+                                                    <Switch 
+                                                        checked={isEnabled(event.event_type, "agent")}
+                                                        onCheckedChange={() => handleToggle(event.event_type, "agent")}
+                                                    />
+                                                </div>
+                                            )
+                                        ) : (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        )}
+                                    </td>
+
+                                    {/* Vendor Switch */}
+                                    <td className="px-6 py-5 text-center align-top pt-6">
+                                        {event.recipients.includes("vendor") ? (
+                                            event.always_send ? (
+                                                <span className="text-[10px] font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-1 rounded">ALWAYS ON</span>
+                                            ) : (
+                                                <div className="flex justify-center">
+                                                    <Switch 
+                                                        checked={isEnabled(event.event_type, "vendor")}
+                                                        onCheckedChange={() => handleToggle(event.event_type, "vendor")}
+                                                    />
+                                                </div>
+                                            )
+                                        ) : (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -255,3 +337,4 @@ const EmailNotificationsSettings = () => {
 };
 
 export default EmailNotificationsSettings;
+

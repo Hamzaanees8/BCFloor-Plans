@@ -215,7 +215,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     <SelectTrigger id="type" className="h-[46px] bg-white border-[#DDDDDD] transition-all rounded-md">
                                         <SelectValue placeholder="Select a type" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                                                        <SelectContent>
                                         <SelectItem value="order_created">order_created (Order Created)</SelectItem>
                                         <SelectItem value="order_updated">order_updated (Order Updated)</SelectItem>
                                         <SelectItem value="order_cancelled">order_cancelled (Order Cancelled)</SelectItem>
@@ -226,6 +226,11 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                         <SelectItem value="agent_payment_received">agent_payment_received (Payment Received)</SelectItem>
                                         <SelectItem value="vendor_payment_processed">vendor_payment_processed (Vendor Payout)</SelectItem>
                                         <SelectItem value="invoice_created">invoice_created (Invoice Created)</SelectItem>
+                                        <SelectItem value="matterport_expiry_reminder">matterport_expiry_reminder (3D Tour Expiry Reminder)</SelectItem>
+                                        <SelectItem value="matterport_expired">matterport_expired (3D Tour Expired)</SelectItem>
+                                        <SelectItem value="matterport_renewed">matterport_renewed (3D Tour Renewed)</SelectItem>
+                                        <SelectItem value="print_request_ready">print_request_ready (Print Request Ready)</SelectItem>
+                                        <SelectItem value="password_reset">password_reset (Password Reset)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -335,6 +340,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                                         <ul className="flex flex-wrap gap-2.5 font-mono bg-[#f9f9f9] p-4 rounded-xl content-start border border-dashed border-[#CCCCCC]">
                                             {[
+                                                "{{recipient_name}}",
                                                 "{{user_name}}",
                                                 "{{agent_name}}",
                                                 "{{vendor_name}}",
@@ -346,6 +352,14 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                                 "{{schedule_date}}",
                                                 "{{schedule_time}}",
                                                 "{{company_name}}",
+                                                "{{invoice_number}}",
+                                                "{{receipt_url}}",
+                                                "{{payment_method}}",
+                                                "{{cancellation_reason}}",
+                                                "{{cancellation_fee}}",
+                                                "{{expiry_date}}",
+                                                "{{days_remaining}}",
+                                                "{{renewal_url}}",
                                             ].map((ph) => (
                                                 <li
                                                     key={ph}

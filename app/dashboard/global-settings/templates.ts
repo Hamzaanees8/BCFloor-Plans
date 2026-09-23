@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 export interface EmailTemplatePayload {
     title: string;
     type?: string | null;
+    event_type?: string | null;
     tags?: string[] | null;
     sort_order?: number;
     is_active?: boolean;
@@ -15,6 +16,7 @@ export interface EmailTemplate {
     content: string;
     tags?: string[] | null;
     type?: string | null;
+    event_type?: string | null;
     sort_order: number;
     is_active: boolean;
     created_at: string;

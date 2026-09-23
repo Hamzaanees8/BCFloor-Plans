@@ -5,6 +5,7 @@ export interface EmailTemplate {
     title: string;
     content: string;
     type?: string | null;
+    event_type?: string | null;
     is_active: boolean;
     tags?: string[] | null;
 }
@@ -150,6 +151,30 @@ export function prepareTemplateData(order: any, agent?: any, service?: any, vend
     };
 }
 
+export interface TimingInterval {
+    value: number;
+    unit: "minutes" | "hours" | "days" | "weeks" | string;
+}
+
+export interface NotificationEvent {
+    event_type: string;
+    label: string;
+    description: string;
+    recipients: string[];
+    defaults: Record<string, boolean>;
+    always_send?: boolean;
+    has_timing?: boolean;
+    supported_units?: string[];
+    default_intervals?: TimingInterval[];
+}
+
+export interface UserPreference {
+    role: string;
+    event_type: string;
+    email_enabled: boolean;
+    intervals?: TimingInterval[] | null;
+}
+
 /**
  * Fetches organization notification preferences.
  */
@@ -179,7 +204,14 @@ export async function fetchNotificationEvents() {
 /**
  * Bulk updates notification preferences.
  */
-export async function updateNotificationPreferences(preferences: Array<{ role: string; event_type: string; email_enabled: boolean }>) {
+export async function updateNotificationPreferences(
+    preferences: Array<{
+        role: string;
+        event_type: string;
+        email_enabled: boolean;
+        intervals?: TimingInterval[] | null;
+    }>
+) {
     try {
         const response = await api.put(`/notification-preferences`, { preferences });
         return response.data;
@@ -188,4 +220,5 @@ export async function updateNotificationPreferences(preferences: Array<{ role: s
         return { success: false };
     }
 }
+
 
