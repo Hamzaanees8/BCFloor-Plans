@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Listings, Tour, TourFile } from "@/lib/types";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
-import { getAppOrigin } from "@/lib/utils";
+import { getTourDomainUrl } from "@/lib/config/domains";
 import { checkMediaApprovalStatus, getMediaApprovalBadge } from "../utils/approvalHelper";
 import { getCoListingStatus } from "../utils/coListingHelper";
 
@@ -94,17 +94,6 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
   let projStatus = { label: "No Bookings", color: "bg-gray-100/90 text-gray-800 border-gray-200" };
   let payStatus = { label: "N/A", color: "bg-gray-100/90 text-gray-800 border-gray-200" };
 
-  const getAgentDomainUrl = () => {
-    if (userType === 'admin') return getAppOrigin();
-    if (organization && (organization as any).domains) {
-      const agentDomain = (organization as any).domains.find((d: any) => d.portal_type === 'agent');
-      if (agentDomain) return `https://${agentDomain.domain}`;
-    }
-    return getAppOrigin();
-  };
-
-  const agentDomainUrl = getAgentDomainUrl();
-
   if (type === 'tour') {
     const tourData = data as Tour;
     const featuredFile = tourData.files?.find((file: TourFile) => file.is_featured) || tourData.files?.[0];
@@ -135,7 +124,8 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
       : `/dashboard/listings/create/${listingData.uuid}`;
 
     // We store the public tour URL
-    (KanbanViewCard as any).publicTourUrl = isPublished ? `${agentDomainUrl}/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
+    const tourDomainUrl = getTourDomainUrl(organization);
+    (KanbanViewCard as any).publicTourUrl = isPublished ? `${tourDomainUrl}/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
   }
 
   // Derive a fast-lookup Set from the map keys

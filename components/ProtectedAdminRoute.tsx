@@ -67,10 +67,24 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         return;
       }
 
+      if (pathname.startsWith("/dashboard/orders/create")) {
+        if (!hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) && !hasPermission(PERMISSIONS.CREATE_ORDERS)) {
+          toast.error("You do not have permission to create orders");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
+        return;
+      }
+
       if (
         pathname.startsWith("/dashboard/orders") &&
         !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) &&
-        !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT)
+        !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT) &&
+        !hasPermission(PERMISSIONS.VIEW_ORDERS) &&
+        !hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) &&
+        !hasPermission(PERMISSIONS.CREATE_ORDERS)
       ) {
         toast.error("You do not have permission to access orders");
         router.replace("/dashboard/settings");

@@ -38,6 +38,17 @@ export class WhiteLabelStyles {
             root.style.setProperty(`--${role}-sidebar-hover-text`, s.sidebarHoverText);
             root.style.setProperty(`--${role}-page-bg`, s.pageBg);
             root.style.setProperty(`--${role}-page-text`, s.pageText);
+
+            if (role === 'agent') {
+                root.style.setProperty(`--co_agent-bg-color`, s.pageTabColor);
+                root.style.setProperty(`--co_agent-text-color`, s.activeColor);
+                root.style.setProperty(`--co_agent-sidebar-bg`, s.sidebarBg);
+                root.style.setProperty(`--co_agent-sidebar-text`, s.sidebarText);
+                root.style.setProperty(`--co_agent-sidebar-hover-bg`, s.sidebarHoverBg);
+                root.style.setProperty(`--co_agent-sidebar-hover-text`, s.sidebarHoverText);
+                root.style.setProperty(`--co_agent-page-bg`, s.pageBg);
+                root.style.setProperty(`--co_agent-page-text`, s.pageText);
+            }
         });
     }
 }
@@ -438,12 +449,22 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
     const currentSettings = settings[activeTab]
     const currentAppliedSettings = appliedSettings[activeTab]
 
+    const resolvedSettings = React.useMemo(() => ({
+        ...settings,
+        co_agent: settings.agent || settings.admin
+    }), [settings]);
+
+    const resolvedAppliedSettings = React.useMemo(() => ({
+        ...appliedSettings,
+        co_agent: appliedSettings.agent || appliedSettings.admin
+    }), [appliedSettings]);
+
     return (
         <WhiteLabelContext.Provider value={{
             activeTab,
             setActiveTab,
-            settings,
-            appliedSettings,
+            settings: resolvedSettings as any,
+            appliedSettings: resolvedAppliedSettings as any,
             updateSetting,
             currentSettings,
             currentAppliedSettings,

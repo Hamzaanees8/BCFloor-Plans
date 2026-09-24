@@ -39,6 +39,51 @@ export function getDefaultToursDomain(): string {
 }
 
 /**
+ * Resolves the public tour domain URL (e.g., https://tours.domain.com) for an organization or environment.
+ * If running on a whitelabel domain:
+ *  1. Checks organization data.
+ *  2. Finds the tour subdomain mapped for that org (portal_type === 'tours').
+ *  3. Falls back to generating tours.<customDomain> or <slug>.<defaultToursDomain> if whitelabel.
+ * For non-whitelabel (default domains / no whitelabel org):
+ *  - Uses the default tour domain configured in the environment file (getDefaultToursDomain).
+ */
+export function getTourDomainUrl(organization?: any): string {
+  const isLocal = typeof window !== 'undefined' && window.location.protocol === 'http:' && isLocalhostDomain(window.location.hostname);
+  const protocol = isLocal ? 'http://' : 'https://';
+
+  // 1. Check if organization data exists and has whitelabel or domain mappings
+  if (organization) {
+    if (Array.isArray(organization.domains) && organization.domains.length > 0) {
+      const tourDomainEntry = organization.domains.find(
+        (d: any) => d.portal_type === 'tours' || d.portal_type === 'tour'
+      );
+      if (tourDomainEntry?.domain) {
+        const cleaned = cleanDomain(tourDomainEntry.domain);
+        if (cleaned) {
+          return `${protocol}${cleaned}`;
+        }
+      }
+    }
+
+    if (organization.is_whitelabel) {
+      if (organization.domain) {
+        const cleaned = cleanDomain(organization.domain);
+        if (cleaned) {
+          return `${protocol}tours.${cleaned}`;
+        }
+      }
+      if (organization.slug) {
+        return `${protocol}${organization.slug}.${getDefaultToursDomain()}`;
+      }
+    }
+  }
+
+  // 2. Non-whitelabel fallback: return default tour domain from env
+  const defaultToursDomain = getDefaultToursDomain();
+  return `${protocol}${defaultToursDomain}`;
+}
+
+/**
  * Resolve the portal type for a configured platform domain.
  * Development aliases are enabled only in the develop environment.
  */

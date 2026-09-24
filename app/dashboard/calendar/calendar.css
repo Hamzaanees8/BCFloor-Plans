@@ -71,8 +71,10 @@
 }
 
 .my-agent-calendar .rbc-month-view .rbc-day-bg.rbc-today,
-.my-agent-calendar .rbc-month-view .rbc-date-cell.rbc-today {
-    background-color: color-mix(in srgb, var(--agent-bg-color, var(--primary-color, #6BAE41)) 10%, transparent) !important;
+.my-agent-calendar .rbc-month-view .rbc-date-cell.rbc-today,
+.my-co_agent-calendar .rbc-month-view .rbc-day-bg.rbc-today,
+.my-co_agent-calendar .rbc-month-view .rbc-date-cell.rbc-today {
+    background-color: color-mix(in srgb, var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) 10%, transparent) !important;
 }
 
 .my-admin-calendar .rbc-month-view .rbc-day-bg.rbc-today,
@@ -86,8 +88,9 @@
     color: white !important;
 }
 
-.my-agent-calendar .rbc-header.rbc-today {
-    background-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+.my-agent-calendar .rbc-header.rbc-today,
+.my-co_agent-calendar .rbc-header.rbc-today {
+    background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
     color: white !important;
 }
 
@@ -192,8 +195,9 @@
     background-color: var(--admin-bg-color, #4290E9) !important;
 }
 
-.my-agent-calendar .rbc-time-header-cell .rbc-today {
-    background-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+.my-agent-calendar .rbc-time-header-cell .rbc-today,
+.my-co_agent-calendar .rbc-time-header-cell .rbc-today {
+    background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
 }
 
 .my-vendor-calendar .rbc-time-header-cell .rbc-today {

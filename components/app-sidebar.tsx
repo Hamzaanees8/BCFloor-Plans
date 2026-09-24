@@ -239,11 +239,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
           }
 
-          // Customer billing (Admin/Agent)
+          // Customer billing (Admin/Agent/Co-Agent)
           if (
             item.url === "/dashboard/billing" &&
             userType !== "admin" &&
-            userType !== "agent"
+            userType !== "agent" &&
+            !isCoAgent
           ) {
             return false;
           }

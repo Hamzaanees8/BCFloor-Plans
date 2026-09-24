@@ -48,6 +48,7 @@ import DynamicMap from "./DYnamicMap";
 import { useAppContext } from "@/app/context/AppContext";
 import { EditAgent, GetOne as GetOneAgent } from "@/app/dashboard/agents/agents";
 import { Edit as EditAdminUser, GetOne as GetOneAdmin } from "@/app/dashboard/admin/admin";
+import { Edit as EditSubAccount, GetOne as GetOneSubAccount } from "@/app/dashboard/sub-accounts/subaccounts";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import AddCoAgentDialog from "./AddCoAgentDialog";
 import { useUnsaved } from "@/app/context/UnsavedContext";
@@ -499,6 +500,63 @@ const GlobalSettings = () => {
                         isPopulatingData.current = false;
                         hasInitiallyRendered.current = true;
                     }, 100);
+                });
+        } else if (userType === "co_agent") {
+            GetOneSubAccount(token, userInfo.uuid)
+                .then((res) => {
+                    const data = res.data;
+
+                    isPopulatingData.current = true;
+
+                    setFirstName(data.first_name || "");
+                    setLastName(data.last_name || "");
+                    setEmail(data.primary_email || data.email || "");
+                    setSecondaryEmail(data.secondary_email || "");
+                    setNotificationEmail(data.notification_email ? "1" : "0");
+                    setPrimaryPhone(data.primary_phone || "");
+                    setSecondaryPhone(data.secondary_phone || "");
+                    setCompanyName(data.company_name || "");
+                    setWebsite(data.website || "");
+                    setHeadquarterAddress(data.address || "");
+                    setCity(data.city || "");
+                    setProvince(data.province || "");
+                    setCountry(data.country || "CA");
+
+                    if (data.company_logo_url) setCompanyLogoUrl(data.company_logo_url);
+                    if (data.company_banner_url)
+                        setCompanyBannerUrl(data.company_banner_url);
+                    if (data.company_logo) setCompanyLogoFileName(data.company_logo);
+                    if (data.company_banner)
+                        setCompanyBannerFileName(data.company_banner);
+                    if (data.avatar_url) setAvatarUrl(data.avatar_url);
+                    if (data.avatar) setAvatarFileName(data.avatar);
+
+                    baselineSettingsRef.current = {
+                        firstName: data.first_name || "",
+                        lastName: data.last_name || "",
+                        email: data.primary_email || data.email || "",
+                        secondaryEmail: data.secondary_email || "",
+                        notificationEmail: data.notification_email ? "1" : "0",
+                        primaryPhone: data.primary_phone || "",
+                        secondaryPhone: data.secondary_phone || "",
+                        companyName: data.company_name || "",
+                        website: data.website || "",
+                        headquarterAddress: data.address || "",
+                        city: data.city || "",
+                        province: data.province || "",
+                        country: data.country || "CA",
+                    };
+                })
+                .catch((err) => {
+                    console.log(err.message);
+                    setError(true);
+                })
+                .finally(() => {
+                    setLoading(false);
+                    setTimeout(() => {
+                        isPopulatingData.current = false;
+                        hasInitiallyRendered.current = true;
+                    }, 100);
 
                     setIsDirty(false);
                 });
@@ -724,6 +782,74 @@ const GlobalSettings = () => {
 
                         setFieldErrors(normalizedErrors);
 
+                        const firstError = Object.values(normalizedErrors).flat()[0];
+                        toast.error(firstError || 'Validation error');
+                    } else if (error instanceof Error) {
+                        toast.error(error.message);
+                    } else {
+                        toast.error("Failed to submit user data");
+                    }
+                }
+            } else if (userType === "co_agent") {
+                const subAccountPayload: any = {
+                    first_name: firstName,
+                    last_name: lastName,
+                    primary_email: email,
+                    secondary_email: secondaryEmail || undefined,
+                    notification_email: notificationEmail === "1" || String(notificationEmail) === "true" ? 1 : 0,
+                    primary_phone: primaryPhone,
+                    secondary_phone: secondaryPhone || undefined,
+                    company_name: companyName,
+                    website: website,
+                    address: headquarterAddress,
+                    city: city,
+                    province: province,
+                    country: country,
+                    avatar: avatarFile || undefined,
+                    company_banner: companyBannerFile || undefined,
+                    company_logo: companyLogoFile || undefined,
+                    _method: "PUT",
+                };
+
+                try {
+                    await EditSubAccount(userInfo.uuid, subAccountPayload, token);
+                    baselineSettingsRef.current = {
+                        firstName,
+                        lastName,
+                        email,
+                        secondaryEmail,
+                        notificationEmail,
+                        primaryPhone,
+                        secondaryPhone,
+                        companyName,
+                        website,
+                        headquarterAddress,
+                        city,
+                        province,
+                        country,
+                    };
+                    setIsLoading(true);
+                    toast.success("Settings updated successfully");
+                    setIsLoading(false);
+                    setIsDirty(false);
+                } catch (error) {
+                    console.error("Failed to update co-agent settings:", error);
+                    setFieldErrors({});
+                    const apiError = error as {
+                        message?: string;
+                        errors?: Record<string, string[]>;
+                    };
+
+                    if (apiError.errors && typeof apiError.errors === "object") {
+                        const normalizedErrors: Record<string, string[]> = {};
+                        Object.entries(apiError.errors).forEach(([key, messages]) => {
+                            const normalizedKey = key.split(".")[0];
+                            if (!normalizedErrors[normalizedKey]) {
+                                normalizedErrors[normalizedKey] = [];
+                            }
+                            normalizedErrors[normalizedKey].push(...messages);
+                        });
+                        setFieldErrors(normalizedErrors);
                         const firstError = Object.values(normalizedErrors).flat()[0];
                         toast.error(firstError || 'Validation error');
                     } else if (error instanceof Error) {
@@ -1796,10 +1922,10 @@ const GlobalSettings = () => {
                                 </AccordionItem>
                             )}
 
-                            {userType === "agent" && (
+                            {(userType === "agent" || userType === "co_agent") && (
                                 <AccordionItem value="profile" className="border-none">
                                     <AccordionTrigger
-                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "agent"
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "agent" || userType === "co_agent"
                                             ? "[&>svg]:text-[#6BAE41]"
                                             : "[&>svg]:text-[#4290E9]"
                                             } [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -1884,7 +2010,7 @@ const GlobalSettings = () => {
                                                                 userId={userInfo?.uuid}
                                                                 open={openChangePasswordDialog}
                                                                 setOpen={setOpenChangePasswordDialog}
-                                                                type="agents"
+                                                                type={userType === "co_agent" ? "subaccount" : "agents"}
                                                             />
                                                         </div>
                                                     </div>
@@ -2003,55 +2129,57 @@ const GlobalSettings = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="col-span-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <p>Assistants/Co Agents</p>
-                                                            <div
-                                                                className="flex items-center gap-x-[10px] cursor-pointer"
-                                                                onClick={() => setOpenAddAgentDialog(true)}
-                                                            >
-                                                                <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                                                                    Add
-                                                                </p>
-                                                                <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
-                                                            </div>
-                                                            <AddCoAgentDialog
-                                                                open={openAddAgentDialog}
-                                                                setOpen={setOpenAddAgentDialog}
-                                                                onSuccess={(agent) => {
-                                                                    setCoAgents((prev) => [...prev, agent]);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div
-                                                            className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] flex flex-wrap gap-[6px] min-h-[67px]"
-                                                            style={{
-                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                                            }}
-                                                        >
-                                                            {coAgents.map((coagent, index) => (
+                                                    {userType === "agent" && (
+                                                        <div className="col-span-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <p>Assistants/Co Agents</p>
                                                                 <div
-                                                                    key={index}
-                                                                    className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
-                                                                    style={{ maxWidth: "100%" }}
+                                                                    className="flex items-center gap-x-[10px] cursor-pointer"
+                                                                    onClick={() => setOpenAddAgentDialog(true)}
                                                                 >
-                                                                    <span
-                                                                        className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis"
-                                                                        onClick={() => setOpenAddAgentDialog(true)}
-                                                                    >
-                                                                        {coagent.name} &lt;{coagent.email}&gt;
-                                                                    </span>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => removeAgent(index)}
-                                                                        className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
-                                                                    >
-                                                                        <X size={18} />
-                                                                    </button>
+                                                                    <p className="text-base font-semibold font-raleway text-[#6BAE41]">
+                                                                        Add
+                                                                    </p>
+                                                                    <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
                                                                 </div>
-                                                            ))}
+                                                                <AddCoAgentDialog
+                                                                    open={openAddAgentDialog}
+                                                                    setOpen={setOpenAddAgentDialog}
+                                                                    onSuccess={(agent) => {
+                                                                        setCoAgents((prev) => [...prev, agent]);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div
+                                                                className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] flex flex-wrap gap-[6px] min-h-[67px]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            >
+                                                                {coAgents.map((coagent, index) => (
+                                                                    <div
+                                                                        key={index}
+                                                                        className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
+                                                                        style={{ maxWidth: "100%" }}
+                                                                    >
+                                                                        <span
+                                                                            className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis"
+                                                                            onClick={() => setOpenAddAgentDialog(true)}
+                                                                        >
+                                                                            {coagent.name} &lt;{coagent.email}&gt;
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeAgent(index)}
+                                                                            className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
+                                                                        >
+                                                                            <X size={18} />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

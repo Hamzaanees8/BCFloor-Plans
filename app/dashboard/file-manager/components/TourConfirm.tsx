@@ -83,6 +83,7 @@ import { toast } from "sonner";
 import { getGlobalPhotoOrder } from "../utils/sortOrderUtils";
 import { Loader2 } from "lucide-react";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
+import { getTourDomainUrl } from "@/lib/config/domains";
 
 const DEFAULT_ROLE_SETTINGS = {
   pageTabColor: "#4290E9",
@@ -500,18 +501,8 @@ const TourConfirm = ({
     }
     return null;
   }, [selectedVideoFiles, currentVideoFiles, heroVideoUuid, API_URL]);
-  const currentPath = window.location.href;
 
-  function getMainURL(url: string) {
-    try {
-      const urlObj = new URL(url);
-      return `${urlObj.protocol}//${urlObj.host}`;
-    } catch (error) {
-      console.error("Invalid URL:", error);
-      return null;
-    }
-  }
-  const mainUrl = getMainURL(currentPath);
+  const currentPath = typeof window !== "undefined" ? window.location.href : "";
 
   const isValidUrl = (url: string) => {
     try {
@@ -737,18 +728,7 @@ const TourConfirm = ({
       .replace(/-+$/, ""); // Trim - from end of text
   };
 
-  const getAgentDomainUrl = () => {
-    if (userType === "admin") return mainUrl;
-    if (organization && (organization as any).domains) {
-      const agentDomain = (organization as any).domains.find(
-        (d: any) => d.portal_type === "agent",
-      );
-      if (agentDomain) return `https://${agentDomain.domain}`;
-    }
-    return mainUrl;
-  };
-
-  const tourUrl = `${getAgentDomainUrl()}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+  const tourUrl = `${getTourDomainUrl(organization)}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
 
   return (
     <div className="w-full font-alexandria">

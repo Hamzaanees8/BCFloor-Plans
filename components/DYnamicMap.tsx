@@ -52,8 +52,18 @@ interface Props {
 }
 
 const defaultCoords = {
-  lat: 49.2784262, // 4445 Parker Street
+  lat: 49.2784262, // 4445 Parker Street, Burnaby, BC
   lng: -123.0155276,
+};
+
+const isDefaultBurnabyCoord = (lat: number | null | undefined, lng: number | null | undefined) => {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  return Math.abs(Number(lat) - defaultCoords.lat) < 0.0001 && Math.abs(Number(lng) - defaultCoords.lng) < 0.0001;
+};
+
+const isAddressInBurnaby = (addr?: string, c?: string) => {
+  const full = `${addr || ''} ${c || ''}`.toLowerCase();
+  return full.includes('parker') || full.includes('burnaby');
 };
 
 export default function DynamicMap({
@@ -79,7 +89,7 @@ export default function DynamicMap({
     version: '3.64',
   });
 
-  const hasExplicitCoords =
+  const rawHasExplicitCoords =
     latitude !== undefined &&
     latitude !== null &&
     !isNaN(Number(latitude)) &&
@@ -87,12 +97,18 @@ export default function DynamicMap({
     longitude !== null &&
     !isNaN(Number(longitude));
 
+  // If explicit coords are exact Burnaby default coords but address is elsewhere (e.g. Edmonton),
+  // treat them as non-explicit so map auto-geocodes the real address.
+  const hasExplicitCoords =
+    rawHasExplicitCoords &&
+    !(isDefaultBurnabyCoord(latitude, longitude) && (address || city) && !isAddressInBurnaby(address, city));
+
   const initialMarkerLat = hasExplicitCoords ? Number(latitude) : defaultCoords.lat;
   const initialMarkerLng = hasExplicitCoords ? Number(longitude) : defaultCoords.lng;
-  const initialCenterLat = centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat))
+  const initialCenterLat = centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat)) && !isDefaultBurnabyCoord(centerLat, centerLng)
     ? Number(centerLat)
     : initialMarkerLat;
-  const initialCenterLng = centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng))
+  const initialCenterLng = centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng)) && !isDefaultBurnabyCoord(centerLat, centerLng)
     ? Number(centerLng)
     : initialMarkerLng;
   const initialZoom = zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && Number(zoom) > 0
@@ -113,22 +129,17 @@ export default function DynamicMap({
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const mapRef = useRef<google.maps.Map | null>(null);
-  const isInternalUpdate = useRef(false);
+  const geocodeRequestId = useRef(0);
 
   // Synchronize when explicit coordinate / settings props change externally
   useEffect(() => {
-    if (isInternalUpdate.current) {
-      isInternalUpdate.current = false;
-      return;
-    }
-
     if (hasExplicitCoords) {
       const newMarker = { lat: Number(latitude), lng: Number(longitude) };
       const newCenter = {
-        lat: centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat))
+        lat: centerLat !== undefined && centerLat !== null && !isNaN(Number(centerLat)) && !isDefaultBurnabyCoord(centerLat, centerLng)
           ? Number(centerLat)
           : Number(latitude),
-        lng: centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng))
+        lng: centerLng !== undefined && centerLng !== null && !isNaN(Number(centerLng)) && !isDefaultBurnabyCoord(centerLat, centerLng)
           ? Number(centerLng)
           : Number(longitude),
       };
@@ -138,86 +149,25 @@ export default function DynamicMap({
         mapRef.current.setCenter(newCenter);
       }
     }
+  }, [latitude, longitude, centerLat, centerLng, hasExplicitCoords]);
 
+  useEffect(() => {
     if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && Number(zoom) > 0) {
       setCurrentZoom(Number(zoom));
       if (mapRef.current) {
         mapRef.current.setZoom(Number(zoom));
       }
     }
+  }, [zoom]);
 
+  useEffect(() => {
     if (mapTypeId) {
       setCurrentMapType(mapTypeId);
       if (mapRef.current) {
         mapRef.current.setMapTypeId(mapTypeId);
       }
     }
-  }, [latitude, longitude, zoom, mapTypeId, centerLat, centerLng, hasExplicitCoords]);
-
-  // Forward geocode fallback when address props change and no custom coordinates are present
-  const forwardGeocode = useCallback(() => {
-    const fullAddress = [address, city, province, country].filter(Boolean).join(', ');
-    const isAnyAddressFieldProvided = address || city || province || country;
-
-    if (!isAnyAddressFieldProvided) {
-      setCenter(defaultCoords);
-      setMarkerPosition(defaultCoords);
-      return;
-    }
-
-    setIsGeocoding(true);
-    fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        fullAddress
-      )}&key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setIsGeocoding(false);
-        if (data.status === 'OK' && data.results.length > 0) {
-          const location = data.results[0].geometry.location;
-          setCenter(location);
-          setMarkerPosition(location);
-          if (mapRef.current) {
-            mapRef.current.setCenter(location);
-          }
-
-          if (interactive && onMapSettingsChange) {
-            isInternalUpdate.current = true;
-            onMapSettingsChange({
-              lat: location.lat,
-              lng: location.lng,
-              zoom: currentZoom,
-              mapType: currentMapType,
-              centerLat: location.lat,
-              centerLng: location.lng,
-            });
-          }
-        } else {
-          setCenter(defaultCoords);
-          setMarkerPosition(defaultCoords);
-        }
-      })
-      .catch(() => {
-        setIsGeocoding(false);
-        setCenter(defaultCoords);
-        setMarkerPosition(defaultCoords);
-      });
-  }, [address, city, province, country, interactive, onMapSettingsChange, currentZoom, currentMapType]);
-
-  // When address changes and no explicit coords are set yet, geocode address
-  useEffect(() => {
-    if (hasExplicitCoords) return;
-    const timeout = setTimeout(forwardGeocode, 500);
-    return () => clearTimeout(timeout);
-  }, [address, city, province, country, hasExplicitCoords, forwardGeocode]);
-
-  // If resetKey changes (e.g. user requested reset), revert pin to geocoded address
-  useEffect(() => {
-    if (resetKey !== undefined && resetKey > 0) {
-      forwardGeocode();
-    }
-  }, [resetKey, forwardGeocode]);
+  }, [mapTypeId]);
 
   // Notify parent of changes in interactive mode
   const emitMapSettings = useCallback(
@@ -237,13 +187,80 @@ export default function DynamicMap({
         centerLng: overrides?.centerLng ?? (currentC ? currentC.lng() : center.lng),
       };
 
-      isInternalUpdate.current = true;
       onMapSettingsChange(newSettings);
     },
     [interactive, onMapSettingsChange, markerPosition, currentZoom, currentMapType, center]
   );
 
-  // Reverse geocode when pin marker is dropped or double-clicked
+  // Forward geocode fallback when address props change and no custom coordinates are present
+  const forwardGeocode = useCallback(() => {
+    if (hasExplicitCoords) return;
+
+    const trimmedAddress = address?.trim() || '';
+    const trimmedCity = city?.trim() || '';
+
+    // Require meaningful street address or city to avoid geocoding generic "CA" / "Canada"
+    if (!trimmedAddress && !trimmedCity) {
+      return;
+    }
+
+    const fullAddress = [trimmedAddress, trimmedCity, province, country].filter(Boolean).join(', ');
+    if (!fullAddress) return;
+
+    const currentReqId = ++geocodeRequestId.current;
+    setIsGeocoding(true);
+
+    fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        fullAddress
+      )}&key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        // Discard stale in-flight response if another request started
+        if (currentReqId !== geocodeRequestId.current) return;
+        setIsGeocoding(false);
+
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          const location = data.results[0].geometry.location;
+          setCenter(location);
+          setMarkerPosition(location);
+          if (mapRef.current) {
+            mapRef.current.setCenter(location);
+          }
+
+          if (interactive && onMapSettingsChange) {
+            emitMapSettings({
+              lat: location.lat,
+              lng: location.lng,
+              centerLat: location.lat,
+              centerLng: location.lng,
+            });
+          }
+        }
+      })
+      .catch(() => {
+        if (currentReqId === geocodeRequestId.current) {
+          setIsGeocoding(false);
+        }
+      });
+  }, [address, city, province, country, hasExplicitCoords, interactive, onMapSettingsChange, emitMapSettings]);
+
+  // When address changes and no explicit coords are set yet, geocode address
+  useEffect(() => {
+    if (hasExplicitCoords) return;
+    const timeout = setTimeout(forwardGeocode, 400);
+    return () => clearTimeout(timeout);
+  }, [address, city, province, country, hasExplicitCoords, forwardGeocode]);
+
+  // If resetKey changes (e.g. user requested reset), revert pin to geocoded address
+  useEffect(() => {
+    if (resetKey !== undefined && resetKey > 0) {
+      forwardGeocode();
+    }
+  }, [resetKey, forwardGeocode]);
+
+  // Reverse geocode when pin marker is dropped or double-clicked (only if onAddressChange is supplied)
   const reverseGeocode = useCallback(
     (lat: number, lng: number) => {
       if (!interactive || !onAddressChange) return;
@@ -288,7 +305,6 @@ export default function DynamicMap({
             if (types.includes('postal_code')) postalCode = component.long_name;
           }
 
-          // If components are missing, fallback across remaining results
           if (!streetNumber || !city || !province || !postalCode) {
             for (const r of results) {
               for (const c of r.address_components) {
@@ -316,7 +332,6 @@ export default function DynamicMap({
             lng,
           };
 
-          isInternalUpdate.current = true;
           onAddressChange(addressData);
         }
       };
@@ -345,9 +360,11 @@ export default function DynamicMap({
       const lng = e.latLng.lng();
       setMarkerPosition({ lat, lng });
       emitMapSettings({ lat, lng });
-      reverseGeocode(lat, lng);
+      if (onAddressChange) {
+        reverseGeocode(lat, lng);
+      }
     },
-    [interactive, emitMapSettings, reverseGeocode]
+    [interactive, emitMapSettings, reverseGeocode, onAddressChange]
   );
 
   // Trigger location update when user drags and releases the pin marker
@@ -358,9 +375,11 @@ export default function DynamicMap({
       const lng = e.latLng.lng();
       setMarkerPosition({ lat, lng });
       emitMapSettings({ lat, lng });
-      reverseGeocode(lat, lng);
+      if (onAddressChange) {
+        reverseGeocode(lat, lng);
+      }
     },
-    [interactive, emitMapSettings, reverseGeocode]
+    [interactive, emitMapSettings, reverseGeocode, onAddressChange]
   );
 
   // Handle map panning
@@ -398,13 +417,67 @@ export default function DynamicMap({
 
   const handleCenterOnPin = () => {
     if (mapRef.current) {
-      mapRef.current.panTo(markerPosition);
+      mapRef.current.setCenter(markerPosition);
       setCenter(markerPosition);
       emitMapSettings({
         centerLat: markerPosition.lat,
         centerLng: markerPosition.lng,
       });
     }
+  };
+
+  const handleResetToAddress = () => {
+    const trimmedAddress = address?.trim() || '';
+    const trimmedCity = city?.trim() || '';
+    const fullAddress = [trimmedAddress, trimmedCity, province, country].filter(Boolean).join(', ');
+
+    if (!fullAddress) {
+      setCenter(defaultCoords);
+      setMarkerPosition(defaultCoords);
+      if (mapRef.current) {
+        mapRef.current.setCenter(defaultCoords);
+      }
+      emitMapSettings({
+        lat: defaultCoords.lat,
+        lng: defaultCoords.lng,
+        centerLat: defaultCoords.lat,
+        centerLng: defaultCoords.lng,
+      });
+      return;
+    }
+
+    const currentReqId = ++geocodeRequestId.current;
+    setIsGeocoding(true);
+
+    fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        fullAddress
+      )}&key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (currentReqId !== geocodeRequestId.current) return;
+        setIsGeocoding(false);
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          const location = data.results[0].geometry.location;
+          setCenter(location);
+          setMarkerPosition(location);
+          if (mapRef.current) {
+            mapRef.current.setCenter(location);
+          }
+          emitMapSettings({
+            lat: location.lat,
+            lng: location.lng,
+            centerLat: location.lat,
+            centerLng: location.lng,
+          });
+        }
+      })
+      .catch(() => {
+        if (currentReqId === geocodeRequestId.current) {
+          setIsGeocoding(false);
+        }
+      });
   };
 
   if (!isLoaded) {
@@ -426,12 +499,12 @@ export default function DynamicMap({
               {isGeocoding ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
-                  <span>Updating address from pin...</span>
+                  <span>Updating map location...</span>
                 </>
               ) : (
                 <>
                   <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  <span>Drag pin to update address, or pan & zoom to customize tour view</span>
+                  <span>Drag pin to adjust location, or pan & zoom to customize tour view</span>
                 </>
               )}
             </div>
@@ -453,7 +526,7 @@ export default function DynamicMap({
             </button>
             <button
               type="button"
-              onClick={forwardGeocode}
+              onClick={handleResetToAddress}
               title="Reset pin and view to address"
               className="bg-white/95 hover:bg-white backdrop-blur-sm px-2.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1 transition-colors"
             >

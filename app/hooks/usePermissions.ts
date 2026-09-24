@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getUserByUuid, Permission } from "@/lib/api/user";
 
+import { GetPermissions } from "@/app/dashboard/sub-accounts/subaccounts";
+
 /**
  * Check if user has a specific permission
  */
@@ -13,7 +15,12 @@ function hasPermissionCheck(
     if (!permissions || !Array.isArray(permissions)) {
         return false;
     }
-    return permissions.some((p) => p.name === permissionName);
+    return permissions.some((p: any) => {
+        if (!p) return false;
+        if (typeof p === "string") return p.toLowerCase() === permissionName.toLowerCase();
+        if (p.name) return p.name.toLowerCase() === permissionName.toLowerCase();
+        return false;
+    });
 }
 
 /**
@@ -27,7 +34,7 @@ function hasAnyPermissionCheck(
         return false;
     }
     return permissionNames.some((name) =>
-        permissions.some((p) => p.name === name)
+        hasPermissionCheck(permissions, name)
     );
 }
 
@@ -42,7 +49,7 @@ function hasAllPermissionsCheck(
         return false;
     }
     return permissionNames.every((name) =>
-        permissions.some((p) => p.name === name)
+        hasPermissionCheck(permissions, name)
     );
 }
 
@@ -54,9 +61,12 @@ export function usePermissions() {
             const userInfoStr = localStorage.getItem("userInfo");
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
-                const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions
-                    || userInfo?.resolved_permissions || userInfo?.data?.resolved_permissions;
-                if (Array.isArray(storedPermissions) && storedPermissions.length > 0) {
+                const resolved = userInfo?.resolved_permissions || userInfo?.data?.resolved_permissions;
+                if (Array.isArray(resolved) && resolved.length > 0 && typeof resolved[0] === "object") {
+                    return resolved;
+                }
+                const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions;
+                if (Array.isArray(storedPermissions) && storedPermissions.length > 0 && typeof storedPermissions[0] === "object") {
                     return storedPermissions;
                 }
             }
@@ -70,19 +80,18 @@ export function usePermissions() {
         if (typeof window === "undefined") return true;
         try {
             const userType = localStorage.getItem("userType");
-            if (userType !== "admin") return false;
+            if (userType !== "admin" && userType !== "co_agent") return false;
 
             const userInfoStr = localStorage.getItem("userInfo");
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
-                const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions;
+                const storedPermissions = userInfo?.resolved_permissions || userInfo?.permissions || userInfo?.data?.permissions;
                 if (Array.isArray(storedPermissions) && storedPermissions.length > 0) {
                     return false;
                 }
             }
         } catch (e) {
             console.log("Failed to parse userInfo from localStorage for isLoading state:", e);
-
         }
         return true;
     });
@@ -117,6 +126,7 @@ export function usePermissions() {
                 // Check localStorage again in case it changed since initialization
                 const userType = localStorage.getItem("userType");
                 const userInfoStr = localStorage.getItem("userInfo");
+                const token = localStorage.getItem("token");
 
                 if (userType === "admin" && userInfoStr) {
                     const userInfo = JSON.parse(userInfoStr);
@@ -133,7 +143,7 @@ export function usePermissions() {
                     }
 
                     // If we already have permissions in state, or if they are in localStorage, skip fetch
-                    if (storedPermissions && Array.isArray(storedPermissions) && storedPermissions.length > 0) {
+                    if (storedPermissions && Array.isArray(storedPermissions) && storedPermissions.length > 0 && typeof storedPermissions[0] === "object") {
                         if (permissions.length === 0) {
                             setPermissions(storedPermissions);
                         }
@@ -169,15 +179,51 @@ export function usePermissions() {
                         localStorage.setItem("userInfo", JSON.stringify(userData));
                     }
                 } else if (userType === "co_agent" && userInfoStr) {
-                    // Co-agents have resolved_permissions included in their userInfo from login
                     const userInfo = JSON.parse(userInfoStr);
-                    const coAgentPermissions = userInfo?.resolved_permissions
-                        || userInfo?.data?.resolved_permissions
-                        || userInfo?.permissions
-                        || userInfo?.data?.permissions
-                        || [];
+                    const resolved = userInfo?.resolved_permissions || userInfo?.data?.resolved_permissions;
+                    if (Array.isArray(resolved) && resolved.length > 0 && typeof resolved[0] === "object") {
+                        if (isMounted) {
+                            setPermissions(resolved);
+                            setIsLoading(false);
+                        }
+                        return;
+                    }
+
+                    const rawPerms = userInfo?.permissions || userInfo?.data?.permissions || [];
+                    if (Array.isArray(rawPerms) && rawPerms.length > 0) {
+                        if (typeof rawPerms[0] === "object") {
+                            if (isMounted) {
+                                setPermissions(rawPerms);
+                                setIsLoading(false);
+                            }
+                            return;
+                        }
+
+                        // If rawPerms is an array of IDs like ["3", "64", "66"], resolve from API
+                        if (token) {
+                            try {
+                                const allPermsRes = await GetPermissions(token);
+                                const allPerms = allPermsRes.data || allPermsRes || [];
+                                const idStrings = rawPerms.map(String);
+                                const mappedPerms = allPerms.filter((p: any) => idStrings.includes(String(p.id)));
+
+                                if (isMounted) {
+                                    setPermissions(mappedPerms);
+                                    localStorage.setItem("userInfo", JSON.stringify({
+                                        ...userInfo,
+                                        resolved_permissions: mappedPerms
+                                    }));
+                                    setIsLoading(false);
+                                }
+                                return;
+                            } catch (permErr) {
+                                console.error("Failed to resolve co-agent permissions from API:", permErr);
+                            }
+                        }
+                    }
+
                     if (isMounted) {
-                        setPermissions(coAgentPermissions);
+                        setPermissions([]);
                         setIsLoading(false);
                     }
                 } else {

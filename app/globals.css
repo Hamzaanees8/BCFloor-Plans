@@ -388,12 +388,14 @@ input[type="date"]::-moz-calendar-picker-indicator {
   background-color: var(--admin-bg-color, #4290E9) !important;
 }
 
-.agent-bg {
-  background-color: var(--agent-bg-color, var(--primary-color, #6BAE41));
+.agent-bg,
+.co_agent-bg {
+  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41)));
 }
 
-.hover-agent-bg:hover {
-  background-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+.hover-agent-bg:hover,
+.hover-co_agent-bg:hover {
+  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
 }
 
 .vendor-bg {
@@ -409,8 +411,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
   color: var(--admin-text-color, #4290E9) !important;
 }
 
-.agent-text {
-  color: var(--agent-text-color, var(--primary-color, #6BAE41)) !important;
+.agent-text,
+.co_agent-text {
+  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6BAE41))) !important;
 }
 
 .vendor-text {
@@ -421,8 +424,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border: 1px solid var(--admin-bg-color, #4290E9) !important;
 }
 
-.agent-border {
-  border: 1px solid var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+.agent-border,
+.co_agent-border {
+  border: 1px solid var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
 }
 
 .vendor-border {
@@ -434,8 +438,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
   color: #fff !important;
 }
 
-.agent-accent {
-  accent-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+.agent-accent,
+.co_agent-accent {
+  accent-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
   color: #fff !important;
 }
 
@@ -448,8 +453,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
   color: var(--admin-text-color, #4290E9);
 }
 
-.agent-text-svg>svg {
-  color: var(--agent-text-color, var(--primary-color, #6bae41));
+.agent-text-svg>svg,
+.co_agent-text-svg>svg {
+  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6bae41)));
 }
 
 .vendor-text-svg>svg {
@@ -460,8 +466,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
   fill: var(--admin-bg-color, #4290E9);
 }
 
-.agent-fill-svg>svg {
-  fill: var(--agent-bg-color, #6bae41);
+.agent-fill-svg>svg,
+.co_agent-fill-svg>svg {
+  fill: var(--co_agent-bg-color, var(--agent-bg-color, #6bae41));
 }
 
 .vendor-fill-svg>svg {

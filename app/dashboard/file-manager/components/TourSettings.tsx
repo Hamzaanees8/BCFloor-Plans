@@ -26,6 +26,8 @@ import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useS3Upload } from "@/hooks/useS3Upload";
 import { EditAgent } from "@/app/dashboard/agents/agents";
+import { useOptionalOrganization } from "@/app/context/OrganizationContext";
+import { getTourDomainUrl } from "@/lib/config/domains";
 
 interface TourSettingProps {
     orderData: Order | null;
@@ -35,6 +37,8 @@ interface TourSettingProps {
 
 const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) => {
     const { userType } = useAppContext()
+    const orgContext = useOptionalOrganization();
+    const organization = orgContext?.organization;
     const [price, setprice] = useState<number>();
     const [bedrooms, setBedrooms] = useState<number>();
     const [bathrooms, setBathrooms] = useState<number>();
@@ -93,8 +97,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                     .replace(/-+$/, '');       // Trim - from end of text
             };
 
-            const mainUrl = window.location.origin;
-            const tourUrl = `${mainUrl}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+            const tourUrl = `${getTourDomainUrl(organization)}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
 
             setPropertyWebsite(orderData?.property?.property_website || tourUrl)
             setMlsProperty(orderData?.property?.mls_property ?? '')

@@ -795,34 +795,7 @@ const ListingsFrom = () => {
     markDirty();
   };
 
-  const handleMapAddressChange = (addressData: {
-    address_line_1: string;
-    city: string;
-    province: string;
-    country: string;
-    postal_code: string;
-    full_address: string;
-    lat: number;
-    lng: number;
-  }) => {
-    if (addressData.address_line_1) setAddress(addressData.address_line_1);
-    if (addressData.city) setCity(addressData.city);
-    if (addressData.province) setProvince(addressData.province);
-    if (addressData.country) setCountry(addressData.country);
-    if (addressData.postal_code) setPostalCode(addressData.postal_code);
-    if (addressData.lat) setLatitude(addressData.lat);
-    if (addressData.lng) setLongitude(addressData.lng);
 
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      delete next.address;
-      delete next.city;
-      delete next.province;
-      delete next.postal_code;
-      return next;
-    });
-    markDirty();
-  };
 
 
 
@@ -1535,16 +1508,21 @@ const ListingsFrom = () => {
                           postal_code: postalCode,
                           full_address: address
                         }}
+                        onPlaceSelect={(place) => {
+                          if (place?.location) {
+                            setLatitude(place.location.latitude);
+                            setLongitude(place.location.longitude);
+                            setMapCenterLat(place.location.latitude);
+                            setMapCenterLng(place.location.longitude);
+                            markDirty();
+                          }
+                        }}
                         onAddressComponentsChange={(comp) => {
                           setAddress(comp.address_line_1);
                           setCity(comp.city);
                           setProvince(comp.province);
                           setCountry(comp.country);
                           setPostalCode(comp.postal_code);
-                          setLatitude(null);
-                          setLongitude(null);
-                          setMapCenterLat(null);
-                          setMapCenterLng(null);
                           markDirty();
 
                           if (fieldErrors.address) {
@@ -1571,7 +1549,6 @@ const ListingsFrom = () => {
                       centerLng={mapCenterLng}
                       interactive={true}
                       onMapSettingsChange={handleMapSettingsChange}
-                      onAddressChange={handleMapAddressChange}
                     />
                   </div>
                 </div>
