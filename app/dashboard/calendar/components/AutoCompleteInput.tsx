@@ -356,28 +356,23 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
         };
     }, []);
 
-    // Update input value when prop changes
+    // Update local components & input value when props change
     useEffect(() => {
-        // Only update if value is explicitly provided and differs
-        if (value !== undefined && value !== inputValue) {
-            isUserTypingRef.current = false;
-            isSelectingRef.current = true;
-            setInputValue(value);
-            setSuggestions([]);
-            setShowSuggestions(false);
+        const currentPropAddress = value !== undefined ? value : addressComponents?.address_line_1;
+        if (currentPropAddress !== undefined) {
+            setInputValue(currentPropAddress || '');
         }
-    }, [value, inputValue]);
-
-    // Update local components when prop changes
-    useEffect(() => {
         if (addressComponents) {
             setLocalComponents(addressComponents);
-            // Sync inputValue if external address_line_1 changed and user is not typing
-            if (!isUserTypingRef.current && addressComponents.address_line_1 !== inputValue) {
-                setInputValue(addressComponents.address_line_1 || '');
-            }
         }
-    }, [addressComponents, inputValue]);
+    }, [
+        value,
+        addressComponents?.address_line_1,
+        addressComponents?.city,
+        addressComponents?.province,
+        addressComponents?.postal_code,
+        addressComponents?.country
+    ]);
 
     const states = components.country ? State.getStatesOfCountry(components.country) : [];
 
@@ -389,6 +384,9 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
+                onBlur={() => {
+                    isUserTypingRef.current = false;
+                }}
                 onFocus={() => {
                     if (suggestions.length > 0) {
                         setShowSuggestions(true);

@@ -189,7 +189,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
 
     const redirectUrl =
-      userType === "agent"
+      userType === "agent" || userType === "co_agent"
         ? "/agent/login"
         : userType === "vendor"
           ? "/vendor/login"
@@ -219,17 +219,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
-  const isCoAgent = userType === "agent" && agentType === "co_agent";
+  const isCoAgent = userType === "co_agent" || (userType === "agent" && agentType === "co_agent");
 
   const filteredNavMain = data.navMain
     .filter((group) => {
-      // Hide entire PEOPLE group for agents
-      return !(userType === "agent" && group.title === "PEOPLE");
+      // Hide entire PEOPLE group for agents and co-agents
+      return !((userType === "agent" || userType === "co_agent") && group.title === "PEOPLE");
     })
     .map((group) => ({
       ...group,
       title:
-        (userType === "agent" || userType === "vendor") && group.title === "GENERAL"
+        (userType === "agent" || userType === "co_agent" || userType === "vendor") && group.title === "GENERAL"
           ? "SETTINGS"
           : group.title,
       items: group.items
@@ -344,19 +344,74 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             }
           }
 
-          // Restricted sections for agents
-          if (userType === "agent") {
-            // Scoped navigation for Co-Agents: Listings, Matterport, Billing, Notifications, Settings
+          // Restricted sections for agents and co-agents
+          if (userType === "agent" || userType === "co_agent") {
+            // Permission-based navigation for Co-Agents (same permission checks as admin)
             if (isCoAgent) {
-              const coAgentAllowedUrls = [
-                "/dashboard/listings",
-                "/dashboard/matterport",
-                "/dashboard/notifications",
-                "/dashboard/billing",
-                "/dashboard/global-settings",
-                "/dashboard/settings",
+              // Settings is always accessible (profile/branding)
+              if (
+                item.url === "/dashboard/settings" ||
+                item.url === "/dashboard/global-settings"
+              ) {
+                return true;
+              }
+
+              // Calendar always accessible
+              if (item.url === "/dashboard/calendar") {
+                return true;
+              }
+
+              // All other items are permission-gated
+              if (
+                item.url === "/dashboard/listings" &&
+                !hasPermission(PERMISSIONS.VIEW_LISTING)
+              ) {
+                return false;
+              }
+
+              if (
+                item.url === "/dashboard/orders" &&
+                !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) &&
+                !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT)
+              ) {
+                return false;
+              }
+
+              if (
+                item.url === "/dashboard/billing" &&
+                !hasPermission(PERMISSIONS.ACCESS_BILLING)
+              ) {
+                return false;
+              }
+
+              if (
+                item.url === "/dashboard/matterport" &&
+                !hasPermission(PERMISSIONS.VIEW_LISTING)
+              ) {
+                return false;
+              }
+
+              if (
+                item.url === "/dashboard/notifications" &&
+                !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
+              ) {
+                return false;
+              }
+
+              // Always hide these — co-agents never manage agents, vendors, services, or admin
+              const alwaysHidden = [
+                "/dashboard/admin",
+                "/dashboard/services",
+                "/dashboard/agents",
+                "/dashboard/vendors",
+                "/dashboard/vendor-billing",
+                "/dashboard/admin/print-requests",
               ];
-              return coAgentAllowedUrls.includes(item.url);
+              if (alwaysHidden.includes(item.url)) {
+                return false;
+              }
+
+              return true;
             }
 
             const restrictedUrls = [
@@ -381,7 +436,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         .map((item) => {
           // Rename Global Settings to Settings for agents and vendors
           if (
-            (userType === "agent" || userType === "vendor") &&
+            (userType === "agent" || userType === "co_agent" || userType === "vendor") &&
             item.url === "/dashboard/global-settings"
           ) {
             return { ...item, title: isCoAgent ? "Profile & Branding" : "Settings", url: "/dashboard/settings" };

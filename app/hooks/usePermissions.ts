@@ -54,7 +54,8 @@ export function usePermissions() {
             const userInfoStr = localStorage.getItem("userInfo");
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
-                const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions;
+                const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions
+                    || userInfo?.resolved_permissions || userInfo?.data?.resolved_permissions;
                 if (Array.isArray(storedPermissions) && storedPermissions.length > 0) {
                     return storedPermissions;
                 }
@@ -167,8 +168,20 @@ export function usePermissions() {
                         // Update localStorage with fresh user data (which includes permissions)
                         localStorage.setItem("userInfo", JSON.stringify(userData));
                     }
+                } else if (userType === "co_agent" && userInfoStr) {
+                    // Co-agents have resolved_permissions included in their userInfo from login
+                    const userInfo = JSON.parse(userInfoStr);
+                    const coAgentPermissions = userInfo?.resolved_permissions
+                        || userInfo?.data?.resolved_permissions
+                        || userInfo?.permissions
+                        || userInfo?.data?.permissions
+                        || [];
+                    if (isMounted) {
+                        setPermissions(coAgentPermissions);
+                        setIsLoading(false);
+                    }
                 } else {
-                    // For non-admin users, just use empty permissions
+                    // For all other user types, use empty permissions
                     if (isMounted) {
                         setPermissions([]);
                         setIsLoading(false);

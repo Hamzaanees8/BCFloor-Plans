@@ -49,6 +49,12 @@ export interface OrderData {
         created_at: string;
         updated_at: string;
         agent_id: number;
+        latitude?: number | null;
+        longitude?: number | null;
+        map_zoom?: number | null;
+        map_type?: string | null;
+        map_center_lat?: number | null;
+        map_center_lng?: number | null;
     };
     tours: Array<{
         id: number;

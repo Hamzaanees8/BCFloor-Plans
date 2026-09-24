@@ -28,6 +28,12 @@ export interface ListingsPayload {
     city?: string | null;
     province?: string | null;
     country?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    map_zoom?: number | null;
+    map_type?: string | null;
+    map_center_lat?: number | null;
+    map_center_lng?: number | null;
 }
 
 export interface FetchErrors {

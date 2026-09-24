@@ -66,8 +66,9 @@ function LoginUser() {
             router.push('/dashboard/calendar');
             localStorage.setItem('token', response.data.token);
             setIsLoading(false)
-            setUserType('agent')
-            localStorage.setItem('userType', 'agent')
+            const resolvedType = (response.data as any).type || 'agent';
+            setUserType(resolvedType)
+            localStorage.setItem('userType', resolvedType)
             const userObj = (response.data as any).user || (response.data as any).agent || response.data;
             localStorage.setItem('userInfo', JSON.stringify(userObj));
         } catch (error: unknown) {

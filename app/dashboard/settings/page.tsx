@@ -1,17 +1,26 @@
 "use client"
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import VendorForm from '../vendors/create/page'
 import { useAppContext } from '@/app/context/AppContext'
 import AgentForm from '../agents/create/page'
 
 const Page = () => {
     const { userType } = useAppContext()
+    const [effectiveUserType, setEffectiveUserType] = useState<string>('')
+
+    useEffect(() => {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('userType') : ''
+        setEffectiveUserType(userType || stored || '')
+    }, [userType])
+
+    const currentType = userType || effectiveUserType
+
     return (
         <div className='font-alexandria'>
-            {userType === "agent" &&
+            {(currentType === "agent" || currentType === "co_agent") &&
                 <AgentForm />
             }
-            {userType === "vendor" &&
+            {currentType === "vendor" &&
                 <VendorForm />
             }
         </div>
@@ -19,3 +28,4 @@ const Page = () => {
 }
 
 export default Page
+

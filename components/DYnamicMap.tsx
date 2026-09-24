@@ -46,6 +46,7 @@ interface Props {
   centerLng?: number | null;
   interactive?: boolean;
   onMapSettingsChange?: (settings: MapSettings) => void;
+  onAddressChange?: (addressData: MapAddressData) => void;
   resetKey?: number;
   className?: string;
 }
@@ -68,6 +69,7 @@ export default function DynamicMap({
   centerLng,
   interactive = false,
   onMapSettingsChange,
+  onAddressChange,
   resetKey,
   className,
 }: Props) {
@@ -241,6 +243,100 @@ export default function DynamicMap({
     [interactive, onMapSettingsChange, markerPosition, currentZoom, currentMapType, center]
   );
 
+  // Reverse geocode when pin marker is dropped or double-clicked
+  const reverseGeocode = useCallback(
+    (lat: number, lng: number) => {
+      if (!interactive || !onAddressChange) return;
+      setIsGeocoding(true);
+
+      const doReverseGeocode = (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus | string) => {
+        setIsGeocoding(false);
+        if (status === 'OK' && results && results.length > 0) {
+          let targetResult = results.find(
+            (r) =>
+              r.types.includes('street_address') &&
+              r.address_components.some((c) => c.types.includes('street_number'))
+          );
+
+          if (!targetResult) {
+            targetResult = results.find(
+              (r) =>
+                (r.types.includes('premise') || r.types.includes('subpremise')) &&
+                r.address_components.some((c) => c.types.includes('street_number'))
+            );
+          }
+
+          if (!targetResult) {
+            targetResult = results.find((r) => r.types.includes('street_address')) || results[0];
+          }
+
+          let streetNumber = '';
+          let route = '';
+          let city = '';
+          let province = '';
+          let country = '';
+          let postalCode = '';
+
+          for (const component of targetResult.address_components) {
+            const types = component.types;
+            if (types.includes('street_number')) streetNumber = component.long_name;
+            if (types.includes('route')) route = component.long_name;
+            if (types.includes('locality')) city = component.long_name;
+            else if (!city && (types.includes('sublocality_level_1') || types.includes('postal_town'))) city = component.long_name;
+            if (types.includes('administrative_area_level_1')) province = component.short_name;
+            if (types.includes('country')) country = component.short_name;
+            if (types.includes('postal_code')) postalCode = component.long_name;
+          }
+
+          // If components are missing, fallback across remaining results
+          if (!streetNumber || !city || !province || !postalCode) {
+            for (const r of results) {
+              for (const c of r.address_components) {
+                if (!streetNumber && c.types.includes('street_number')) streetNumber = c.long_name;
+                if (!route && c.types.includes('route')) route = c.long_name;
+                if (!city && c.types.includes('locality')) city = c.long_name;
+                if (!province && c.types.includes('administrative_area_level_1')) province = c.short_name;
+                if (!postalCode && c.types.includes('postal_code')) postalCode = c.long_name;
+              }
+            }
+          }
+
+          const addressLine1 = (streetNumber && route)
+            ? `${streetNumber} ${route}`
+            : (route || targetResult.formatted_address.split(',')[0] || '');
+
+          const addressData: MapAddressData = {
+            address_line_1: addressLine1,
+            city,
+            province,
+            country: country || 'CA',
+            postal_code: postalCode,
+            full_address: targetResult.formatted_address,
+            lat,
+            lng,
+          };
+
+          isInternalUpdate.current = true;
+          onAddressChange(addressData);
+        }
+      };
+
+      if (typeof window !== 'undefined' && window.google?.maps?.Geocoder) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === 'OK' && results && results.length > 0) {
+            doReverseGeocode(results, status);
+          } else {
+            setIsGeocoding(false);
+          }
+        });
+      } else {
+        setIsGeocoding(false);
+      }
+    },
+    [interactive, onAddressChange]
+  );
+
   // Trigger location update on double click
   const onMapDblClick = useCallback(
     (e: google.maps.MapMouseEvent) => {
@@ -249,8 +345,9 @@ export default function DynamicMap({
       const lng = e.latLng.lng();
       setMarkerPosition({ lat, lng });
       emitMapSettings({ lat, lng });
+      reverseGeocode(lat, lng);
     },
-    [interactive, emitMapSettings]
+    [interactive, emitMapSettings, reverseGeocode]
   );
 
   // Trigger location update when user drags and releases the pin marker
@@ -261,8 +358,9 @@ export default function DynamicMap({
       const lng = e.latLng.lng();
       setMarkerPosition({ lat, lng });
       emitMapSettings({ lat, lng });
+      reverseGeocode(lat, lng);
     },
-    [interactive, emitMapSettings]
+    [interactive, emitMapSettings, reverseGeocode]
   );
 
   // Handle map panning
@@ -321,22 +419,26 @@ export default function DynamicMap({
   return (
     <div className={`relative w-full h-full overflow-hidden rounded-[6px] ${className || ''}`}>
       {interactive && (
-        <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-          <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 pointer-events-auto">
-            {isGeocoding ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                <span>Geocoding address...</span>
-              </>
-            ) : (
-              <>
-                <MapPin className="w-3.5 h-3.5 text-red-500" />
-                <span>Drag pin, pan, zoom, or toggle satellite to customize tour view</span>
-              </>
-            )}
+        <>
+          {/* Top Center Info Badge */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-10 pointer-events-auto max-w-[calc(100%-200px)] text-center hidden sm:block">
+            <div className="bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-full shadow-md border border-gray-200/80 text-xs font-medium text-gray-700 flex items-center justify-center gap-1.5 whitespace-nowrap">
+              {isGeocoding ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                  <span>Updating address from pin...</span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  <span>Drag pin to update address, or pan & zoom to customize tour view</span>
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* Top Right Controls */}
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 pointer-events-auto">
             <span className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-[6px] shadow-md border border-gray-200 text-xs font-semibold text-gray-700">
               Zoom: {currentZoom}
             </span>
@@ -359,7 +461,7 @@ export default function DynamicMap({
               <span className="hidden sm:inline">Reset</span>
             </button>
           </div>
-        </div>
+        </>
       )}
 
       <GoogleMap
@@ -369,6 +471,15 @@ export default function DynamicMap({
         mapTypeId={currentMapType}
         onLoad={(map) => {
           mapRef.current = map;
+          if (center && typeof center.lat === 'number' && typeof center.lng === 'number') {
+            map.setCenter(center);
+          }
+          if (typeof currentZoom === 'number' && currentZoom > 0) {
+            map.setZoom(currentZoom);
+          }
+          if (currentMapType) {
+            map.setMapTypeId(currentMapType);
+          }
         }}
         onUnmount={() => {
           mapRef.current = null;

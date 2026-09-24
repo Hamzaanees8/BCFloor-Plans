@@ -100,6 +100,7 @@ type CurrentAgent = {
     requires_payment: boolean;
     role_id: number;
     role: Role;
+    agent_type?: string;
     co_agents: CoAgent[];
     notes?: string;
     certifications: string[];
@@ -968,10 +969,19 @@ const AgentForm = () => {
 
     const triggerFileInput2 = () => {
         if (CompanyBannerfileInputRef.current) {
-            (CompanyBannerfileInputRef.current as HTMLInputElement).click()
+            (CompanyBannerfileInputRef.current as HTMLInputElement).click();
         }
-    }
-    let idToUse: string = "";
+    };
+
+    const isCoAgent = userType === 'co_agent' ||
+        ((userType === 'agent' || (typeof window !== 'undefined' && localStorage.getItem('userType') === 'agent')) &&
+        (currentUser?.agent_type === 'co_agent' ||
+         (typeof window !== 'undefined' && (() => {
+             try {
+                 const u = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                 return u?.agent_type === 'co_agent' || u?.user?.agent_type === 'co_agent' || u?.data?.agent_type === 'co_agent' || u?.agent?.agent_type === 'co_agent';
+             } catch { return false; }
+         })())));
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -980,23 +990,20 @@ const AgentForm = () => {
             console.log('Token not found.')
             return;
         }
-        if (userType === "agent" && !userId) {
+
+        const effectiveUserType = userType || localStorage.getItem("userType");
+        let idToUse = userId;
+
+        if ((effectiveUserType === "agent" || effectiveUserType === "co_agent") && !userId) {
             const userInfo = localStorage.getItem("userInfo");
             if (userInfo) {
                 try {
                     const parsedInfo = JSON.parse(userInfo);
-                    // eslint-disable-next-line react-hooks/exhaustive-deps
-                    idToUse = parsedInfo.uuid;
+                    idToUse = parsedInfo?.uuid || parsedInfo?.user?.uuid || parsedInfo?.agent?.uuid || parsedInfo?.data?.uuid || parsedInfo?.data?.user?.uuid || parsedInfo?.id || parsedInfo?.data?.id;
                 } catch (err) {
                     console.error("Failed to parse userInfo:", err);
                 }
             }
-        } else {
-            idToUse = userId;
-        }
-        if (!token) {
-            console.log("Token not found.");
-            return;
         }
 
         if (idToUse) {
@@ -1049,7 +1056,7 @@ const AgentForm = () => {
         } else {
             console.log('Agent ID is undefined.');
         }
-    }, [userId]);
+    }, [userId, userType]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1257,7 +1264,7 @@ const AgentForm = () => {
                 toast.success('Agent created successfully');
             }
 
-            if (userType !== 'agent') {
+            if (userType !== 'agent' && userType !== 'co_agent') {
                 setIsLoading(true)
                 setOpen(true)
                 router.push('/dashboard/agents')
@@ -1463,8 +1470,8 @@ const AgentForm = () => {
         <div className='font-alexandria'>
             <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
-                    Agents
-                    {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}
+                    {isCoAgent ? 'Settings' : 'Agents'}
+                    {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : (isCoAgent ? '' : ' › Create')}
                 </p>
                 <Button
                     onClick={(e) => { handleSubmit(e) }}
@@ -1499,33 +1506,35 @@ const AgentForm = () => {
                 <ToggleButtons />
             </div> */}
             {
-                <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setActiveTab("details")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${activeTab === "details"
-                                    ? `${userType}-bg text-white`
-                                    : "bg-[#F2F2F2] text-[#666666]"
-                                }`}
-                        >
-                            DETAILS
-                        </button>
-                        {(userId || userType === 'agent') && (
+                !isCoAgent && (
+                    <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                        <div className="flex gap-2">
                             <button
-                                onClick={() => setActiveTab("sub_accounts")}
+                                onClick={() => setActiveTab("details")}
                                 className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${activeTab === "sub_accounts"
+                                ${activeTab === "details"
                                         ? `${userType}-bg text-white`
                                         : "bg-[#F2F2F2] text-[#666666]"
                                     }`}
                             >
-                                SUB ACCOUNTS
+                                DETAILS
                             </button>
-                        )}
+                            {(userId || userType === 'agent') && (
+                                <button
+                                    onClick={() => setActiveTab("sub_accounts")}
+                                    className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                                ${activeTab === "sub_accounts"
+                                            ? `${userType}-bg text-white`
+                                            : "bg-[#F2F2F2] text-[#666666]"
+                                        }`}
+                                >
+                                    SUB ACCOUNTS
+                                </button>
+                            )}
 
+                        </div>
                     </div>
-                </div>
+                )
             }
             {activeTab === 'details' && (
                 <div>
@@ -1807,71 +1816,73 @@ const AgentForm = () => {
                                                         address={headquarterAddress}
                                                     />
                                                 </div>
-                                                <div className="col-span-2">
-                                                    <hr className='text-[#BBBBBB]' />
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <div className='flex items-center justify-between'>
-                                                        <p >Assistants/Co Agents</p>
-                                                        <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
-                                                            setSelectedCoAgent(null);
-                                                            setSelectedCoAgentIndex(null);
-                                                            setOpenAddAgentDialog(true);
-                                                        }}>
-                                                            <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
-                                                            <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
+                                                {!isCoAgent && (
+                                                    <>
+                                                        <div className="col-span-2">
+                                                            <hr className='text-[#BBBBBB]' />
                                                         </div>
-                                                        <AddCoAgentDialog
-                                                            open={openAddAgentDialog}
-                                                            setOpen={setOpenAddAgentDialog}
-                                                            onSuccess={(agent) => {
-                                                                if (selectedCoAgentIndex !== null) {
-                                                                    setCoAgents((prev) => {
-                                                                        const newAgents = [...prev];
-                                                                        newAgents[selectedCoAgentIndex] = agent;
-                                                                        return newAgents;
-                                                                    });
-                                                                } else {
-                                                                    setCoAgents((prev) => [...prev, agent]);
-                                                                }
-                                                                if (hasInitiallyRendered.current) setIsDirty(true);
-                                                            }}
-                                                            agent={selectedCoAgent}
-                                                        />
-                                                    </div>
-                                                    <div className="border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
-                                                        <div className="grid grid-cols-6 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                                                            <div className="col-span-2">NAME</div>
-                                                            <div className="col-span-3">EMAIL</div>
-                                                            <div className="col-span-1">ACTIONS</div>
-                                                        </div>
-
-                                                        {coAgents.length > 0 ? (
-                                                            coAgents.map((coagent, index) => (
-                                                                <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                                                                    <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={coagent.name}>{coagent.name}</div>
-                                                                    <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={coagent.email}>{coagent.email}</div>
-                                                                    <div className="col-span-1">
-                                                                        <div className="flex items-center gap-3 justify-center">
-                                                                            <span className={`cursor-pointer ${userType}-text`} onClick={() => {
-                                                                                setSelectedCoAgent(coagent);
-                                                                                setSelectedCoAgentIndex(index);
-                                                                                setOpenAddAgentDialog(true);
-                                                                            }}><Pencil className="w-[14px] h-[14px]" /></span>
-                                                                            <span className="cursor-pointer text-red-500 hover:text-red-700" onClick={() => removeAgent(index)}><X className="w-[16px] h-[16px]" /></span>
-                                                                        </div>
-                                                                    </div>
+                                                        <div className="col-span-2">
+                                                            <div className='flex items-center justify-between'>
+                                                                <p >Assistants/Co Agents</p>
+                                                                <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
+                                                                    setSelectedCoAgent(null);
+                                                                    setSelectedCoAgentIndex(null);
+                                                                    setOpenAddAgentDialog(true);
+                                                                }}>
+                                                                    <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                                    <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
                                                                 </div>
-                                                            ))
-                                                        ) : (
-                                                            <div className="flex justify-center items-center h-20 text-[#666666] text-xs" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                                                                No co-agents added yet.
+                                                                <AddCoAgentDialog
+                                                                    open={openAddAgentDialog}
+                                                                    setOpen={setOpenAddAgentDialog}
+                                                                    onSuccess={(agent) => {
+                                                                        if (selectedCoAgentIndex !== null) {
+                                                                            setCoAgents((prev) => {
+                                                                                const newAgents = [...prev];
+                                                                                newAgents[selectedCoAgentIndex] = agent;
+                                                                                return newAgents;
+                                                                            });
+                                                                        } else {
+                                                                            setCoAgents((prev) => [...prev, agent]);
+                                                                        }
+                                                                        if (hasInitiallyRendered.current) setIsDirty(true);
+                                                                    }}
+                                                                    agent={selectedCoAgent}
+                                                                />
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                            <div className="border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
+                                                                <div className="grid grid-cols-6 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                                    <div className="col-span-2">NAME</div>
+                                                                    <div className="col-span-3">EMAIL</div>
+                                                                    <div className="col-span-1">ACTIONS</div>
+                                                                </div>
 
-
-                                                </div>
+                                                                {coAgents.length > 0 ? (
+                                                                    coAgents.map((coagent, index) => (
+                                                                        <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                                            <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={coagent.name}>{coagent.name}</div>
+                                                                            <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={coagent.email}>{coagent.email}</div>
+                                                                            <div className="col-span-1">
+                                                                                <div className="flex items-center gap-3 justify-center">
+                                                                                    <span className={`cursor-pointer ${userType}-text`} onClick={() => {
+                                                                                        setSelectedCoAgent(coagent);
+                                                                                        setSelectedCoAgentIndex(index);
+                                                                                        setOpenAddAgentDialog(true);
+                                                                                    }}><Pencil className="w-[14px] h-[14px]" /></span>
+                                                                                    <span className="cursor-pointer text-red-500 hover:text-red-700" onClick={() => removeAgent(index)}><X className="w-[16px] h-[16px]" /></span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="flex justify-center items-center h-20 text-[#666666] text-xs" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                                        No co-agents added yet.
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
                                                 {userType === "admin" && (
                                                     <div className="col-span-2">
                                                         <label htmlFor="">
@@ -1904,11 +1915,12 @@ const AgentForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                            <AccordionItem value="calendar">
-                                <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                                >GOOGLE CALENDAR</AccordionTrigger>
+                            {!isCoAgent && (
+                                <AccordionItem value="calendar">
+                                        <AccordionTrigger
+                                            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                        >GOOGLE CALENDAR</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1970,7 +1982,9 @@ const AgentForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                            <AccordionItem value="tours">
+                            )}
+                            {!isCoAgent && (
+                                <AccordionItem value="tours">
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
@@ -2408,6 +2422,7 @@ const AgentForm = () => {
                                         </div>
                                 </AccordionContent>
                             </AccordionItem>
+                            )}
                             <AccordionItem value="branding">
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}

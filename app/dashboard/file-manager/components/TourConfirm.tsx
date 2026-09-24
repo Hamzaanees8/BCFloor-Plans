@@ -1155,7 +1155,7 @@ const TourConfirm = ({
               )}
 
               {activeTab === "Overview" && (
-                <div className="pt-[140px] md:pt-[165px] px-4 md:px-12 flex flex-col gap-10 max-w-5xl mx-auto w-full pb-12">
+                <div className="pt-[140px] md:pt-[165px] px-4 md:px-8 flex flex-col gap-10 max-w-6xl mx-auto w-full pb-12">
                   {/* Property Stats Icons */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 sm:gap-4 text-center text-sm">
                     {[
@@ -1560,22 +1560,22 @@ const TourConfirm = ({
                   </div>
 
                   {/* Map */}
-                  <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm flex flex-col gap-4">
+                  <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-sm flex flex-col gap-4">
                     <h3 className="text-center text-lg font-bold text-[#1b365d] font-alexandria uppercase tracking-wide">
                       Location Map
                     </h3>
-                    <div className="w-full h-[400px] bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                    <div className="w-full h-[480px] bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
                       <DynamicMap
-                        address={orderData?.property.address}
-                        city={orderData?.property.city}
-                        province={orderData?.property.province}
-                        country={orderData?.property.country}
-                        latitude={orderData?.property.latitude}
-                        longitude={orderData?.property.longitude}
-                        zoom={orderData?.property.map_zoom || 15}
-                        mapTypeId={orderData?.property.map_type || 'roadmap'}
-                        centerLat={orderData?.property.map_center_lat}
-                        centerLng={orderData?.property.map_center_lng}
+                        address={orderData?.property?.address || orderData?.property_address}
+                        city={orderData?.property?.city}
+                        province={orderData?.property?.province}
+                        country={orderData?.property?.country}
+                        latitude={orderData?.property?.latitude !== undefined && orderData?.property?.latitude !== null ? Number(orderData.property.latitude) : undefined}
+                        longitude={orderData?.property?.longitude !== undefined && orderData?.property?.longitude !== null ? Number(orderData.property.longitude) : undefined}
+                        zoom={orderData?.property?.map_zoom !== undefined && orderData?.property?.map_zoom !== null ? Number(orderData.property.map_zoom) : 15}
+                        mapTypeId={orderData?.property?.map_type || 'roadmap'}
+                        centerLat={orderData?.property?.map_center_lat !== undefined && orderData?.property?.map_center_lat !== null ? Number(orderData.property.map_center_lat) : undefined}
+                        centerLng={orderData?.property?.map_center_lng !== undefined && orderData?.property?.map_center_lng !== null ? Number(orderData.property.map_center_lng) : undefined}
                       />
                     </div>
                   </div>

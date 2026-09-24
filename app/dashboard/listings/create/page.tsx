@@ -302,14 +302,19 @@ const ListingsFrom = () => {
     }
   }, [states, currentListing]);
 
+  const prevCountryRef = useRef(country);
   useEffect(() => {
     if (country) {
-      setStates(State.getStatesOfCountry(country));
-      if (!isPopulatingData.current) {
-        setProvince("");
+      const countryStates = State.getStatesOfCountry(country);
+      setStates(countryStates);
+      if (prevCountryRef.current !== country && !isPopulatingData.current) {
+        if (province && !countryStates.some((s) => s.isoCode === province)) {
+          setProvince("");
+        }
       }
+      prevCountryRef.current = country;
     }
-  }, [country]);
+  }, [country, province]);
 
   const handleSubmit = async () => {
     const validationErrors: Record<string, string[]> = {};
@@ -787,6 +792,35 @@ const ListingsFrom = () => {
     setMapType(settings.mapType);
     setMapCenterLat(settings.centerLat);
     setMapCenterLng(settings.centerLng);
+    markDirty();
+  };
+
+  const handleMapAddressChange = (addressData: {
+    address_line_1: string;
+    city: string;
+    province: string;
+    country: string;
+    postal_code: string;
+    full_address: string;
+    lat: number;
+    lng: number;
+  }) => {
+    if (addressData.address_line_1) setAddress(addressData.address_line_1);
+    if (addressData.city) setCity(addressData.city);
+    if (addressData.province) setProvince(addressData.province);
+    if (addressData.country) setCountry(addressData.country);
+    if (addressData.postal_code) setPostalCode(addressData.postal_code);
+    if (addressData.lat) setLatitude(addressData.lat);
+    if (addressData.lng) setLongitude(addressData.lng);
+
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.address;
+      delete next.city;
+      delete next.province;
+      delete next.postal_code;
+      return next;
+    });
     markDirty();
   };
 
@@ -1492,6 +1526,7 @@ const ListingsFrom = () => {
                       </div>
                       <GooglePlacesAutocomplete
                         mode="split"
+                        value={address}
                         addressComponents={{
                           address_line_1: address,
                           city: city,
@@ -1522,7 +1557,7 @@ const ListingsFrom = () => {
                       />
                     </div>
                   </div>
-                  <div className="w-full h-[200px] md:h-[560px]">
+                  <div className="w-full max-w-5xl mx-auto h-[480px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
                     <DynamicMap
                       address={address}
                       city={city}
@@ -1536,6 +1571,7 @@ const ListingsFrom = () => {
                       centerLng={mapCenterLng}
                       interactive={true}
                       onMapSettingsChange={handleMapSettingsChange}
+                      onAddressChange={handleMapAddressChange}
                     />
                   </div>
                 </div>

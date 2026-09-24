@@ -18,10 +18,10 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
     if (!userType) return;
 
     if (
-      userType === "agent" &&
-      (pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services") || pathname.startsWith("/dashboard/vendor-billing"))
+      (userType === "agent" || userType === "co_agent") &&
+      (pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services") || pathname.startsWith("/dashboard/vendor-billing") || pathname.startsWith("/dashboard/agents") || pathname.startsWith("/dashboard/vendors"))
     ) {
-      router.replace("/dashboard/listings");
+      router.replace("/dashboard/calendar");
       setIsAllowed(false);
       return;
     }
@@ -30,6 +30,61 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       userType === "agent" &&
       pathname.startsWith("/dashboard/billing")
     ) {
+      setIsAllowed(true);
+      return;
+    }
+
+    // Co-agent: permission-based access control
+    if (userType === "co_agent") {
+      // Always allowed: calendar and settings/profile
+      if (
+        pathname.startsWith("/dashboard/calendar") ||
+        pathname.startsWith("/dashboard/settings") ||
+        pathname.startsWith("/dashboard/global-settings")
+      ) {
+        setIsAllowed(true);
+        return;
+      }
+
+      if (pathname.startsWith("/dashboard/billing") && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+        toast.error("You do not have permission to access billing");
+        router.replace("/dashboard/settings");
+        setIsAllowed(false);
+        return;
+      }
+
+      if (pathname.startsWith("/dashboard/listings") && !hasPermission(PERMISSIONS.VIEW_LISTING)) {
+        toast.error("You do not have permission to access listings");
+        router.replace("/dashboard/settings");
+        setIsAllowed(false);
+        return;
+      }
+
+      if (pathname.startsWith("/dashboard/matterport") && !hasPermission(PERMISSIONS.VIEW_LISTING)) {
+        toast.error("You do not have permission to access matterport");
+        router.replace("/dashboard/settings");
+        setIsAllowed(false);
+        return;
+      }
+
+      if (
+        pathname.startsWith("/dashboard/orders") &&
+        !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) &&
+        !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT)
+      ) {
+        toast.error("You do not have permission to access orders");
+        router.replace("/dashboard/settings");
+        setIsAllowed(false);
+        return;
+      }
+
+      if (pathname.startsWith("/dashboard/notifications") && !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)) {
+        toast.error("You do not have permission to access notifications");
+        router.replace("/dashboard/settings");
+        setIsAllowed(false);
+        return;
+      }
+
       setIsAllowed(true);
       return;
     }
