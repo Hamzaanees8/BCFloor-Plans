@@ -118,11 +118,17 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
     const finished: Field[] = []
     const subtotal: Field[] = []
     const other: Field[] = []
+    const seenNames = new Set<string>()
 
     // 1. Add all existing areas from current order
     order?.areas?.forEach((area: Area) => {
       const category = (area.category || area.type) as 'Finished' | 'Subtotal' | 'Other'
-      const label = area.custom_title || area.type
+      const label = (area.custom_title || area.type || '').trim()
+      if (!label) return
+
+      const lower = label.toLowerCase()
+      if (seenNames.has(lower)) return
+      seenNames.add(lower)
       
       const field: Field = {
         id: uniqueId++,
@@ -144,33 +150,42 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
 
     if (finished.length === 0 && finishedSettings.length > 0) {
       const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === 'main level') || finishedSettings[0]
-      finished.push({
-        id: uniqueId++,
-        label: mainLevelSetting.area,
-        value: 0,
-        custom_title: mainLevelSetting.area,
-        category: 'Finished'
-      })
+      const mainLevelLabel = mainLevelSetting.area.trim()
+      if (!seenNames.has(mainLevelLabel.toLowerCase())) {
+        finished.push({
+          id: uniqueId++,
+          label: mainLevelLabel,
+          value: 0,
+          custom_title: mainLevelLabel,
+          category: 'Finished'
+        })
+      }
     }
 
     if (subtotal.length === 0 && subtotalSettings.length > 0) {
-      subtotal.push({
-        id: uniqueId++,
-        label: subtotalSettings[0].area,
-        value: 0,
-        custom_title: subtotalSettings[0].area,
-        category: 'Subtotal'
-      })
+      const subLabel = subtotalSettings[0].area.trim()
+      if (!seenNames.has(subLabel.toLowerCase())) {
+        subtotal.push({
+          id: uniqueId++,
+          label: subLabel,
+          value: 0,
+          custom_title: subLabel,
+          category: 'Subtotal'
+        })
+      }
     }
 
     if (other.length === 0 && otherSettings.length > 0) {
-      other.push({
-        id: uniqueId++,
-        label: otherSettings[0].area,
-        value: 0,
-        custom_title: otherSettings[0].area,
-        category: 'Other'
-      })
+      const otherLabel = otherSettings[0].area.trim()
+      if (!seenNames.has(otherLabel.toLowerCase())) {
+        other.push({
+          id: uniqueId++,
+          label: otherLabel,
+          value: 0,
+          custom_title: otherLabel,
+          category: 'Other'
+        })
+      }
     }
 
     setFinishedAreas(finished)
@@ -214,12 +229,22 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
     category: 'Finished' | 'Subtotal' | 'Other',
     customLabel?: string
   ) => {
+    const trimmedLabel = label.trim()
+    const existingSet = new Set(
+      [...finishedAreas, ...subtotalAreas, ...otherAreas].map((item) => item.label.trim().toLowerCase())
+    )
+
+    if (existingSet.has(trimmedLabel.toLowerCase())) {
+      toast.error(`"${trimmedLabel}" has already been added.`)
+      return
+    }
+
     const newField: Field = {
       id: uniqueId++,
-      label,
+      label: trimmedLabel,
       value: sqft,
       category,
-      custom_title: customLabel,
+      custom_title: customLabel ? customLabel.trim() : undefined,
     }
 
     if (category === 'Finished') setFinishedAreas((prev) => [...prev, newField])
@@ -503,6 +528,7 @@ export default function MobileSquareFootage({ orderId: propOrderId }: MobileSqua
         onAddExtra={handleAddExtra}
         defaultCategory={dialogDefaultCategory}
         tourSettings={tourSettings}
+        existingAreaNames={[...finishedAreas, ...subtotalAreas, ...otherAreas].map((f) => f.label)}
       />
     </div>
   )

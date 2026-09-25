@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, AlertTriangle, Printer } from "lucide-react";
+import { Check, Plus, AlertTriangle, Printer } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { CleanedProductOption } from "../../services/services";
 import { SelectedService } from "./Services";
@@ -549,13 +549,15 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 onClick={handleToggleService}
                 title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
                 className={`
-                          p-1  w-6 h-6 flex justify-center items-center rounded-md border-[2px]
-                          ${(isPaid || isBooked || hasPastSlots) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
-                          ${isEffectivelySelected ? "bg-[#6BAE41] border-[#6BAE41]" : "bg-transparent border-[#BBBBBB]"}
+                          w-6 h-6 flex justify-center items-center shrink-0 transition-all
+                          ${(isPaid || isBooked || hasPastSlots) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer hover:scale-110"}
+                          ${isEffectivelySelected ? "p-1 rounded-md bg-[#6BAE41] border-[2px] border-[#6BAE41]" : "text-[#6BAE41]"}
                         `}
               >
-                {isEffectivelySelected && (
-                  <Check className="text-white w-4 h-4" />
+                {isEffectivelySelected ? (
+                  <Check className="text-white w-4 h-4 stroke-[3]" />
+                ) : (
+                  <Plus className="w-6 h-6 text-[#6BAE41] stroke-[2.5]" />
                 )}
               </div>
               <div

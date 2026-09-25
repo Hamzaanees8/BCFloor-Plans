@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X, ChevronDown, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Order } from '../../orders/page';
 import { Area } from './OrderDetailView';
 import AddExtraDialog from '../../calendar/components/AddExtraDialog';
@@ -78,20 +79,20 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
   useEffect(() => {
     if (tourSettings.length === 0) return;
 
-    // Build a map of existing area footage from the current order
-    const orderAreaMap = new Map<string, { footage: number; custom_title?: string }>();
-    currentOrder?.areas?.forEach((area: Area) => {
-      const key = (area.custom_title || area.type).trim().toLowerCase();
-      orderAreaMap.set(key, { footage: area.footage, custom_title: area.custom_title });
-    });
-
     const finished: Field[] = [];
     const subtotal: Field[] = [];
     const other: Field[] = [];
-    // 1. Add all existing areas from current order
+    const seenNames = new Set<string>();
+
+    // 1. Add all existing areas from current order without duplicates across all categories
     currentOrder?.areas?.forEach((area: Area) => {
       const category = (area.category || area.type) as "Finished" | "Subtotal" | "Other";
-      const label = area.custom_title || area.type;
+      const label = (area.custom_title || area.type || '').trim();
+      if (!label) return;
+
+      const lower = label.toLowerCase();
+      if (seenNames.has(lower)) return;
+      seenNames.add(lower);
       
       const field: Field = {
         id: uniqueId++,
@@ -110,13 +111,16 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
     const finishedSettings = tourSettings.filter(s => s.type === "Finished Area");
     if (finished.length === 0 && finishedSettings.length > 0) {
       const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === "main level") || finishedSettings[0];
-      finished.push({
-        id: uniqueId++,
-        label: mainLevelSetting.area,
-        value: 0,
-        custom_title: mainLevelSetting.area,
-        category: "Finished"
-      });
+      const mainLevelLabel = mainLevelSetting.area.trim();
+      if (!seenNames.has(mainLevelLabel.toLowerCase())) {
+        finished.push({
+          id: uniqueId++,
+          label: mainLevelLabel,
+          value: 0,
+          custom_title: mainLevelLabel,
+          category: "Finished"
+        });
+      }
     }
 
     setFinishedAreas(finished);
@@ -170,12 +174,22 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
   });
 
   const handleAddExtra = (label: string, sqft: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => {
+    const trimmedLabel = label.trim();
+    const existingSet = new Set(
+      [...finishedAreas, ...subtotalAreas, ...otherAreas].map(item => item.label.trim().toLowerCase())
+    );
+
+    if (existingSet.has(trimmedLabel.toLowerCase())) {
+      toast.error(`"${trimmedLabel}" has already been added.`);
+      return;
+    }
+
     const newField: Field = {
       id: uniqueId++,
-      label,
+      label: trimmedLabel,
       value: sqft,
       category,
-      custom_title: customLabel
+      custom_title: customLabel ? customLabel.trim() : undefined
     };
 
     if (category === "Finished") setFinishedAreas(prev => [...prev, newField]);
@@ -294,22 +308,30 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
         <span className="font-bold">{propertySquareFootage} Sq.ft</span>
       </div>
 
-      <div className="flex flex-col gap-1 px-4 py-3 bg-white border border-gray-200 rounded my-2 text-xs text-gray-700 max-w-[400px]">
-        <div className="flex justify-between font-semibold">
-          <span>Billable Sq. Ft. (Service Pricing):</span>
-          <span className="text-[#4290E9]">{metrics.totalBillableSqft} Sq.ft</span>
-        </div>
-        <div className="flex justify-between text-gray-500">
-          <span>Free Allowance Used ($0 Other Areas):</span>
-          <span>{metrics.freeAllowanceUsed} / {metrics.freeAllowanceLimit} Sq.ft</span>
-        </div>
-        {metrics.customOtherFootage > 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Charged Other Areas (Excluded from Free Allowance):</span>
-            <span>{metrics.customOtherFootage} Sq.ft (${metrics.customOtherCharges.toFixed(2)})</span>
+      {userType === 'admin' && (
+        <div className="flex flex-col gap-1 px-4 py-3 bg-white border border-gray-200 rounded my-2 text-xs text-gray-700 max-w-[400px]">
+          <div className="flex justify-between font-semibold">
+            <span>Service Billable Sq. Ft.</span>
+            <span className="text-[#4290E9]">{metrics.totalBillableSqft.toLocaleString()} Sq.ft</span>
           </div>
-        )}
-      </div>
+          <div className="flex justify-between text-gray-500">
+            <span>{metrics.allowanceEnabled ? 'Free Other Area Allowance Used' : 'Other Areas Billable'}</span>
+            <span>{metrics.allowanceEnabled ? `${metrics.freeAllowanceUsed} / ${metrics.freeAllowanceLimit} Sq.ft` : `${metrics.zeroChargeOtherFootage} Sq.ft`}</span>
+          </div>
+          {metrics.excessOtherFootage > 0 && metrics.allowanceEnabled && (
+            <div className="flex justify-between text-gray-500">
+              <span>Other Area Excess Charge</span>
+              <span>${metrics.excessOtherCharge.toFixed(2)}</span>
+            </div>
+          )}
+          {metrics.customOtherCharges > 0 && (
+            <div className="flex justify-between text-gray-500">
+              <span>Fixed Other Area Charges</span>
+              <span>${metrics.customOtherCharges.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {renderSection('other', otherAreas, setOtherAreas)}
 
@@ -319,6 +341,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
         onAddExtra={handleAddExtra}
         defaultCategory={dialogDefaultCategory}
         tourSettings={tourSettings}
+        existingAreaNames={[...finishedAreas, ...subtotalAreas, ...otherAreas].map(f => f.label)}
       />
     </div>
   );

@@ -79,9 +79,7 @@ export const calculateAreaMetrics = (
     ? excessOtherFootage * rateAboveAllowance
     : 0;
 
-  const totalBillableSqft = allowanceSettings.enabled
-    ? finishedSubFootage
-    : finishedSubFootage + zeroChargeOtherFootage;
+  const totalBillableSqft = finishedSubFootage + excessOtherFootage;
   const totalAreaCharges = customOtherCharges + excessOtherCharge;
 
   return {

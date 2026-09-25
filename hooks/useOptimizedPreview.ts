@@ -60,16 +60,14 @@ export function useOptimizedPreview(file: File | null, width: number = 300, heig
                         video.onseeked = () => resolve();
                     });
 
-                    // Calculate aspect ratio and draw centered
-                    const aspectRatio = video.videoWidth / video.videoHeight;
-                    const maxDim = 300;
-                    let canvasWidth = maxDim;
-                    let canvasHeight = maxDim;
+                    // Calculate proportional dimensions fitting within width x height bounding box
+                    let canvasWidth = video.videoWidth || width;
+                    let canvasHeight = video.videoHeight || height;
 
-                    if (aspectRatio > 1) {
-                        canvasHeight = Math.round(maxDim / aspectRatio);
-                    } else {
-                        canvasWidth = Math.round(maxDim * aspectRatio);
+                    if (canvasWidth > width || canvasHeight > height) {
+                        const scale = Math.min(width / canvasWidth, height / canvasHeight);
+                        canvasWidth = Math.max(1, Math.round(canvasWidth * scale));
+                        canvasHeight = Math.max(1, Math.round(canvasHeight * scale));
                     }
 
                     // Draw frame to canvas
@@ -101,7 +99,7 @@ export function useOptimizedPreview(file: File | null, width: number = 300, heig
                             }
                         },
                         'image/jpeg',
-                        0.6
+                        0.7
                     );
                 } catch (err) {
                     console.error('Error generating video thumbnail:', err);
@@ -114,31 +112,40 @@ export function useOptimizedPreview(file: File | null, width: number = 300, heig
             return;
         }
 
-        // Handle image files - generate optimized preview
+        // Handle image files - generate optimized preview preserving aspect ratio
         if (file.type.startsWith('image/')) {
             setIsLoading(true);
             setError(false);
 
             const generateOptimizedPreview = async () => {
                 try {
-                    // Create downscaled bitmap
-                    const bitmap = await createImageBitmap(file, {
-                        resizeWidth: width,
-                        resizeHeight: height,
-                        resizeQuality: 'low',
-                    });
+                    // Create bitmap to inspect native dimensions
+                    const bitmap = await createImageBitmap(file);
+                    const origWidth = bitmap.width;
+                    const origHeight = bitmap.height;
 
-                    // Draw to canvas
+                    let targetWidth = origWidth;
+                    let targetHeight = origHeight;
+
+                    // Calculate proportional dimensions fitting within width x height bounding box
+                    if (targetWidth > width || targetHeight > height) {
+                        const scale = Math.min(width / targetWidth, height / targetHeight);
+                        targetWidth = Math.max(1, Math.round(targetWidth * scale));
+                        targetHeight = Math.max(1, Math.round(targetHeight * scale));
+                    }
+
+                    // Draw to canvas with preserved aspect ratio
                     const canvas = document.createElement('canvas');
-                    canvas.width = bitmap.width;
-                    canvas.height = bitmap.height;
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
                     const ctx = canvas.getContext('2d');
 
                     if (!ctx) {
+                        bitmap.close();
                         throw new Error('Failed to get canvas context');
                     }
 
-                    ctx.drawImage(bitmap, 0, 0);
+                    ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
                     bitmap.close();
 
                     // Convert to compressed JPEG blob
@@ -155,7 +162,7 @@ export function useOptimizedPreview(file: File | null, width: number = 300, heig
                             }
                         },
                         'image/jpeg',
-                        0.6
+                        0.7
                     );
                 } catch (err) {
                     console.error('Error generating optimized preview:', err);

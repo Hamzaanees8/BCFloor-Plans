@@ -1296,6 +1296,32 @@ export default function OneDayCalendar({
     new Set(),
   );
 
+  const isTwilightService = React.useMemo(() => {
+    const svcObj = service as any;
+    const matchedService = servicesData?.find(
+      (s: any) =>
+        s.uuid === svcObj?.uuid ||
+        String(s.id) === String(svcObj?.id) ||
+        (svcObj?.service &&
+          (s.uuid === svcObj?.service?.uuid ||
+            String(s.id) === String(svcObj?.service?.id || svcObj?.service))),
+    ) as any;
+    return Boolean(
+      matchedService?.category?.name === "Twilight Photos" ||
+      svcObj?.title?.toLowerCase()?.includes("twilight") ||
+      svcObj?.name?.toLowerCase()?.includes("twilight") ||
+      svcObj?.service?.name?.toLowerCase()?.includes("twilight") ||
+      matchedService?.name?.toLowerCase()?.includes("twilight") ||
+      matchedService?.title?.toLowerCase()?.includes("twilight") ||
+      svcObj?.is_twilight === true ||
+      svcObj?.is_twilight === 1 ||
+      svcObj?.is_twilight === "1" ||
+      matchedService?.is_twilight === true ||
+      matchedService?.is_twilight === 1 ||
+      matchedService?.is_twilight === "1"
+    );
+  }, [servicesData, service]);
+
   // Book-through-lunch confirmation dialog state (admin only)
   const [showConfirmLunchOverlap, setShowConfirmLunchOverlap] = useState(false);
   const [pendingLunchOverlap, setPendingLunchOverlap] = useState<{
@@ -4137,7 +4163,7 @@ export default function OneDayCalendar({
         <style>{customStyles}</style>
       </div>
 
-      {twilightData && (
+      {twilightData && isTwilightService && (
         <div className="mt-4 p-3 bg-amber-50 rounded-md border border-amber-200">
           <h4 className="text-sm font-[600] text-amber-900 mb-1 flex items-center gap-1.5">
             <span>🌅</span>

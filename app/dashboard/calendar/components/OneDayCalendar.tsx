@@ -248,6 +248,31 @@ export default function OneDayCalendar({
   ).length;
   const isUnderScheduled = hasSelectedSlotsForBorder && currentServiceSlotsCountForBorder < requiredSlotsCountForBorder;
 
+  const isTwilightService = useMemo(() => {
+    const svcObj = service as any;
+    const matchedService = servicesData?.find(
+      (s: any) =>
+        isSameService(s.uuid, svcObj?.service) ||
+        String(s.id) === String(svcObj?.service?.id || svcObj?.service) ||
+        s.uuid === svcObj?.uuid ||
+        String(s.id) === String(svcObj?.id)
+    ) as any;
+    return Boolean(
+      matchedService?.category?.name === "Twilight Photos" ||
+      svcObj?.title?.toLowerCase()?.includes("twilight") ||
+      svcObj?.name?.toLowerCase()?.includes("twilight") ||
+      svcObj?.service?.name?.toLowerCase()?.includes("twilight") ||
+      matchedService?.name?.toLowerCase()?.includes("twilight") ||
+      matchedService?.title?.toLowerCase()?.includes("twilight") ||
+      svcObj?.is_twilight === true ||
+      svcObj?.is_twilight === 1 ||
+      svcObj?.is_twilight === "1" ||
+      matchedService?.is_twilight === true ||
+      matchedService?.is_twilight === 1 ||
+      matchedService?.is_twilight === "1"
+    );
+  }, [servicesData, service]);
+
   // Load all orders for booked slots
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -1222,7 +1247,7 @@ export default function OneDayCalendar({
         <style>{customStyles}</style>
       </div>
 
-      {twilightData && (
+      {twilightData && isTwilightService && (
         <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
           <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Time ({dayjs(currentDate).format('MMM D')})</h4>
           <div className="text-xs text-gray-500">

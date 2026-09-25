@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
 import { naturalSortFiles } from '../utils/naturalSort';
-import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff, MinusCircle, Trash2 } from 'lucide-react';
+import { Check, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered, Eye, EyeOff, MinusCircle, Trash2, UserCheck, Undo2 } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -75,6 +75,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [shrinkingIds, setShrinkingIds] = useState<Set<string>>(new Set());
     const [flyingClones, setFlyingClones] = useState<{ id: string; src: string; rect: DOMRect }[]>([]);
     const { userType } = useAppContext()
+    const [actAsAgent, setActAsAgent] = useState<boolean>(false);
+    const effectiveUserType = (userType === 'admin' && actAsAgent) ? 'agent' : userType;
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [isBulkSelecting, setIsBulkSelecting] = useState<boolean>(false);
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
@@ -230,7 +232,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             });
 
         // If Agent, show only approved files for download + obey service quantity limit
-        if (userType === 'agent') {
+        if (effectiveUserType === 'agent') {
             // Allow agents to see all visible files so they can select them.
             files = files?.filter(file => file.is_show !== false);
 
@@ -243,7 +245,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         }
 
         return files || [];
-    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy, mediaDateBoundary]);
+    }, [filesData?.files, currentService?.uuid, effectiveUserType, reviewFilesEnabled, sortBy, mediaDateBoundary]);
 
     const filesForService = useMemo(() => selectedFiles.filter(f => f.service_id === currentService?.uuid), [selectedFiles, currentService?.uuid]);
 
@@ -362,7 +364,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     };
 
     const handleDropFiles = (droppedFiles: File[]) => {
-        if (userType === 'agent') {
+        if (effectiveUserType === 'agent') {
             return;
         }
 
@@ -481,7 +483,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             <div
                 data-fileid={item.serverId}
                 className={`h-[auto] relative group flex flex-col overflow-hidden ${isShrinking ? 'animate-card-select-shrink' : ''}`}
-                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                style={{ backgroundColor: `var(--${effectiveUserType}-page-bg, #BBBBBB)` }}
             >
                 <div className="relative w-full aspect-video bg-black overflow-hidden">
                     {file.is_complimentary && (
@@ -504,7 +506,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }
                                 }}
                                 alt="preview"
-                                isRestricted={userType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
+                                isRestricted={effectiveUserType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                 className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
@@ -551,7 +553,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </Button>
                                 </div>
                             )}
-                            {userType !== 'vendor' && (userType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
+                            {userType !== 'vendor' && (effectiveUserType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -574,7 +576,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </TooltipContent>
                                 </Tooltip>
                             )}
-                            {userType === 'admin' && (
+                            {effectiveUserType === 'admin' && (
                                 <div
                                     className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === 'reorder' ? 'hidden' : 'flex'} items-center bg-white/80 p-1 rounded cursor-pointer`}
                                     onClick={(e) => {
@@ -621,7 +623,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             }
                                         }}
                                     />
-                                ) : (userType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                ) : (effectiveUserType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                     <PdfPlaceholder
                                         className="w-full h-full object-contain cursor-pointer"
                                         isRestricted={true}
@@ -673,7 +675,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         }
                                     }}
                                     alt="preview"
-                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && effectiveUserType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                     draggable={false}
                                 />
                             )}
@@ -682,7 +684,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
-                            {(userType === 'admin' || (userType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
+                            {(effectiveUserType === 'admin' || (effectiveUserType === 'agent' && (file.is_agent_approved || file.is_complimentary))) && file.uuid && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -723,7 +725,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </div>
                                 </div>
                             )}
-                            {userType !== 'vendor' && (userType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
+                            {userType !== 'vendor' && (effectiveUserType !== 'agent' || file.is_agent_approved || file.is_complimentary) && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span
@@ -775,7 +777,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     </TooltipContent>
                                 </Tooltip>
                             )}
-                            {userType === 'admin' && (
+                            {effectiveUserType === 'admin' && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <div
@@ -815,7 +817,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         >
                                             {file.is_admin_approved ? (
                                                 <>
-                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${userType}-bg ${userType}-border`}>
+                                                    <div className={`w-4 h-4 border rounded mr-1.5 flex items-center justify-center ${effectiveUserType}-bg ${effectiveUserType}-border`}>
                                                         <Check color="white" size={12} />
                                                     </div>
                                                     <span className="text-[11px] font-bold text-[#7D7D7D]">Approved</span>
@@ -842,7 +844,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </Tooltip>
                             )}
 
-                            {userType === 'agent' && !file.is_complimentary && (
+                            {effectiveUserType === 'agent' && !file.is_complimentary && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <div
@@ -932,7 +934,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                 }
                                             }}
                                         >
-                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${effectiveUserType}-bg ${effectiveUserType}-border` : 'bg-white border-[#7D7D7D]'}`}>
                                                 {file.is_agent_approved && <Check color="white" size={12} />}
                                             </div>
                                             <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
@@ -952,7 +954,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     )}
                 </div>                <div
                     className="w-full flex items-center justify-between gap-1.5 px-2 py-1.5 min-h-[36px] overflow-hidden"
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                    style={{ backgroundColor: `var(--${effectiveUserType}-page-bg, #BBBBBB)` }}
                 >
                     <div className='flex items-center gap-1 min-w-0 flex-1 overflow-hidden text-[#8E8E8E] text-[11px] md:text-[13px]'>
                         <span className="truncate font-medium">
@@ -988,7 +990,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </div>
                     ) : (
                         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                            {userType === 'admin' && (
+                            {effectiveUserType === 'admin' && (
                                 <>
                                     <div
                                         onClick={(e) => {
@@ -1019,13 +1021,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </>
                             )}
 
-                            {userType === 'agent' && file.is_complimentary && (
+                            {effectiveUserType === 'agent' && file.is_complimentary && (
                                 <span className="text-[#6BAE41] font-semibold text-[10px] sm:text-[11px] bg-[#6BAE41]/10 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
                                     Complimentary
                                 </span>
                             )}
 
-                            {(userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
+                            {(effectiveUserType === 'admin' || userType === 'vendor' || (effectiveUserType === 'agent' && (orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || file.is_complimentary))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
                                     className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
@@ -1034,7 +1036,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                                 </span>
                             ) : (
-                                userType === 'agent' && !file.is_agent_approved ? null : (
+                                effectiveUserType === 'agent' && !file.is_agent_approved ? null : (
                                     <span
                                         title="service not paid yet"
                                         className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5" style={{ width: imagesPerRow >= 6 ? '16px' : '22px', height: imagesPerRow >= 6 ? '16px' : '22px' }}
@@ -1049,7 +1051,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds, handledownloadFile, handleDeleteUploadedFile, handleToggleComplimentary]);
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, effectiveUserType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds, handledownloadFile, handleDeleteUploadedFile, handleToggleComplimentary]);
 
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
@@ -1190,8 +1192,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             .map(f => f.uuid) || [];
         setBulkDeselectedIds(new Set(selectedFileIds));
     };
-
-    const unselectedAction = userType === 'agent' ? (
+    const unselectedAction = effectiveUserType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {!isBulkSelecting ? (
                 <Button
@@ -1224,7 +1225,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         </div>
     ) : null;
 
-    const unselectedSubHeader = isBulkSelecting && userType === 'agent' ? (
+    const unselectedSubHeader = isBulkSelecting && effectiveUserType === 'agent' ? (
         <div className="w-full flex justify-between items-center mb-4 bg-gray-50 p-2 rounded border border-gray-200">
             <span className="text-sm text-gray-600 font-medium px-2">Select multiple media files to add them at once.</span>
             <div className="flex gap-2">
@@ -1245,7 +1246,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         </div>
     ) : null;
 
-    const selectedAction = userType === 'agent' ? (
+    const selectedAction = effectiveUserType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
                 disabled={isHiding}
@@ -1304,7 +1305,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             e.stopPropagation();
                             handleBulkDeselectDone();
                         }}
-                        className="h-7 md:h-8 px-2.5 md:px-3.5 text-[11px] md:text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-[6px] shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        className="h-7 md:h-8 px-2.5 md:px-3 text-[11px] md:text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-[6px] shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
                         <MinusCircle className="h-3.5 w-3.5" />
                         <span>Done ({bulkDeselectedIds.size})</span>
@@ -1314,7 +1315,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         </div>
     ) : null;
 
-    const adminSavedFilesAction = userType === 'admin' ? (
+    const adminSavedFilesAction = effectiveUserType === 'admin' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
                 asChild
@@ -1341,7 +1342,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         </div>
     ) : null;
 
-    const selectedSubHeader = isBulkDeselecting && userType === 'agent' ? (
+    const selectedSubHeader = isBulkDeselecting && effectiveUserType === 'agent' ? (
         <div className="w-full flex justify-between items-center mb-4 bg-gray-50 p-2 rounded border border-gray-200">
             <span className="text-sm text-gray-600 font-medium px-2">Select multiple media files to remove them at once.</span>
             <div className="flex gap-2">
@@ -1394,28 +1395,42 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     className={`w-full flex flex-wrap justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 gap-y-2 ${isScrolled ? "sticky min-h-[44px] py-1 shadow-sm" : "relative min-h-[66px] py-2"
                         }`}
                     style={{
-                        backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                        backgroundColor: `color-mix(in srgb, var(--${effectiveUserType}-page-bg, #E4E4E4), black 5%)`,
                         top: isScrolled ? `${stickyOffset}px` : "auto"
                     }}
                 >
                     {/* Left: Upload/Download button */}
                     <div className="shrink-0">
-                        {userType !== 'agent' ? (
+                        {effectiveUserType !== 'agent' ? (
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
-                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                    className={`${effectiveUserType}-bg flex justify-center items-center hover-${effectiveUserType}-bg transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
                                         } px-1 md:px-4`}
                                 >
                                     Add File
                                 </Button>
-                                {userType === 'admin' && (
+                                {effectiveUserType === 'admin' && (
                                     <Button
                                         onClick={() => setShowDownloadModal(true)}
-                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                        className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
                                             } px-1 md:px-4`}
                                     >
                                         Download
+                                    </Button>
+                                )}
+                                {userType === 'admin' && (
+                                    <Button
+                                        onClick={() => setActAsAgent(prev => !prev)}
+                                        className={`flex items-center gap-1.5 cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] text-[10px] px-2" : "h-[26px] text-[10px] md:h-[32px] md:text-[12px] px-2 md:px-3"
+                                            } ${actAsAgent
+                                                ? "bg-[#6BAE41] hover:bg-[#5fa43a] text-white"
+                                                : "bg-[#DC9600] hover:bg-[#b07800] text-white"
+                                            }`}
+                                        title={actAsAgent ? "Return to Admin view" : "Simulate Agent portal view to approve media on behalf of agent"}
+                                    >
+                                        <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                                        <span>{actAsAgent ? 'Acting as Agent' : 'Act as Agent'}</span>
                                     </Button>
                                 )}
                                 <input
@@ -1435,17 +1450,31 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }}
                                     title={!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
+                                    className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg flex justify-center items-center transition-all duration-300 ${isScrolled ? "h-[24px] w-[70px] text-[10px]" : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
                                         } px-1 md:px-4 ${!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download
                                 </Button>
+                                {userType === 'admin' && (
+                                    <Button
+                                        onClick={() => setActAsAgent(prev => !prev)}
+                                        className={`flex items-center gap-1.5 cursor-pointer transition-all duration-300 ${isScrolled ? "h-[24px] text-[10px] px-2" : "h-[26px] text-[10px] md:h-[32px] md:text-[12px] px-2 md:px-3"
+                                            } ${actAsAgent
+                                                ? "bg-[#6BAE41] hover:bg-[#5fa43a] text-white"
+                                                : "bg-[#DC9600] hover:bg-[#b07800] text-white"
+                                            }`}
+                                        title={actAsAgent ? "Return to Admin view" : "Simulate Agent portal view to approve media on behalf of agent"}
+                                    >
+                                        <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                                        <span>{actAsAgent ? 'Acting as Agent' : 'Act as Agent'}</span>
+                                    </Button>
+                                )}
                             </div>
                         )}
                     </div>
                     {/* Center: title — hidden on mobile when scrolled to avoid clutter */}
                     <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
-                            <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
+                            <span className={`font-bold transition-all duration-300 ${effectiveUserType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
                             {!isScrolled && (
                                 <span className='text-[12px] text-[#7D7D7D]'>
                                     {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Photos`}
@@ -1455,7 +1484,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     </div>
                     {/* Right: price + paid/unpaid + other actions */}
                     <div className='flex justify-center items-center gap-x-2 md:gap-x-[14px] shrink-0'>
-                        {/* {(userType === 'agent') && (
+                        {/* {(effectiveUserType === 'agent') && (
                             <Button
                                 onClick={() => {
                                     if (isHidingMode) {
@@ -1487,7 +1516,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
                             </Button>
                         )}
-                        {userType === 'admin' && (
+                        {effectiveUserType === 'admin' && (
                             <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
                                     <p className={`text-[13px] md:text-[18px] ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED' ? 'text-[#D0021B]' : (paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]')} leading-none mb-1`}>
@@ -1520,7 +1549,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             serviceDate={currentService ? currentService : null}
                             orderData={orderData ? orderData : null}
                         />
-                        {userType === 'agent' && (
+                        {effectiveUserType === 'agent' && (
                             <div className='flex items-center gap-[5px] md:gap-[10px] md:mr-2'>
                                 <div className='flex flex-col justify-center items-end mr-1 md:mr-2 text-right'>
                                     <p className={`text-[13px] md:text-[18px] ${bookingToUse?.payment_status === 'REFUNDED' || orderData?.payment_status === 'REFUNDED' ? 'text-[#D0021B]' : (paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'text-[#6BAE41]' : 'text-[#E06D5E]')} leading-none mb-1`}>
@@ -1562,12 +1591,32 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             )}
 
-            {userType === 'admin' && (
+            {userType === 'admin' && actAsAgent && (
+                <div className="w-full bg-gradient-to-r from-amber-50 to-amber-100/90 border-b border-amber-300 px-4 py-2 flex items-center justify-between font-alexandria shadow-sm">
+                    <div className="flex items-center gap-2 text-amber-950 text-[11px] md:text-sm font-medium">
+                        <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                        <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>
+                            <strong>Simulating Agent View:</strong> You can select, deselect, and approve media on behalf of the agent.
+                        </span>
+                    </div>
+                    <Button
+                        size="sm"
+                        onClick={() => setActAsAgent(false)}
+                        className="h-6 md:h-7 px-2.5 md:px-3 text-[10px] md:text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-[6px] shadow-sm shrink-0 flex items-center gap-1 cursor-pointer border-none"
+                    >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        <span>Switch Back to Admin</span>
+                    </Button>
+                </div>
+            )}
+
+            {effectiveUserType === 'admin' && (
                 <div className="">
                     {/* {!success ? (
                                     <Button
                                         onClick={() => setOpenPayment(true)}
-                                        className={`${userType}-bg text-white hover-${userType}-bg cursor-pointer h-[32px]`}
+                                        className={`${effectiveUserType}-bg text-white hover-${effectiveUserType}-bg cursor-pointer h-[32px]`}
                                     >
                                         Add Manual Payment
                                     </Button>
@@ -1583,7 +1632,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             )}
 
-            {userType === 'agent' && (
+            {effectiveUserType === 'agent' && (
                 <div className="p-3 md:p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria">
                     {/* Left controls: grid + per-row + sort */}
                     <div className="flex items-center gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
@@ -1655,11 +1704,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">Available</span>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        {!(userType === 'agent' && (bookingToUse?.media_access === false || (bookingToUse?.service as any)?.media_access === false)) && (
+                                        {!(effectiveUserType === 'agent' && (bookingToUse?.media_access === false || (bookingToUse?.service as any)?.media_access === false)) && (
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setOpenUpgrade(true)}
-                                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
+                                                className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
                                             >
                                                 Upgrade Plan
                                             </Button>
@@ -1680,7 +1729,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             )}
 
-            {userType !== 'agent' && !isListing && (
+            {effectiveUserType !== 'agent' && !isListing && (
                 <div className="p-3 md:p-4 flex flex-row flex-nowrap justify-between items-center gap-x-2 md:gap-x-4 border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-none">
                     <div className="flex items-center gap-2 shrink-0">
                         <div className="hidden md:block">
@@ -1726,7 +1775,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         {userType !== 'vendor' && (
                             <Button
                                 onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg h-[28px] md:h-[32px] w-auto px-2 md:px-[10px] flex justify-center items-center hover-${userType}-bg text-[11px] md:text-sm`}
+                                className={`${effectiveUserType}-bg h-[28px] md:h-[32px] w-auto px-2 md:px-[10px] flex justify-center items-center hover-${effectiveUserType}-bg text-[11px] md:text-sm`}
                             >
                                 Upgrade photo package
                             </Button>
@@ -1770,7 +1819,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         onDropFiles={handleDropFiles}
                         onClickUpload={handleFileInputClick}
                         renderItem={renderFileItem}
-                        disabled={userType === 'agent'}
+                        disabled={effectiveUserType === 'agent'}
+                        userTypeOverride={effectiveUserType}
                         onSave={onSave}
                         savedFilesAction={adminSavedFilesAction}
                         modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}

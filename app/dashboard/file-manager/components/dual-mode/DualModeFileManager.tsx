@@ -25,6 +25,7 @@ interface DualModeFileManagerProps {
     selectedAction?: React.ReactNode;
     selectedSubHeader?: React.ReactNode;
     savedFilesAction?: React.ReactNode;
+    userTypeOverride?: string;
 }
 
 export function DualModeFileManager({
@@ -43,9 +44,11 @@ export function DualModeFileManager({
     unselectedSubHeader,
     selectedAction,
     selectedSubHeader,
-    savedFilesAction
+    savedFilesAction,
+    userTypeOverride
 }: DualModeFileManagerProps) {
-    const { userType } = useAppContext();
+    const { userType: contextUserType } = useAppContext();
+    const userType = userTypeOverride || contextUserType;
     const { selectionChangedUuids, isSaving, imagesPerRow: contextImagesPerRow } = useFileManagerContext();
     const imagesPerRow = contextImagesPerRow;
     const [isMobile, setIsMobile] = React.useState(false);

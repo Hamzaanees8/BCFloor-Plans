@@ -22,9 +22,10 @@ interface AddExtraDialogProps {
     onAddExtra: (label: string, squareFootage: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => void;
     defaultCategory?: "Finished" | "Subtotal" | "Other";
     tourSettings?: TourSetting[];
+    existingAreaNames?: string[];
 }
 
-export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished", tourSettings = [] }: AddExtraDialogProps) {
+export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished", tourSettings = [], existingAreaNames = [] }: AddExtraDialogProps) {
     const { userType } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
     const roleColor = appliedSettings?.[(userType as keyof typeof appliedSettings) || 'admin']?.pageTabColor || '#DC9600';
@@ -34,6 +35,8 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
     const [customTitle, setCustomTitle] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
 
+    const existingNormalized = new Set((existingAreaNames || []).map(name => (name || '').trim().toLowerCase()).filter(Boolean));
+
     // Map internal category (Finished/Other/Subtotal) to the API type string
     const categoryToApiType: Record<string, string> = {
         Finished: "Finished Area",
@@ -41,21 +44,22 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
         Other: "Other Area",
     };
 
-    // Filter tour settings to only include areas matching the current category
+    // Filter tour settings to only include areas matching the current category AND not already added in ANY category
     const filteredOptions = tourSettings.filter(
-        (s) => s.status && s.type === categoryToApiType[category]
+        (s) => s.status && s.type === categoryToApiType[category] && !existingNormalized.has((s.area || '').trim().toLowerCase())
     ).map((s) => s.area);
 
     // Always offer a Custom entry
     const dropdownOptions = [...filteredOptions, "Custom..."];
 
     const isCustom = selected === "Custom...";
-    const isValid = selected && (!isCustom || customTitle.trim() !== "") && squareFootage.trim() !== "";
+    const isDuplicateCustom = isCustom && customTitle.trim() !== "" && existingNormalized.has(customTitle.trim().toLowerCase());
+    const isValid = selected && (!isCustom || (customTitle.trim() !== "" && !isDuplicateCustom)) && squareFootage.trim() !== "";
 
     const handleSubmit = () => {
         if (!isValid) return;
-        const finalLabel = isCustom ? customTitle : selected;
-        const customKey = isCustom ? customTitle : undefined;
+        const finalLabel = isCustom ? customTitle.trim() : selected;
+        const customKey = isCustom ? customTitle.trim() : undefined;
         onAddExtra(finalLabel, Number(squareFootage), category, customKey);
 
         setSelected("");
@@ -116,8 +120,11 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
                             placeholder="Enter title"
                             value={customTitle}
                             onChange={(e) => setCustomTitle(e.target.value)}
-                            className="mt-1 h-[42px] border border-[#7d7d7d]"
+                            className={`mt-1 h-[42px] border ${isDuplicateCustom ? 'border-red-500 focus-visible:ring-red-500' : 'border-[#7d7d7d]'}`}
                         />
+                        {isDuplicateCustom && (
+                            <p className="text-xs text-red-500 mt-1">This area has already been added.</p>
+                        )}
                     </div>
                     <div>
                         <label className="text-[16px] font-[400] text-[#666]">Square Footage</label>
