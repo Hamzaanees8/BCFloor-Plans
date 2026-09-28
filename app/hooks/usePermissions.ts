@@ -80,7 +80,8 @@ export function usePermissions() {
         if (typeof window === "undefined") return true;
         try {
             const userType = localStorage.getItem("userType");
-            if (userType !== "admin" && userType !== "co_agent") return false;
+            const isSub = userType === "co_agent" || userType === "agent_admin" || userType === "assistant";
+            if (userType !== "admin" && !isSub) return false;
 
             const userInfoStr = localStorage.getItem("userInfo");
             if (userInfoStr) {
@@ -127,6 +128,13 @@ export function usePermissions() {
                 const userType = localStorage.getItem("userType");
                 const userInfoStr = localStorage.getItem("userInfo");
                 const token = localStorage.getItem("token");
+
+                const parsedUserInfo = userInfoStr ? JSON.parse(userInfoStr) : null;
+                const isSubAccountUser =
+                    userType === "co_agent" ||
+                    userType === "agent_admin" ||
+                    userType === "assistant" ||
+                    Boolean(parsedUserInfo?.agent_id || parsedUserInfo?.data?.agent_id || parsedUserInfo?.agent_type || parsedUserInfo?.data?.agent_type);
 
                 if (userType === "admin" && userInfoStr) {
                     const userInfo = JSON.parse(userInfoStr);
@@ -178,7 +186,7 @@ export function usePermissions() {
                         // Update localStorage with fresh user data (which includes permissions)
                         localStorage.setItem("userInfo", JSON.stringify(userData));
                     }
-                } else if (userType === "co_agent" && userInfoStr) {
+                } else if (isSubAccountUser && userInfoStr) {
                     const userInfo = JSON.parse(userInfoStr);
                     const resolved = userInfo?.resolved_permissions || userInfo?.data?.resolved_permissions;
                     if (Array.isArray(resolved) && resolved.length > 0 && typeof resolved[0] === "object") {
@@ -199,7 +207,7 @@ export function usePermissions() {
                             return;
                         }
 
-                        // If rawPerms is an array of IDs like ["3", "64", "66"], resolve from API
+                        // If rawPerms is an array of IDs like ["3", "64", "65"], resolve from API
                         if (token) {
                             try {
                                 const allPermsRes = await GetPermissions(token);
@@ -217,7 +225,7 @@ export function usePermissions() {
                                 }
                                 return;
                             } catch (permErr) {
-                                console.error("Failed to resolve co-agent permissions from API:", permErr);
+                                console.error("Failed to resolve subaccount permissions from API:", permErr);
                             }
                         }
                     }

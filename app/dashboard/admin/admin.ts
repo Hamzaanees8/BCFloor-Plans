@@ -6,6 +6,7 @@ export interface UserPayload {
     email?: string;
     secondary_email?: string;
     notification_email?: number | boolean | string;
+    email_type?: string;
     primary_phone?: string;
     secondary_phone?: string;
     company_name?: string;

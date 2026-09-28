@@ -4,6 +4,9 @@ export interface AgentPayload {
   first_name: string;
   last_name: string;
   email: string;
+  secondary_email?: string;
+  notification_email?: number | boolean | string;
+  email_type?: string;
   email_cc?: string;
   primary_phone?: string;
   secondary_phone?: string;

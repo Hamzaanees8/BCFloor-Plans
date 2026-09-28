@@ -219,36 +219,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
-  const isCoAgent = userType === "co_agent" || (userType === "agent" && agentType === "co_agent");
+  const isSubAccount =
+    userType === "co_agent" ||
+    userType === "agent_admin" ||
+    userType === "assistant" ||
+    Boolean(userInfo?.agent_id || userInfo?.data?.agent_id) ||
+    (userType === "agent" && (agentType === "co_agent" || agentType === "agent_admin" || agentType === "assistant"));
+  const isAgentOrSubAccount = userType === "agent" || isSubAccount;
 
   const filteredNavMain = data.navMain
     .filter((group) => {
-      // Hide entire PEOPLE group for agents and co-agents
-      return !((userType === "agent" || userType === "co_agent") && group.title === "PEOPLE");
+      // Hide entire PEOPLE group for agents and sub-accounts
+      return !(isAgentOrSubAccount && group.title === "PEOPLE");
     })
     .map((group) => ({
       ...group,
       title:
-        (userType === "agent" || userType === "co_agent" || userType === "vendor") && group.title === "GENERAL"
+        (isAgentOrSubAccount || userType === "vendor") && group.title === "GENERAL"
           ? "SETTINGS"
           : group.title,
       items: group.items
         .filter((item) => {
-          // Matterport visibility: Admin & Co-Agent
-          if (item.url === "/dashboard/matterport" && userType !== "admin" && !isCoAgent) {
-            return false;
-          }
-
-          // Customer billing (Admin/Agent/Co-Agent)
-          if (
-            item.url === "/dashboard/billing" &&
-            userType !== "admin" &&
-            userType !== "agent" &&
-            !isCoAgent
-          ) {
-            return false;
-          }
-
           // Vendor Billing (Admin or Vendor)
           if (
             item.url === "/dashboard/vendor-billing" &&
@@ -345,81 +336,81 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             }
           }
 
-          // Restricted sections for agents and co-agents
-          if (userType === "agent" || userType === "co_agent") {
-            // Permission-based navigation for Co-Agents (same permission checks as admin)
-            if (isCoAgent) {
-              // Settings is always accessible (profile/branding)
-              if (
-                item.url === "/dashboard/settings" ||
-                item.url === "/dashboard/global-settings"
-              ) {
-                return true;
-              }
+          // Dynamic permissions for Sub-Accounts (Co-Agent, Assistant, Agent Admin)
+          if (isSubAccount) {
+            const canViewPropertiesAndOrders =
+              hasPermission(PERMISSIONS.VIEW_LISTING) ||
+              hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) ||
+              hasPermission(PERMISSIONS.VIEW_ALL_APPOINTMENTS) ||
+              hasPermission(PERMISSIONS.VIEW_ONLY_APPOINTMENTS_FOR_CO_AGENT) ||
+              hasPermission(PERMISSIONS.VIEW_ORDERS) ||
+              hasPermission(PERMISSIONS.VIEW_ALL_ORDERS) ||
+              hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT) ||
+              hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) ||
+              hasPermission(PERMISSIONS.CREATE_ORDERS);
 
-              // Calendar always accessible
-              if (item.url === "/dashboard/calendar") {
-                return true;
-              }
-
-              // All other items are permission-gated
-              if (
-                item.url === "/dashboard/listings" &&
-                !hasPermission(PERMISSIONS.VIEW_LISTING)
-              ) {
-                return false;
-              }
-
-              if (
-                item.url === "/dashboard/orders" &&
-                !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) &&
-                !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT)
-              ) {
-                return false;
-              }
-
-              if (
-                item.url === "/dashboard/billing" &&
-                !hasPermission(PERMISSIONS.ACCESS_BILLING)
-              ) {
-                return false;
-              }
-
-              if (
-                item.url === "/dashboard/matterport" &&
-                !hasPermission(PERMISSIONS.VIEW_LISTING)
-              ) {
-                return false;
-              }
-
-              if (
-                item.url === "/dashboard/notifications" &&
-                !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
-              ) {
-                return false;
-              }
-
-              // Always hide these — co-agents never manage agents, vendors, services, or admin
-              const alwaysHidden = [
-                "/dashboard/admin",
-                "/dashboard/services",
-                "/dashboard/agents",
-                "/dashboard/vendors",
-                "/dashboard/vendor-billing",
-                "/dashboard/admin/print-requests",
-              ];
-              if (alwaysHidden.includes(item.url)) {
-                return false;
-              }
-
+            // Settings is always accessible (profile/branding)
+            if (
+              item.url === "/dashboard/settings" ||
+              item.url === "/dashboard/global-settings"
+            ) {
               return true;
             }
 
+            // Calendar
+            if (item.url === "/dashboard/calendar") {
+              return true;
+            }
+
+            // Listings
+            if (item.url === "/dashboard/listings") {
+              return canViewPropertiesAndOrders;
+            }
+
+            // Matterport / 3D
+            if (item.url === "/dashboard/matterport") {
+              return canViewPropertiesAndOrders;
+            }
+
+            // Billing
+            if (item.url === "/dashboard/billing") {
+              return hasPermission(PERMISSIONS.ACCESS_BILLING);
+            }
+
+            // Orders / Appointments
+            if (item.url === "/dashboard/orders") {
+              return canViewPropertiesAndOrders;
+            }
+
+            if (item.url === "/dashboard/notifications") {
+              return hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS);
+            }
+
+            // Always hide super-admin modules for sub-accounts
+            const alwaysHidden = [
+              "/dashboard/admin",
+              "/dashboard/services",
+              "/dashboard/agents",
+              "/dashboard/vendors",
+              "/dashboard/vendor-billing",
+              "/dashboard/admin/print-requests",
+            ];
+            if (alwaysHidden.includes(item.url)) {
+              return false;
+            }
+
+            return true;
+          }
+
+          // Primary Agent
+          if (userType === "agent") {
             const restrictedUrls = [
               "/dashboard/admin",
               "/dashboard/services",
               "/dashboard/agents",
               "/dashboard/vendors",
+              "/dashboard/vendor-billing",
+              "/dashboard/admin/print-requests",
             ];
             return !restrictedUrls.includes(item.url);
           }
@@ -435,12 +426,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return true;
         })
         .map((item) => {
-          // Rename Global Settings to Settings for agents and vendors
+          // Rename Global Settings to Settings for agents, sub-accounts, and vendors
           if (
-            (userType === "agent" || userType === "co_agent" || userType === "vendor") &&
+            (isAgentOrSubAccount || userType === "vendor") &&
             item.url === "/dashboard/global-settings"
           ) {
-            return { ...item, title: isCoAgent ? "Profile & Branding" : "Settings", url: "/dashboard/settings" };
+            return { ...item, title: "Settings", url: "/dashboard/settings" };
           }
           return item;
         }),

@@ -31,8 +31,12 @@ interface AppointmentTab {
 }
 export interface CoAgent {
     name: string;
-    email?: string
+    email?: string;
     contact?: string;
+    primary_phone?: string;
+    split?: number | string;
+    split_percentage?: number | string;
+    percentage?: number | string;
 }
 interface Notes {
     name: string;
@@ -364,36 +368,45 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                                     />
                                 </div>
                                 {coAgent && coAgent?.map((agent, idx) => {
-                                    return <div key={idx} className='col-span-5 grid grid-cols-5 gap-[16px]'>
-                                        <div className='col-span-2'>
-                                            <label htmlFor="">Co-Agent Name</label>
+                                    const splitVal = agent.split ?? (agent as any).split_percentage ?? (agent as any).percentage;
+                                    return <div key={idx} className='col-span-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-[16px] p-2 bg-gray-50 rounded border border-gray-200 mt-2'>
+                                        <div className='md:col-span-2'>
+                                            <label className="text-xs text-gray-600">Co-Agent Name</label>
                                             <Input
                                                 readOnly
                                                 value={agent.name}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
                                                 type="text"
                                             />
-
                                         </div>
-                                        <div className='col-span-1'>
-                                            <label htmlFor="">Contact Number</label>
+                                        <div className='md:col-span-1'>
+                                            <label className="text-xs text-gray-600">Contact Number</label>
                                             <Input
                                                 readOnly
-                                                value={agent.contact ? agent.contact : ''}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                type="number"
+                                                value={agent.contact ? agent.contact : ((agent as any).primary_phone || '')}
+                                                className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
+                                                type="text"
                                             />
-
                                         </div>
-                                        <div className='col-span-2'>
-                                            <label htmlFor="">Co-agent Email</label>
+                                        <div className='md:col-span-2'>
+                                            <label className="text-xs text-gray-600">Co-agent Email</label>
                                             <Input
                                                 readOnly
-                                                value={agent.email}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                value={agent.email || ''}
+                                                className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
                                                 type="email"
                                             />
-                                        </div></div>
+                                        </div>
+                                        <div className='md:col-span-1'>
+                                            <label className="text-xs text-gray-600">Split (%)</label>
+                                            <Input
+                                                readOnly
+                                                value={splitVal != null ? `${splitVal}%` : '—'}
+                                                className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium font-mono"
+                                                type="text"
+                                            />
+                                        </div>
+                                    </div>
                                 })}
 
                                 <div className='col-span-5 h-[50%] grid-rows-2 grid-cols-2 self-end justify-self-end flex items-center'>

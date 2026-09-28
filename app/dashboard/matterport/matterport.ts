@@ -98,6 +98,9 @@ export interface MatterportAd {
   brandedLink?: string;
   unbrandedLink?: string;
   propertyThumbnail?: string;
+  agentId?: number;
+  agentUuid?: string;
+  coAgents?: any[];
 }
 
 export async function GetMatterPort(token: string, status = "all", search = "") {
@@ -218,11 +221,25 @@ export const mapMatterportApiToAd = (
     }
   }
 
+  const rawCo = orderObj?.co_agents || orderObj?.coagents || orderObj?.property?.co_agents;
+  let coAgentsList: any[] = [];
+  if (Array.isArray(rawCo)) {
+    coAgentsList = rawCo;
+  } else if (typeof rawCo === "string") {
+    try {
+      const parsed = JSON.parse(rawCo);
+      if (Array.isArray(parsed)) coAgentsList = parsed;
+    } catch {}
+  }
+
   return {
     tourUuid: apiItem.uuid,
     tourId: apiItem.id,
     agentName: `${orderObj?.agent?.first_name ?? "N/A"} ${orderObj?.agent?.last_name ?? ""}`.trim(),
     agentEmail: orderObj?.agent?.email,
+    agentId: orderObj?.agent_id || orderObj?.agent?.id,
+    agentUuid: orderObj?.agent?.uuid,
+    coAgents: coAgentsList,
     orderNumber: orderObj?.id ? `#${orderObj.id}` : "",
     orderuud: orderObj?.uuid ?? "",
     propertyuuid: orderObj?.property?.uuid ?? "",

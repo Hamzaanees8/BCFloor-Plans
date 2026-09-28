@@ -27,6 +27,7 @@ import MobileMatterportList from "@/components/mobile/matterport/MobileMatterpor
 import MatterportRenewModal from "@/components/MatterportRenewModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { isUserCoAgent } from "@/lib/permissions";
 
 const CopyableLink = ({ url }: { url: string }) => {
   const [copied, setCopied] = useState(false);
@@ -92,6 +93,20 @@ const MatterportPage = () => {
   const [selectedTourForRenewal, setSelectedTourForRenewal] = useState<MatterportAd | null>(null);
   const [renewalModalOpen, setRenewalModalOpen] = useState<boolean>(false);
   const [sendingReminderUuid, setSendingReminderUuid] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("userInfo");
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const isCoAgent = isUserCoAgent(currentUser, userType);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -198,8 +213,45 @@ const MatterportPage = () => {
       );
     }
 
+    if (isCoAgent && currentUser) {
+      const userEmail = (
+        currentUser.primary_email ||
+        currentUser.email ||
+        currentUser.data?.primary_email ||
+        currentUser.data?.email ||
+        ""
+      ).toLowerCase().trim();
+      const userUuid = currentUser.uuid || currentUser.data?.uuid;
+      const userId = currentUser.id || currentUser.data?.id;
+      const userName = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.toLowerCase().trim();
+
+      result = result.filter((item) => {
+        // 1. Is user the primary agent?
+        const isPrimary =
+          (userUuid && item.agentUuid === userUuid) ||
+          (userId && item.agentId && String(item.agentId) === String(userId)) ||
+          (userEmail && item.agentEmail?.toLowerCase() === userEmail);
+
+        // 2. Is user listed in coAgents?
+        const isShared = (item.coAgents || []).some((ca: any) => {
+          if (!ca) return false;
+          const caEmail = (ca.email || (typeof ca === "string" ? ca : "")).toLowerCase().trim();
+          const caName = (ca.name || `${ca.first_name || ""} ${ca.last_name || ""}`).toLowerCase().trim();
+          const caId = ca.agent_id || ca.id || ca.uuid;
+          return (
+            (userEmail && caEmail && caEmail === userEmail) ||
+            (userName && caName && (caName === userName || userName.includes(caName) || caName.includes(userName))) ||
+            (userUuid && caId && String(caId) === String(userUuid)) ||
+            (userId && caId && String(caId) === String(userId))
+          );
+        });
+
+        return isPrimary || isShared;
+      });
+    }
+
     return result;
-  }, [matterports, filter, addressFilter, orgFilter]);
+  }, [matterports, filter, addressFilter, orgFilter, isCoAgent, currentUser]);
 
   const columns = useMemo<ColumnDef<MatterportAd>[]>(() => {
     const cols: ColumnDef<MatterportAd>[] = [

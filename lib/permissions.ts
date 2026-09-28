@@ -109,3 +109,92 @@ export function getUserPermissions(): Permission[] {
     const userInfo = getUserInfo();
     return userInfo?.permissions || [];
 }
+
+/**
+ * Robust check if the current user is an Assistant or Agent Admin
+ * (or any sub-account with full parent agent data access).
+ * Handles both newly enriched and legacy session payloads.
+ */
+export function isUserAssistantOrAdmin(userInfo?: any, userType?: string | null): boolean {
+    if (!userInfo && typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem("userInfo");
+            if (raw) userInfo = JSON.parse(raw);
+        } catch {
+            userInfo = null;
+        }
+    }
+    const u = userInfo?.data || userInfo || {};
+    const storedType = typeof window !== "undefined" ? localStorage.getItem("userType") : null;
+    const currentType = (userType || storedType || "").toLowerCase();
+
+    const roleId = Number(u.role_id || u.role?.id || u.data?.role_id || u.data?.role?.id || 0);
+    const roleName = String(u.role?.name || u.role_name || u.data?.role?.name || "").toLowerCase();
+    const agentType = String(u.agent_type || u.data?.agent_type || "").toLowerCase();
+    const firstName = String(u.first_name || u.data?.first_name || "").toLowerCase();
+    const lastName = String(u.last_name || u.data?.last_name || "").toLowerCase();
+    const email = String(u.primary_email || u.email || u.data?.primary_email || u.data?.email || "").toLowerCase();
+
+    // 1. Explicit assistant / admin role, name, email or type
+    if (
+        currentType === "agent_admin" ||
+        currentType === "assistant" ||
+        agentType === "agent_admin" ||
+        agentType === "assistant" ||
+        roleId === 6 || // Assistant role_id
+        roleId === 5 || // Agent Admin role_id
+        roleName.includes("assistant") ||
+        roleName.includes("admin") ||
+        firstName.includes("assistant") ||
+        firstName.includes("assistan") ||
+        lastName.includes("assistant") ||
+        lastName.includes("assistan") ||
+        email.includes("assistant") ||
+        email.includes("admin")
+    ) {
+        return true;
+    }
+
+    // 2. If this is a SubAccount (agent_id exists indicating sub-account of parent agent)
+    // and is NOT role 4 (co-agent), treat as assistant/admin with full parent access
+    const agentId = u.agent_id || u.data?.agent_id;
+    if (agentId && roleId !== 4 && !roleName.includes("co agent") && !roleName.includes("co-agent") && !roleName.includes("co_agent")) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Robust check if the current user is restricted to co-agent ownership/splits.
+ */
+export function isUserCoAgent(userInfo?: any, userType?: string | null): boolean {
+    if (isUserAssistantOrAdmin(userInfo, userType)) {
+        return false;
+    }
+    if (!userInfo && typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem("userInfo");
+            if (raw) userInfo = JSON.parse(raw);
+        } catch {
+            userInfo = null;
+        }
+    }
+    const u = userInfo?.data || userInfo || {};
+    const storedType = typeof window !== "undefined" ? localStorage.getItem("userType") : null;
+    const currentType = (userType || storedType || "").toLowerCase();
+
+    const roleId = Number(u.role_id || u.role?.id || u.data?.role_id || u.data?.role?.id || 0);
+    const roleName = String(u.role?.name || u.role_name || u.data?.role?.name || "").toLowerCase();
+    const agentType = String(u.agent_type || u.data?.agent_type || "").toLowerCase();
+
+    return (
+        currentType === "co_agent" ||
+        agentType === "co_agent" ||
+        roleId === 4 ||
+        roleName.includes("co agent") ||
+        roleName.includes("co-agent") ||
+        roleName.includes("co_agent")
+    );
+}
+

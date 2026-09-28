@@ -130,6 +130,46 @@ export default function DynamicMap({
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const geocodeRequestId = useRef(0);
+  const lastGeocodedAddressRef = useRef<string>('');
+  const onMapSettingsChangeRef = useRef(onMapSettingsChange);
+  onMapSettingsChangeRef.current = onMapSettingsChange;
+
+  const markerPositionRef = useRef(markerPosition);
+  markerPositionRef.current = markerPosition;
+  const centerRef = useRef(center);
+  centerRef.current = center;
+  const currentZoomRef = useRef(currentZoom);
+  currentZoomRef.current = currentZoom;
+  const currentMapTypeRef = useRef(currentMapType);
+  currentMapTypeRef.current = currentMapType;
+
+  const emitMapSettings = useCallback(
+    (override?: Partial<MapSettings>) => {
+      if (!interactive || !onMapSettingsChangeRef.current) return;
+      const currentLat = override?.lat ?? markerPositionRef.current.lat;
+      const currentLng = override?.lng ?? markerPositionRef.current.lng;
+      const zoomVal = override?.zoom ?? mapRef.current?.getZoom() ?? currentZoomRef.current;
+      const mapTypeVal =
+        override?.mapType ??
+        ((typeof mapRef.current?.getMapTypeId() === 'string'
+          ? mapRef.current?.getMapTypeId()
+          : currentMapTypeRef.current) as string);
+      const cLat =
+        override?.centerLat ?? (mapRef.current?.getCenter()?.lat() ?? centerRef.current.lat);
+      const cLng =
+        override?.centerLng ?? (mapRef.current?.getCenter()?.lng() ?? centerRef.current.lng);
+
+      onMapSettingsChangeRef.current({
+        lat: currentLat,
+        lng: currentLng,
+        zoom: zoomVal,
+        mapType: mapTypeVal,
+        centerLat: cLat,
+        centerLng: cLng,
+      });
+    },
+    [interactive]
+  );
 
   // Synchronize when explicit coordinate / settings props change externally
   useEffect(() => {
@@ -169,29 +209,6 @@ export default function DynamicMap({
     }
   }, [mapTypeId]);
 
-  // Notify parent of changes in interactive mode
-  const emitMapSettings = useCallback(
-    (overrides?: Partial<MapSettings>) => {
-      if (!interactive || !onMapSettingsChange) return;
-
-      const currentC = mapRef.current?.getCenter();
-      const currentZ = mapRef.current?.getZoom() ?? currentZoom;
-      const currentT = mapRef.current?.getMapTypeId() ?? currentMapType;
-
-      const newSettings: MapSettings = {
-        lat: overrides?.lat ?? markerPosition.lat,
-        lng: overrides?.lng ?? markerPosition.lng,
-        zoom: overrides?.zoom ?? currentZ,
-        mapType: overrides?.mapType ?? (typeof currentT === 'string' ? currentT : 'roadmap'),
-        centerLat: overrides?.centerLat ?? (currentC ? currentC.lat() : center.lat),
-        centerLng: overrides?.centerLng ?? (currentC ? currentC.lng() : center.lng),
-      };
-
-      onMapSettingsChange(newSettings);
-    },
-    [interactive, onMapSettingsChange, markerPosition, currentZoom, currentMapType, center]
-  );
-
   // Forward geocode fallback when address props change and no custom coordinates are present
   const forwardGeocode = useCallback(() => {
     if (hasExplicitCoords) return;
@@ -205,8 +222,9 @@ export default function DynamicMap({
     }
 
     const fullAddress = [trimmedAddress, trimmedCity, province, country].filter(Boolean).join(', ');
-    if (!fullAddress) return;
+    if (!fullAddress || fullAddress === lastGeocodedAddressRef.current) return;
 
+    lastGeocodedAddressRef.current = fullAddress;
     const currentReqId = ++geocodeRequestId.current;
     setIsGeocoding(true);
 
@@ -229,10 +247,12 @@ export default function DynamicMap({
             mapRef.current.setCenter(location);
           }
 
-          if (interactive && onMapSettingsChange) {
-            emitMapSettings({
+          if (interactive && onMapSettingsChangeRef.current) {
+            onMapSettingsChangeRef.current({
               lat: location.lat,
               lng: location.lng,
+              zoom: mapRef.current?.getZoom() ?? 15,
+              mapType: (typeof mapRef.current?.getMapTypeId() === 'string' ? mapRef.current.getMapTypeId() : 'roadmap') as string,
               centerLat: location.lat,
               centerLng: location.lng,
             });
@@ -244,7 +264,7 @@ export default function DynamicMap({
           setIsGeocoding(false);
         }
       });
-  }, [address, city, province, country, hasExplicitCoords, interactive, onMapSettingsChange, emitMapSettings]);
+  }, [address, city, province, country, hasExplicitCoords, interactive]);
 
   // When address changes and no explicit coords are set yet, geocode address
   useEffect(() => {
@@ -256,6 +276,7 @@ export default function DynamicMap({
   // If resetKey changes (e.g. user requested reset), revert pin to geocoded address
   useEffect(() => {
     if (resetKey !== undefined && resetKey > 0) {
+      lastGeocodedAddressRef.current = '';
       forwardGeocode();
     }
   }, [resetKey, forwardGeocode]);

@@ -151,9 +151,10 @@ const OrdersForm = () => {
         GetRole(token)
             .then(data => {
                 if (Array.isArray(data.data)) {
-                    const filtered = data.data.filter((role: { name: string }) =>
-                        role.name.toLowerCase() === 'co agent' || role.name.toLowerCase() === 'assistant' || role.name.toLowerCase() === 'admin'
-                    );
+                    const filtered = data.data.filter((role: { name: string }) => {
+                        const n = role.name.toLowerCase();
+                        return n === 'co agent' || n === 'assistant' || n === 'admin' || n === 'agent admin' || n === 'agent-admin';
+                    });
                     setRoles(filtered);
                 } else {
                     setRoles([]);
@@ -345,7 +346,7 @@ const OrdersForm = () => {
 
         let newPermissions: number[] = [];
 
-        if (roleName === 'admin') {
+        if (roleName === 'admin' || roleName === 'agent admin' || roleName === 'agent-admin') {
             newPermissions = permissions.map((p) => Number(p.id));
         } else if (roleName === 'co agent') {
             const allowed = ['book appointments', 'edit appointments', 'view only appointments for co-agent'];
@@ -877,7 +878,7 @@ const OrdersForm = () => {
                                                     <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                     <Input value={primaryPhone}
                                                         onChange={(e) => {
-                                                            setPrimaryPhone(e.target.value);
+                                                            setPrimaryPhone(formatPhoneNumber(e.target.value));
                                                             if (fieldErrors.primary_phone) {
                                                                 setFieldErrors(prev => {
                                                                     const newErrors = { ...prev };
@@ -886,6 +887,13 @@ const OrdersForm = () => {
                                                                 });
                                                             }
                                                         }}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value.trim();
+                                                            if (val && !isValidPhoneNumber(val)) {
+                                                                setFieldErrors(prev => ({ ...prev, primary_phone: ["Invalid phone number. Example: +1 (204) 345-3456"] }));
+                                                            }
+                                                        }}
+                                                        placeholder="+1 (604) 555-0123"
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_phone ? 'border-red-500' : ''}`} type="text" />
                                                     {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
                                                 </div>
@@ -902,6 +910,13 @@ const OrdersForm = () => {
                                                                 });
                                                             }
                                                         }}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value.trim();
+                                                            if (val && !isValidPhoneNumber(val)) {
+                                                                setFieldErrors(prev => ({ ...prev, secondary_phone: ["Invalid phone number. Example: +1 (204) 345-3456"] }));
+                                                            }
+                                                        }}
+                                                        placeholder="+1 (604) 555-0123"
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.secondary_phone ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
                                                     {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.secondary_phone[0]}</p>}
                                                 </div>
@@ -1234,7 +1249,7 @@ const OrdersForm = () => {
                                                 <SelectContent>
                                                     {roles?.map((role) => (
                                                         <SelectItem key={role.id} value={String(role.id)}>
-                                                            {role.name}
+                                                            {role.name.toLowerCase() === 'admin' || role.name.toLowerCase() === 'agent admin' || role.name.toLowerCase() === 'agent-admin' ? 'Agent-Admin' : role.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

@@ -28,6 +28,7 @@ import { Get as GetAgents } from "@/app/dashboard/agents/agents";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileListingsList from "@/components/mobile/listings/MobileListingsList";
 import { getCoListingStatus } from "./utils/coListingHelper";
+import { isUserCoAgent } from "@/lib/permissions";
 const getLatestOrder = (orders?: any[]) => {
   if (!orders || orders.length === 0) return null;
   return [...orders].sort(
@@ -159,6 +160,20 @@ const Page = () => {
     () => new Set(pendingApprovalMap.keys()),
     [pendingApprovalMap]
   );
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("userInfo");
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const isCoAgent = isUserCoAgent(currentUser, userType);
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
@@ -398,6 +413,76 @@ const Page = () => {
 
       const matchesAgent =
         agentFilter === "" || listing.agent?.uuid === agentFilter;
+
+      // Co-Agent restriction: only see own properties + shared properties
+      if (isCoAgent && currentUser) {
+        const userEmail = (
+          currentUser.primary_email ||
+          currentUser.email ||
+          currentUser.data?.primary_email ||
+          currentUser.data?.email ||
+          ""
+        ).toLowerCase().trim();
+        const userUuid = currentUser.uuid || currentUser.data?.uuid;
+        const userId = currentUser.id || currentUser.data?.id;
+        const userName = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.toLowerCase().trim();
+
+        // 1. Is user the primary agent?
+        const isPrimary =
+          (userUuid && listing.agent?.uuid === userUuid) ||
+          (userId && String(listing.agent_id) === String(userId)) ||
+          (userEmail && listing.agent?.email?.toLowerCase() === userEmail);
+
+        // 2. Is user listed in co_agents?
+        const rawCoAgents =
+          (listing as any).co_agents ||
+          (listing as any).property?.co_agents ||
+          (listing as any).coagents ||
+          [];
+        let coAgentsList: any[] = [];
+        if (Array.isArray(rawCoAgents)) {
+          coAgentsList = rawCoAgents;
+        } else if (typeof rawCoAgents === "string") {
+          try {
+            const parsed = JSON.parse(rawCoAgents);
+            if (Array.isArray(parsed)) coAgentsList = parsed;
+          } catch {}
+        }
+        if (coAgentsList.length === 0 && Array.isArray(listing.orders)) {
+          for (const ord of listing.orders) {
+            const ordCo = (ord as any).co_agents || (ord as any).coagents;
+            if (Array.isArray(ordCo) && ordCo.length > 0) {
+              coAgentsList = ordCo;
+              break;
+            } else if (typeof ordCo === "string") {
+              try {
+                const parsed = JSON.parse(ordCo);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  coAgentsList = parsed;
+                  break;
+                }
+              } catch {}
+            }
+          }
+        }
+
+        const isShared = coAgentsList.some((ca: any) => {
+          if (!ca) return false;
+          const caEmail = (ca.email || (typeof ca === "string" ? ca : "")).toLowerCase().trim();
+          const caName = (ca.name || `${ca.first_name || ""} ${ca.last_name || ""}`).toLowerCase().trim();
+          const caId = ca.agent_id || ca.id || ca.uuid;
+          return (
+            (userEmail && caEmail && caEmail === userEmail) ||
+            (userName && caName && (caName === userName || userName.includes(caName) || caName.includes(userName))) ||
+            (userUuid && caId && String(caId) === String(userUuid)) ||
+            (userId && caId && String(caId) === String(userId))
+          );
+        });
+
+        if (!isPrimary && !isShared) {
+          return false;
+        }
+      }
 
       return matchesSearch && matchesStatus && matchesTour && matchesAgent;
     })

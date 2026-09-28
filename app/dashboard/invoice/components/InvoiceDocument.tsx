@@ -139,6 +139,71 @@ const InvoiceDocument = ({
   const rawTaxNumber = displayData.tax_number || currentVendorDetails.tax_number || invoice.tax_number || invoice.vendor?.tax_number || invoice.vendor?.settings?.tax_number || "";
   const displayTaxNumber = cleanTaxNumber(rawTaxNumber);
 
+  // Split invoice extraction
+  const rawCo = invoice.order?.co_agents || invoice.co_agents || invoice.order?.coagents;
+  let coAgentsList: any[] = [];
+  if (Array.isArray(rawCo)) {
+    coAgentsList = rawCo;
+  } else if (typeof rawCo === "string") {
+    try {
+      const parsed = JSON.parse(rawCo);
+      if (Array.isArray(parsed)) coAgentsList = parsed;
+    } catch {}
+  }
+
+  const isSplitInvoice =
+    Boolean(invoice.split_details) ||
+    Boolean(invoice.split_invoice) ||
+    Boolean(invoice.order?.split_invoice) ||
+    coAgentsList.some((ca: any) => Number(ca.split || ca.split_percentage || ca.percentage || 0) > 0);
+
+  let splitParticipants: {
+    name: string;
+    email: string;
+    role: string;
+    percentage: number;
+    amount: number;
+  }[] = [];
+
+  if (invoice.split_details?.splits && Array.isArray(invoice.split_details.splits)) {
+    splitParticipants = invoice.split_details.splits.map((s: any) => {
+      const pct = Number(s.percentage || s.split || 0);
+      const amt = s.amount != null ? Number(s.amount) : grandTotal * (pct / 100);
+      return {
+        name: s.name || (s.first_name ? `${s.first_name} ${s.last_name || ''}`.trim() : (s.type === 'primary' ? 'Primary Agent' : 'Co-Agent')),
+        email: s.email || '',
+        role: s.type === 'primary' ? 'Primary Agent' : 'Co-Agent',
+        percentage: pct,
+        amount: amt,
+      };
+    });
+  } else if (isSplitInvoice && coAgentsList.length > 0) {
+    const totalCoSplit = coAgentsList.reduce(
+      (acc, ca) => acc + Number(ca.split || ca.split_percentage || ca.percentage || 0),
+      0
+    );
+    const primarySplit = Math.max(0, 100 - totalCoSplit);
+
+    splitParticipants.push({
+      name: `${invoice.agent?.first_name || ''} ${invoice.agent?.last_name || ''}`.trim() || 'Primary Agent',
+      email: invoice.agent?.email || '',
+      role: 'Primary Agent',
+      percentage: primarySplit,
+      amount: grandTotal * (primarySplit / 100),
+    });
+
+    coAgentsList.forEach((ca: any) => {
+      const pct = Number(ca.split || ca.split_percentage || ca.percentage || 0);
+      splitParticipants.push({
+        name: ca.name || (ca.first_name ? `${ca.first_name} ${ca.last_name || ''}`.trim() : 'Co-Agent'),
+        email: ca.email || '',
+        role: 'Co-Agent',
+        percentage: pct,
+        amount: grandTotal * (pct / 100),
+      });
+    });
+  }
+
   return (
     <div
       id="invoice-download-content"
@@ -480,9 +545,16 @@ const InvoiceDocument = ({
             </div>
           ) : (
             <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-600">
-              <p className="font-bold text-gray-900">
-                {invoice.agent?.first_name} {invoice.agent?.last_name}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-bold text-gray-900">
+                  {invoice.agent?.first_name} {invoice.agent?.last_name}
+                </p>
+                {isSplitInvoice && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                    {invoice.agent_type === 'co-agent' ? 'Co-Agent Split' : 'Primary Agent Split'}
+                  </span>
+                )}
+              </div>
               <p className="flex items-start gap-2">
                 <MapPin
                   size={14}
@@ -826,6 +898,57 @@ const InvoiceDocument = ({
           </div>
         )}
       </div>
+
+      {/* Invoice Split Distribution Section */}
+      {splitParticipants.length > 0 && (
+        <div className="mt-6 p-4 rounded-lg bg-[#F8F9FA] border border-[#E0E0E0]">
+          <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
+            <h4
+              className="text-xs font-bold uppercase tracking-wider"
+              style={{ color: settings.pageTabColor }}
+            >
+              Invoice Split Distribution
+            </h4>
+            <span className="text-[11px] font-semibold text-gray-500">
+              Total 100% Split
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {splitParticipants.map((part, idx) => (
+              <div
+                key={idx}
+                className="bg-white p-3 rounded-md border border-gray-200 shadow-sm flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span
+                      className="font-bold text-xs text-gray-900 truncate"
+                      title={part.name}
+                    >
+                      {part.name}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      {part.percentage}%
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 truncate">{part.email}</p>
+                  <p className="text-[10px] text-gray-400 uppercase font-semibold">
+                    {part.role}
+                  </p>
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    Share:
+                  </span>
+                  <span className="text-xs font-bold text-gray-900">
+                    ${part.amount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Footer Totals */}
       <div className="mt-6 md:mt-12 pt-4 md:pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-stretch md:items-end gap-6 md:gap-0">

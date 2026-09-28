@@ -17,58 +17,121 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
   useEffect(() => {
     if (!userType) return;
 
+    const isSubAccount =
+      userType === "co_agent" ||
+      userType === "agent_admin" ||
+      userType === "assistant";
+
     if (
-      (userType === "agent" || userType === "co_agent") &&
-      (pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services") || pathname.startsWith("/dashboard/vendor-billing") || pathname.startsWith("/dashboard/agents") || pathname.startsWith("/dashboard/vendors"))
+      (userType === "agent" || isSubAccount) &&
+      (pathname.startsWith("/dashboard/admin") ||
+        pathname.startsWith("/dashboard/services") ||
+        pathname.startsWith("/dashboard/vendor-billing") ||
+        pathname.startsWith("/dashboard/agents") ||
+        pathname.startsWith("/dashboard/vendors"))
     ) {
       router.replace("/dashboard/calendar");
       setIsAllowed(false);
       return;
     }
 
-    if (
-      userType === "agent" &&
-      pathname.startsWith("/dashboard/billing")
-    ) {
-      setIsAllowed(true);
-      return;
-    }
+    // Dynamic Permission Checks for Sub-Accounts (Co-Agent, Assistant, Agent Admin)
+    if (isSubAccount) {
+      const canViewPropertiesAndOrders =
+        hasPermission(PERMISSIONS.VIEW_LISTING) ||
+        hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) ||
+        hasPermission(PERMISSIONS.VIEW_ALL_APPOINTMENTS) ||
+        hasPermission(PERMISSIONS.VIEW_ONLY_APPOINTMENTS_FOR_CO_AGENT) ||
+        hasPermission(PERMISSIONS.VIEW_ORDERS) ||
+        hasPermission(PERMISSIONS.VIEW_ALL_ORDERS) ||
+        hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT) ||
+        hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) ||
+        hasPermission(PERMISSIONS.CREATE_ORDERS);
 
-    // Co-agent: permission-based access control
-    if (userType === "co_agent") {
-      // Always allowed: calendar and settings/profile
+      const canCreatePropertiesAndOrders =
+        hasPermission(PERMISSIONS.CREATE_LISTING) ||
+        hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) ||
+        hasPermission(PERMISSIONS.CREATE_ORDERS);
+
+      // Settings and Global Settings are always accessible for user profile/branding
       if (
-        pathname.startsWith("/dashboard/calendar") ||
+        pathname === "/dashboard/settings" ||
         pathname.startsWith("/dashboard/settings") ||
+        pathname === "/dashboard/global-settings" ||
         pathname.startsWith("/dashboard/global-settings")
       ) {
         setIsAllowed(true);
         return;
       }
 
-      if (pathname.startsWith("/dashboard/billing") && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
-        toast.error("You do not have permission to access billing");
-        router.replace("/dashboard/settings");
-        setIsAllowed(false);
+      // Calendar Screen
+      if (pathname.startsWith("/dashboard/calendar")) {
+        setIsAllowed(true);
         return;
       }
 
-      if (pathname.startsWith("/dashboard/listings") && !hasPermission(PERMISSIONS.VIEW_LISTING)) {
-        toast.error("You do not have permission to access listings");
-        router.replace("/dashboard/settings");
-        setIsAllowed(false);
+      // Listings Screen
+      if (pathname.startsWith("/dashboard/listings")) {
+        if (!canViewPropertiesAndOrders) {
+          toast.error("You do not have permission to access listings");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+
+        if (
+          pathname.startsWith("/dashboard/listings/create") &&
+          !canCreatePropertiesAndOrders
+        ) {
+          toast.error("You do not have permission to create listings");
+          router.replace("/dashboard/listings");
+          setIsAllowed(false);
+          return;
+        }
+
+        setIsAllowed(true);
         return;
       }
 
-      if (pathname.startsWith("/dashboard/matterport") && !hasPermission(PERMISSIONS.VIEW_LISTING)) {
-        toast.error("You do not have permission to access matterport");
-        router.replace("/dashboard/settings");
-        setIsAllowed(false);
+      // File Manager Screen
+      if (pathname.startsWith("/dashboard/file-manager")) {
+        if (!canViewPropertiesAndOrders) {
+          toast.error("You do not have permission to access the file manager");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
         return;
       }
 
+      // 3D / Matterport Tours Screen
+      if (pathname.startsWith("/dashboard/matterport")) {
+        if (!canViewPropertiesAndOrders) {
+          toast.error("You do not have permission to access 3D tours");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
+        return;
+      }
+
+      // Billing Screen
+      if (pathname.startsWith("/dashboard/billing")) {
+        if (!hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+          toast.error("You do not have permission to access billing");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
+        return;
+      }
+
+      // Orders Create Screen
       if (pathname.startsWith("/dashboard/orders/create")) {
-        if (!hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) && !hasPermission(PERMISSIONS.CREATE_ORDERS)) {
+        if (!canCreatePropertiesAndOrders) {
           toast.error("You do not have permission to create orders");
           router.replace("/dashboard/settings");
           setIsAllowed(false);
@@ -78,27 +141,36 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         return;
       }
 
-      if (
-        pathname.startsWith("/dashboard/orders") &&
-        !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS) &&
-        !hasPermission(PERMISSIONS.VIEW_ONLY_ORDERS_FOR_CO_AGENT) &&
-        !hasPermission(PERMISSIONS.VIEW_ORDERS) &&
-        !hasPermission(PERMISSIONS.BOOK_APPOINTMENTS) &&
-        !hasPermission(PERMISSIONS.CREATE_ORDERS)
-      ) {
-        toast.error("You do not have permission to access orders");
-        router.replace("/dashboard/settings");
-        setIsAllowed(false);
+      // Orders Screen & Order Details
+      if (pathname.startsWith("/dashboard/orders")) {
+        if (!canViewPropertiesAndOrders) {
+          toast.error("You do not have permission to access orders");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
         return;
       }
 
-      if (pathname.startsWith("/dashboard/notifications") && !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)) {
-        toast.error("You do not have permission to access notifications");
-        router.replace("/dashboard/settings");
-        setIsAllowed(false);
+      // Notifications Screen
+      if (pathname.startsWith("/dashboard/notifications")) {
+        if (!hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)) {
+          toast.error("You do not have permission to access notifications");
+          router.replace("/dashboard/settings");
+          setIsAllowed(false);
+          return;
+        }
+        setIsAllowed(true);
         return;
       }
 
+      setIsAllowed(true);
+      return;
+    }
+
+    // Primary Agent: full access to agent screens
+    if (userType === "agent") {
       setIsAllowed(true);
       return;
     }

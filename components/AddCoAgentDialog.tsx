@@ -9,6 +9,7 @@ import { DropDownArrow } from "./Icons"
 import { useAppContext } from "@/app/context/AppContext"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Button } from "./ui/button"
+import { isValidEmail, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils"
 
 type Props = {
     open: boolean;
@@ -45,8 +46,9 @@ const AddCoAgentDialog: React.FC<Props> = ({
         if (open && agent) {
             setName(agent.name || '');
             setEmail(agent.email || '');
-            setPhoneNumber(agent.primary_phone || '');
+            setPhoneNumber(agent.primary_phone ? formatPhoneNumber(agent.primary_phone) : '');
             setInvoice(agent.split || '');
+            setFieldErrors({});
         } else if (open && !agent) {
             // Reset fields when opening in "Add" mode
             setName('');
@@ -93,6 +95,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                                     setFieldErrors(newErrors);
                                                 }
                                             }}
+                                            placeholder="Full Name"
                                             className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.name ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             type="text" />
@@ -109,6 +112,13 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                                     setFieldErrors(newErrors);
                                                 }
                                             }}
+                                            onBlur={(e) => {
+                                                const val = e.target.value.trim();
+                                                if (val && !isValidEmail(val)) {
+                                                    setFieldErrors(prev => ({ ...prev, email: ["Invalid email address"] }));
+                                                }
+                                            }}
+                                            placeholder="coagent@email.com"
                                             className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             type="email" />
@@ -118,16 +128,23 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                         <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Phone Number <span className="text-red-500">*</span></label>
                                         <Input value={phoneNumber}
                                             onChange={(e) => {
-                                                setPhoneNumber(e.target.value);
+                                                setPhoneNumber(formatPhoneNumber(e.target.value));
                                                 if (fieldErrors.phoneNumber) {
                                                     const newErrors = { ...fieldErrors };
                                                     delete newErrors.phoneNumber;
                                                     setFieldErrors(newErrors);
                                                 }
                                             }}
+                                            onBlur={(e) => {
+                                                const val = e.target.value.trim();
+                                                if (val && !isValidPhoneNumber(val)) {
+                                                    setFieldErrors(prev => ({ ...prev, phoneNumber: ["Invalid phone number. Example: +1 (204) 345-3456"] }));
+                                                }
+                                            }}
+                                            placeholder="+1 (604) 555-0123"
                                             className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.phoneNumber ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                            type="number" />
+                                            type="text" />
                                         {fieldErrors.phoneNumber && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.phoneNumber[0]}</p>}
                                     </div>
                                     {uuid && (
@@ -161,6 +178,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                     <Button onClick={(e) => {
                                         e.stopPropagation();
                                         setFieldErrors({});
+                                        setOpen(false);
                                     }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] outline-none ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}>
                                         Cancel
                                     </Button>
@@ -172,26 +190,28 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                                 // Validate required fields
                                                 const errors: Record<string, string[]> = {};
                                                 if (!name.trim()) errors.name = ["Name is required"];
-                                                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                                                 if (!email.trim()) {
                                                     errors.email = ["Email is required"];
-                                                } else if (!emailRegex.test(email)) {
+                                                } else if (!isValidEmail(email)) {
                                                     errors.email = ["Invalid email address"];
                                                 }
-                                                if (!phoneNumber.trim()) errors.phoneNumber = ["Phone Number is required"];
+                                                if (!phoneNumber.trim()) {
+                                                    errors.phoneNumber = ["Phone Number is required"];
+                                                } else if (!isValidPhoneNumber(phoneNumber)) {
+                                                    errors.phoneNumber = ["Invalid phone number. Example: +1 (204) 345-3456"];
+                                                }
 
                                                 if (Object.keys(errors).length > 0) {
                                                     setFieldErrors(errors);
-                                                    // const firstError = Object.values(errors).flat()[0];
-                                                    // toast.error(firstError);
-                                                    toast.error('Please fill in all required fields');
+                                                    const firstError = Object.values(errors).flat()[0];
+                                                    toast.error(firstError || 'Please fill in all required fields');
                                                     return;
                                                 }
 
                                                 const newAgent = {
-                                                    name,
-                                                    email,
-                                                    primary_phone: phoneNumber,
+                                                    name: name.trim(),
+                                                    email: email.trim(),
+                                                    primary_phone: phoneNumber.trim(),
                                                     split: invoice || "",
                                                 };
 
@@ -218,12 +238,12 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                 </DialogFooter>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </DialogContent>
-        </Dialog >
+        </Dialog>
     )
 }
 
 export default AddCoAgentDialog
+

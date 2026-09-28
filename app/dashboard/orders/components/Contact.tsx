@@ -19,6 +19,7 @@ import { useOrderContext } from '../context/OrderContext';
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { GetOne as GetOneAgent } from '@/app/dashboard/agents/agents';
+import { Get as GetSubAccounts } from '@/app/dashboard/sub-accounts/subaccounts';
 import {
     Table,
     TableBody,
@@ -50,10 +51,23 @@ const Contact = () => {
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [hasToken, setHasToken] = useState(true);
+    const [allSubAccounts, setAllSubAccounts] = useState<any[]>([]);
+
     useEffect(() => {
         const checkToken = () => {
             const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
             setHasToken(!!token);
+            if (token) {
+                GetSubAccounts(token)
+                    .then((res: any) => {
+                        if (Array.isArray(res?.data)) {
+                            setAllSubAccounts(res.data);
+                        }
+                    })
+                    .catch((err: any) => {
+                        console.error("Failed to fetch sub-accounts for order contact:", err);
+                    });
+            }
         };
         
         checkToken();
@@ -91,43 +105,82 @@ const Contact = () => {
 
     const availableCoAgents = useMemo(() => {
         const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : selectedAgent;
-        if (!target) return [];
+        const result: any[] = [];
+        const seenEmails = new Set<string>();
 
-        let raw = target.co_agents || target.coagents || target.coagent;
-        
-        if (!raw) return [];
+        // 1. Filter subaccounts belonging to the selected agent
+        if (selectedAgentId && allSubAccounts.length > 0) {
+            const targetAgentUuid = target?.uuid || selectedAgentId;
+            const targetAgentId = target?.id;
 
-        if (typeof raw === 'object' && !Array.isArray(raw)) {
-            raw = [raw];
-        }
+            const agentSubAccounts = allSubAccounts.filter((sub: any) => {
+                const subAgentUuid = sub.agent?.uuid || sub.agent_uuid;
+                const subAgentId = sub.agent?.id || sub.agent_id;
+                return (
+                    (targetAgentUuid && subAgentUuid === targetAgentUuid) ||
+                    (targetAgentId && String(subAgentId) === String(targetAgentId))
+                );
+            });
 
-        if (typeof raw === 'string') {
-            try {
-                raw = JSON.parse(raw);
-            } catch (e) {
-                console.error("Failed to parse co_agents JSON:", e);
-                return [];
+            for (const sub of agentSubAccounts) {
+                const name = `${sub.first_name || ""} ${sub.last_name || ""}`.trim() || sub.primary_email?.split("@")[0] || "Sub-Account";
+                const email = (sub.primary_email || sub.email || "").toLowerCase().trim();
+                if (email && !seenEmails.has(email)) {
+                    seenEmails.add(email);
+                    result.push({
+                        id: sub.id,
+                        uuid: sub.uuid,
+                        name: name,
+                        email: sub.primary_email || sub.email,
+                        phone: sub.primary_phone || sub.phone || "",
+                        role: sub.role?.name || (sub.role_id === 5 ? "Admin" : sub.role_id === 6 ? "Assistant" : "Co-Agent"),
+                        percentage: Number(sub.split || sub.split_percentage || sub.percentage || 0),
+                    });
+                }
             }
         }
 
-        if (!Array.isArray(raw)) return [];
-
-        return raw.map((item: any) => {
-            if (typeof item === 'string') {
-                const isEmail = item.includes('@');
-                return {
-                    name: isEmail ? item.split('@')[0] : item,
-                    email: isEmail ? item : '',
-                    percentage: 0
-                };
+        // 2. Also merge any embedded co_agents from agent data
+        if (target) {
+            let raw = target.co_agents || target.coagents || target.coagent;
+            if (raw) {
+                if (typeof raw === "object" && !Array.isArray(raw)) {
+                    raw = [raw];
+                }
+                if (typeof raw === "string") {
+                    try {
+                        raw = JSON.parse(raw);
+                    } catch (e) {
+                        console.error("Failed to parse co_agents JSON:", e);
+                        raw = [];
+                    }
+                }
+                if (Array.isArray(raw)) {
+                    for (const item of raw) {
+                        const email = (typeof item === "string" ? (item.includes("@") ? item : "") : (item.email || item.primary_email || "")).toLowerCase().trim();
+                        const name = typeof item === "string" ? (item.includes("@") ? item.split("@")[0] : item) : (item.name || item.first_name || (email ? email.split("@")[0] : "Co-Agent"));
+                        const percentage = typeof item === "object" ? Number(item.split || item.percentage || 0) : 0;
+                        if (email && !seenEmails.has(email)) {
+                            seenEmails.add(email);
+                            result.push({
+                                name,
+                                email: typeof item === "string" ? item : (item.email || item.primary_email || ""),
+                                percentage,
+                            });
+                        } else if (!email && name) {
+                            result.push({
+                                name,
+                                email: "",
+                                percentage,
+                            });
+                        }
+                    }
+                }
             }
-            return {
-                name: item.name || item.first_name || (item.email ? item.email.split('@')[0] : 'Co-Agent'),
-                email: item.email || item.primary_email || '',
-                percentage: Number(item.split) || Number(item.percentage) || 0
-            };
-        }).filter((item: any) => item.email || item.name);
-    }, [selectedAgent, detailedAgent, selectedAgentId]);
+        }
+
+        return result;
+    }, [selectedAgent, detailedAgent, selectedAgentId, allSubAccounts]);
     //     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]); // Keeping for backward compatibility if needed, but primary flow will direct update coAgents
     const [percentage, setPercentage] = useState<number | ''>('');
     const [userName, setUserName] = useState<string>("");
@@ -153,21 +206,54 @@ const Contact = () => {
 
 
 
+    const coAgentOptions = useMemo(() => {
+        return availableCoAgents.map((a) => {
+            const isAlreadyAdded = coAgents.some((c, idx) => {
+                if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+                const matchEmail = a.email && c.email && a.email.trim().toLowerCase() === c.email.trim().toLowerCase();
+                const matchName = a.name && c.name && a.name.trim().toLowerCase() === c.name.trim().toLowerCase();
+                return matchEmail || matchName;
+            });
+
+            return {
+                label: a.email ? `${a.name} (${a.email})` : a.name,
+                value: a.email || a.name,
+                disabled: isAlreadyAdded,
+                badge: isAlreadyAdded ? "Selected" : undefined,
+            };
+        });
+    }, [availableCoAgents, coAgents, editingCoAgentIndex]);
+
     // Updated Handle Add/Update
     const handleSaveCoAgent = () => {
-        const email = coAgentEmail.trim();
+        const rawEmail = coAgentEmail.trim();
+        const email = rawEmail.toLowerCase();
+        const name = coAgentName.trim();
 
         // Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailRegex.test(email)) {
+        if (!rawEmail || !emailRegex.test(rawEmail)) {
             if (coAgentMode === 'new' || editingCoAgentIndex !== null) { // Only validate strict email for new/edit manual
                 toast.error("Please enter a valid email.");
                 return;
             }
         }
 
-        if (coAgentMode === 'new' && !coAgentName.trim()) {
+        if (coAgentMode === 'new' && !name) {
             toast.error("Please enter a name.");
+            return;
+        }
+
+        // Duplicate check
+        const isDuplicate = coAgents.some((agent, idx) => {
+            if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+            const matchEmail = email && agent.email && agent.email.trim().toLowerCase() === email;
+            const matchName = name && agent.name && agent.name.trim().toLowerCase() === name.toLowerCase();
+            return matchEmail || (matchName && (!email || !agent.email));
+        });
+
+        if (isDuplicate) {
+            toast.error("This co-agent is already added.");
             return;
         }
 
@@ -182,12 +268,9 @@ const Contact = () => {
             return;
         }
 
-        const name = coAgentName;
-        // If existing mode, get name from email/selected agent logic if needed, but usually we set name when selecting from dropdown
-
         const newAgent = {
-            email,
-            name: name || email.split('@')[0],
+            email: rawEmail,
+            name: name || rawEmail.split('@')[0],
             percentage: Number(percentage) || 0,
         };
 
@@ -201,7 +284,6 @@ const Contact = () => {
         } else {
             setCoAgents(prev => [...prev, newAgent]);
             toast.success("Co-Agent added.");
-
         }
 
         // Auto-enable split invoice if percentage is set
@@ -242,6 +324,18 @@ const Contact = () => {
         const agent = availableCoAgents.find((a) => a.email === agentId || a.name === agentId);
 
         if (agent) {
+            const isAlreadyAdded = coAgents.some((c, idx) => {
+                if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+                const matchEmail = agent.email && c.email && agent.email.trim().toLowerCase() === c.email.trim().toLowerCase();
+                const matchName = agent.name && c.name && agent.name.trim().toLowerCase() === c.name.trim().toLowerCase();
+                return matchEmail || matchName;
+            });
+
+            if (isAlreadyAdded) {
+                toast.error("This co-agent is already added.");
+                return;
+            }
+
             setCoAgentName(agent.name);
             setCoAgentEmail(agent.email);
             if (agent.percentage && agent.percentage > 0) {
@@ -258,22 +352,6 @@ const Contact = () => {
         setEditingCoAgentIndex(null);
         setOpenAddCoAgentDialog(true);
     };
-    // useEffect(() => {
-    //     if (openAddNotesDialog) {
-    //         setTempNotes(agentNotes);
-    //     }
-    // }, [agentNotes, openAddNotesDialog]);
-    // useEffect(() => {
-    //     const el = textareaRef.current;
-    //     if (el) {
-    //         el.style.height = "auto";
-    //         const height = el.scrollHeight;
-    //         el.style.height = `${Math.min(height, 150)}px`;
-
-    //         // ✅ Only show scrollbar if content exceeds 150px
-    //         el.style.overflowY = height > 150 ? "auto" : "hidden";
-    //     }
-    // }, [note]);
 
     useEffect(() => {
         const el = textareaRef.current;
@@ -283,6 +361,7 @@ const Contact = () => {
             el.style.overflowY = "hidden"; // Prevent scroll
         }
     }, [agentNotes]);
+
     useEffect(() => {
         const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
 
@@ -316,15 +395,8 @@ const Contact = () => {
         }
     }, []);
 
-
-
     useEffect(() => {
         if (selectedAgent && selectedAgent.uuid !== lastPopulatedAgentId) {
-            setCoAgents(prev => {
-                if (prev.length > 0) return prev;
-                return availableCoAgents;
-            });
-
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
             if (selectedAgent.notes) {
                 setAgentNotes(prev => {
@@ -481,7 +553,7 @@ const Contact = () => {
             <div className="w-full space-y-4">
                 <div className="grid gap-4">
                     <div className='w-full flex flex-col items-center'>
-                        <div className='w-full md:w-[410px] pt-[32px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                        <div className='w-full md:w-[490px] max-w-[520px] pt-[32px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                             <div>
                                 {(!hasToken && !isBookNowMode) &&
                                     <Button
@@ -504,7 +576,7 @@ const Contact = () => {
                                                 setSelectedAgentId(value);
                                             }}
                                         >
-                                            <SelectTrigger className="w-full md:w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
                                                 <SelectValue placeholder="Select Agent" />
                                                 <span className="custom-arrow">
                                                     <DropDownArrow />
@@ -623,10 +695,7 @@ const Contact = () => {
                                                             <div className="flex flex-col gap-2">
                                                                 <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
                                                                 <SearchableSelect
-                                                                    options={availableCoAgents.map((a) => ({
-                                                                        label: a.email ? `${a.name} (${a.email})` : a.name,
-                                                                        value: a.email || a.name
-                                                                    }))}
+                                                                    options={coAgentOptions}
                                                                     value={coAgentEmail}
                                                                     onChange={handleSelectExisting}
                                                                     placeholder="Search co-agents..."
@@ -690,29 +759,31 @@ const Contact = () => {
                                         </Dialog>
                                     </div>
                                     {coAgents.length > 0 && (
-                                        <div className="mt-[12px] border rounded-md overflow-hidden">
-                                            <Table>
+                                        <div className="mt-[12px] border rounded-md overflow-hidden bg-white shadow-sm">
+                                            <Table className="w-full text-left table-auto">
                                                 <TableHeader className="bg-[#E4E4E4]">
                                                     <TableRow>
-                                                        <TableHead className="font-bold text-[#666666]">Name</TableHead>
-                                                        <TableHead className="font-bold text-[#666666]">Email</TableHead>
-                                                        {isSplitInvoice && <TableHead className="font-bold text-[#666666]">Split (%)</TableHead>}
-                                                        <TableHead className="text-right font-bold text-[#666666]">Action</TableHead>
+                                                        <TableHead className="py-2.5 px-3 font-bold text-[#666666] text-xs">Name</TableHead>
+                                                        <TableHead className="py-2.5 px-3 font-bold text-[#666666] text-xs">Email</TableHead>
+                                                        {isSplitInvoice && <TableHead className="py-2.5 px-3 font-bold text-[#666666] text-xs text-center">Split (%)</TableHead>}
+                                                        <TableHead className="py-2.5 px-3 text-right font-bold text-[#666666] text-xs">Action</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {coAgents.map((agent, index) => (
-                                                        <TableRow key={index} className="bg-white">
-                                                            <TableCell>{agent.name}</TableCell>
-                                                            <TableCell>{agent.email}</TableCell>
-                                                            {isSplitInvoice && <TableCell>{agent.percentage}%</TableCell>}
-                                                            <TableCell className="text-right flex items-center justify-end gap-2">
-                                                                <button onClick={() => handleEditCoAgent(index)} className="p-1 hover:bg-gray-100 rounded">
-                                                                    <Edit2Icon className="w-4 h-4 text-blue-500" />
-                                                                </button>
-                                                                <button onClick={() => handleRemoveCoAgent(index)} className="p-1 hover:bg-gray-100 rounded">
-                                                                    <Trash className="w-4 h-4 text-red-500" />
-                                                                </button>
+                                                        <TableRow key={index} className="bg-white hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+                                                            <TableCell className="py-2.5 px-3 text-xs font-medium text-gray-800 break-words">{agent.name}</TableCell>
+                                                            <TableCell className="py-2.5 px-3 text-xs text-gray-600 break-all">{agent.email}</TableCell>
+                                                            {isSplitInvoice && <TableCell className="py-2.5 px-3 text-xs text-center font-medium text-gray-700">{agent.percentage}%</TableCell>}
+                                                            <TableCell className="py-2.5 px-3 text-right">
+                                                                <div className="flex items-center justify-end gap-1.5">
+                                                                    <button type="button" onClick={() => handleEditCoAgent(index)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Edit">
+                                                                        <Edit2Icon className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    <button type="button" onClick={() => handleRemoveCoAgent(index)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete">
+                                                                        <Trash className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}

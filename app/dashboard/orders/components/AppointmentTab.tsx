@@ -16,7 +16,12 @@ interface Notes {
 }
 interface CoAgent {
     name: string;
-    email?: string
+    email?: string;
+    contact?: string;
+    primary_phone?: string;
+    split?: number | string;
+    split_percentage?: number | string;
+    percentage?: number | string;
 }
 interface AppointmentTab {
     currentOrder?: Order;
@@ -29,7 +34,6 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
     const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
-    const [firstCoAgentName, setFirstCoAgentName] = useState("");
     // const [coAgentEmail, setCoAgentEmail] = useState("");
     // const [agentNotes, setAgentNotes] = useState("");
     const [vendor, setVendor] = useState("");
@@ -116,15 +120,12 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
 
             if (Array.isArray(parsed)) {
                 setCoAgent(parsed);
-                setFirstCoAgentName(parsed[0]?.name ?? "");
             } else {
                 setCoAgent([]);
-                setFirstCoAgentName("");
             }
         } catch (error) {
             console.error("Invalid co_agents:", error);
             setCoAgent([]);
-            setFirstCoAgentName("");
         }
 
 
@@ -172,36 +173,47 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 />
 
             </div>
-            <div className="col-span-1">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Co-Agent</Label>
-                <Input
-                    readOnly
-                    value={firstCoAgentName}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
-                    type="text"
-                />
-
-            </div>
-            <div className="col-span-1">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Contact Number</Label>
-                <Input
-                    readOnly
-                    // value={address}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
-                    type="text"
-                />
-
-            </div>
-            <div className="col-span-1">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Co Agent Email</Label>
-                <Input
-                    readOnly
-                    // value={address}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
-                    type="text"
-                />
-
-            </div>
+            {coAgent && coAgent.length > 0 ? (
+                <div className="col-span-2 space-y-3 mt-2">
+                    <p className="text-[13px] font-semibold text-[#555555] uppercase tracking-wider">Co-Agents ({coAgent.length})</p>
+                    {coAgent.map((ca, idx) => (
+                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-[#F8F9FA] rounded-[6px] border border-[#E0E0E0]">
+                            <div className="col-span-1">
+                                <Label className="text-[12px] text-[#555555]">Co-Agent Name</Label>
+                                <Input
+                                    readOnly
+                                    value={ca.name || "—"}
+                                    className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <Label className="text-[12px] text-[#555555]">Contact Phone</Label>
+                                <Input
+                                    readOnly
+                                    value={ca.contact || ca.primary_phone || "—"}
+                                    className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <Label className="text-[12px] text-[#555555]">Contact Email</Label>
+                                <Input
+                                    readOnly
+                                    value={ca.email || "—"}
+                                    className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <Label className="text-[12px] text-[#555555]">Split (%)</Label>
+                                <Input
+                                    readOnly
+                                    value={ca.split != null ? `${ca.split}%` : (ca.split_percentage != null ? `${ca.split_percentage}%` : "—")}
+                                    className="h-[38px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[6px] text-xs font-medium font-mono"
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
             {userType === 'admin' && (
                 <div className="col-span-2">
                     <Label className="text-[14px] text-[#424242] " htmlFor="">Internal Notes</Label>

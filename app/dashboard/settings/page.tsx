@@ -17,12 +17,11 @@ const Page = () => {
 
     return (
         <div className='font-alexandria'>
-            {(currentType === "agent" || currentType === "co_agent") &&
-                <AgentForm />
-            }
-            {currentType === "vendor" &&
+            {currentType === "vendor" ? (
                 <VendorForm />
-            }
+            ) : (
+                <AgentForm />
+            )}
         </div>
     )
 }

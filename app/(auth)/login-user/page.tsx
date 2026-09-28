@@ -64,8 +64,13 @@ function LoginUser() {
             router.push('/dashboard/calendar');
             localStorage.setItem('token', response.data.token);
             setIsLoading(false)
-            setUserType(response.data.type === 'user' ? 'admin' : response.data.type)
-            localStorage.setItem('userType', response.data.type === 'user' ? 'admin' : response.data.type)
+            const userObj = response.data.user as any;
+            const agentType = userObj?.agent_type;
+            const resolvedType = response.data.type === 'user'
+                ? 'admin'
+                : (agentType === 'agent_admin' || agentType === 'assistant' || response.data.type === 'agent_admin' ? 'agent_admin' : response.data.type);
+            setUserType(resolvedType);
+            localStorage.setItem('userType', resolvedType);
             localStorage.setItem('userInfo', JSON.stringify(response.data.user));
         } catch (error: unknown) {
             if (error instanceof Error) {

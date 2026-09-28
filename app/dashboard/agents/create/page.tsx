@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, ConnectCalendar, DisconnectCalendar, ListCalendars, SetCalendar } from '../agents'
+import { GetOne as GetOneSubAccount, Edit as EditSubAccount } from '../../sub-accounts/subaccounts'
 import { GetOrganizations, Organization } from '../../global-settings/global-settings'
 import { DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
@@ -814,26 +815,26 @@ const AgentForm = () => {
 
     useEffect(() => {
         if (currentUser) {
-
             isPopulatingData.current = true;
+            const cu = currentUser as any;
 
-            setFirstName(currentUser.first_name || "");
-            setLastName(currentUser.last_name || "");
-            setRole(currentUser.role ? String(currentUser.role.id) : "");
-            setEmail(currentUser.email || "");
-            setEmailCC(currentUser.email_cc || "");
-            setPrimaryPhone(currentUser.primary_phone || "");
-            setSecondaryPhone(currentUser.secondary_phone || "");
-            setCompanyName(currentUser.company_name || "");
-            setCompanyWebsite(currentUser.website || "");
-            setAgentLicense(currentUser.license_number || "")
-            setHeadQuarterAddress(currentUser.headquarter_address || "");
-            setCertifications(currentUser.certifications || []);
-            setIsPaymentRequired(currentUser.requires_payment ?? true)
-            setAvatarFileName(currentUser.avatar || "")
-            setCompanyBannerFileName(currentUser.company_banner || "")
-            if (currentUser.avatar_url) {
-                setAvatarUrl(currentUser.avatar_url);
+            setFirstName(cu.first_name || "");
+            setLastName(cu.last_name || "");
+            setRole(cu.role ? String(cu.role.id) : (cu.role_id ? String(cu.role_id) : ""));
+            setEmail(cu.email || cu.primary_email || "");
+            setEmailCC(cu.email_cc || cu.secondary_email || "");
+            setPrimaryPhone(cu.primary_phone || "");
+            setSecondaryPhone(cu.secondary_phone || "");
+            setCompanyName(cu.company_name || cu.agent?.company_name || "");
+            setCompanyWebsite(cu.website || cu.agent?.website || "");
+            setAgentLicense(cu.license_number || cu.agent?.license_number || "");
+            setHeadQuarterAddress(cu.headquarter_address || cu.address || cu.agent?.headquarter_address || "");
+            setCertifications(cu.certifications || cu.agent?.certifications || []);
+            setIsPaymentRequired(cu.requires_payment ?? true);
+            setAvatarFileName(cu.avatar || "");
+            setCompanyBannerFileName(cu.company_banner || "");
+            if (cu.avatar_url) {
+                setAvatarUrl(cu.avatar_url);
             } else {
                 setAvatarUrl("");
             }
@@ -973,15 +974,24 @@ const AgentForm = () => {
         }
     };
 
-    const isCoAgent = userType === 'co_agent' ||
-        ((userType === 'agent' || (typeof window !== 'undefined' && localStorage.getItem('userType') === 'agent')) &&
-        (currentUser?.agent_type === 'co_agent' ||
-         (typeof window !== 'undefined' && (() => {
-             try {
-                 const u = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                 return u?.agent_type === 'co_agent' || u?.user?.agent_type === 'co_agent' || u?.data?.agent_type === 'co_agent' || u?.agent?.agent_type === 'co_agent';
-             } catch { return false; }
-         })())));
+    const isSubAccount =
+        userType === 'co_agent' ||
+        userType === 'agent_admin' ||
+        userType === 'assistant' ||
+        currentUser?.agent_type === 'co_agent' ||
+        currentUser?.agent_type === 'agent_admin' ||
+        currentUser?.agent_type === 'assistant' ||
+        Boolean((currentUser as any)?.agent_id || (currentUser as any)?.data?.agent_id) ||
+        (typeof window !== 'undefined' && (() => {
+            try {
+                const u = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                const ut = localStorage.getItem('userType');
+                return ut === 'co_agent' || ut === 'agent_admin' || ut === 'assistant' ||
+                    Boolean(u?.agent_id || u?.data?.agent_id || u?.agent_type || u?.data?.agent_type);
+            } catch { return false; }
+        })());
+
+    const isCoAgent = isSubAccount;
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -994,11 +1004,15 @@ const AgentForm = () => {
         const effectiveUserType = userType || localStorage.getItem("userType");
         let idToUse = userId;
 
-        if ((effectiveUserType === "agent" || effectiveUserType === "co_agent") && !userId) {
+        if ((effectiveUserType === "agent" || effectiveUserType === "co_agent" || effectiveUserType === "agent_admin" || effectiveUserType === "assistant" || isSubAccount) && !userId) {
             const userInfo = localStorage.getItem("userInfo");
             if (userInfo) {
                 try {
                     const parsedInfo = JSON.parse(userInfo);
+                    const userObj = parsedInfo?.data || parsedInfo?.user || parsedInfo?.agent || parsedInfo;
+                    if (userObj && !currentUser) {
+                        setCurrentUser(userObj);
+                    }
                     idToUse = parsedInfo?.uuid || parsedInfo?.user?.uuid || parsedInfo?.agent?.uuid || parsedInfo?.data?.uuid || parsedInfo?.data?.user?.uuid || parsedInfo?.id || parsedInfo?.data?.id;
                 } catch (err) {
                     console.error("Failed to parse userInfo:", err);
@@ -1052,7 +1066,32 @@ const AgentForm = () => {
                         setCurrentUser((prev: any) => prev ? { ...prev, properties: enriched } : prev);
                     }
                 })
-                .catch(err => console.log(err.message));
+                .catch(async (err) => {
+                    console.log("GetOne agent failed, trying GetOneSubAccount or fallback:", err.message);
+                    if (token) {
+                        try {
+                            const subRes = await GetOneSubAccount(token, idToUse);
+                            if (subRes?.data) {
+                                setCurrentUser(subRes.data);
+                                return;
+                            }
+                        } catch (subErr) {
+                            console.warn("GetOneSubAccount failed:", subErr);
+                        }
+                    }
+                    const userInfoStr = localStorage.getItem("userInfo");
+                    if (userInfoStr) {
+                        try {
+                            const parsed = JSON.parse(userInfoStr);
+                            const userObj = parsed?.data || parsed?.user || parsed;
+                            if (userObj) {
+                                setCurrentUser(userObj);
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse fallback userInfo:", e);
+                        }
+                    }
+                });
         } else {
             console.log('Agent ID is undefined.');
         }
@@ -1254,8 +1293,34 @@ const AgentForm = () => {
             // Step 4: Send the Edit request (for existing agents) AFTER files are uploaded
             if (!isNewAgent && agentUuid) {
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await EditAgent(agentUuid, updatedPayload);
-                if (userType === 'agent') {
+                if (isCoAgent) {
+                    const token = localStorage.getItem("token") || "";
+                    try {
+                        const cu = currentUser as any;
+                        const subPayload: any = {
+                            first_name: firstName,
+                            last_name: lastName,
+                            primary_email: email,
+                            secondary_email: emailCC,
+                            primary_phone: primaryPhone,
+                            secondary_phone: secondaryPhone,
+                            company_name: companyName,
+                            website: companyWebsite,
+                            address: headquarterAddress,
+                            agent_id: cu?.agent_id || cu?.agent?.id || cu?.agent?.uuid,
+                            notification_email: cu?.notification_email ? 1 : 0,
+                            email_type: cu?.email_type || "primary",
+                            password: password || undefined,
+                        };
+                        await EditSubAccount(agentUuid, subPayload, token);
+                    } catch (subErr) {
+                        console.warn("EditSubAccount failed, falling back to EditAgent:", subErr);
+                        await EditAgent(agentUuid, updatedPayload);
+                    }
+                } else {
+                    await EditAgent(agentUuid, updatedPayload);
+                }
+                if (userType === 'agent' || userType === 'co_agent' || userType === 'agent_admin' || userType === 'assistant' || isSubAccount) {
                     toast.success('Settings updated successfully');
                 } else {
                     toast.success('Agent updated successfully');
@@ -1264,7 +1329,7 @@ const AgentForm = () => {
                 toast.success('Agent created successfully');
             }
 
-            if (userType !== 'agent' && userType !== 'co_agent') {
+            if (userType === 'admin') {
                 setIsLoading(true)
                 setOpen(true)
                 router.push('/dashboard/agents')
@@ -1470,8 +1535,8 @@ const AgentForm = () => {
         <div className='font-alexandria'>
             <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
-                    {isCoAgent ? 'Settings' : 'Agents'}
-                    {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : (isCoAgent ? '' : ' › Create')}
+                    {!userId || userType === 'agent' || isSubAccount ? 'Settings' : 'Agents'}
+                    {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : (!userId ? '' : ' › Create')}
                 </p>
                 <Button
                     onClick={(e) => { handleSubmit(e) }}
@@ -1505,37 +1570,30 @@ const AgentForm = () => {
             {/* <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
                 <ToggleButtons />
             </div> */}
-            {
-                !isCoAgent && (
-                    <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setActiveTab("details")}
-                                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                ${activeTab === "details"
-                                        ? `${userType}-bg text-white`
-                                        : "bg-[#F2F2F2] text-[#666666]"
-                                    }`}
-                            >
-                                DETAILS
-                            </button>
-                            {(userId || userType === 'agent') && (
-                                <button
-                                    onClick={() => setActiveTab("sub_accounts")}
-                                    className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                ${activeTab === "sub_accounts"
-                                            ? `${userType}-bg text-white`
-                                            : "bg-[#F2F2F2] text-[#666666]"
-                                        }`}
-                                >
-                                    SUB ACCOUNTS
-                                </button>
-                            )}
-
-                        </div>
-                    </div>
-                )
-            }
+            <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setActiveTab("details")}
+                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                        ${activeTab === "details"
+                                ? `${userType}-bg text-white`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
+                    >
+                        DETAILS
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("sub_accounts")}
+                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                    ${activeTab === "sub_accounts"
+                                ? `${userType}-bg text-white`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
+                    >
+                        SUB ACCOUNTS
+                    </button>
+                </div>
+            </div>
             {activeTab === 'details' && (
                 <div>
                     <form
@@ -2703,7 +2761,7 @@ const AgentForm = () => {
             }
             {
                 activeTab === 'sub_accounts' && (
-                    <SubAccountsTable agentId={userId ?? currentUser?.uuid ?? ''} />
+                    <SubAccountsTable agentId={userId || (currentUser as any)?.agent_uuid || (currentUser as any)?.agent?.uuid || currentUser?.uuid || String((currentUser as any)?.agent_id || (currentUser as any)?.id || '')} />
                 )
             }
         </div >

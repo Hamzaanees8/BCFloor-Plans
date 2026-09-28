@@ -19,6 +19,8 @@ import {
 export interface Option {
     label: string;
     value: string;
+    disabled?: boolean;
+    badge?: string;
 }
 
 interface SearchableSelectProps {
@@ -71,18 +73,31 @@ export function SearchableSelect({
                                 <CommandItem
                                     key={option.value}
                                     value={option.label} // Create/Use label for searching
+                                    disabled={option.disabled}
                                     onSelect={() => {
+                                        if (option.disabled) return;
                                         onChange(option.value);
                                         setOpen(false);
                                     }}
+                                    className={cn(
+                                        "flex items-center justify-between cursor-pointer",
+                                        option.disabled && "opacity-50 cursor-not-allowed pointer-events-none"
+                                    )}
                                 >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === option.value ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {option.label}
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <Check
+                                            className={cn(
+                                                "h-4 w-4 shrink-0",
+                                                value === option.value ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        <span className="truncate">{option.label}</span>
+                                    </div>
+                                    {option.badge && (
+                                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded shrink-0">
+                                            {option.badge}
+                                        </span>
+                                    )}
                                 </CommandItem>
                             ))}
                         </CommandGroup>

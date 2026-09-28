@@ -72,8 +72,8 @@ export function getCoListingStatus(
 
   const hasCoAgents = coAgentsList.length > 0;
 
-  if (userType === 'agent') {
-    const userEmail = (userInfo?.email || userInfo?.data?.email || '').toLowerCase().trim();
+  if (userType === 'agent' || userType === 'co_agent') {
+    const userEmail = (userInfo?.email || userInfo?.data?.email || userInfo?.primary_email || userInfo?.data?.primary_email || '').toLowerCase().trim();
     const userId = userInfo?.id || userInfo?.data?.id;
     const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
     const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
@@ -126,7 +126,7 @@ export function getCoListingStatus(
     }
 
     // If logged in user is a co_agent account type and not primary, treat as Co-Listing
-    if (agentType === 'co_agent') {
+    if (agentType === 'co_agent' || userType === 'co_agent') {
       return {
         isCoListing: true,
         isPrimaryListing: false,

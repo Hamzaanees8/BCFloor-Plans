@@ -291,7 +291,8 @@ const GlobalSettings = () => {
         minimum_spend?: number;
     }[]>([])
     const [secondaryEmail, setSecondaryEmail] = useState("");
-    const [notificationEmail, setNotificationEmail] = useState("");
+    const [notificationEmail, setNotificationEmail] = useState<boolean>(true);
+    const [emailType, setEmailType] = useState<string>("primary");
     const [quickBookStatus, setQuickBookStatus] = useState(false);
     const [qbQueueInfo, setQbQueueInfo] = useState<{ pending_syncs?: number; synced_count?: number } | null>(null);
     const [isQbSyncing, setIsQbSyncing] = useState(false);
@@ -390,7 +391,12 @@ const GlobalSettings = () => {
                     setLastName(adminData.last_name || "");
                     setEmail(adminData.email || "");
                     setSecondaryEmail(adminData.secondary_email || "");
-                    setNotificationEmail(adminData.notification_email || "");
+                    setNotificationEmail(
+                        adminData.notification_email !== undefined && adminData.notification_email !== null
+                            ? (adminData.notification_email === true || adminData.notification_email === 1 || adminData.notification_email === "1" || adminData.notification_email === "true")
+                            : true
+                    );
+                    setEmailType(adminData.email_type?.toLowerCase() || "primary");
                     setPrimaryPhone(adminData.primary_phone || "");
                     setSecondaryPhone(adminData.secondary_phone || "");
                     setCompanyName(adminData.company_name || "");
@@ -408,7 +414,10 @@ const GlobalSettings = () => {
                         lastName: adminData.last_name || "",
                         email: adminData.email || "",
                         secondaryEmail: adminData.secondary_email || "",
-                        notificationEmail: adminData.notification_email || "",
+                        notificationEmail: adminData.notification_email !== undefined && adminData.notification_email !== null
+                            ? (adminData.notification_email === true || adminData.notification_email === 1 || adminData.notification_email === "1" || adminData.notification_email === "true")
+                            : true,
+                        emailType: adminData.email_type?.toLowerCase() || "primary",
                         primaryPhone: adminData.primary_phone || "",
                         secondaryPhone: adminData.secondary_phone || "",
                         companyName: adminData.company_name || "",
@@ -442,6 +451,13 @@ const GlobalSettings = () => {
                     setFirstName(data.first_name || "");
                     setLastName(data.last_name || "");
                     setEmail(data.email || "");
+                    setSecondaryEmail(data.secondary_email || "");
+                    setNotificationEmail(
+                        data.notification_email !== undefined && data.notification_email !== null
+                            ? (data.notification_email === true || data.notification_email === 1 || data.notification_email === "1" || data.notification_email === "true")
+                            : true
+                    );
+                    setEmailType(data.email_type?.toLowerCase() || "primary");
                     setPrimaryPhone(data.primary_phone || "");
                     setSecondaryPhone(data.secondary_phone || "");
                     setCompanyName(data.company_name || "");
@@ -477,7 +493,10 @@ const GlobalSettings = () => {
                         lastName: data.last_name || "",
                         email: data.email || "",
                         secondaryEmail: data.secondary_email || "",
-                        notificationEmail: data.notification_email || "",
+                        notificationEmail: data.notification_email !== undefined && data.notification_email !== null
+                            ? (data.notification_email === true || data.notification_email === 1 || data.notification_email === "1" || data.notification_email === "true")
+                            : true,
+                        emailType: data.email_type?.toLowerCase() || "primary",
                         primaryPhone: data.primary_phone || "",
                         secondaryPhone: data.secondary_phone || "",
                         companyName: data.company_name || "",
@@ -512,7 +531,12 @@ const GlobalSettings = () => {
                     setLastName(data.last_name || "");
                     setEmail(data.primary_email || data.email || "");
                     setSecondaryEmail(data.secondary_email || "");
-                    setNotificationEmail(data.notification_email ? "1" : "0");
+                    setNotificationEmail(
+                        data.notification_email !== undefined && data.notification_email !== null
+                            ? (data.notification_email === true || data.notification_email === 1 || data.notification_email === "1" || data.notification_email === "true")
+                            : true
+                    );
+                    setEmailType(data.email_type?.toLowerCase() || "primary");
                     setPrimaryPhone(data.primary_phone || "");
                     setSecondaryPhone(data.secondary_phone || "");
                     setCompanyName(data.company_name || "");
@@ -536,7 +560,10 @@ const GlobalSettings = () => {
                         lastName: data.last_name || "",
                         email: data.primary_email || data.email || "",
                         secondaryEmail: data.secondary_email || "",
-                        notificationEmail: data.notification_email ? "1" : "0",
+                        notificationEmail: data.notification_email !== undefined && data.notification_email !== null
+                            ? (data.notification_email === true || data.notification_email === 1 || data.notification_email === "1" || data.notification_email === "true")
+                            : true,
+                        emailType: data.email_type?.toLowerCase() || "primary",
                         primaryPhone: data.primary_phone || "",
                         secondaryPhone: data.secondary_phone || "",
                         companyName: data.company_name || "",
@@ -602,14 +629,15 @@ const GlobalSettings = () => {
             province !== baselineSettingsRef.current.province ||
             country !== baselineSettingsRef.current.country ||
             secondaryEmail !== (baselineSettingsRef.current.secondaryEmail || "") ||
-            notificationEmail !== (baselineSettingsRef.current.notificationEmail || "") ||
+            notificationEmail !== (baselineSettingsRef.current.notificationEmail ?? true) ||
+            emailType !== (baselineSettingsRef.current.emailType || "primary") ||
             (userType === "agent" ? license !== (baselineSettingsRef.current.license || "") : false);
 
         setIsDirty(isChanged);
     }, [
         firstName, lastName, email, primaryPhone, secondaryPhone,
         companyName, companyWebsite, website, headquarterAddress,
-        city, province, country, secondaryEmail, notificationEmail, license, userType, setIsDirty
+        city, province, country, secondaryEmail, notificationEmail, emailType, license, userType, setIsDirty
     ]);
 
     const removeCard = (uuid: string) => {
@@ -683,7 +711,8 @@ const GlobalSettings = () => {
                     last_name: lastName,
                     email: email,
                     secondary_email: secondaryEmail || undefined,
-                    notification_email: notificationEmail || undefined,
+                    notification_email: notificationEmail ? 1 : 0,
+                    email_type: emailType || undefined,
                     primary_phone: primaryPhone || undefined,
                     secondary_phone: secondaryPhone || undefined,
                     company_name: companyName || undefined,
@@ -705,6 +734,7 @@ const GlobalSettings = () => {
                     email,
                     secondaryEmail,
                     notificationEmail,
+                    emailType,
                     primaryPhone,
                     secondaryPhone,
                     companyName,
@@ -724,6 +754,9 @@ const GlobalSettings = () => {
                     first_name: firstName,
                     last_name: lastName,
                     email: email,
+                    secondary_email: secondaryEmail || undefined,
+                    notification_email: notificationEmail ? 1 : 0,
+                    email_type: emailType || undefined,
                     primary_phone: primaryPhone,
                     secondary_phone: secondaryPhone || undefined,
                     company_name: companyName,
@@ -746,6 +779,7 @@ const GlobalSettings = () => {
                         email,
                         secondaryEmail,
                         notificationEmail,
+                        emailType,
                         primaryPhone,
                         secondaryPhone,
                         companyName,
@@ -796,7 +830,8 @@ const GlobalSettings = () => {
                     last_name: lastName,
                     primary_email: email,
                     secondary_email: secondaryEmail || undefined,
-                    notification_email: notificationEmail === "1" || String(notificationEmail) === "true" ? 1 : 0,
+                    notification_email: notificationEmail ? 1 : 0,
+                    email_type: emailType || undefined,
                     primary_phone: primaryPhone,
                     secondary_phone: secondaryPhone || undefined,
                     company_name: companyName,
@@ -819,6 +854,7 @@ const GlobalSettings = () => {
                         email,
                         secondaryEmail,
                         notificationEmail,
+                        emailType,
                         primaryPhone,
                         secondaryPhone,
                         companyName,
@@ -1613,23 +1649,36 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="col-span-2">
-                                                        <label htmlFor="">Notification Email</label>
+                                                    <div className="flex items-center gap-[10px]">
                                                         <Input
-                                                            value={notificationEmail}
-                                                            onChange={(e) => setNotificationEmail(e.target.value)}
-                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
+                                                            type="checkbox"
+                                                            checked={notificationEmail}
+                                                            onChange={(e) => setNotificationEmail(e.target.checked)}
+                                                            className="h-[20px] w-[20px] border-[1px] border-[#BBBBBB] mt-[12px] cursor-pointer"
                                                             style={{
                                                                 backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                                             }}
-                                                            type="text"
-                                                            placeholder="notifications@email.com"
                                                         />
-                                                        {fieldErrors.notification_email && (
-                                                            <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.notification_email[0]}
-                                                            </p>
-                                                        )}
+                                                        <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
+                                                            Notification Email
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <Select value={emailType} onValueChange={setEmailType}>
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            >
+                                                                <SelectValue placeholder="Select Email Type" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="primary">Primary Email</SelectItem>
+                                                                <SelectItem value="secondary">Secondary Email</SelectItem>
+                                                                <SelectItem value="both">Both</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
                                                     <div className="col-span-2">
                                                         <label htmlFor="">Password Change</label>

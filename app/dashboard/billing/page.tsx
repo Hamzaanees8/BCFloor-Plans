@@ -48,6 +48,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileBillingOverview from "@/components/mobile/admin/MobileBillingOverview";
+import { isUserAssistantOrAdmin, isUserCoAgent } from "@/lib/permissions";
 import MobileBillingDetail from "@/components/mobile/admin/MobileBillingDetail";
 import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
@@ -645,13 +646,73 @@ const Page = () => {
       setLoading(true);
       const data = await getBillings();
 
-      if (userType === "agent") {
-        const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-        const agentUuid = userInfo?.uuid;
-        if (agentUuid) {
-          const agentFilteredData = data.filter(
-            (b) => b.agent_uuid === agentUuid,
-          );
+      // Agent Admin / Assistants see all billing data (no ownership filter), same as admin/agent
+      // Only co_agent accounts have their billing data filtered to own + shared invoices
+      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const isAgentAdminOrAssistant = isUserAssistantOrAdmin(userInfo, userType);
+      const isCoAgent = isUserCoAgent(userInfo, userType);
+
+      if ((userType === "agent" || isCoAgent) && !isAgentAdminOrAssistant) {
+        const agentUuid = userInfo?.uuid || userInfo?.data?.uuid;
+        const agentId = userInfo?.id || userInfo?.data?.id;
+        const agentEmail = (
+          userInfo?.primary_email ||
+          userInfo?.email ||
+          userInfo?.data?.primary_email ||
+          userInfo?.data?.email ||
+          ""
+        ).toLowerCase().trim();
+        const userName = `${userInfo?.first_name || ""} ${userInfo?.last_name || ""}`.toLowerCase().trim();
+
+        if (agentUuid || agentEmail || agentId) {
+          const agentFilteredData = data.filter((b: any) => {
+            // 1. Is user the primary agent?
+            if (agentUuid && b.agent_uuid === agentUuid) return true;
+            if (agentId && (b.agent_id === agentId || String(b.agent_id) === String(agentId))) return true;
+
+            // 2. Is user listed in co_agents?
+            const rawCo = b.co_agents || b.coagents || b.order?.co_agents;
+            let coList: any[] = [];
+            if (Array.isArray(rawCo)) coList = rawCo;
+            else if (typeof rawCo === "string") {
+              try {
+                const parsed = JSON.parse(rawCo);
+                if (Array.isArray(parsed)) coList = parsed;
+              } catch {}
+            }
+            if (coList.some((ca: any) => {
+              if (!ca) return false;
+              const caEmail = (ca.email || (typeof ca === "string" ? ca : "")).toLowerCase().trim();
+              const caName = (ca.name || `${ca.first_name || ""} ${ca.last_name || ""}`).toLowerCase().trim();
+              const caId = ca.agent_id || ca.id || ca.uuid;
+              return (
+                (agentEmail && caEmail && caEmail === agentEmail) ||
+                (userName && caName && (caName === userName || userName.includes(caName) || caName.includes(userName))) ||
+                (agentUuid && caId && String(caId) === String(agentUuid)) ||
+                (agentId && caId && String(caId) === String(agentId))
+              );
+            })) {
+              return true;
+            }
+
+            // 3. Does any invoice belong to this co-agent / agent?
+            if (Array.isArray(b.invoices)) {
+              if (b.invoices.some((inv: any) => {
+                const invEmail = (inv.agent?.email || inv.email || "").toLowerCase().trim();
+                const invUuid = inv.agent?.uuid || inv.agent_uuid;
+                const invId = inv.agent?.id || inv.agent_id;
+                return (
+                  (agentEmail && invEmail && invEmail === agentEmail) ||
+                  (agentUuid && invUuid && invUuid === agentUuid) ||
+                  (agentId && invId && String(invId) === String(agentId))
+                );
+              })) {
+                return true;
+              }
+            }
+
+            return false;
+          });
           setBillings(agentFilteredData);
         } else {
           setBillings(data);
@@ -771,6 +832,99 @@ const Page = () => {
 
     processStripePayment();
   }, [searchParams, router, handlePaymentSuccess]);
+
+  const getBillingSplitInfo = useCallback(
+    (billing: BillingItem) => {
+      if (!currentUser) return null;
+      const userUuid = currentUser.uuid || currentUser.data?.uuid;
+      const userEmail = (
+        currentUser.primary_email ||
+        currentUser.email ||
+        currentUser.data?.primary_email ||
+        currentUser.data?.email ||
+        ""
+      ).toLowerCase().trim();
+      const userName = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.toLowerCase().trim();
+      const isPrimaryOwner = Boolean(userUuid && billing.agent_uuid === userUuid);
+
+      // Parse co_agents
+      const rawCo = (billing as any).co_agents || (billing as any).coagents || (billing as any).order?.co_agents;
+      let coList: any[] = [];
+      if (Array.isArray(rawCo)) coList = rawCo;
+      else if (typeof rawCo === "string") {
+        try {
+          const parsed = JSON.parse(rawCo);
+          if (Array.isArray(parsed)) coList = parsed;
+        } catch {}
+      }
+
+      const matchingCo = coList.find((ca: any) => {
+        if (!ca) return false;
+        const caEmail = (ca.email || (typeof ca === "string" ? ca : "")).toLowerCase().trim();
+        const caName = (ca.name || `${ca.first_name || ""} ${ca.last_name || ""}`).toLowerCase().trim();
+        const caId = ca.agent_id || ca.id || ca.uuid;
+        return (
+          (userEmail && caEmail && caEmail === userEmail) ||
+          (userName && caName && (caName === userName || userName.includes(caName) || caName.includes(userName))) ||
+          (userUuid && caId && String(caId) === String(userUuid))
+        );
+      });
+
+      if (matchingCo) {
+        const pct = Number(matchingCo.split || matchingCo.split_percentage || matchingCo.percentage || 0);
+        return {
+          isOwner: isPrimaryOwner,
+          isShared: !isPrimaryOwner,
+          splitPercentage: pct || 0,
+          coAgent: matchingCo,
+          allCoAgents: coList,
+        };
+      }
+
+      // Check rowInvoices
+      const orderInvoices = rowInvoices[billing.order_uuid] || [];
+      for (const inv of orderInvoices) {
+        if (inv.split_details?.splits) {
+          const foundSplit = inv.split_details.splits.find((s: any) =>
+            (userEmail && s.email?.toLowerCase() === userEmail) ||
+            (userUuid && (s.agent_uuid === userUuid || s.agent_id === currentUser.id))
+          );
+          if (foundSplit) {
+            return {
+              isOwner: isPrimaryOwner,
+              isShared: !isPrimaryOwner,
+              splitPercentage: Number(foundSplit.percentage || 0),
+              splitDetails: inv.split_details,
+              allCoAgents: coList,
+            };
+          }
+        }
+        if (
+          (inv.agent_type === "co-agent" || inv.agent_type === "co_agent") &&
+          ((userEmail && inv.agent?.email?.toLowerCase() === userEmail) ||
+            (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
+        ) {
+          const pct = Number(inv.split_percentage || inv.percentage || 0);
+          if (pct > 0) {
+            return {
+              isOwner: isPrimaryOwner,
+              isShared: !isPrimaryOwner,
+              splitPercentage: pct,
+              allCoAgents: coList,
+            };
+          }
+        }
+      }
+
+      return {
+        isOwner: isPrimaryOwner,
+        isShared: false,
+        splitPercentage: 100,
+        allCoAgents: coList,
+      };
+    },
+    [currentUser, rowInvoices]
+  );
 
   const uniqueAgents = Array.from(
     new Set(billings.map((billing) => billing.agent_name).filter(Boolean)),
@@ -1187,6 +1341,20 @@ const Page = () => {
                     ? 0
                     : Math.max(0, rowGrandTotal - (billing.total_paid || 0));
 
+                const splitInfo = getBillingSplitInfo(billing);
+                const isCoAgentUser = isUserCoAgent(currentUser, userType);
+                const isCoAgentShared =
+                  isCoAgentUser &&
+                  splitInfo?.isShared &&
+                  (splitInfo?.splitPercentage || 0) > 0;
+                const splitMultiplier = isCoAgentShared
+                  ? (splitInfo?.splitPercentage || 100) / 100
+                  : 1;
+
+                const displayGrandTotal = rowGrandTotal * splitMultiplier;
+                const displayTotalPaid = (billing.total_paid || 0) * splitMultiplier;
+                const displayRemaining = rowRemaining * splitMultiplier;
+
                 return (
                   <React.Fragment key={billing.order_uuid}>
                     {/* Main Order Row */}
@@ -1213,19 +1381,28 @@ const Page = () => {
                         {address}
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
-                        {rowGrandTotal.toLocaleString("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                        })}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>
+                            {displayGrandTotal.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            })}
+                          </span>
+                          {isCoAgentShared && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                              Split ({splitInfo?.splitPercentage}%)
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#6BAE41]">
-                        {billing.total_paid.toLocaleString("en-US", {
+                        {displayTotalPaid.toLocaleString("en-US", {
                           style: "currency",
                           currency: "USD",
                         })}
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#E06D5E]">
-                        {rowRemaining.toLocaleString("en-US", {
+                        {displayRemaining.toLocaleString("en-US", {
                           style: "currency",
                           currency: "USD",
                         })}

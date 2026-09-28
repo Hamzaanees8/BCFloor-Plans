@@ -389,12 +389,16 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-bg,
-.co_agent-bg {
+.co_agent-bg,
+.agent_admin-bg,
+.assistant-bg {
   background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41)));
 }
 
 .hover-agent-bg:hover,
-.hover-co_agent-bg:hover {
+.hover-co_agent-bg:hover,
+.hover-agent_admin-bg:hover,
+.hover-assistant-bg:hover {
   background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
 }
 
@@ -412,7 +416,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-text,
-.co_agent-text {
+.co_agent-text,
+.agent_admin-text,
+.assistant-text {
   color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6BAE41))) !important;
 }
 
@@ -425,7 +431,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-border,
-.co_agent-border {
+.co_agent-border,
+.agent_admin-border,
+.assistant-border {
   border: 1px solid var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
 }
 
@@ -439,7 +447,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-accent,
-.co_agent-accent {
+.co_agent-accent,
+.agent_admin-accent,
+.assistant-accent {
   accent-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
   color: #fff !important;
 }
@@ -454,7 +464,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-text-svg>svg,
-.co_agent-text-svg>svg {
+.co_agent-text-svg>svg,
+.agent_admin-text-svg>svg,
+.assistant-text-svg>svg {
   color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6bae41)));
 }
 
@@ -467,7 +479,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-fill-svg>svg,
-.co_agent-fill-svg>svg {
+.co_agent-fill-svg>svg,
+.agent_admin-fill-svg>svg,
+.assistant-fill-svg>svg {
   fill: var(--co_agent-bg-color, var(--agent-bg-color, #6bae41));
 }
 

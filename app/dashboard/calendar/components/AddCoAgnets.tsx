@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CoAgent } from "./EditAppointmentTab";
+import { isValidEmail, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils";
 
 type AddCoAgentDialogProps = {
     open: boolean;
@@ -28,9 +29,12 @@ export const AddCoAgentDialog = ({ open, setOpen, setCoAgents }: AddCoAgentDialo
         const trimmedName = name.trim();
         const trimmedContact = contact.trim();
 
-        const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+        if (!trimmedEmail) {
+            toast.error("Email is required.");
+            return;
+        }
 
-        if (!isValidEmail) {
+        if (!isValidEmail(trimmedEmail)) {
             toast.error("Please enter a valid email.");
             return;
         }
@@ -41,7 +45,12 @@ export const AddCoAgentDialog = ({ open, setOpen, setCoAgents }: AddCoAgentDialo
         }
 
         if (!trimmedContact) {
-            toast.error("Contact is required.");
+            toast.error("Contact phone number is required.");
+            return;
+        }
+
+        if (!isValidPhoneNumber(trimmedContact)) {
+            toast.error("Invalid phone number. Example: +1 (204) 345-3456");
             return;
         }
 
@@ -105,7 +114,8 @@ export const AddCoAgentDialog = ({ open, setOpen, setCoAgents }: AddCoAgentDialo
                             id="contact"
                             type="text"
                             value={contact}
-                            onChange={(e) => setContact(e.target.value)}
+                            onChange={(e) => setContact(formatPhoneNumber(e.target.value))}
+                            placeholder="+1 (604) 555-0123"
                             className="mt-1 h-[42px]"
                         />
                     </div>

@@ -68,11 +68,15 @@ const SubAccountsTable = ({ agentId }: { agentId: string }) => {
 
     const filteredSubAccounts = subAccountData.filter(subAccount => {
         if (agentId) {
-            return subAccount.agent.uuid === agentId
-
+            const subAgentUuid = subAccount.agent?.uuid || (subAccount as any)?.agent_uuid;
+            const subAgentId = (subAccount as any)?.agent?.id || (subAccount as any)?.agent_id;
+            return (
+                subAgentUuid === agentId ||
+                (subAgentId && String(subAgentId) === String(agentId))
+            );
         }
         return true;
-    })
+    });
     const lengthFiltered = filteredSubAccounts.length;
     return (
         <div>
