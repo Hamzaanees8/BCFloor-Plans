@@ -173,7 +173,7 @@ const Page = () => {
     }
   }, []);
 
-  const isCoAgent = isUserCoAgent(currentUser, userType);
+  const isCoAgent = userType === "agent" && isUserCoAgent(currentUser, userType);
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";

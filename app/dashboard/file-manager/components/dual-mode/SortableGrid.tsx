@@ -104,7 +104,7 @@ export function SortableItem({
             {...listeners}
             onPointerDown={handlePointerDown}
             onClickCapture={handleClickCapture}
-            className={`relative rounded-md transition-all duration-200 overflow-hidden ${
+            className={`relative transition-all duration-200 overflow-hidden ${
                 isDragging ? 'opacity-50 scale-105 shadow-xl ring-2 ring-blue-500' : disabled ? '' : 'hover:shadow-md'
             } ${borderStyle}`}
         >
@@ -325,7 +325,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
                 }}
             >
                 {activeItem ? (
-                    <div className="scale-105 opacity-90 shadow-2xl cursor-grabbing rounded-md overflow-hidden ring-2 ring-blue-500 relative">
+                    <div className="scale-105 opacity-90 shadow-2xl cursor-grabbing overflow-hidden ring-2 ring-blue-500 relative">
                         {selectedIds.has(activeItem.clientId) && selectedIds.size > 1 && (
                             <div className="absolute top-2 right-2 z-30 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg border border-white">
                                 {selectedIds.size} files

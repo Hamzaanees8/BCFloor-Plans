@@ -23,6 +23,7 @@ import { Logout } from '@/app/(auth)/logout';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import type { Role } from '@/app/context/whiteLabelConfig';
+import { isUserCoAgent } from '@/lib/permissions';
 import { usePortalSettings } from '@/app/hooks/usePortalSettings';
 
 /* -------------------------------------------------------------------------- */
@@ -102,13 +103,19 @@ function getFilteredNav(userType: string, allowPrintRequest: boolean): NavGroup[
           // Matterport: admin only
           if (item.url === '/dashboard/matterport' && userType !== 'admin') return false;
 
-          // Customer Billing: admin + agent only
-          if (
-            item.url === '/dashboard/billing' &&
-            userType !== 'admin' &&
-            userType !== 'agent'
-          )
-            return false;
+          // Customer Billing: admin + agent + subaccount roles + co-agents
+          if (item.url === '/dashboard/billing') {
+            if (isUserCoAgent(undefined, userType)) return true;
+            if (
+              userType !== 'admin' &&
+              userType !== 'agent' &&
+              userType !== 'co_agent' &&
+              userType !== 'agent_admin' &&
+              userType !== 'assistant'
+            ) {
+              return false;
+            }
+          }
 
           // Vendor Billing: admin + vendor only
           if (

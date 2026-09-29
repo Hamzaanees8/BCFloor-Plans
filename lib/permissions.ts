@@ -111,9 +111,66 @@ export function getUserPermissions(): Permission[] {
 }
 
 /**
+ * Robust check if the current user is restricted to co-agent ownership/splits.
+ * ONLY applies to agents / sub-accounts. App admins, superadmins, and vendors are NEVER co-agents.
+ */
+export function isUserCoAgent(userInfo?: any, userType?: string | null): boolean {
+    if (!userInfo && typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem("userInfo");
+            if (raw) userInfo = JSON.parse(raw);
+        } catch {
+            userInfo = null;
+        }
+    }
+    const u = userInfo?.data || userInfo?.user || userInfo || {};
+    const storedType = typeof window !== "undefined" ? localStorage.getItem("userType") : null;
+    const currentType = (userType || storedType || u.user_type || "").toLowerCase();
+
+    // App admins and vendors are NEVER co-agents or subaccounts
+    if (
+        currentType === "admin" ||
+        currentType === "superadmin" ||
+        currentType === "super_admin" ||
+        currentType === "vendor" ||
+        u.user_type === "admin" ||
+        u.user_type === "superadmin" ||
+        u.user_type === "vendor"
+    ) {
+        return false;
+    }
+
+    const roleId = Number(u.role_id || u.role?.id || u.data?.role_id || u.data?.role?.id || 0);
+    const roleName = String(u.role?.name || u.role_name || u.data?.role?.name || "").toLowerCase();
+    const agentType = String(u.agent_type || u.data?.agent_type || "").toLowerCase();
+    const firstName = String(u.first_name || u.data?.first_name || "").toLowerCase();
+    const lastName = String(u.last_name || u.data?.last_name || "").toLowerCase();
+    const email = String(u.primary_email || u.email || u.data?.primary_email || u.data?.email || "").toLowerCase();
+
+    return (
+        currentType === "co_agent" ||
+        currentType === "co-agent" ||
+        agentType === "co_agent" ||
+        agentType === "co-agent" ||
+        roleId === 4 ||
+        roleName === "co agent" ||
+        roleName === "co-agent" ||
+        roleName === "co_agent" ||
+        firstName.includes("co-agent") ||
+        firstName.includes("co_agent") ||
+        lastName.includes("co-agent") ||
+        lastName.includes("co_agent") ||
+        email.includes("co-agent") ||
+        email.includes("co_agent") ||
+        email.includes("coagent")
+    );
+}
+
+/**
  * Robust check if the current user is an Assistant or Agent Admin
  * (or any sub-account with full parent agent data access).
  * Handles both newly enriched and legacy session payloads.
+ * ONLY applies to agent sub-accounts. App admins and vendors are NEVER sub-accounts.
  */
 export function isUserAssistantOrAdmin(userInfo?: any, userType?: string | null): boolean {
     if (!userInfo && typeof window !== "undefined") {
@@ -124,18 +181,34 @@ export function isUserAssistantOrAdmin(userInfo?: any, userType?: string | null)
             userInfo = null;
         }
     }
-    const u = userInfo?.data || userInfo || {};
+    const u = userInfo?.data || userInfo?.user || userInfo || {};
     const storedType = typeof window !== "undefined" ? localStorage.getItem("userType") : null;
-    const currentType = (userType || storedType || "").toLowerCase();
+    const currentType = (userType || storedType || u.user_type || "").toLowerCase();
+
+    // App admins and vendors are NEVER sub-accounts
+    if (
+        currentType === "admin" ||
+        currentType === "superadmin" ||
+        currentType === "super_admin" ||
+        currentType === "vendor" ||
+        u.user_type === "admin" ||
+        u.user_type === "superadmin" ||
+        u.user_type === "vendor"
+    ) {
+        return false;
+    }
+
+    if (isUserCoAgent(userInfo, userType)) {
+        return false;
+    }
 
     const roleId = Number(u.role_id || u.role?.id || u.data?.role_id || u.data?.role?.id || 0);
     const roleName = String(u.role?.name || u.role_name || u.data?.role?.name || "").toLowerCase();
     const agentType = String(u.agent_type || u.data?.agent_type || "").toLowerCase();
     const firstName = String(u.first_name || u.data?.first_name || "").toLowerCase();
     const lastName = String(u.last_name || u.data?.last_name || "").toLowerCase();
-    const email = String(u.primary_email || u.email || u.data?.primary_email || u.data?.email || "").toLowerCase();
 
-    // 1. Explicit assistant / admin role, name, email or type
+    // 1. Explicit assistant / agent admin subaccount
     if (
         currentType === "agent_admin" ||
         currentType === "assistant" ||
@@ -143,14 +216,11 @@ export function isUserAssistantOrAdmin(userInfo?: any, userType?: string | null)
         agentType === "assistant" ||
         roleId === 6 || // Assistant role_id
         roleId === 5 || // Agent Admin role_id
-        roleName.includes("assistant") ||
-        roleName.includes("admin") ||
+        roleName === "assistant" ||
+        roleName === "agent admin" ||
+        roleName === "agent_admin" ||
         firstName.includes("assistant") ||
-        firstName.includes("assistan") ||
-        lastName.includes("assistant") ||
-        lastName.includes("assistan") ||
-        email.includes("assistant") ||
-        email.includes("admin")
+        lastName.includes("assistant")
     ) {
         return true;
     }
@@ -163,38 +233,5 @@ export function isUserAssistantOrAdmin(userInfo?: any, userType?: string | null)
     }
 
     return false;
-}
-
-/**
- * Robust check if the current user is restricted to co-agent ownership/splits.
- */
-export function isUserCoAgent(userInfo?: any, userType?: string | null): boolean {
-    if (isUserAssistantOrAdmin(userInfo, userType)) {
-        return false;
-    }
-    if (!userInfo && typeof window !== "undefined") {
-        try {
-            const raw = localStorage.getItem("userInfo");
-            if (raw) userInfo = JSON.parse(raw);
-        } catch {
-            userInfo = null;
-        }
-    }
-    const u = userInfo?.data || userInfo || {};
-    const storedType = typeof window !== "undefined" ? localStorage.getItem("userType") : null;
-    const currentType = (userType || storedType || "").toLowerCase();
-
-    const roleId = Number(u.role_id || u.role?.id || u.data?.role_id || u.data?.role?.id || 0);
-    const roleName = String(u.role?.name || u.role_name || u.data?.role?.name || "").toLowerCase();
-    const agentType = String(u.agent_type || u.data?.agent_type || "").toLowerCase();
-
-    return (
-        currentType === "co_agent" ||
-        agentType === "co_agent" ||
-        roleId === 4 ||
-        roleName.includes("co agent") ||
-        roleName.includes("co-agent") ||
-        roleName.includes("co_agent")
-    );
 }
 

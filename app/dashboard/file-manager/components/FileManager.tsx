@@ -56,6 +56,7 @@ import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
 import { Loader2, X } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
+import { isUserCoAgent } from "@/lib/permissions";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -2140,7 +2141,18 @@ const FileManager = () => {
                 </div>
               ) : (
                 (() => {
-                  const filteredList = invoices;
+                  const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
+                  const filteredList = isCoAgentUser
+                    ? invoices.filter(
+                        (inv) =>
+                          inv.agent_type === "co-agent" ||
+                          (currentUser?.uuid &&
+                            (inv.agent?.uuid === currentUser.uuid ||
+                              inv.agent_uuid === currentUser.uuid)) ||
+                          (currentUser?.email &&
+                            inv.agent?.email === currentUser.email),
+                      )
+                    : invoices;
 
                   if (filteredList.length === 0) {
                     return (

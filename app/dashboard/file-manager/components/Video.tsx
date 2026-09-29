@@ -34,7 +34,8 @@ const VideoThumbnailDisplay = ({
     reviewFilesEnabled,
     userType,
     isDragging,
-    isHidden
+    isHidden,
+    letterboxClass = 'object-contain',
 }: {
     file: any;
     thumbUrl?: string;
@@ -44,11 +45,12 @@ const VideoThumbnailDisplay = ({
     userType?: string;
     isDragging?: boolean;
     isHidden?: boolean;
+    letterboxClass?: string;
 }) => {
     const [imgError, setImgError] = useState(false);
 
     const hasValidThumb = thumbUrl && thumbUrl.trim() !== '' && !imgError;
-    const commonClass = `absolute inset-0 w-full h-full object-contain ${!isAdminApproved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${isHidden ? 'grayscale opacity-60' : ''}`;
+    const commonClass = `absolute inset-0 w-full h-full ${letterboxClass} ${!isAdminApproved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${isHidden ? 'grayscale opacity-60' : ''}`;
 
     if (hasValidThumb) {
         return (
@@ -84,7 +86,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, filesToHide, setFilesToHide, isHidingMode, setIsHidingMode, approvalSelectedUuids, setApprovalSelectedUuids } = useFileManagerContext();
+    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, filesToHide, setFilesToHide, isHidingMode, setIsHidingMode, approvalSelectedUuids, setApprovalSelectedUuids, tourDefaultSettings } = useFileManagerContext();
+    // Letterbox Correction (global tour setting): ON → object-contain (original ratio + black bars), OFF → object-cover (fill card)
+    const letterboxClass = tourDefaultSettings?.letterbox_correction ? 'object-contain' : 'object-cover';
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -717,6 +721,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         userType={userType}
                                         isDragging={isDragging}
                                         isHidden={file.is_hidden}
+                                        letterboxClass={letterboxClass}
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
                                         <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />

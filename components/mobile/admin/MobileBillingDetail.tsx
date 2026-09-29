@@ -37,6 +37,7 @@ import DownloadInvoicePdf from '@/app/dashboard/invoice/components/DownloadInvoi
 import InvoiceDocument from '@/app/dashboard/invoice/components/InvoiceDocument'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
+import { isUserCoAgent } from '@/lib/permissions'
 
 interface MobileBillingDetailProps {
   orderId: string
@@ -361,8 +362,21 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
               No invoices generated for this order.
             </div>
           ) : (
-            invoices.map((invoice) => {
-              const isSplit = !!invoice.split_details || !!invoice.agent_type;
+            (() => {
+              const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('userInfo') || '{}') : {}
+              const isCoAgentUser = role === 'agent' && isUserCoAgent(userInfo, role)
+              const displayedInvoices = isCoAgentUser
+                ? invoices.filter(
+                    (inv) =>
+                      inv.agent_type === 'co-agent' ||
+                      (userInfo?.uuid &&
+                        (inv.agent?.uuid === userInfo.uuid || inv.agent_uuid === userInfo.uuid)) ||
+                      (userInfo?.email && inv.agent?.email === userInfo.email),
+                  )
+                : invoices
+
+              return displayedInvoices.map((invoice) => {
+                const isSplit = !!invoice.split_details || !!invoice.agent_type;
               return (
                 <Card key={invoice.uuid} className="overflow-hidden border border-gray-200 shadow-sm">
                   {/* Card Header */}
@@ -558,9 +572,10 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                     </div>
                   </div>
                 </Card>
-              )
+              );
             })
-          )}
+          })()
+        )}
         </div>
       </div>
 

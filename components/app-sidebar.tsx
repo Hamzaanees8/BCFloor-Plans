@@ -36,7 +36,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import SafeLink from "./SafeLink";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { usePermissions } from "@/app/hooks/usePermissions";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, isUserCoAgent } from "@/lib/permissions";
 import {
   Tooltip,
   TooltipContent,
@@ -219,12 +219,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
+  const isCoAgentUser = userType === "agent" && isUserCoAgent(userInfo, userType);
   const isSubAccount =
     userType === "co_agent" ||
     userType === "agent_admin" ||
     userType === "assistant" ||
-    Boolean(userInfo?.agent_id || userInfo?.data?.agent_id) ||
-    (userType === "agent" && (agentType === "co_agent" || agentType === "agent_admin" || agentType === "assistant"));
+    (userType === "agent" && (
+      isCoAgentUser ||
+      Boolean(userInfo?.agent_id || userInfo?.data?.agent_id) ||
+      agentType === "co_agent" ||
+      agentType === "agent_admin" ||
+      agentType === "assistant"
+    ));
   const isAgentOrSubAccount = userType === "agent" || isSubAccount;
 
   const filteredNavMain = data.navMain
@@ -293,11 +299,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               return false;
             }
 
-            if (
-              item.url === "/dashboard/billing" &&
-              !hasPermission(PERMISSIONS.ACCESS_BILLING)
-            ) {
-              return false;
+            if (item.url === "/dashboard/billing") {
+              if (isCoAgentUser || isUserCoAgent(userInfo, userType)) {
+                return true;
+              }
+              if (!hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+                return false;
+              }
             }
 
             if (
@@ -374,6 +382,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             // Billing
             if (item.url === "/dashboard/billing") {
+              if (isCoAgentUser || isUserCoAgent(userInfo, userType)) {
+                return true;
+              }
               return hasPermission(PERMISSIONS.ACCESS_BILLING);
             }
 

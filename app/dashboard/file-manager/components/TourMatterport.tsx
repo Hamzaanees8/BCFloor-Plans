@@ -312,7 +312,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                         brandedLinks.map(
                                             (link, idx) =>
                                                 isValidUrl(link.link) && (
-                                                    <div key={`preview-branded-${idx}`} className="relative w-full px-4 md:px-0 md:w-[80%] h-[300px] md:h-[500px]">
+                                                    <div key={`preview-branded-${idx}`} className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
                                                         <iframe
                                                             src={link.link}
                                                             className="w-full h-full border"
@@ -342,7 +342,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                         unbrandedLinks.map(
                                             (link, idx) =>
                                                 isValidUrl(link.link) && (
-                                                    <div key={`preview-unbranded-${idx}`} className="relative w-full px-4 md:px-0 md:w-[80%] h-[300px] md:h-[500px]">
+                                                    <div key={`preview-unbranded-${idx}`} className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
                                                         <iframe
                                                             src={link.link}
                                                             className="w-full h-full border"

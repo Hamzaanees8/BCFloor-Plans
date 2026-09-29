@@ -59,7 +59,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
-    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide, approvalSelectedUuids, setApprovalSelectedUuids } = useFileManagerContext();
+    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide, approvalSelectedUuids, setApprovalSelectedUuids, tourDefaultSettings } = useFileManagerContext();
+    // Letterbox Correction (global tour setting): ON → object-contain (original ratio + black bars), OFF → object-cover (fill card)
+    const letterboxClass = tourDefaultSettings?.letterbox_correction ? 'object-contain' : 'object-cover';
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const [isHiding, setIsHiding] = useState(false);
@@ -507,7 +509,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 }}
                                 alt="preview"
                                 isRestricted={effectiveUserType === 'agent' && !orderData?.release_media_before_payment && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                className={`absolute inset-0 w-full h-full ${letterboxClass} cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
                             <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-[20] pointer-events-none">
@@ -675,7 +677,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         }
                                     }}
                                     alt="preview"
-                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && effectiveUserType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                    className={`absolute inset-0 w-full h-full ${letterboxClass} cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && effectiveUserType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                     draggable={false}
                                 />
                             )}

@@ -44,7 +44,17 @@ const Contact = () => {
         setLastPopulatedAgentId,
         isBookNowMode
     } = useOrderContext();
-    const { userType } = useAppContext()
+    const { userType } = useAppContext();
+    const userInfoRaw = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+    const userInfo = useMemo(() => {
+        try {
+            return userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        } catch {
+            return null;
+        }
+    }, [userInfoRaw]);
+    const isAgentUser = userType === "agent";
+
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -82,8 +92,13 @@ const Contact = () => {
     }, []);
 
     const selectedAgent = useMemo(() => {
-        return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
-    }, [agentsData, selectedAgentId]);
+        const found = agentsData.find((agent) => agent.uuid === selectedAgentId);
+        if (found) return found;
+        if (isAgentUser && userInfo && (!selectedAgentId || selectedAgentId === userInfo.uuid)) {
+            return userInfo;
+        }
+        return null;
+    }, [agentsData, selectedAgentId, isAgentUser, userInfo]);
 
     const [detailedAgent, setDetailedAgent] = useState<any | null>(null);
 
@@ -103,8 +118,21 @@ const Contact = () => {
         }
     }, [selectedAgentId]);
 
+    const effectiveAgent = useMemo(() => {
+        if (detailedAgent && (!selectedAgentId || detailedAgent.uuid === selectedAgentId)) {
+            return detailedAgent;
+        }
+        if (selectedAgent) {
+            return selectedAgent;
+        }
+        if (isAgentUser && userInfo) {
+            return userInfo;
+        }
+        return null;
+    }, [detailedAgent, selectedAgentId, selectedAgent, isAgentUser, userInfo]);
+
     const availableCoAgents = useMemo(() => {
-        const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : selectedAgent;
+        const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : effectiveAgent;
         const result: any[] = [];
         const seenEmails = new Set<string>();
 
@@ -593,23 +621,25 @@ const Contact = () => {
                                         </Select>
                                     </div>
                                 )}
-                                {selectedAgent && (
+                                {effectiveAgent && (
                                     <div className='col-span-2 flex flex-col'>
                                         <p className='text-[#666666] font-[400] text-[20px]'>
-                                            {selectedAgent.first_name} {selectedAgent.last_name}
+                                            {effectiveAgent.first_name} {effectiveAgent.last_name}
+                                        </p>
+                                        {effectiveAgent.company_name && (
+                                            <p className='text-[#666666] font-[400] text-[16px]'>
+                                                {effectiveAgent.company_name}
+                                            </p>
+                                        )}
+                                        <p className='text-[#666666] font-[400] text-[16px]'>
+                                            {effectiveAgent.email || effectiveAgent.primary_email}
                                         </p>
                                         <p className='text-[#666666] font-[400] text-[16px]'>
-                                            {selectedAgent.company_name}
-                                        </p>
-                                        <p className='text-[#666666] font-[400] text-[16px]'>
-                                            {selectedAgent.email}
-                                        </p>
-                                        <p className='text-[#666666] font-[400] text-[16px]'>
-                                            {selectedAgent.primary_phone}
+                                            {effectiveAgent.primary_phone || effectiveAgent.phone || effectiveAgent.secondary_phone}
                                         </p>
                                     </div>
                                 )}
-                                {selectedAgent && userType === 'admin' && (
+                                {effectiveAgent && userType === 'admin' && (
                                     <button
                                         type="button"
                                         className="bg-[#4290E9] font-raleway hidden text-white rounded-[3px] hover:bg-[#005fb8] w-full md:w-[130px] h-[30px] font-[600] text-[14px]"

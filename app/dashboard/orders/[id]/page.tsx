@@ -58,6 +58,7 @@ import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import RefundModal from "../../invoice/components/RefundModal";
 import ReleaseMediaConfirmDialog from "../components/ReleaseMediaConfirmDialog";
+import { isUserCoAgent } from "@/lib/permissions";
 import { useOrganization } from "@/app/context/OrganizationContext";
 export interface VendorAddress {
   type: "company" | "billing" | string;
@@ -1756,24 +1757,46 @@ function Page() {
               <div className="flex justify-center p-4">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
-            ) : invoices.filter((inv) =>
-              invoiceFilter === "all" ? true : inv.agent_type === invoiceFilter
-            ).length === 0 ? (
-              <p
-                className="text-center italic"
-                style={{
-                  color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)`,
-                }}
-              >
-                No {invoiceFilter === "primary" ? "primary" : invoiceFilter === "co-agent" ? "co-agent" : ""} invoices found for this order.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4 pb-10">
-                {invoices
-                  .filter((inv) =>
-                    invoiceFilter === "all" ? true : inv.agent_type === invoiceFilter
-                  )
-                  .map((invoice) => {
+            ) : (() => {
+              const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
+              const filteredList = invoices.filter((inv) => {
+                if (isCoAgentUser) {
+                  return (
+                    inv.agent_type === "co-agent" ||
+                    (currentUser?.uuid &&
+                      (inv.agent?.uuid === currentUser.uuid ||
+                        inv.agent_uuid === currentUser.uuid)) ||
+                    (currentUser?.email &&
+                      inv.agent?.email === currentUser.email)
+                  );
+                }
+                return invoiceFilter === "all"
+                  ? true
+                  : inv.agent_type === invoiceFilter;
+              });
+
+              if (filteredList.length === 0) {
+                return (
+                  <p
+                    className="text-center italic"
+                    style={{
+                      color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)`,
+                    }}
+                  >
+                    No{" "}
+                    {invoiceFilter === "primary"
+                      ? "primary"
+                      : invoiceFilter === "co-agent"
+                        ? "co-agent"
+                        : ""}{" "}
+                    invoices found for this order.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="flex flex-col gap-4 pb-10">
+                  {filteredList.map((invoice) => {
                     const status = (invoice.status || "unpaid").toUpperCase();
                     let badgeBg = "#E06D5E"; // Unpaid
                     if (status === "PAID") badgeBg = "#6BAE41";
@@ -1916,8 +1939,9 @@ function Page() {
                       </div>
                     );
                   })}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>

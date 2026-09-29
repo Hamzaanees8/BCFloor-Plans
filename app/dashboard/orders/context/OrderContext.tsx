@@ -192,7 +192,23 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [initComplete, setInitComplete] = useState(false);
-    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const raw = localStorage.getItem('userInfo');
+                const userType = (localStorage.getItem('userType') || '').toLowerCase();
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (userType === 'agent') {
+                        return parsed.uuid || parsed.data?.uuid || parsed.user?.uuid || (parsed.id ? String(parsed.id) : null);
+                    }
+                }
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    });
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
     const [tempPropertyData, setTempPropertyData] = useState<TempPropertyData | null>(null);
     const [isPropertyValid, setIsPropertyValid] = useState(false);

@@ -80,20 +80,10 @@ export default function MobileBillingOverview() {
     async function fetchBillings() {
       try {
         const data = await getBillings()
-        const dataArray = Array.isArray(data) ? data : []
-        if (userType === 'agent') {
-          const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-          const agentUuid = userInfo?.uuid
-          if (agentUuid) {
-            setBillings(dataArray.filter((b) => b.agent_uuid === agentUuid))
-          } else {
-            setBillings([])
-          }
-        } else {
-          setBillings(dataArray)
-        }
+        setBillings(Array.isArray(data) ? data : [])
       } catch (err) {
         console.error('Failed to fetch billing data:', err)
+        setBillings([])
       } finally {
         setLoading(false)
       }

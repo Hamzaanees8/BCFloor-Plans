@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppContext } from "@/app/context/AppContext";
 import { usePermissions } from "@/app/hooks/usePermissions";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, isUserCoAgent } from "@/lib/permissions";
 import { toast } from "sonner";
 import { GetTourSettings } from "@/app/dashboard/global-settings/global-settings";
 
@@ -17,10 +17,24 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
   useEffect(() => {
     if (!userType) return;
 
+    let userInfo: any = null;
+    if (typeof window !== "undefined") {
+      try {
+        userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      } catch {
+        userInfo = null;
+      }
+    }
+
+    const isCoAgentUser = userType === "agent" && isUserCoAgent(userInfo, userType);
     const isSubAccount =
       userType === "co_agent" ||
       userType === "agent_admin" ||
-      userType === "assistant";
+      userType === "assistant" ||
+      (userType === "agent" && (
+        isCoAgentUser ||
+        Boolean(userInfo?.agent_id || userInfo?.data?.agent_id)
+      ));
 
     if (
       (userType === "agent" || isSubAccount) &&
@@ -119,6 +133,10 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
 
       // Billing Screen
       if (pathname.startsWith("/dashboard/billing")) {
+        if (isUserCoAgent(userInfo, userType)) {
+          setIsAllowed(true);
+          return;
+        }
         if (!hasPermission(PERMISSIONS.ACCESS_BILLING)) {
           toast.error("You do not have permission to access billing");
           router.replace("/dashboard/settings");

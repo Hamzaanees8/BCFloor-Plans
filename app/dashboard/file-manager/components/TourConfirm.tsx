@@ -2370,7 +2370,7 @@ const TourConfirm = ({
                                 isValidUrl(link.link) && (
                                   <div
                                     key={`preview-matterport-${idx}`}
-                                    className="relative w-full md:w-[80%] h-[300px] sm:h-[500px] mt-4 px-4 md:px-0"
+                                    className="relative w-full max-w-[1094.4px] h-[616px] mt-4 px-4 md:px-0"
                                   >
                                     <iframe
                                       src={link.link}

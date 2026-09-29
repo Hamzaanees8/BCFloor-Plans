@@ -104,10 +104,22 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         coAgents,
         isBookNowMode,
     } = useOrderContext();
-    const { userType } = useAppContext()
+    const { userType } = useAppContext();
+    const userInfoRaw = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+    const userInfo = useMemo(() => {
+        try {
+            return userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        } catch {
+            return null;
+        }
+    }, [userInfoRaw]);
+    const isAgentUser = userType === "agent";
+    const currentUserUuid = userInfo?.uuid || userInfo?.data?.uuid || userInfo?.user?.uuid || (userInfo?.id ? String(userInfo.id) : null);
+    const effectiveAgentId = selectedAgentId || (isAgentUser ? currentUserUuid : null);
+
     const searchParams = useSearchParams();
     const isEdit = searchParams.get('isEdit') === 'true';
-    const isAgentEdit = userType === 'agent' && isEdit;
+    const isAgentEdit = isAgentUser && isEdit;
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -137,8 +149,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, []);
     //const [isEditingListing, setIsEditingListing] = useState(false);
     const selectedAgent = useMemo(() => {
-        return agentData.find((agent) => agent.uuid === selectedAgentId) || null;
-    }, [agentData, selectedAgentId]);
+        const targetId = selectedAgentId || effectiveAgentId;
+        const found = agentData.find((agent) => agent.uuid === targetId);
+        if (found) return found;
+        if (isAgentUser && userInfo && (!targetId || targetId === currentUserUuid)) {
+            return (userInfo?.data || userInfo?.user || userInfo) as unknown as Agent;
+        }
+        return null;
+    }, [agentData, selectedAgentId, effectiveAgentId, isAgentUser, userInfo, currentUserUuid]);
     const selectedListing = useMemo(() => {
         return listingData.find((listing) => listing.uuid === selectedListingId) || null;
     }, [listingData, selectedListingId]);
@@ -415,9 +433,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         fetchOrdersData();
     }, [fetchServices, fetchVendors, fetchOrdersData]);
 
-    const userInfoRaw = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
-    const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
-
     const sortedCountries = useMemo(() => {
         const allCountries = Country.getAllCountries().map(c => ({
             label: c.name,
@@ -468,10 +483,10 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [selectedListingId, listingData])
 
     useEffect(() => {
-        if (userType === 'agent' && userInfo?.uuid) {
-            setSelectedAgentId(userInfo.uuid)
+        if (isAgentUser && currentUserUuid && selectedAgentId !== currentUserUuid) {
+            setSelectedAgentId(currentUserUuid);
         }
-    }, [userInfo, setSelectedAgentId, userType])
+    }, [currentUserUuid, setSelectedAgentId, isAgentUser, selectedAgentId]);
 
     useEffect(() => {
         if (selectedAgentId) {
@@ -496,14 +511,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     useEffect(() => {
         const isValid = !!(
             address?.trim() &&
-            (selectedAgentId || isBookNowMode) &&
+            (selectedAgentId || effectiveAgentId || isBookNowMode) &&
             (selectedListingId || Number(squareFootage) > 0) &&
             city?.trim() &&
             country &&
             postalCode?.trim()
         );
         setIsPropertyValid(isValid);
-    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId, isBookNowMode]);
+    }, [address, squareFootage, selectedAgentId, effectiveAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId, isBookNowMode]);
 
 
     //     useEffect(() => {
@@ -940,9 +955,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const filteredListings = useMemo(() => {
         const keyword = listingSearchValue.trim().toLowerCase();
         let data = listingData;
+        const targetAgentId = selectedAgentId || effectiveAgentId;
 
-        if (selectedAgentId) {
-            data = data.filter((listing) => listing.agent?.uuid === selectedAgentId);
+        if (targetAgentId) {
+            data = data.filter((listing) => {
+                const listingAgentUuid = listing.agent?.uuid;
+                const listingAgentId = (listing.agent as any)?.id;
+                return listingAgentUuid === targetAgentId || (listingAgentId && String(listingAgentId) === String(targetAgentId));
+            });
         }
 
         if (keyword === "") return data;
@@ -952,7 +972,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             const label = `${addressPart}, ${listing.city}`.toLowerCase();
             return label.includes(keyword);
         });
-    }, [listingSearchValue, listingData, selectedAgentId]);
+    }, [listingSearchValue, listingData, selectedAgentId, effectiveAgentId]);
 
     return (
         <div className='pt-7 px-4 md:px-[200px] pb-[80px] font-alexandria'>
@@ -962,23 +982,23 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                         <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
                         <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 w-full'>
                             <div className='flex items-center gap-4 w-full md:w-auto justify-between md:justify-start'>
-                                <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
+                                <Popover open={isAgentUser ? false : openAgent} onOpenChange={(open) => !isAgentUser && setOpenAgent(open)}>
                                     <PopoverTrigger asChild>
                                         <button
                                             className={cn(
                                                 "w-full md:w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
-                                                userType === 'agent' ? "cursor-default" : "cursor-pointer",
-                                                !selectedAgent && "text-muted-foreground"
+                                                isAgentUser ? "cursor-default" : "cursor-pointer",
+                                                (!selectedAgent && !(isAgentUser && userInfo)) && "text-muted-foreground"
                                             )}
                                             style={{ backgroundColor: fieldBg }}
                                         >
-                                            {userType === 'agent' && userInfo ? (
+                                            {isAgentUser && userInfo ? (
                                                 <span className='font-normal text-base truncate' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                    {userInfo.first_name} {userInfo.last_name} – {userInfo.company_name}
+                                                    {userInfo.first_name} {userInfo.last_name}{userInfo.company_name ? ` – ${userInfo.company_name}` : ''}
                                                 </span>
                                             ) : selectedAgent ? (
                                                 <span className='font-normal text-base truncate' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                    {selectedAgent.first_name} {selectedAgent.last_name} – {selectedAgent.company_name}
+                                                    {selectedAgent.first_name} {selectedAgent.last_name}{selectedAgent.company_name ? ` – ${selectedAgent.company_name}` : ''}
                                                 </span>
                                             ) : (
                                                 "Select Agent"
@@ -1013,7 +1033,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                         selectedAgentId === agent.uuid ? "opacity-100" : "opacity-0"
                                                                     )}
                                                                 />
-                                                                {agent.first_name} {agent.last_name} – {agent.company_name}
+                                                                {agent.first_name} {agent.last_name}{agent.company_name ? ` – ${agent.company_name}` : ''}
                                                             </CommandItem>
                                                         ))
                                                     ) : (
@@ -1060,19 +1080,21 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 }}
                             />
                         </div>
-                        {userType === 'agent' && userInfo ? (
+                        {isAgentUser && userInfo ? (
                             <div className='flex flex-col'>
                                 <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
                                     {userInfo.first_name} {userInfo.last_name}
                                 </p>
+                                {userInfo.company_name && (
+                                    <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                        {userInfo.company_name}
+                                    </p>
+                                )}
                                 <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    {userInfo.company_name}
+                                    {userInfo.email || userInfo.primary_email}
                                 </p>
                                 <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    {userInfo.email}
-                                </p>
-                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    {userInfo.primary_phone}
+                                    {userInfo.primary_phone || userInfo.phone || userInfo.secondary_phone}
                                 </p>
                             </div>
                         ) : selectedAgent && (
@@ -1080,14 +1102,16 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
                                     {selectedAgent.first_name} {selectedAgent.last_name}
                                 </p>
-                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    {selectedAgent.company_name}
-                                </p>
+                                {selectedAgent.company_name && (
+                                    <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                        {selectedAgent.company_name}
+                                    </p>
+                                )}
                                 <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                     {selectedAgent.email}
                                 </p>
                                 <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    {selectedAgent.primary_phone}
+                                    {selectedAgent.primary_phone || (selectedAgent as any).phone}
                                 </p>
                                 {selectedAgent.notes && (
                                     <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
@@ -1693,12 +1717,12 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         </div>
                                     )}
                                 </div>
-                                {!selectedAgentId && !(isBookNowMode && !hasToken) && (
+                                {!selectedAgentId && !effectiveAgentId && !(isBookNowMode && !hasToken) && (
                                     <div className="absolute inset-0 z-10" />
                                 )}
                             </div>
                         </TooltipTrigger>
-                        {(!selectedAgentId && !(isBookNowMode && !hasToken)) && (
+                        {(!selectedAgentId && !effectiveAgentId && !(isBookNowMode && !hasToken)) && (
                             <TooltipContent>
                                 <p>Please select an agent to search for a property.</p>
                             </TooltipContent>

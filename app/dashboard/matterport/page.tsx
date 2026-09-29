@@ -106,7 +106,7 @@ const MatterportPage = () => {
     }
   }, []);
 
-  const isCoAgent = isUserCoAgent(currentUser, userType);
+  const isCoAgent = userType === "agent" && isUserCoAgent(currentUser, userType);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();

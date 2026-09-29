@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { isUserCoAgent } from "@/lib/permissions";
 
 export interface ServiceInvoices {
   invoice_url: string;
@@ -153,10 +154,16 @@ export function getBestTargetInvoice(
   invoicesList: any[],
   serviceUuid?: string,
   serviceId?: number | string,
+  userInfo?: any,
+  userType?: string | null,
 ) {
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
     return null;
   }
+
+  const isCoAgent = userType === "agent" && isUserCoAgent(userInfo, userType);
+  const userUuid = userInfo?.data?.uuid || userInfo?.uuid;
+  const userEmail = userInfo?.data?.email || userInfo?.email;
 
   // 1. If serviceUuid or serviceId is provided: filter invoices containing this service
   if (serviceUuid || serviceId != null) {
@@ -187,42 +194,72 @@ export function getBestTargetInvoice(
 
     if (serviceInvoices.length > 0) {
       const activeServiceInvoices = serviceInvoices.filter((inv: any) => !isVoidOrCancelled(inv.status));
-      if (activeServiceInvoices.length > 0) {
-        // Prefer individual service invoice over consolidated invoice for service-level view
-        const individual = activeServiceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated"));
-        if (individual) return individual;
-        return activeServiceInvoices[0];
+      const pool = activeServiceInvoices.length > 0 ? activeServiceInvoices : serviceInvoices;
+
+      if (isCoAgent) {
+        const coAgentInv = pool.find((inv: any) =>
+          inv.agent_type === "co-agent" ||
+          (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
+          (userEmail && inv.agent?.email === userEmail)
+        );
+        if (coAgentInv) return coAgentInv;
+      } else {
+        const primaryInv = pool.find((inv: any) =>
+          inv.agent_type === "primary" ||
+          (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
+          !inv.split_details
+        );
+        if (primaryInv) return primaryInv;
       }
+
+      // Prefer individual service invoice over consolidated invoice for service-level view
+      const individual = pool.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated"));
+      if (individual) return individual;
+      return pool[0];
     }
   }
 
   // 2. Fallback: select the best overall invoice for the order
   const activeInvoices = invoicesList.filter((inv: any) => !isVoidOrCancelled(inv.status));
+  const pool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
 
-  if (activeInvoices.length > 0) {
-    // Priority 1: Consolidated invoice (standard comprehensive overview)
-    const consolidated = activeInvoices.find((inv: any) => 
-      inv.notes?.toLowerCase().includes("consolidated") || 
-      inv.items?.length > 1
+  if (isCoAgent) {
+    const coAgentInv = pool.find((inv: any) =>
+      inv.agent_type === "co-agent" ||
+      (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
+      (userEmail && inv.agent?.email === userEmail)
     );
-    if (consolidated) return consolidated;
-
-    // Priority 2: Cancellation fee invoice
-    const cancellation = activeInvoices.find((inv: any) => 
-      inv.notes?.toLowerCase().includes("cancellation fee") || 
-      inv.items?.some((i: any) => i.description?.toLowerCase().includes("cancellation fee"))
+    if (coAgentInv) return coAgentInv;
+  } else {
+    // If Primary Agent or Admin is looking at the order, prioritize primary agent invoice
+    const primaryInv = pool.find((inv: any) =>
+      inv.agent_type === "primary" ||
+      (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
+      (userEmail && inv.agent?.email === userEmail)
     );
-    if (cancellation) return cancellation;
-
-    // Priority 3: Primary agent invoice
-    const primary = activeInvoices.find((inv: any) => inv.agent_type === "primary" || !inv.split_details);
-    if (primary) return primary;
-
-    // Fallback: first active invoice
-    return activeInvoices[0];
+    if (primaryInv) return primaryInv;
   }
 
-  return null;
+  // Priority 1: Consolidated invoice (standard comprehensive overview)
+  const consolidated = pool.find((inv: any) => 
+    inv.notes?.toLowerCase().includes("consolidated") || 
+    (inv.items?.length > 1 && !inv.split_details)
+  );
+  if (consolidated) return consolidated;
+
+  // Priority 2: Cancellation fee invoice
+  const cancellation = pool.find((inv: any) => 
+    inv.notes?.toLowerCase().includes("cancellation fee") || 
+    inv.items?.some((i: any) => i.description?.toLowerCase().includes("cancellation fee"))
+  );
+  if (cancellation) return cancellation;
+
+  // Priority 3: Primary agent invoice
+  const primary = pool.find((inv: any) => inv.agent_type === "primary" || !inv.split_details);
+  if (primary) return primary;
+
+  // Fallback: first active invoice
+  return pool[0] || null;
 }
 
 export function prepareOrderInvoicePreview(
@@ -235,10 +272,12 @@ export function prepareOrderInvoicePreview(
     return targetInvoice;
   }
 
+  // If this is an individual split invoice or specific service invoice, DO NOT combine items from other services/invoices!
+  const isIndividualSplit = Boolean(targetInvoice.split_details) || targetInvoice.notes?.toLowerCase().includes("service invoice");
   const isConsolidated =
-    targetInvoice.notes?.toLowerCase().includes("consolidated") ||
-    targetInvoice.agent_type === "primary" ||
-    !targetInvoice.notes?.toLowerCase().includes("service invoice");
+    !isIndividualSplit &&
+    (targetInvoice.notes?.toLowerCase().includes("consolidated") ||
+     (!targetInvoice.split_details && !targetInvoice.notes?.toLowerCase().includes("service invoice") && targetInvoice.items?.length > 1));
 
   if (!isConsolidated) {
     return targetInvoice;

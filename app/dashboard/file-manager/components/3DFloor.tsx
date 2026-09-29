@@ -726,7 +726,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                         </div>
                                     )}
                                     {canAgentView && (
-                                        <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
+                                        <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
                                             <iframe
                                                 src={brandedLink}
                                                 className="w-full h-full border"
@@ -755,7 +755,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                         </div>
                                     )}
                                     {canAgentView && (
-                                        <div className="relative w-full md:w-[80%] h-[300px] md:h-[500px]">
+                                        <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
                                             <iframe
                                                 src={unbrandedLink}
                                                 className="w-full h-full border"

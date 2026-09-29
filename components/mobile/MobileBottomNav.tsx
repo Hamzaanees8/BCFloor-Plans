@@ -50,6 +50,9 @@ const vendorTabs: TabConfig[] = [
 const tabsByRole: Record<string, TabConfig[]> = {
   admin: adminTabs,
   agent: agentTabs,
+  co_agent: agentTabs,
+  agent_admin: agentTabs,
+  assistant: agentTabs,
   vendor: vendorTabs,
 };
 

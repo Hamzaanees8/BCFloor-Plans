@@ -48,7 +48,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileBillingOverview from "@/components/mobile/admin/MobileBillingOverview";
-import { isUserAssistantOrAdmin, isUserCoAgent } from "@/lib/permissions";
+import { isUserCoAgent } from "@/lib/permissions";
 import MobileBillingDetail from "@/components/mobile/admin/MobileBillingDetail";
 import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
@@ -285,6 +285,9 @@ const Page = () => {
               const bestTarget = getBestTargetInvoice(
                 invoicesList,
                 serviceInvoicePopup.serviceId,
+                undefined,
+                currentUser,
+                userType,
               );
               if (bestTarget) {
                 setServiceInvoicePopup((prev) =>
@@ -392,13 +395,106 @@ const Page = () => {
       const res = await GetInvoicesByOrder(billing.order_uuid);
       const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
 
+      const isCoAgent = userType === "agent" && isUserCoAgent(currentUser, userType);
+
       const targetInvoice = getBestTargetInvoice(
         invoicesList,
         serviceId,
         serviceNumericId,
+        currentUser,
+        userType,
       );
 
+      // Find all invoices matching this specific service
+      const matchingServiceInvoices =
+        serviceId || serviceNumericId != null
+          ? invoicesList.filter((inv: any) =>
+              inv.items?.some((i: any) => {
+                const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                const sId =
+                  i.order_service_id ||
+                  i.order_service?.id ||
+                  i.orderService?.id;
+                const svcId =
+                  i.order_service?.service_id ||
+                  i.order_service?.service?.id ||
+                  i.orderService?.service_id ||
+                  i.orderService?.service?.id ||
+                  i.service_id;
+                return (
+                  (serviceId &&
+                    (sUuid === serviceId ||
+                      sId?.toString() === serviceId ||
+                      (svcId != null && svcId.toString() === serviceId))) ||
+                  (serviceNumericId != null &&
+                    (svcId === serviceNumericId ||
+                      svcId?.toString() === serviceNumericId.toString() ||
+                      sId === serviceNumericId ||
+                      sId?.toString() === serviceNumericId.toString()))
+                );
+              }),
+            )
+          : [];
+
+      const activeServiceInvoices = matchingServiceInvoices.filter(
+        (inv: any) => !isVoidOrCancelled(inv.status),
+      );
+      const isSplitService =
+        (matchingServiceInvoices.length > 1 ||
+          matchingServiceInvoices.some(
+            (inv: any) =>
+              Boolean(inv.split_details) || inv.agent_type === "co-agent",
+          )) &&
+        !isCoAgent;
+
       if (action === "view") {
+        if (serviceId && isSplitService && activeServiceInvoices.length > 1) {
+          // If service is split, Primary Agent & Admin see the 2 split invoices for this service
+          setActionLoading(null);
+          setInvoices(invoicesList);
+          setSelectedBilling(billing);
+          setSelectedOrderUuid(billing.order_uuid);
+          setSelectedServiceId(serviceId);
+          setShowInvoicesModal(true);
+          setInvoicesLoading(false);
+          return;
+        }
+
+        if (!serviceId && !isCoAgent) {
+          // Check if order has split invoices (primary and co-agent)
+          const activeOrderInvoices = invoicesList.filter(
+            (inv: any) => !isVoidOrCancelled(inv.status),
+          );
+          const hasCoAgent = activeOrderInvoices.some(
+            (inv: any) =>
+              inv.agent_type === "co-agent" ||
+              (Boolean(inv.split_details) && inv.agent_type !== "primary"),
+          );
+          const uniqueAgents = new Set(
+            activeOrderInvoices
+              .map((inv: any) => inv.agent?.uuid || inv.agent_uuid)
+              .filter(Boolean),
+          );
+          const isSplitOrder =
+            activeOrderInvoices.length > 1 &&
+            (hasCoAgent ||
+              uniqueAgents.size > 1 ||
+              activeOrderInvoices.some((inv: any) =>
+                Boolean(inv.split_details),
+              ));
+
+          if (isSplitOrder) {
+            setActionLoading(null);
+            setInvoices(invoicesList);
+            setSelectedBilling(billing);
+            setSelectedOrderUuid(billing.order_uuid);
+            setSelectedServiceId(null);
+            setShowInvoicesModal(true);
+            setInvoicesLoading(false);
+            return;
+          }
+        }
+
         if (targetInvoice) {
           setActionLoading(null);
           const previewInvoice = serviceId
@@ -418,7 +514,9 @@ const Page = () => {
           toast.error("No active invoice available for this selection.");
         }
       } else if (action === "pay") {
-        const unpaidInvoices = invoicesList.filter((inv: any) => {
+        const unpaidInvoices = (
+          serviceId ? activeServiceInvoices : invoicesList
+        ).filter((inv: any) => {
           const s = (inv.status || "").toLowerCase();
           return (
             !isPaidOrSucceeded(s) && !isVoidOrCancelled(s) && !isRefunded(s)
@@ -435,6 +533,7 @@ const Page = () => {
         );
 
         if (
+          !isCoAgent &&
           unpaidInvoices.length > 1 &&
           (hasCoAgentInvoice || uniqueAgents.size > 1)
         ) {
@@ -454,20 +553,24 @@ const Page = () => {
           !isVoidOrCancelled(targetInvoice.status) &&
           !isRefunded(targetInvoice.status);
 
-        const invoiceToPay = serviceId
+        const invoiceToPay = isCoAgent
           ? isTargetUnpaid
             ? targetInvoice
+            : unpaidInvoices.find((inv: any) => inv.agent_type === "co-agent")
+          : serviceId
+            ? isTargetUnpaid
+              ? targetInvoice
+              : unpaidInvoices.find((inv: any) =>
+                  inv.notes?.toLowerCase().includes("consolidated"),
+                ) ||
+                unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
+                unpaidInvoices[0]
             : unpaidInvoices.find((inv: any) =>
                 inv.notes?.toLowerCase().includes("consolidated"),
               ) ||
               unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
-              unpaidInvoices[0]
-          : unpaidInvoices.find((inv: any) =>
-              inv.notes?.toLowerCase().includes("consolidated"),
-            ) ||
-            unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
-            unpaidInvoices[0] ||
-            (isTargetUnpaid ? targetInvoice : null);
+              unpaidInvoices[0] ||
+              (isTargetUnpaid ? targetInvoice : null);
 
         if (invoiceToPay) {
           await handlePayInvoice(invoiceToPay, billing, undefined, serviceId);
@@ -645,87 +748,14 @@ const Page = () => {
     try {
       setLoading(true);
       const data = await getBillings();
-
-      // Agent Admin / Assistants see all billing data (no ownership filter), same as admin/agent
-      // Only co_agent accounts have their billing data filtered to own + shared invoices
-      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-      const isAgentAdminOrAssistant = isUserAssistantOrAdmin(userInfo, userType);
-      const isCoAgent = isUserCoAgent(userInfo, userType);
-
-      if ((userType === "agent" || isCoAgent) && !isAgentAdminOrAssistant) {
-        const agentUuid = userInfo?.uuid || userInfo?.data?.uuid;
-        const agentId = userInfo?.id || userInfo?.data?.id;
-        const agentEmail = (
-          userInfo?.primary_email ||
-          userInfo?.email ||
-          userInfo?.data?.primary_email ||
-          userInfo?.data?.email ||
-          ""
-        ).toLowerCase().trim();
-        const userName = `${userInfo?.first_name || ""} ${userInfo?.last_name || ""}`.toLowerCase().trim();
-
-        if (agentUuid || agentEmail || agentId) {
-          const agentFilteredData = data.filter((b: any) => {
-            // 1. Is user the primary agent?
-            if (agentUuid && b.agent_uuid === agentUuid) return true;
-            if (agentId && (b.agent_id === agentId || String(b.agent_id) === String(agentId))) return true;
-
-            // 2. Is user listed in co_agents?
-            const rawCo = b.co_agents || b.coagents || b.order?.co_agents;
-            let coList: any[] = [];
-            if (Array.isArray(rawCo)) coList = rawCo;
-            else if (typeof rawCo === "string") {
-              try {
-                const parsed = JSON.parse(rawCo);
-                if (Array.isArray(parsed)) coList = parsed;
-              } catch {}
-            }
-            if (coList.some((ca: any) => {
-              if (!ca) return false;
-              const caEmail = (ca.email || (typeof ca === "string" ? ca : "")).toLowerCase().trim();
-              const caName = (ca.name || `${ca.first_name || ""} ${ca.last_name || ""}`).toLowerCase().trim();
-              const caId = ca.agent_id || ca.id || ca.uuid;
-              return (
-                (agentEmail && caEmail && caEmail === agentEmail) ||
-                (userName && caName && (caName === userName || userName.includes(caName) || caName.includes(userName))) ||
-                (agentUuid && caId && String(caId) === String(agentUuid)) ||
-                (agentId && caId && String(caId) === String(agentId))
-              );
-            })) {
-              return true;
-            }
-
-            // 3. Does any invoice belong to this co-agent / agent?
-            if (Array.isArray(b.invoices)) {
-              if (b.invoices.some((inv: any) => {
-                const invEmail = (inv.agent?.email || inv.email || "").toLowerCase().trim();
-                const invUuid = inv.agent?.uuid || inv.agent_uuid;
-                const invId = inv.agent?.id || inv.agent_id;
-                return (
-                  (agentEmail && invEmail && invEmail === agentEmail) ||
-                  (agentUuid && invUuid && invUuid === agentUuid) ||
-                  (agentId && invId && String(invId) === String(agentId))
-                );
-              })) {
-                return true;
-              }
-            }
-
-            return false;
-          });
-          setBillings(agentFilteredData);
-        } else {
-          setBillings(data);
-        }
-      } else {
-        setBillings(data);
-      }
+      setBillings(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load billings:", err);
+      setBillings([]);
     } finally {
       setLoading(false);
     }
-  }, [userType]);
+  }, []);
 
   useEffect(() => {
     loadBillings();
@@ -977,7 +1007,14 @@ const Page = () => {
 
   const getOrderInvoiceUrl = (billing: BillingItem) => {
     if (billing.invoices && billing.invoices.length > 0) {
-      return billing.invoices[0]?.invoice_url || null;
+      const target = getBestTargetInvoice(
+        billing.invoices,
+        undefined,
+        undefined,
+        currentUser,
+        userType,
+      );
+      return target?.invoice_url || billing.invoices[0]?.invoice_url || null;
     }
     return null;
   };
@@ -1342,7 +1379,7 @@ const Page = () => {
                     : Math.max(0, rowGrandTotal - (billing.total_paid || 0));
 
                 const splitInfo = getBillingSplitInfo(billing);
-                const isCoAgentUser = isUserCoAgent(currentUser, userType);
+                const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
                 const isCoAgentShared =
                   isCoAgentUser &&
                   splitInfo?.isShared &&
@@ -1469,7 +1506,13 @@ const Page = () => {
                         const hasLoadedInvoices =
                           Array.isArray(rowInvoices[billing.order_uuid]);
                         const targetOrderInvoice =
-                          getBestTargetInvoice(orderInvoices);
+                          getBestTargetInvoice(
+                            orderInvoices,
+                            undefined,
+                            undefined,
+                            currentUser,
+                            userType,
+                          );
                         const primaryInvoice =
                           targetOrderInvoice ||
                           orderInvoices.find(
@@ -1756,6 +1799,10 @@ const Page = () => {
                                                     const invoiceToPay =
                                                       getBestTargetInvoice(
                                                         invoicesList,
+                                                        undefined,
+                                                        undefined,
+                                                        currentUser,
+                                                        userType,
                                                       );
 
                                                     if (
@@ -1890,7 +1937,7 @@ const Page = () => {
                                               Subtotal
                                             </span>
                                             <span className="font-semibold text-gray-700">
-                                              {subtotalVal.toLocaleString(
+                                              {(subtotalVal * splitMultiplier).toLocaleString(
                                                 "en-US",
                                                 {
                                                   style: "currency",
@@ -1905,7 +1952,7 @@ const Page = () => {
                                                 GST/HST ({taxRate}%)
                                               </span>
                                               <span className="font-semibold text-[#DC9600]">
-                                                {taxAmount.toLocaleString(
+                                                {(taxAmount * splitMultiplier).toLocaleString(
                                                   "en-US",
                                                   {
                                                     style: "currency",
@@ -1920,7 +1967,7 @@ const Page = () => {
                                               Grand Total
                                             </span>
                                             <span className="font-bold text-gray-800">
-                                              {grandTotalVal.toLocaleString(
+                                              {(grandTotalVal * splitMultiplier).toLocaleString(
                                                 "en-US",
                                                 {
                                                   style: "currency",
@@ -1934,7 +1981,7 @@ const Page = () => {
                                               Total Paid
                                             </span>
                                             <span className="font-semibold text-[#6BAE41]">
-                                              {billing.total_paid.toLocaleString(
+                                              {((billing.total_paid || 0) * splitMultiplier).toLocaleString(
                                                 "en-US",
                                                 {
                                                   style: "currency",
@@ -1949,7 +1996,7 @@ const Page = () => {
                                                 Total Refunded
                                               </span>
                                               <span className="font-semibold text-red-500">
-                                                {totalRefunded.toLocaleString(
+                                                {(totalRefunded * splitMultiplier).toLocaleString(
                                                   "en-US",
                                                   {
                                                     style: "currency",
@@ -1964,7 +2011,7 @@ const Page = () => {
                                               Balance Due
                                             </span>
                                             <span className="font-bold text-[#E06D5E]">
-                                              {displayRemaining.toLocaleString(
+                                              {(displayRemaining * splitMultiplier).toLocaleString(
                                                 "en-US",
                                                 {
                                                   style: "currency",
@@ -1994,7 +2041,40 @@ const Page = () => {
                                                 </tr>
                                               </thead>
                                               <tbody className="divide-y divide-gray-50 text-gray-600">
-                                                {billing.invoices.map((txn: any, idx: number) => {
+                                                {(() => {
+                                                  const userEmail = (
+                                                    currentUser?.primary_email ||
+                                                    currentUser?.email ||
+                                                    ""
+                                                  ).toLowerCase().trim();
+                                                  const userUuid =
+                                                    currentUser?.uuid || currentUser?.data?.uuid;
+
+                                                  const displayedTxns = isCoAgentUser
+                                                    ? billing.invoices.filter((txn: any) => {
+                                                        const invEmail = (
+                                                          txn.agent?.email ||
+                                                          txn.email ||
+                                                          ""
+                                                        ).toLowerCase().trim();
+                                                        const invUuid =
+                                                          txn.agent?.uuid || txn.agent_uuid;
+                                                        const isCoAgentType =
+                                                          txn.agent_type === "co_agent" ||
+                                                          txn.agent_type === "co-agent";
+                                                        return (
+                                                          (userUuid &&
+                                                            invUuid &&
+                                                            invUuid === userUuid) ||
+                                                          (userEmail &&
+                                                            invEmail &&
+                                                            invEmail === userEmail) ||
+                                                          isCoAgentType
+                                                        );
+                                                      })
+                                                    : billing.invoices;
+
+                                                  return displayedTxns.map((txn: any, idx: number) => {
                                                   const isRefund = txn.status === 'refunded' || parseFloat(txn.amount) < 0;
                                                   const displayAmount = Math.abs(parseFloat(txn.amount));
                                                   return (
@@ -2039,7 +2119,8 @@ const Page = () => {
                                                       </td>
                                                     </tr>
                                                   );
-                                                })}
+                                                  });
+                                                })()}
                                               </tbody>
                                             </table>
                                           </div>
@@ -2114,7 +2195,9 @@ const Page = () => {
                                         getBestTargetInvoice(
                                           orderInvoices,
                                           serviceUuid,
-                                            service.service_id,
+                                          service.service_id,
+                                          currentUser,
+                                          userType,
                                         );
 
                                       const isServiceRefunded =
@@ -2351,6 +2434,9 @@ const Page = () => {
                                                                 getBestTargetInvoice(
                                                                   invoicesList,
                                                                   serviceUuid,
+                                                                  undefined,
+                                                                  currentUser,
+                                                                  userType,
                                                                 );
 
                                                               if (
@@ -2483,52 +2569,70 @@ const Page = () => {
                                                 </div>
                                               </div>
                                               <div className="text-sm text-gray-600 space-y-0.5">
-                                                <p>
-                                                  Base Price:{" "}
-                                                  <span className="font-medium text-gray-800">
-                                                    {service.amount.toLocaleString(
-                                                      "en-US",
-                                                      {
-                                                        style: "currency",
-                                                        currency: "USD",
-                                                      },
-                                                    )}
-                                                  </span>
-                                                </p>
-                                                {taxRate > 0 ? (
-                                                  <>
-                                                    <p className="text-xs text-gray-500">
-                                                      GST ({taxRate}%):{" "}
-                                                      <span className="font-medium">
-                                                        {(
-                                                          service.amount *
-                                                          (taxRate / 100)
-                                                        ).toLocaleString(
-                                                          "en-US",
-                                                          {
-                                                            style: "currency",
-                                                            currency: "USD",
-                                                          },
+                                                {(() => {
+                                                  const serviceBasePrice =
+                                                    serviceTargetInvoice?.subtotal != null
+                                                      ? parseFloat(serviceTargetInvoice.subtotal)
+                                                      : service.amount * splitMultiplier;
+                                                  const serviceTaxAmount =
+                                                    serviceTargetInvoice?.tax != null
+                                                      ? parseFloat(serviceTargetInvoice.tax)
+                                                      : serviceBasePrice * (taxRate / 100);
+                                                  const serviceTotalPrice =
+                                                    serviceTargetInvoice?.total != null
+                                                      ? parseFloat(serviceTargetInvoice.total)
+                                                      : serviceBasePrice + serviceTaxAmount;
+
+                                                  return (
+                                                    <>
+                                                      <p>
+                                                        Base Price:{" "}
+                                                        <span className="font-medium text-gray-800">
+                                                          {serviceBasePrice.toLocaleString(
+                                                            "en-US",
+                                                            {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            },
+                                                          )}
+                                                        </span>
+                                                        {isCoAgentShared && (
+                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                                            {splitInfo?.splitPercentage}% share
+                                                          </span>
                                                         )}
-                                                      </span>
-                                                    </p>
-                                                    <p className="text-[13px] font-semibold text-gray-700">
-                                                      Total Price:{" "}
-                                                      <span className="text-[#6BAE41]">
-                                                        {(
-                                                          service.amount *
-                                                          (1 + taxRate / 100)
-                                                        ).toLocaleString(
-                                                          "en-US",
-                                                          {
-                                                            style: "currency",
-                                                            currency: "USD",
-                                                          },
-                                                        )}
-                                                      </span>
-                                                    </p>
-                                                  </>
-                                                ) : null}
+                                                      </p>
+                                                      {taxRate > 0 ? (
+                                                        <>
+                                                          <p className="text-xs text-gray-500">
+                                                            GST ({taxRate}%):{" "}
+                                                            <span className="font-medium">
+                                                              {serviceTaxAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style: "currency",
+                                                                  currency: "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
+                                                          <p className="text-[13px] font-semibold text-gray-700">
+                                                            Total Price:{" "}
+                                                            <span className="text-[#6BAE41]">
+                                                              {serviceTotalPrice.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style: "currency",
+                                                                  currency: "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
+                                                        </>
+                                                      ) : null}
+                                                    </>
+                                                  );
+                                                })()}
                                               </div>
 
                                                {(() => {
@@ -2725,6 +2829,7 @@ const Page = () => {
               </div>
             ) : (
               (() => {
+                const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
                 let filteredList = selectedServiceId
                   ? invoices.filter((inv) => {
                       const isConsolidated = inv.notes
@@ -2735,7 +2840,7 @@ const Page = () => {
                         inv.notes?.toLowerCase().includes("late_fee") ||
                         inv.type === "late_fee" ||
                         inv.is_late_fee;
-                      if (isLateFee) return true; // Show late fee invoices
+                      if (isLateFee) return false;
                       if (isConsolidated) return false;
                       return inv.items?.some((i: any) => {
                         const sUuid =
@@ -2744,14 +2849,25 @@ const Page = () => {
                           i.order_service_id ||
                           i.order_service?.id ||
                           i.orderService?.id;
+                        const svcId =
+                          i.order_service?.service_id ||
+                          i.order_service?.service?.id ||
+                          i.orderService?.service_id ||
+                          i.orderService?.service?.id ||
+                          i.service_id;
                         return (
                           sUuid === selectedServiceId ||
-                          sId?.toString() === selectedServiceId
+                          sId?.toString() === selectedServiceId ||
+                          (svcId != null &&
+                            svcId.toString() === selectedServiceId)
                         );
                       });
                     })
                   : invoices.filter(
                       (inv) =>
+                        Boolean(inv.split_details) ||
+                        inv.agent_type === "co-agent" ||
+                        inv.agent_type === "primary" ||
                         inv.notes?.toLowerCase().includes("consolidated") ||
                         inv.notes?.toLowerCase().includes("late fee") ||
                         inv.notes?.toLowerCase().includes("late_fee") ||
@@ -2759,8 +2875,16 @@ const Page = () => {
                         inv.is_late_fee,
                     );
 
-                if (!selectedServiceId && filteredList.length === 0) {
-                  filteredList = invoices;
+                if (isCoAgentUser) {
+                  // For Co-Agent, strictly show their own invoice only (1 invoice)
+                  filteredList = filteredList.filter((inv) => {
+                    const isOwner =
+                      currentUser?.uuid &&
+                      (inv.agent?.uuid === currentUser.uuid ||
+                        inv.agent_uuid === currentUser.uuid ||
+                        inv.agent?.email === currentUser.email);
+                    return isOwner || inv.agent_type === "co-agent";
+                  });
                 }
 
                 if (filteredList.length === 0) {
@@ -2886,12 +3010,7 @@ const Page = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => {
-                                  const prepared = prepareOrderInvoicePreview(
-                                    invoices.length > 0 ? invoices : [invoice],
-                                    invoice,
-                                    selectedBilling || undefined,
-                                  );
-                                  setViewingInvoice(prepared || invoice);
+                                  setViewingInvoice(invoice);
                                 }}
                                 className="h-[30px] text-xs px-3 font-normal border border-[#BBBBBB] hover:bg-gray-50 text-[#666666] rounded-[6px] transition-colors"
                               >
@@ -2905,16 +3024,91 @@ const Page = () => {
                                   <>
                                     {isOwner ? (
                                       (() => {
-                                        const mediaSet = rowServiceMedia[selectedBilling.order_uuid];
-                                        const hasAnyMissingMedia =
+                                        const mediaSet =
+                                          rowServiceMedia[
+                                            selectedBilling.order_uuid
+                                          ];
+                                        let invoiceServicesToCheck: any[] = [];
+                                        if (selectedServiceId) {
+                                          invoiceServicesToCheck =
+                                            selectedBilling.services.filter(
+                                              (svc) =>
+                                                svc.uuid ===
+                                                  selectedServiceId ||
+                                                svc.order_service_uuid ===
+                                                  selectedServiceId ||
+                                                svc.service_id?.toString() ===
+                                                  selectedServiceId.toString(),
+                                            );
+                                        } else if (
+                                          invoice.items &&
+                                          invoice.items.length > 0
+                                        ) {
+                                          invoiceServicesToCheck =
+                                            selectedBilling.services.filter(
+                                              (svc) =>
+                                                invoice.items.some(
+                                                  (item: any) => {
+                                                    const sUuid =
+                                                      item.order_service
+                                                        ?.uuid ||
+                                                      item.orderService?.uuid;
+                                                    const sId =
+                                                      item.order_service_id ||
+                                                      item.order_service?.id ||
+                                                      item.orderService?.id;
+                                                    const svcId =
+                                                      item.order_service
+                                                        ?.service_id ||
+                                                      item.order_service
+                                                        ?.service?.id ||
+                                                      item.orderService
+                                                        ?.service_id ||
+                                                      item.orderService?.service
+                                                        ?.id ||
+                                                      item.service_id;
+                                                    return (
+                                                      sUuid === svc.uuid ||
+                                                      sUuid ===
+                                                        svc.order_service_uuid ||
+                                                      sId?.toString() ===
+                                                        svc.uuid ||
+                                                      sId?.toString() ===
+                                                        svc.order_service_uuid ||
+                                                      (svcId != null &&
+                                                        svcId.toString() ===
+                                                          svc.service_id?.toString()) ||
+                                                      sId?.toString() ===
+                                                        svc.service_id?.toString()
+                                                    );
+                                                  },
+                                                ),
+                                            );
+                                        }
+                                        if (
+                                          invoiceServicesToCheck.length === 0
+                                        ) {
+                                          invoiceServicesToCheck =
+                                            selectedBilling.services;
+                                        }
+
+                                        const missingServices =
                                           userType === "agent" &&
-                                          mediaSet !== undefined &&
-                                          selectedBilling.services.some((svc) =>
-                                            !mediaSet.has(svc.service_id) &&
-                                            !mediaSet.has(String(svc.service_id))
-                                          );
+                                          mediaSet !== undefined
+                                            ? invoiceServicesToCheck.filter(
+                                                (svc) =>
+                                                  !mediaSet.has(
+                                                    svc.service_id,
+                                                  ) &&
+                                                  !mediaSet.has(
+                                                    String(svc.service_id),
+                                                  ),
+                                              )
+                                            : [];
+                                        const hasAnyMissingMedia =
+                                          missingServices.length > 0;
+
                                         if (hasAnyMissingMedia) {
-                                          const missingServices = selectedBilling.services.filter((svc) => !mediaSet.has(svc.service_id) && !mediaSet.has(String(svc.service_id)));
                                           return (
                                             <TooltipProvider delayDuration={0}>
                                               <Tooltip>
@@ -3264,6 +3458,9 @@ const Page = () => {
               const bestTarget = getBestTargetInvoice(
                 invoicesList,
                 serviceInvoicePopup.serviceId,
+                undefined,
+                currentUser,
+                userType,
               );
               if (bestTarget) {
                 setServiceInvoicePopup((prev) =>
