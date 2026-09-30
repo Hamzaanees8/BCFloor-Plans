@@ -93,7 +93,17 @@ const MatterportPage = () => {
   const [selectedTourForRenewal, setSelectedTourForRenewal] = useState<MatterportAd | null>(null);
   const [renewalModalOpen, setRenewalModalOpen] = useState<boolean>(false);
   const [sendingReminderUuid, setSendingReminderUuid] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("userInfo");
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
 
   useEffect(() => {
     try {
@@ -106,7 +116,7 @@ const MatterportPage = () => {
     }
   }, []);
 
-  const isCoAgent = userType === "agent" && isUserCoAgent(currentUser, userType);
+  const isCoAgent = isUserCoAgent(currentUser, userType);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -214,23 +224,24 @@ const MatterportPage = () => {
     }
 
     if (isCoAgent && currentUser) {
+      const u = currentUser.data || currentUser.user || currentUser;
       const userEmail = (
+        u.primary_email ||
+        u.email ||
         currentUser.primary_email ||
         currentUser.email ||
-        currentUser.data?.primary_email ||
-        currentUser.data?.email ||
         ""
       ).toLowerCase().trim();
-      const userUuid = currentUser.uuid || currentUser.data?.uuid;
-      const userId = currentUser.id || currentUser.data?.id;
-      const userName = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.toLowerCase().trim();
+      const userUuid = u.uuid || currentUser.uuid;
+      const userId = u.id || currentUser.id;
+      const userName = `${u.first_name || currentUser.first_name || ""} ${u.last_name || currentUser.last_name || ""}`.toLowerCase().trim();
 
       result = result.filter((item) => {
         // 1. Is user the primary agent?
         const isPrimary =
           (userUuid && item.agentUuid === userUuid) ||
           (userId && item.agentId && String(item.agentId) === String(userId)) ||
-          (userEmail && item.agentEmail?.toLowerCase() === userEmail);
+          (userEmail && item.agentEmail && item.agentEmail.toLowerCase().trim() === userEmail);
 
         // 2. Is user listed in coAgents?
         const isShared = (item.coAgents || []).some((ca: any) => {

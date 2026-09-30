@@ -173,7 +173,7 @@ const Page = () => {
     }
   }, []);
 
-  const isCoAgent = userType === "agent" && isUserCoAgent(currentUser, userType);
+  const isCoAgent = isUserCoAgent(currentUser, userType);
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
@@ -525,7 +525,7 @@ const Page = () => {
           >
             Listings ({filteredListings?.length})
           </p>
-          {userType !== "vendor" && (
+          {userType !== "vendor" && !isCoAgent && (
             <Link
               href="/dashboard/orders/create"
               className="text-xs px-3 py-1.5 rounded-md text-white font-medium hover:brightness-110"
@@ -1002,7 +1002,7 @@ const Page = () => {
               </button>
             </div>
           </div>
-          {userType !== "vendor" && (
+          {userType !== "vendor" && !isCoAgent && (
             <Link
               href={"/dashboard/orders/create"}
               className="w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110"
@@ -1014,7 +1014,7 @@ const Page = () => {
               + New Booking
             </Link>
           )}
-          {/* {(userType !== "vendor" && userType !== "agent") && (
+          {/* {(userType !== "vendor" && userType !== "agent" && !isCoAgent) && (
             <Link
               href={"/dashboard/listings/create"}
               className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'

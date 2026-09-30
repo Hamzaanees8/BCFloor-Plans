@@ -221,7 +221,14 @@ export const mapMatterportApiToAd = (
     }
   }
 
-  const rawCo = orderObj?.co_agents || orderObj?.coagents || orderObj?.property?.co_agents;
+  const rawCo =
+    orderObj?.co_agents ||
+    orderObj?.coagents ||
+    orderObj?.property?.co_agents ||
+    orderObj?.property?.coagents ||
+    apiItem.property?.co_agents ||
+    apiItem.property?.coagents ||
+    apiItem.co_agents;
   let coAgentsList: any[] = [];
   if (Array.isArray(rawCo)) {
     coAgentsList = rawCo;
