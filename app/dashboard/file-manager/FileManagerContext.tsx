@@ -613,6 +613,13 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   const [tourDefaultSettings, setTourDefaultSettings] = useState<any | null>(
     null,
   );
+
+  useEffect(() => {
+    if (tourDefaultSettings?.always_enable_sorting) {
+      setFileManagerMode("reorder");
+    }
+  }, [tourDefaultSettings?.always_enable_sorting]);
+
   const [restoreDetailFieldHandler, setRestoreDetailFieldHandler] = useState<
     ((id: string) => void) | null
   >(null);

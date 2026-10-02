@@ -598,6 +598,7 @@ export interface MediaSettingsPayload {
     matterport_auto_invoice_enabled?: boolean;
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];
+    always_enable_sorting?: boolean;
   };
 }
 

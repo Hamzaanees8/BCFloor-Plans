@@ -26,18 +26,14 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       }
     }
 
-    const isCoAgentUser = userType === "agent" && isUserCoAgent(userInfo, userType);
     const isSubAccount =
-      userType === "co_agent" ||
       userType === "agent_admin" ||
       userType === "assistant" ||
-      (userType === "agent" && (
-        isCoAgentUser ||
-        Boolean(userInfo?.agent_id || userInfo?.data?.agent_id)
-      ));
+      (userType === "agent" &&
+        Boolean(userInfo?.agent_id || userInfo?.data?.agent_id));
 
     if (
-      (userType === "agent" || isSubAccount) &&
+      (userType === "agent" || userType === "co_agent" || isSubAccount) &&
       (pathname.startsWith("/dashboard/admin") ||
         pathname.startsWith("/dashboard/services") ||
         pathname.startsWith("/dashboard/vendor-billing") ||
@@ -187,8 +183,8 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       return;
     }
 
-    // Primary Agent: full access to agent screens
-    if (userType === "agent") {
+    // Primary Agent / Co-Agent: full access to agent screens
+    if (userType === "agent" || userType === "co_agent") {
       setIsAllowed(true);
       return;
     }

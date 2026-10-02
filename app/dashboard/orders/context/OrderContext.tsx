@@ -11,11 +11,13 @@ import { Agent } from '@/lib/types';
 import { Services, Packages } from '../../services/page';
 import { VendorData } from '../[id]/page';
 import { PortalSettingsPayload } from '../../global-settings/global-settings';
-type CoAgent = {
+export type CoAgent = {
+    agent_id?: number | string;
+    agent_uuid?: string;
     name: string;
     email: string;
     primary_phone?: string;
-    split?: string;
+    split?: string | number;
     percentage?: number;
 };
 export type AgentNote = {

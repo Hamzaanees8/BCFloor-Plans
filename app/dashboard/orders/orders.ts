@@ -8,8 +8,12 @@ export interface OrderPayload {
   payment_status: "UNPAID" | "PAID" | string;
   split_invoice: number;
   co_agents: {
+    agent_id?: number | string;
+    agent_uuid?: string;
     name: string;
     email: string;
+    primary_phone?: string;
+    split?: string | number;
     percentage?: number;
   }[];
   notes: AgentNote[];

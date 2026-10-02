@@ -380,6 +380,7 @@ const FileManager = () => {
     deletedSnapshotUuids,
     setDeletedSnapshotUuids,
     setDroppedMarkers,
+    tourDefaultSettings,
     setTourSettings,
     setTourDefaultSettings,
     approvalSelectedUuids,
@@ -1717,7 +1718,7 @@ const FileManager = () => {
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
-      setFileManagerMode("upload");
+      setFileManagerMode(tourDefaultSettings?.always_enable_sorting ? "reorder" : "upload");
       const token = localStorage.getItem("token");
       if (!token) return;
 
@@ -1840,6 +1841,7 @@ const FileManager = () => {
       deletedSnapshotUuids,
       setDeletedSnapshotUuids,
       setDroppedMarkers,
+      tourDefaultSettings,
     ],
   );
 

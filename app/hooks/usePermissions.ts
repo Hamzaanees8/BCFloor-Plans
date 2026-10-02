@@ -131,10 +131,13 @@ export function usePermissions() {
 
                 const parsedUserInfo = userInfoStr ? JSON.parse(userInfoStr) : null;
                 const isSubAccountUser =
-                    userType === "co_agent" ||
                     userType === "agent_admin" ||
                     userType === "assistant" ||
-                    Boolean(parsedUserInfo?.agent_id || parsedUserInfo?.data?.agent_id || parsedUserInfo?.agent_type || parsedUserInfo?.data?.agent_type);
+                    parsedUserInfo?.agent_type === "agent_admin" ||
+                    parsedUserInfo?.agent_type === "assistant" ||
+                    parsedUserInfo?.data?.agent_type === "agent_admin" ||
+                    parsedUserInfo?.data?.agent_type === "assistant" ||
+                    Boolean(parsedUserInfo?.agent_id || parsedUserInfo?.data?.agent_id);
 
                 if (userType === "admin" && userInfoStr) {
                     const userInfo = JSON.parse(userInfoStr);

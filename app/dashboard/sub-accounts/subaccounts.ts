@@ -364,3 +364,97 @@ export async function ResetPasswordSubAccount(
 
   return data;
 }
+
+export interface CoAgent {
+  id: number;
+  uuid: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  email: string;
+  primary_phone?: string;
+  number?: string;
+  company_name?: string;
+  split?: number;
+  percentage?: number;
+  organization?: any;
+  organization_id?: number | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CoAgentPayload {
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  email: string;
+  password?: string;
+  primary_phone?: string;
+  number?: string;
+  company_name?: string;
+  agent_uuid?: string;
+  agent_id?: string;
+}
+
+export async function GetCoAgents(token: string, agentUuid?: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const url = agentUuid 
+    ? `${API_URL}/agent/co-agents?agent_uuid=${encodeURIComponent(agentUuid)}`
+    : `${API_URL}/agent/co-agents`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function AddCoAgent(payload: CoAgentPayload, token: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/agent/co-agents`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const error: any = new Error(data.message || "Request failed");
+    error.errors = data.errors;
+    throw error;
+  }
+  return data;
+}
+
+export async function UnlinkCoAgent(uuid: string, token: string, agentUuid?: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const url = agentUuid
+    ? `${API_URL}/agent/co-agents/${uuid}?agent_uuid=${encodeURIComponent(agentUuid)}`
+    : `${API_URL}/agent/co-agents/${uuid}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to unlink co-agent");
+  }
+  return data;
+}

@@ -19,7 +19,7 @@ import { useOrderContext } from '../context/OrderContext';
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { GetOne as GetOneAgent } from '@/app/dashboard/agents/agents';
-import { Get as GetSubAccounts } from '@/app/dashboard/sub-accounts/subaccounts';
+import { GetCoAgents } from '@/app/dashboard/sub-accounts/subaccounts';
 import {
     Table,
     TableBody,
@@ -61,21 +61,38 @@ const Contact = () => {
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [hasToken, setHasToken] = useState(true);
-    const [allSubAccounts, setAllSubAccounts] = useState<any[]>([]);
+    const [allLinkedCoAgents, setAllLinkedCoAgents] = useState<any[]>([]);
+    const [selectedExistingCoAgent, setSelectedExistingCoAgent] = useState<any | null>(null);
+
+    // Reset co-agents when primary agent changes
+    const prevSelectedAgentIdRef = useRef(selectedAgentId);
+    useEffect(() => {
+        if (prevSelectedAgentIdRef.current !== undefined && prevSelectedAgentIdRef.current !== selectedAgentId) {
+            setCoAgents([]);
+            setIsSplitInvoice(false);
+        }
+        prevSelectedAgentIdRef.current = selectedAgentId;
+    }, [selectedAgentId, setCoAgents, setIsSplitInvoice]);
 
     useEffect(() => {
         const checkToken = () => {
             const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
             setHasToken(!!token);
             if (token) {
-                GetSubAccounts(token)
+                const targetAgentUuid = selectedAgentId || (isAgentUser && userInfo ? userInfo.uuid : undefined);
+                GetCoAgents(token, targetAgentUuid)
                     .then((res: any) => {
                         if (Array.isArray(res?.data)) {
-                            setAllSubAccounts(res.data);
+                            setAllLinkedCoAgents(res.data);
+                        } else if (Array.isArray(res)) {
+                            setAllLinkedCoAgents(res);
+                        } else {
+                            setAllLinkedCoAgents([]);
                         }
                     })
                     .catch((err: any) => {
-                        console.error("Failed to fetch sub-accounts for order contact:", err);
+                        console.error("Failed to fetch linked co-agents for order contact:", err);
+                        setAllLinkedCoAgents([]);
                     });
             }
         };
@@ -89,7 +106,7 @@ const Contact = () => {
             window.removeEventListener('storage', checkToken);
             window.removeEventListener('agentLogin', checkToken);
         };
-    }, []);
+    }, [selectedAgentId, isAgentUser, userInfo]);
 
     const selectedAgent = useMemo(() => {
         const found = agentsData.find((agent) => agent.uuid === selectedAgentId);
@@ -132,83 +149,34 @@ const Contact = () => {
     }, [detailedAgent, selectedAgentId, selectedAgent, isAgentUser, userInfo]);
 
     const availableCoAgents = useMemo(() => {
-        const target = (detailedAgent && detailedAgent.uuid === selectedAgentId) ? detailedAgent : effectiveAgent;
         const result: any[] = [];
-        const seenEmails = new Set<string>();
+        const seenKeys = new Set<string>();
 
-        // 1. Filter subaccounts belonging to the selected agent
-        if (selectedAgentId && allSubAccounts.length > 0) {
-            const targetAgentUuid = target?.uuid || selectedAgentId;
-            const targetAgentId = target?.id;
-
-            const agentSubAccounts = allSubAccounts.filter((sub: any) => {
-                const subAgentUuid = sub.agent?.uuid || sub.agent_uuid;
-                const subAgentId = sub.agent?.id || sub.agent_id;
-                return (
-                    (targetAgentUuid && subAgentUuid === targetAgentUuid) ||
-                    (targetAgentId && String(subAgentId) === String(targetAgentId))
-                );
-            });
-
-            for (const sub of agentSubAccounts) {
-                const name = `${sub.first_name || ""} ${sub.last_name || ""}`.trim() || sub.primary_email?.split("@")[0] || "Sub-Account";
-                const email = (sub.primary_email || sub.email || "").toLowerCase().trim();
-                if (email && !seenEmails.has(email)) {
-                    seenEmails.add(email);
+        if (Array.isArray(allLinkedCoAgents) && allLinkedCoAgents.length > 0) {
+            for (const co of allLinkedCoAgents) {
+                const fullName = `${co.first_name || ""} ${co.last_name || ""}`.trim() || co.name || (co.email ? co.email.split("@")[0] : "Co-Agent");
+                const email = (co.email || "").toLowerCase().trim();
+                const key = String(co.uuid || co.id || email);
+                if (key && !seenKeys.has(key)) {
+                    seenKeys.add(key);
                     result.push({
-                        id: sub.id,
-                        uuid: sub.uuid,
-                        name: name,
-                        email: sub.primary_email || sub.email,
-                        phone: sub.primary_phone || sub.phone || "",
-                        role: sub.role?.name || (sub.role_id === 5 ? "Admin" : sub.role_id === 6 ? "Assistant" : "Co-Agent"),
-                        percentage: Number(sub.split || sub.split_percentage || sub.percentage || 0),
+                        id: co.id,
+                        uuid: co.uuid,
+                        agent_id: co.id,
+                        agent_uuid: co.uuid,
+                        name: fullName,
+                        email: co.email || "",
+                        primary_phone: co.primary_phone || co.number || "",
+                        role: "Co-Agent / Partner",
+                        percentage: Number(co.split || co.percentage || 0),
+                        split: co.split ?? co.percentage,
                     });
                 }
             }
         }
 
-        // 2. Also merge any embedded co_agents from agent data
-        if (target) {
-            let raw = target.co_agents || target.coagents || target.coagent;
-            if (raw) {
-                if (typeof raw === "object" && !Array.isArray(raw)) {
-                    raw = [raw];
-                }
-                if (typeof raw === "string") {
-                    try {
-                        raw = JSON.parse(raw);
-                    } catch (e) {
-                        console.error("Failed to parse co_agents JSON:", e);
-                        raw = [];
-                    }
-                }
-                if (Array.isArray(raw)) {
-                    for (const item of raw) {
-                        const email = (typeof item === "string" ? (item.includes("@") ? item : "") : (item.email || item.primary_email || "")).toLowerCase().trim();
-                        const name = typeof item === "string" ? (item.includes("@") ? item.split("@")[0] : item) : (item.name || item.first_name || (email ? email.split("@")[0] : "Co-Agent"));
-                        const percentage = typeof item === "object" ? Number(item.split || item.percentage || 0) : 0;
-                        if (email && !seenEmails.has(email)) {
-                            seenEmails.add(email);
-                            result.push({
-                                name,
-                                email: typeof item === "string" ? item : (item.email || item.primary_email || ""),
-                                percentage,
-                            });
-                        } else if (!email && name) {
-                            result.push({
-                                name,
-                                email: "",
-                                percentage,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
         return result;
-    }, [selectedAgent, detailedAgent, selectedAgentId, allSubAccounts]);
+    }, [allLinkedCoAgents]);
     //     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]); // Keeping for backward compatibility if needed, but primary flow will direct update coAgents
     const [percentage, setPercentage] = useState<number | ''>('');
     const [userName, setUserName] = useState<string>("");
@@ -238,14 +206,16 @@ const Contact = () => {
         return availableCoAgents.map((a) => {
             const isAlreadyAdded = coAgents.some((c, idx) => {
                 if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+                const matchUuid = a.uuid && c.agent_uuid && a.uuid === c.agent_uuid;
+                const matchId = a.id && c.agent_id && String(a.id) === String(c.agent_id);
                 const matchEmail = a.email && c.email && a.email.trim().toLowerCase() === c.email.trim().toLowerCase();
                 const matchName = a.name && c.name && a.name.trim().toLowerCase() === c.name.trim().toLowerCase();
-                return matchEmail || matchName;
+                return matchUuid || matchId || matchEmail || matchName;
             });
 
             return {
                 label: a.email ? `${a.name} (${a.email})` : a.name,
-                value: a.email || a.name,
+                value: a.uuid || a.email || a.name,
                 disabled: isAlreadyAdded,
                 badge: isAlreadyAdded ? "Selected" : undefined,
             };
@@ -275,9 +245,11 @@ const Contact = () => {
         // Duplicate check
         const isDuplicate = coAgents.some((agent, idx) => {
             if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+            const matchUuid = selectedExistingCoAgent?.uuid && agent.agent_uuid && selectedExistingCoAgent.uuid === agent.agent_uuid;
+            const matchId = selectedExistingCoAgent?.id && agent.agent_id && String(selectedExistingCoAgent.id) === String(agent.agent_id);
             const matchEmail = email && agent.email && agent.email.trim().toLowerCase() === email;
             const matchName = name && agent.name && agent.name.trim().toLowerCase() === name.toLowerCase();
-            return matchEmail || (matchName && (!email || !agent.email));
+            return matchUuid || matchId || matchEmail || (matchName && (!email || !agent.email));
         });
 
         if (isDuplicate) {
@@ -300,6 +272,10 @@ const Contact = () => {
             email: rawEmail,
             name: name || rawEmail.split('@')[0],
             percentage: Number(percentage) || 0,
+            split: Number(percentage) || 0,
+            agent_id: selectedExistingCoAgent?.agent_id || selectedExistingCoAgent?.id || (editingCoAgentIndex !== null ? coAgents[editingCoAgentIndex]?.agent_id : undefined),
+            agent_uuid: selectedExistingCoAgent?.agent_uuid || selectedExistingCoAgent?.uuid || (editingCoAgentIndex !== null ? coAgents[editingCoAgentIndex]?.agent_uuid : undefined),
+            primary_phone: selectedExistingCoAgent?.primary_phone || (editingCoAgentIndex !== null ? coAgents[editingCoAgentIndex]?.primary_phone : undefined),
         };
 
         if (editingCoAgentIndex !== null) {
@@ -330,6 +306,7 @@ const Contact = () => {
         setPercentage("");
         setEditingCoAgentIndex(null);
         setCoAgentMode('existing');
+        setSelectedExistingCoAgent(null);
     }
 
     const handleEditCoAgent = (index: number) => {
@@ -339,6 +316,12 @@ const Contact = () => {
         setPercentage(agent.percentage || '');
         setEditingCoAgentIndex(index);
         setCoAgentMode('new'); // Edit mode is effectively "new" (manual) mode but pre-filled
+        const existingMatch = availableCoAgents.find(a => 
+            (agent.agent_uuid && a.uuid === agent.agent_uuid) ||
+            (agent.agent_id && String(a.id) === String(agent.agent_id)) ||
+            (agent.email && a.email && agent.email.toLowerCase() === a.email.toLowerCase())
+        );
+        setSelectedExistingCoAgent(existingMatch || null);
         setOpenAddCoAgentDialog(true);
     };
 
@@ -348,15 +331,22 @@ const Contact = () => {
         setCoAgents(updated);
     };
 
-    const handleSelectExisting = (agentId: string) => {
-        const agent = availableCoAgents.find((a) => a.email === agentId || a.name === agentId);
+    const handleSelectExisting = (agentValue: string) => {
+        const agent = availableCoAgents.find((a) => 
+            (a.uuid && a.uuid === agentValue) || 
+            (a.id && String(a.id) === agentValue) || 
+            (a.email && a.email === agentValue) || 
+            a.name === agentValue
+        );
 
         if (agent) {
             const isAlreadyAdded = coAgents.some((c, idx) => {
                 if (editingCoAgentIndex !== null && idx === editingCoAgentIndex) return false;
+                const matchUuid = agent.uuid && c.agent_uuid && agent.uuid === c.agent_uuid;
+                const matchId = agent.id && c.agent_id && String(agent.id) === String(c.agent_id);
                 const matchEmail = agent.email && c.email && agent.email.trim().toLowerCase() === c.email.trim().toLowerCase();
                 const matchName = agent.name && c.name && agent.name.trim().toLowerCase() === c.name.trim().toLowerCase();
-                return matchEmail || matchName;
+                return matchUuid || matchId || matchEmail || matchName;
             });
 
             if (isAlreadyAdded) {
@@ -364,6 +354,7 @@ const Contact = () => {
                 return;
             }
 
+            setSelectedExistingCoAgent(agent);
             setCoAgentName(agent.name);
             setCoAgentEmail(agent.email);
             if (agent.percentage && agent.percentage > 0) {
@@ -378,6 +369,7 @@ const Contact = () => {
         setCoAgentEmail('');
         setPercentage('');
         setEditingCoAgentIndex(null);
+        setSelectedExistingCoAgent(null);
         setOpenAddCoAgentDialog(true);
     };
 
@@ -601,7 +593,11 @@ const Contact = () => {
                                         <Select
                                             value={selectedAgentId ?? ""}
                                             onValueChange={(value) => {
-                                                setSelectedAgentId(value);
+                                                if (value !== selectedAgentId) {
+                                                    setSelectedAgentId(value);
+                                                    setCoAgents([]);
+                                                    setIsSplitInvoice(false);
+                                                }
                                             }}
                                         >
                                             <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
@@ -726,7 +722,7 @@ const Contact = () => {
                                                                 <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
                                                                 <SearchableSelect
                                                                     options={coAgentOptions}
-                                                                    value={coAgentEmail}
+                                                                    value={selectedExistingCoAgent?.uuid || selectedExistingCoAgent?.email || coAgentEmail}
                                                                     onChange={handleSelectExisting}
                                                                     placeholder="Search co-agents..."
                                                                     className="w-full"
@@ -819,6 +815,36 @@ const Contact = () => {
                                                     ))}
                                                 </TableBody>
                                             </Table>
+
+                                            {isSplitInvoice && (
+                                                <div className="p-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-700 flex flex-col gap-1.5 font-alexandria">
+                                                    {(() => {
+                                                        const totalCo = coAgents.reduce((sum, a) => sum + (Number(a.percentage) || 0), 0);
+                                                        const primaryShare = Math.max(0, 100 - totalCo);
+                                                        const primaryName = `${effectiveAgent?.first_name || ""} ${effectiveAgent?.last_name || ""}`.trim() || "Primary Agent";
+                                                        const isExceeded = totalCo > 100;
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center justify-between font-medium">
+                                                                    <span>Primary Agent Share ({primaryName}):</span>
+                                                                    <span className={isExceeded ? "text-red-600 font-bold" : "text-emerald-700 font-bold"}>
+                                                                        {primaryShare}%
+                                                                    </span>
+                                                                </div>
+                                                                {isExceeded ? (
+                                                                    <p className="text-red-500 font-medium">
+                                                                        Warning: Total co-agent percentages exceed 100%. Please adjust splits.
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[#666666]">
+                                                                        Each agent will be billed separately for their designated percentage via an individual invoice.
+                                                                    </p>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

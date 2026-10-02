@@ -29,6 +29,7 @@ interface SortableGridProps {
     mode: DualMode;
     renderItem: (item: FileItem, isDragging?: boolean) => React.ReactNode;
     columns?: number;
+    disabled?: boolean;
 }
 
 export function SortableItem({
@@ -132,7 +133,7 @@ export function SortableItem({
     );
 }
 
-export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }: SortableGridProps) {
+export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, disabled = false }: SortableGridProps) {
     const { imagesPerRow: contextImagesPerRow } = useFileManagerContext();
 
     const imagesPerRow = columns ?? contextImagesPerRow;
@@ -179,6 +180,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
     );
 
     const handleToggleSelect = (id: string) => {
+        if (disabled) return;
         setSelectedIds((prev) => {
             const next = new Set(prev);
             if (next.has(id)) {
@@ -191,10 +193,12 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
     };
 
     const handleDragStart = (event: DragStartEvent) => {
+        if (disabled) return;
         setActiveId(event.active.id as string);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
+        if (disabled) return;
         const { active, over } = event;
         setActiveId(null);
 
@@ -286,7 +290,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
                 strategy={rectSortingStrategy}
             >
                 <div
-                    className="grid gap-4"
+                    className={`grid gap-4 transition-opacity duration-200 ${disabled ? 'opacity-70 pointer-events-none cursor-wait' : ''}`}
                     style={{ gridTemplateColumns: `repeat(${imagesPerRow}, minmax(0, 1fr))` }}
                 >
                     {items.map((item, index) => {
@@ -300,7 +304,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }
                                 key={item.clientId}
                                 id={item.clientId}
                                 item={item}
-                                disabled={!isReorderMode}
+                                disabled={!isReorderMode || disabled}
                                 isSelected={isSelected}
                                 isReordered={isReordered}
                                 isUnchanged={isUnchanged}

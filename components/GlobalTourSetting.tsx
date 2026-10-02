@@ -70,6 +70,7 @@ type TourDefaultsType = {
     matterport_auto_invoice_enabled?: boolean;
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];
+    always_enable_sorting?: boolean;
 };
 
 const defaultRenewalPlans = [
@@ -105,6 +106,7 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
         allow_print_download: true,
         allow_client_upload: true,
         require_payment_before_download: false,
+        always_enable_sorting: false,
         enable_matterport_default_expiry: true,
         matterport_default_expiry_days: 90,
         matterport_renewal_plans: defaultRenewalPlans,
@@ -440,6 +442,18 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                     <Switch
                                         checked={tourDefaults.require_payment_before_download}
                                         onCheckedChange={(val) => handleTourDefaultChange('require_payment_before_download', val)}
+                                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-[#666666] font-semibold">Always Open Media Sorting</Label>
+                                        <p className="text-[12px] text-gray-500">Enable direct drag-and-drop sorting without clicking the Sort button first</p>
+                                    </div>
+                                    <Switch
+                                        checked={tourDefaults.always_enable_sorting ?? false}
+                                        onCheckedChange={(val) => handleTourDefaultChange('always_enable_sorting', val)}
                                         className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
                                     />
                                 </div>

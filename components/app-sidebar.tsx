@@ -221,17 +221,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const agentType = userInfo?.agent_type || userInfo?.data?.agent_type;
   const isCoAgentUser = userType === "agent" && isUserCoAgent(userInfo, userType);
   const isSubAccount =
-    userType === "co_agent" ||
     userType === "agent_admin" ||
     userType === "assistant" ||
-    (userType === "agent" && (
-      isCoAgentUser ||
-      Boolean(userInfo?.agent_id || userInfo?.data?.agent_id) ||
-      agentType === "co_agent" ||
-      agentType === "agent_admin" ||
-      agentType === "assistant"
-    ));
-  const isAgentOrSubAccount = userType === "agent" || isSubAccount;
+    agentType === "agent_admin" ||
+    agentType === "assistant" ||
+    Boolean(userInfo?.agent_id || userInfo?.data?.agent_id);
+  const isAgentOrSubAccount = userType === "agent" || userType === "co_agent" || isSubAccount;
 
   const filteredNavMain = data.navMain
     .filter((group) => {
@@ -413,8 +408,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return true;
           }
 
-          // Primary Agent
-          if (userType === "agent") {
+          // Primary Agent / Co-Agent
+          if (userType === "agent" || userType === "co_agent") {
             const restrictedUrls = [
               "/dashboard/admin",
               "/dashboard/services",

@@ -164,19 +164,27 @@ const InvoiceDocument = ({
     percentage: number;
     amount: number;
   }[] = [];
+  const currentAgentId = invoice.agent_id ?? invoice.agent?.id;
+  const currentAgentUuid = invoice.agent?.uuid ?? invoice.agent_uuid;
+  const currentAgentEmail = (invoice.agent?.email || invoice.agent_email || "").toLowerCase();
 
   if (invoice.split_details?.splits && Array.isArray(invoice.split_details.splits)) {
-    splitParticipants = invoice.split_details.splits.map((s: any) => {
+    const currentAllocation = invoice.split_details.splits.find((s: any) =>
+      (currentAgentId != null && String(s.agent_id) === String(currentAgentId)) ||
+      (currentAgentUuid && s.agent_uuid === currentAgentUuid) ||
+      (currentAgentEmail && (s.email || "").toLowerCase() === currentAgentEmail)
+    );
+
+    splitParticipants = currentAllocation ? [currentAllocation].map((s: any) => {
       const pct = Number(s.percentage || s.split || 0);
-      const amt = s.amount != null ? Number(s.amount) : grandTotal * (pct / 100);
       return {
         name: s.name || (s.first_name ? `${s.first_name} ${s.last_name || ''}`.trim() : (s.type === 'primary' ? 'Primary Agent' : 'Co-Agent')),
         email: s.email || '',
         role: s.type === 'primary' ? 'Primary Agent' : 'Co-Agent',
         percentage: pct,
-        amount: amt,
+        amount: grandTotal,
       };
-    });
+    }) : [];
   } else if (isSplitInvoice && coAgentsList.length > 0) {
     const totalCoSplit = coAgentsList.reduce(
       (acc, ca) => acc + Number(ca.split || ca.split_percentage || ca.percentage || 0),
@@ -184,24 +192,33 @@ const InvoiceDocument = ({
     );
     const primarySplit = Math.max(0, 100 - totalCoSplit);
 
-    splitParticipants.push({
+    const participants = [{
       name: `${invoice.agent?.first_name || ''} ${invoice.agent?.last_name || ''}`.trim() || 'Primary Agent',
       email: invoice.agent?.email || '',
       role: 'Primary Agent',
       percentage: primarySplit,
-      amount: grandTotal * (primarySplit / 100),
-    });
-
-    coAgentsList.forEach((ca: any) => {
+      agent_id: invoice.agent_id ?? invoice.agent?.id,
+      agent_uuid: invoice.agent?.uuid ?? invoice.agent_uuid,
+    }, ...coAgentsList.map((ca: any) => {
       const pct = Number(ca.split || ca.split_percentage || ca.percentage || 0);
-      splitParticipants.push({
+      return {
         name: ca.name || (ca.first_name ? `${ca.first_name} ${ca.last_name || ''}`.trim() : 'Co-Agent'),
         email: ca.email || '',
         role: 'Co-Agent',
         percentage: pct,
-        amount: grandTotal * (pct / 100),
-      });
-    });
+        agent_id: ca.agent_id ?? ca.id,
+        agent_uuid: ca.agent_uuid ?? ca.uuid,
+      };
+    })];
+    const currentAllocation = participants.find((participant: any) =>
+      (currentAgentId != null && String(participant.agent_id) === String(currentAgentId)) ||
+      (currentAgentUuid && participant.agent_uuid === currentAgentUuid) ||
+      (currentAgentEmail && participant.email.toLowerCase() === currentAgentEmail)
+    );
+
+    if (currentAllocation) {
+      splitParticipants = [{ ...currentAllocation, amount: grandTotal }];
+    }
   }
 
   return (
@@ -907,10 +924,12 @@ const InvoiceDocument = ({
               className="text-xs font-bold uppercase tracking-wider"
               style={{ color: settings.pageTabColor }}
             >
-              Invoice Split Distribution
+              {splitParticipants.length === 1 ? "Invoice Allocation" : "Invoice Split Distribution"}
             </h4>
             <span className="text-[11px] font-semibold text-gray-500">
-              Total 100% Split
+              {splitParticipants.length === 1
+                ? `${splitParticipants[0].percentage}% of order; amount due on this invoice`
+                : "Total 100% Split"}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">

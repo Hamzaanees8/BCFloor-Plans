@@ -829,7 +829,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                     <div className="bg-red-50 rounded-full p-3 mb-2 shadow-xs">
                       <FileText className="w-8 h-8 text-red-500" />
                     </div>
-                    <span className="text-[11px] font-semibold text-gray-700 max-w-[90%] truncate block" title={file.name || "PDF Document"}>
+                    <span
+                      className="text-[11px] font-semibold text-gray-700 max-w-[90%] truncate block"
+                      title={file.name || "PDF Document"}
+                    >
                       {file.name || "PDF Document"}
                     </span>
                     <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">

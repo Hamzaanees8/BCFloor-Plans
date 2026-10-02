@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useState, useCallback, useEffect } from "react";
 import { useFileManagerContext } from "../FileManagerContext";
-import { Check, X, GripVertical, ArrowLeftRight, Play, Video } from "lucide-react";
+import { Check, X, GripVertical, ArrowLeftRight, Play, Video, Loader2 } from "lucide-react";
 import { PanoramaBadge } from "./PanoramaBadge";
 import { isPanoramaFile } from "../utils/panoramaUtils";
 import {
@@ -159,6 +159,9 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
           setTransition(settings.transition_effect[0]);
         }
       }
+      if (settings.always_enable_sorting) {
+        setIsReorderMode(true);
+      }
     }
   }, [tourSettings, tourDefaultSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -237,98 +240,127 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     );
   }, [filesData?.files, orderData, isMediaApprovedByAgent, API_URL]);
 
+  const saveReorderedFiles = useCallback(
+    async (itemsToSave: FileItem[]) => {
+      if (!filesData || isSaving) return;
+
+      // Compute globally-unique sort_orders: position 0 → sort_order 1, etc.
+      const reorderedFiles = itemsToSave
+        .map((item) => item.originalData as Files)
+        .filter(Boolean);
+      const updates = computeGlobalReorderUpdates(reorderedFiles);
+      const updatesMap = new Map(updates.map((u) => [u.uuid, u.sort_order]));
+
+      const newlyChangedFiles: Files[] = [];
+      const newFilesList = filesData.files.map((f) => {
+        const newOrder = updatesMap.get(f.uuid);
+        if (newOrder !== undefined && f.sort_order !== newOrder) {
+          const updatedFile = { ...f, sort_order: newOrder };
+          newlyChangedFiles.push(updatedFile);
+          return updatedFile;
+        }
+        return f;
+      });
+
+      const isAlwaysSort = Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting);
+
+      if (newlyChangedFiles.length === 0) {
+        setIsReorderMode(isAlwaysSort);
+        return;
+      }
+
+      // Write new sort_orders into context immediately for UI update
+      setFilesData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          files: newFilesList,
+        };
+      });
+
+      const token = localStorage.getItem("token");
+      if (!token || !orderData) {
+        toast.error("Could not save image order. Missing data.");
+        return;
+      }
+
+      // Map API snapshots (x_axis/y_axis) → DroppedMarker shape (x/y)
+      // Filter out deleted snapshots based on local state
+      const activeSnapshots = (filesData.snapshots || [])
+        .filter((s) => !deletedSnapshotUuids.has(s.uuid))
+        .map((snap) => ({
+          uuid: snap.uuid,
+          x: Number(snap.x_axis ?? 0),
+          y: Number(snap.y_axis ?? 0),
+          floorImageUrl: snap.file_name ?? "",
+          isApi: true as const,
+          name: snap.name ?? undefined,
+          description: snap.description ?? undefined,
+          file_path: snap.file_path,
+          url: snap.url,
+          thumbnail_url: snap.thumbnail_url,
+          variant_urls: snap.variant_urls,
+        }));
+
+      setIsSaving(true);
+      try {
+        await startUpload({
+          token,
+          orderUuid: orderData.uuid,
+          filesDataUuid: filesData.uuid,
+          files: [],
+          links: links,
+          droppedMarkers: activeSnapshots,
+          delay: delay,
+          transition: transition,
+          selectedAudioTrack: selectedAudioTrack || "none",
+          changedFiles: newlyChangedFiles,
+          isUpdate: true,
+          successMessage: "Images sorted successfully."
+        });
+        setIsReorderMode(isAlwaysSort);
+      } catch (error) {
+        console.error("Failed to save reorder", error);
+        toast.error("Failed to save image order");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      filesData,
+      isSaving,
+      setFilesData,
+      setIsSaving,
+      startUpload,
+      orderData,
+      delay,
+      transition,
+      selectedAudioTrack,
+      deletedSnapshotUuids,
+      links,
+      tourSettings,
+      tourDefaultSettings,
+    ]
+  );
+
   // ─── Global reorder handler ────────────────────────────────────────────────
   const handleGlobalReorder = useCallback(
     (newItems: FileItem[]) => {
       setFileItems(newItems);
+      const isAlwaysSort = Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting);
+      if (isAlwaysSort) {
+        saveReorderedFiles(newItems);
+      }
     },
-    []
+    [saveReorderedFiles, tourSettings, tourDefaultSettings]
   );
 
   const handleSaveReorder = useCallback(async () => {
-    if (!filesData) return;
-
-    // Compute globally-unique sort_orders: position 0 → sort_order 1, etc.
-    const reorderedFiles = fileItems
-      .map((item) => item.originalData as Files)
-      .filter(Boolean);
-    const updates = computeGlobalReorderUpdates(reorderedFiles);
-    const updatesMap = new Map(updates.map((u) => [u.uuid, u.sort_order]));
-
-    const newlyChangedFiles: Files[] = [];
-    const newFilesList = filesData.files.map((f) => {
-      const newOrder = updatesMap.get(f.uuid);
-      if (newOrder !== undefined && f.sort_order !== newOrder) {
-        const updatedFile = { ...f, sort_order: newOrder };
-        newlyChangedFiles.push(updatedFile);
-        return updatedFile;
-      }
-      return f;
-    });
-
-    if (newlyChangedFiles.length === 0) {
-      setIsReorderMode(false);
-      return;
-    }
-
-    // Write new sort_orders into context immediately for UI update
-    setFilesData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        files: newFilesList,
-      };
-    });
-
-    const token = localStorage.getItem("token");
-    if (!token || !orderData) {
-      toast.error("Could not save image order. Missing data.");
-      return;
-    }
-
-    // Map API snapshots (x_axis/y_axis) → DroppedMarker shape (x/y)
-    // Filter out deleted snapshots based on local state
-    const activeSnapshots = (filesData.snapshots || [])
-      .filter((s) => !deletedSnapshotUuids.has(s.uuid))
-      .map((snap) => ({
-        uuid: snap.uuid,
-        x: Number(snap.x_axis ?? 0),
-        y: Number(snap.y_axis ?? 0),
-        floorImageUrl: snap.file_name ?? "",
-        isApi: true as const,
-        name: snap.name ?? undefined,
-        description: snap.description ?? undefined,
-        file_path: snap.file_path,
-        url: snap.url,
-        thumbnail_url: snap.thumbnail_url,
-        variant_urls: snap.variant_urls,
-      }));
-
-    setIsSaving(true);
-    try {
-      await startUpload({
-        token,
-        orderUuid: orderData.uuid,
-        filesDataUuid: filesData.uuid,
-        files: [],
-        links: links,
-        droppedMarkers: activeSnapshots,
-        delay: delay,
-        transition: transition,
-        selectedAudioTrack: selectedAudioTrack || "none",
-        changedFiles: newlyChangedFiles,
-        isUpdate: true,
-        successMessage: "Images sorted successfully."
-      });
-      setIsReorderMode(false);
-    } catch (error) {
-      console.error("Failed to save reorder", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [fileItems, filesData, setFilesData, setIsSaving, startUpload, orderData, delay, transition, selectedAudioTrack, deletedSnapshotUuids, links]);
+    await saveReorderedFiles(fileItems);
+  }, [saveReorderedFiles, fileItems]);
 
   const handleCancelReorder = useCallback(() => {
+    const isAlwaysSort = Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting);
     // Revert fileItems to match filesData
     const validPhotosForCancel = filesData?.files?.filter(
       (file) =>
@@ -355,8 +387,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         originalData: file,
       }))
     );
-    setIsReorderMode(false);
-  }, [filesData?.files, userType, API_URL]);
+    setIsReorderMode(isAlwaysSort);
+  }, [filesData?.files, userType, API_URL, tourSettings, tourDefaultSettings]);
 
   // ─── Render a single photo card inside the global drag grid ───────────────
   const renderPhotoCard = useCallback(
@@ -488,13 +520,26 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
             </AccordionTrigger>
             {globalSortedPhotos.length > 0 && (
               <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                {isReorderMode ? (
+                {Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting) ? (
+                  <div className="flex items-center gap-2">
+                    {isSaving ? (
+                      <span className="flex items-center gap-1.5 text-[12px] font-medium text-amber-600 bg-white/90 px-2.5 py-1 rounded-md border border-amber-300 shadow-sm">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving sort…
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[12px] font-medium text-emerald-700 bg-white/90 px-2.5 py-1 rounded-md border border-emerald-300 shadow-sm">
+                        <Check className="w-3.5 h-3.5" /> Auto-sort active
+                      </span>
+                    )}
+                  </div>
+                ) : isReorderMode ? (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-8 text-[12px] border-[#BBBBBB] text-[#666666]"
                       onClick={handleCancelReorder}
+                      disabled={isSaving}
                     >
                       Cancel
                     </Button>
@@ -502,8 +547,9 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       size="sm"
                       className={`h-8 text-[12px] ${userType}-bg hover:${userType}-bg hover:opacity-90 text-white transition-all`}
                       onClick={handleSaveReorder}
+                      disabled={isSaving}
                     >
-                      Done
+                      {isSaving ? "Saving..." : "Done"}
                     </Button>
                   </div>
                 ) : (
@@ -514,9 +560,6 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5" /> Sort Images
                   </Button>
-                )}
-                {isSaving && (
-                  <span className="text-[12px] text-[#4290E9] animate-pulse font-medium ml-2">Saving…</span>
                 )}
               </div>
             )}
@@ -589,6 +632,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       mode={isReorderMode ? "reorder" : "upload"}
                       renderItem={renderPhotoCard}
                       columns={imagesPerRow}
+                      disabled={isSaving}
                     />
                   )}
                 </div>

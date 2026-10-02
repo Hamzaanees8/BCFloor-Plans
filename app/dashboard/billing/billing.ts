@@ -395,4 +395,60 @@ export function prepareOrderInvoicePreview(
   };
 }
 
+/**
+ * Given all order invoices and a service identifier, returns all active
+ * (non-void, non-cancelled) invoices for that specific service — including
+ * both the primary agent invoice and the co-agent invoice for split orders.
+ */
+export function getServiceSplitInvoices(
+  invoicesList: any[],
+  serviceUuid?: string,
+  serviceId?: number | string,
+): any[] {
+  if (!Array.isArray(invoicesList) || invoicesList.length === 0) return [];
+  if (!serviceUuid && serviceId == null) return [];
+
+  return invoicesList.filter(
+    (inv: any) =>
+      !isVoidOrCancelled(inv.status) &&
+      inv.items?.some((i: any) => {
+        const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+        const sId =
+          i.order_service_id || i.order_service?.id || i.orderService?.id;
+        const svcId =
+          i.order_service?.service_id ||
+          i.order_service?.service?.id ||
+          i.orderService?.service_id ||
+          i.orderService?.service?.id ||
+          i.service_id;
+        return (
+          (serviceUuid &&
+            (sUuid === serviceUuid ||
+              sId?.toString() === serviceUuid ||
+              (svcId != null && svcId.toString() === serviceUuid))) ||
+          (serviceId != null &&
+            (svcId === serviceId ||
+              svcId?.toString() === serviceId?.toString() ||
+              sId === serviceId ||
+              sId?.toString() === serviceId?.toString()))
+        );
+      }),
+  );
+}
+
+/**
+ * Compute the combined payment status for a service across all its split invoices.
+ * Returns: 'paid' | 'partially_paid' | 'unpaid'
+ */
+export function getServiceCombinedStatus(
+  splitInvoices: any[],
+): "paid" | "partially_paid" | "unpaid" {
+  if (splitInvoices.length === 0) return "unpaid";
+  const paidCount = splitInvoices.filter(
+    (inv) => isPaidOrSucceeded(inv.status) || isRefunded(inv.status),
+  ).length;
+  if (paidCount === 0) return "unpaid";
+  if (paidCount === splitInvoices.length) return "paid";
+  return "partially_paid";
+}
 

@@ -1211,39 +1211,35 @@ const AgentForm = () => {
         }
       })());
 
-  const isSubAccount =
+  const hasParentAgentId = Boolean(
+    (currentUser as any)?.agent_id || (currentUser as any)?.data?.agent_id,
+  );
+  const isFirstClassAgent = userType === "agent" && !hasParentAgentId;
+  const isSubAccount = !isFirstClassAgent && (
     isCoAgentUser ||
     isAssistantOrAdmin ||
-    currentUser?.agent_type === "co_agent" ||
     currentUser?.agent_type === "agent_admin" ||
     currentUser?.agent_type === "assistant" ||
-    Boolean(
-      (currentUser as any)?.agent_id || (currentUser as any)?.data?.agent_id,
-    ) ||
+    hasParentAgentId ||
     (typeof window !== "undefined" &&
       (() => {
         try {
           const u = JSON.parse(localStorage.getItem("userInfo") || "{}");
-          const ut = localStorage.getItem("userType");
-          return (
-            ut === "co_agent" ||
-            ut === "agent_admin" ||
-            ut === "assistant" ||
-            Boolean(
-              u?.agent_id ||
-              u?.data?.agent_id ||
-              u?.agent_type ||
-              u?.data?.agent_type,
-            )
+          return Boolean(
+            u?.agent_id ||
+            u?.data?.agent_id ||
+            u?.agent_type === "agent_admin" ||
+            u?.data?.agent_type === "agent_admin" ||
+            u?.agent_type === "assistant" ||
+            u?.data?.agent_type === "assistant",
           );
         } catch {
           return false;
         }
-      })());
+      })()));
 
-  const isCoAgent = isSubAccount;
-  // Subaccounts tab in Settings is shown to primary agents, agent admins, assistants, and platform admins, but HIDDEN for coagents
-  const showSubAccountsTab = !isCoAgentUser;
+  const isCoAgent = isCoAgentUser && isSubAccount;
+  const showSubAccountsTab = !isCoAgentUser || isFirstClassAgent;
 
   useEffect(() => {
     if (!showSubAccountsTab && activeTab === "sub_accounts") {
