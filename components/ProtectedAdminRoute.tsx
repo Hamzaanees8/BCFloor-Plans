@@ -145,6 +145,10 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
 
       // Orders Create Screen
       if (pathname.startsWith("/dashboard/orders/create")) {
+        if (isUserCoAgent(userInfo, userType)) {
+          setIsAllowed(true);
+          return;
+        }
         if (!canCreatePropertiesAndOrders) {
           toast.error("You do not have permission to create orders");
           router.replace("/dashboard/settings");

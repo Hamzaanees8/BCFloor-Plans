@@ -8,7 +8,6 @@ import { useOptionalOrganization } from "@/app/context/OrganizationContext";
 import { getTourDomainUrl } from "@/lib/config/domains";
 import { checkMediaApprovalStatus, getMediaApprovalBadge } from "../utils/approvalHelper";
 import { getCoListingStatus } from "../utils/coListingHelper";
-import { isUserCoAgent } from "@/lib/permissions";
 
 interface KanbanViewCardProps {
   data: Listings | Tour;
@@ -85,7 +84,6 @@ const getPaymentStatus = (orders?: any[]) => {
 const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMap }: KanbanViewCardProps) => {
   const router = useRouter();
   const { userType } = useAppContext();
-  const isCoAgent = isUserCoAgent(undefined, userType);
   const orgContext = useOptionalOrganization();
   const organization = orgContext?.organization;
 
@@ -359,7 +357,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
                 <span>Manage</span>
               </Link>
 
-              {userType !== 'vendor' && !isCoAgent && (
+              {userType !== 'vendor' && (
                 <>
                   <div className="w-[1px] h-4 bg-gray-200"></div>
                   <Link

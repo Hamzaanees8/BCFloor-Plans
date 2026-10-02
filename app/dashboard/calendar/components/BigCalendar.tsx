@@ -26,7 +26,6 @@ import VendorSwapReassignModal from './VendorSwapReassignModal';
 import { EditSlotTimeModal } from './EditSlotTimeModal';
 import CancelOrderDialog from '../../orders/components/CancelOrderDialog';
 import { PreviewCancelService, CancelService } from '../../orders/orders';
-import { isUserCoAgent } from '@/lib/permissions';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -202,7 +201,6 @@ const generateWeeklyBreakEvents = (vendors: CalanderVendor[], referenceDate: Dat
 
 const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, setVendorData, visibleDays, setVisibleDays, setCurrentMonthYear, serviceData, agentData, refreshOrders }: BigCalendarProps) => {
     const { userType } = useAppContext();
-    const isCoAgent = isUserCoAgent(undefined, userType);
     const { open: isSidebarOpen } = useSidebar();
     const [date, setDate] = useState(new Date());
     const [showBreaks, setShowBreaks] = useState(true);
@@ -822,7 +820,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         </Button>
                     }
 
-                    {(userType !== 'vendor' && !isCoAgent) &&
+                    {userType !== 'vendor' &&
                         <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
@@ -950,7 +948,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         </Button>
                     }
 
-                    {(userType !== 'vendor' && !isCoAgent) &&
+                    {userType !== 'vendor' &&
                         <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>

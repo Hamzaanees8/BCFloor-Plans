@@ -161,15 +161,43 @@ export function getBestTargetInvoice(
     return null;
   }
 
-  const isCoAgent = userType === "agent" && isUserCoAgent(userInfo, userType);
+  const isCoAgent = isUserCoAgent(userInfo, userType);
   const userUuid = userInfo?.data?.uuid || userInfo?.uuid;
-  const userEmail = userInfo?.data?.email || userInfo?.email;
+  const userEmail = (
+    userInfo?.data?.primary_email ||
+    userInfo?.primary_email ||
+    userInfo?.data?.email ||
+    userInfo?.email ||
+    ""
+  ).toLowerCase().trim();
+  const userName = (
+    `${userInfo?.data?.first_name || userInfo?.first_name || ""} ${userInfo?.data?.last_name || userInfo?.last_name || ""}`
+  ).toLowerCase().trim();
+
+  const matchesCoAgent = (inv: any) => {
+    if (!inv) return false;
+    const invEmail = (inv.agent?.email || inv.email || "").toLowerCase().trim();
+    const invName = (inv.agent?.name || inv.agent_name || `${inv.agent?.first_name || ""} ${inv.agent?.last_name || ""}`).toLowerCase().trim();
+    const invUuid = inv.agent?.uuid || inv.agent_uuid;
+    return (
+      inv.agent_type === "co-agent" ||
+      inv.agent_type === "co_agent" ||
+      (userUuid && invUuid === userUuid) ||
+      (userEmail && (invEmail === userEmail || invEmail.includes(userEmail))) ||
+      (userName && invName && (invName === userName || invName.includes(userName)))
+    );
+  };
+
+  const matchesPrimary = (inv: any) => {
+    if (!inv) return false;
+    return inv.agent_type === "primary" || (!inv.split_details && inv.agent_type !== "co-agent" && inv.agent_type !== "co_agent");
+  };
 
   // 1. If serviceUuid or serviceId is provided: filter invoices containing this service
   if (serviceUuid || serviceId != null) {
     const serviceInvoices = invoicesList.filter((inv: any) =>
       inv.items?.some((i: any) => {
-        const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+        const sUuid = i.order_service?.uuid || i.orderService?.uuid || i.order_service_uuid;
         const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
         const svcId =
           i.order_service?.service_id ||
@@ -181,13 +209,11 @@ export function getBestTargetInvoice(
         return (
           (serviceUuid &&
             (sUuid === serviceUuid ||
-              sId?.toString() === serviceUuid ||
-              (svcId != null && svcId.toString() === serviceUuid))) ||
+              String(sId) === String(serviceUuid) ||
+              (svcId != null && String(svcId) === String(serviceUuid)))) ||
           (serviceId != null &&
-            (svcId === serviceId ||
-              svcId?.toString() === serviceId.toString() ||
-              sId === serviceId ||
-              sId?.toString() === serviceId.toString()))
+            (String(svcId) === String(serviceId) ||
+              String(sId) === String(serviceId)))
         );
       }),
     );
@@ -197,23 +223,22 @@ export function getBestTargetInvoice(
       const pool = activeServiceInvoices.length > 0 ? activeServiceInvoices : serviceInvoices;
 
       if (isCoAgent) {
-        const coAgentInv = pool.find((inv: any) =>
-          inv.agent_type === "co-agent" ||
-          (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
-          (userEmail && inv.agent?.email === userEmail)
-        );
-        if (coAgentInv) return coAgentInv;
+        const coAgentInv = pool.find((inv: any) => matchesCoAgent(inv));
+        if (coAgentInv) {
+          // Prefer single-service invoice over multi-service invoice for service view
+          const singleCoInv = pool.find((inv: any) => matchesCoAgent(inv) && (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1));
+          return singleCoInv || coAgentInv;
+        }
       } else {
-        const primaryInv = pool.find((inv: any) =>
-          inv.agent_type === "primary" ||
-          (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
-          !inv.split_details
-        );
-        if (primaryInv) return primaryInv;
+        const primaryInv = pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
+        if (primaryInv) {
+          const singlePrimaryInv = pool.find((inv: any) => (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) && (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1));
+          return singlePrimaryInv || primaryInv;
+        }
       }
 
       // Prefer individual service invoice over consolidated invoice for service-level view
-      const individual = pool.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated"));
+      const individual = pool.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1);
       if (individual) return individual;
       return pool[0];
     }
@@ -224,19 +249,11 @@ export function getBestTargetInvoice(
   const pool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
 
   if (isCoAgent) {
-    const coAgentInv = pool.find((inv: any) =>
-      inv.agent_type === "co-agent" ||
-      (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
-      (userEmail && inv.agent?.email === userEmail)
-    );
+    const coAgentInv = pool.find((inv: any) => matchesCoAgent(inv));
     if (coAgentInv) return coAgentInv;
   } else {
     // If Primary Agent or Admin is looking at the order, prioritize primary agent invoice
-    const primaryInv = pool.find((inv: any) =>
-      inv.agent_type === "primary" ||
-      (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
-      (userEmail && inv.agent?.email === userEmail)
-    );
+    const primaryInv = pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
     if (primaryInv) return primaryInv;
   }
 
@@ -260,6 +277,66 @@ export function getBestTargetInvoice(
 
   // Fallback: first active invoice
   return pool[0] || null;
+}
+
+/**
+ * Given a target invoice and a specific service, prepares an isolated invoice preview
+ * containing ONLY the items, subtotal, tax, and total for that specific service.
+ */
+export function prepareServiceInvoicePreview(
+  targetInvoice: any,
+  serviceUuid?: string,
+  serviceNumericId?: number | string,
+  serviceName?: string,
+) {
+  if (!targetInvoice) return null;
+  if (!serviceUuid && serviceNumericId == null && !serviceName) {
+    return targetInvoice;
+  }
+
+  if (!Array.isArray(targetInvoice.items) || targetInvoice.items.length <= 1) {
+    return targetInvoice;
+  }
+
+  // Filter items to matching service
+  const matchingItems = targetInvoice.items.filter((item: any) => {
+    const sUuid = item.order_service?.uuid || item.orderService?.uuid || item.order_service_uuid;
+    const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
+    const svcId =
+      item.order_service?.service_id ||
+      item.order_service?.service?.id ||
+      item.orderService?.service_id ||
+      item.orderService?.service?.id ||
+      item.service_id;
+
+    return (
+      (serviceUuid && (sUuid === serviceUuid || String(sId) === String(serviceUuid) || (svcId != null && String(svcId) === String(serviceUuid)))) ||
+      (serviceNumericId != null && (String(svcId) === String(serviceNumericId) || String(sId) === String(serviceNumericId))) ||
+      (serviceName && item.description && item.description.toLowerCase().trim() === serviceName.toLowerCase().trim())
+    );
+  });
+
+  if (matchingItems.length === 0 || matchingItems.length === targetInvoice.items.length) {
+    return targetInvoice;
+  }
+
+  const subtotal = matchingItems.reduce((sum: number, item: any) => {
+    return sum + (parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0)));
+  }, 0);
+
+  const taxRate = parseFloat(targetInvoice.tax_rate || "0");
+  const taxAmount = subtotal * (taxRate / 100);
+  const total = subtotal + taxAmount;
+
+  return {
+    ...targetInvoice,
+    items: matchingItems,
+    subtotal: subtotal.toFixed(2),
+    tax_amount: taxAmount.toFixed(2),
+    tax: taxAmount.toFixed(2),
+    total: total.toFixed(2),
+    total_amount: total.toFixed(2),
+  };
 }
 
 export function prepareOrderInvoicePreview(
@@ -452,3 +529,211 @@ export function getServiceCombinedStatus(
   return "partially_paid";
 }
 
+/**
+ * Compute the actual price, tax, and total for a specific service based on actual invoice line items.
+ * If services are split across multiple invoices (e.g. Primary Agent + Co-Agent), combines the prices
+ * of matching invoice items for overall/admin views, or filters to the co-agent share when viewed by a co-agent.
+ */
+export function getServiceActualInvoicePricing({
+  invoices,
+  service,
+  splitMultiplier = 1,
+  isCoAgentUser = false,
+  currentUser,
+  fallbackTaxRate = 0,
+}: {
+  invoices?: any[];
+  service: any;
+  splitMultiplier?: number;
+  isCoAgentUser?: boolean;
+  currentUser?: any;
+  fallbackTaxRate?: number;
+}): {
+  basePrice: number;
+  taxAmount: number;
+  totalPrice: number;
+  isFromInvoice: boolean;
+  matchingInvoicesCount: number;
+  appliedTaxRate: number;
+} {
+  const serviceUuid = service?.uuid || service?.order_service_uuid;
+  const serviceNumericId = service?.service_id;
+  const serviceName = service?.service_name;
+
+  if (!Array.isArray(invoices) || invoices.length === 0) {
+    const basePrice = (service?.amount || 0) * splitMultiplier;
+    const taxAmount = basePrice * (fallbackTaxRate / 100);
+    const totalPrice = basePrice + taxAmount;
+    return {
+      basePrice,
+      taxAmount,
+      totalPrice,
+      isFromInvoice: false,
+      matchingInvoicesCount: 0,
+      appliedTaxRate: fallbackTaxRate,
+    };
+  }
+
+  // Active or non-void invoices
+  const activeInvoices = invoices.filter((inv) => !isVoidOrCancelled(inv?.status));
+  const invoicePool = activeInvoices.length > 0 ? activeInvoices : invoices;
+
+  // Filter pool for co-agent if isCoAgentUser
+  const userUuid = currentUser?.data?.uuid || currentUser?.uuid;
+  const userEmail = (
+    currentUser?.data?.primary_email ||
+    currentUser?.primary_email ||
+    currentUser?.data?.email ||
+    currentUser?.email ||
+    ""
+  ).toLowerCase().trim();
+
+  const isMatchingItem = (item: any) => {
+    const sUuid = item.order_service?.uuid || item.orderService?.uuid || item.order_service_uuid;
+    const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
+    const svcId =
+      item.order_service?.service_id ||
+      item.order_service?.service?.id ||
+      item.orderService?.service_id ||
+      item.orderService?.service?.id ||
+      item.service_id;
+
+    return (
+      (serviceUuid && (sUuid === serviceUuid || String(sId) === String(serviceUuid) || (svcId != null && String(svcId) === String(serviceUuid)))) ||
+      (serviceNumericId != null && (String(svcId) === String(serviceNumericId) || String(sId) === String(serviceNumericId))) ||
+      (serviceName && item.description && item.description.toLowerCase().trim() === serviceName.toLowerCase().trim())
+    );
+  };
+
+  const getItemAmount = (item: any) => {
+    return parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0));
+  };
+
+  // Determine effective tax rate from invoices
+  let taxRate = fallbackTaxRate;
+  for (const inv of invoicePool) {
+    if (inv?.tax_rate != null && parseFloat(inv.tax_rate) > 0) {
+      taxRate = parseFloat(inv.tax_rate);
+      break;
+    }
+  }
+
+  if (isCoAgentUser) {
+    // Co-Agent view: isolate items from the co-agent's invoice(s)
+    const coAgentInvoices = invoicePool.filter((inv) => {
+      const invEmail = (inv?.agent?.email || inv?.email || "").toLowerCase().trim();
+      const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
+      return (
+        inv?.agent_type === "co-agent" ||
+        inv?.agent_type === "co_agent" ||
+        (userUuid && invUuid === userUuid) ||
+        (userEmail && (invEmail === userEmail || invEmail.includes(userEmail)))
+      );
+    });
+
+    const targetInvoices = coAgentInvoices.length > 0 ? coAgentInvoices : invoicePool;
+
+    // Prefer individual invoice for this service if one exists
+    const singleSvcInv = targetInvoices.find(
+      (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
+    );
+    const chosenInvoice = singleSvcInv || targetInvoices.find((inv) => inv.items?.some(isMatchingItem));
+
+    if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
+      const match = chosenInvoice.items.find(isMatchingItem);
+      if (match) {
+        const basePrice = getItemAmount(match);
+        if (basePrice > 0) {
+          const taxAmount = basePrice * (taxRate / 100);
+          const totalPrice = basePrice + taxAmount;
+          return {
+            basePrice,
+            taxAmount,
+            totalPrice,
+            isFromInvoice: true,
+            matchingInvoicesCount: 1,
+            appliedTaxRate: taxRate,
+          };
+        }
+      }
+    }
+  } else {
+    // Admin / Primary Agent view:
+    // Check if order has split invoices
+    const splitInvoices = invoicePool.filter(
+      (inv) => inv.agent_type === "co-agent" || inv.agent_type === "co_agent" || inv.agent_type === "primary" || Boolean(inv.split_details)
+    );
+
+    if (splitInvoices.length > 0) {
+      // Split order: combine 1 matching item per distinct split invoice/agent
+      let combinedBasePrice = 0;
+      let matches = 0;
+      const processedAgents = new Set<string>();
+
+      splitInvoices.forEach((inv) => {
+        const agentKey = inv.agent_type || inv.agent?.uuid || inv.agent_uuid || inv.uuid;
+        if (agentKey && processedAgents.has(agentKey)) return;
+
+        if (Array.isArray(inv.items)) {
+          const matchingItem = inv.items.find(isMatchingItem);
+          if (matchingItem) {
+            combinedBasePrice += getItemAmount(matchingItem);
+            matches++;
+            if (agentKey) processedAgents.add(agentKey);
+          }
+        }
+      });
+
+      if (matches > 0 && combinedBasePrice > 0) {
+        const taxAmount = combinedBasePrice * (taxRate / 100);
+        const totalPrice = combinedBasePrice + taxAmount;
+        return {
+          basePrice: combinedBasePrice,
+          taxAmount,
+          totalPrice,
+          isFromInvoice: true,
+          matchingInvoicesCount: matches,
+          appliedTaxRate: taxRate,
+        };
+      }
+    }
+
+    // Non-split order: look for single matching item (prefer individual invoice, fallback to consolidated)
+    const individualInv = invoicePool.find(
+      (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
+    );
+    const chosenInvoice = individualInv || invoicePool.find((inv) => inv.items?.some(isMatchingItem));
+
+    if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
+      const match = chosenInvoice.items.find(isMatchingItem);
+      if (match) {
+        const basePrice = getItemAmount(match);
+        if (basePrice > 0) {
+          const taxAmount = basePrice * (taxRate / 100);
+          const totalPrice = basePrice + taxAmount;
+          return {
+            basePrice,
+            taxAmount,
+            totalPrice,
+            isFromInvoice: true,
+            matchingInvoicesCount: 1,
+            appliedTaxRate: taxRate,
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback if no matching invoice items were found
+  const basePrice = (service?.amount || 0) * splitMultiplier;
+  const taxAmount = basePrice * (taxRate / 100);
+  const totalPrice = basePrice + taxAmount;
+  return {
+    basePrice,
+    taxAmount,
+    totalPrice,
+    isFromInvoice: false,
+    matchingInvoicesCount: 0,
+    appliedTaxRate: taxRate,
+  };
+}

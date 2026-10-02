@@ -32,6 +32,8 @@ import {
   isPartiallyRefunded,
   getBestTargetInvoice,
   prepareOrderInvoicePreview,
+  getServiceActualInvoicePricing,
+  prepareServiceInvoicePreview,
 } from "./billing";
 import {
   ChevronDown,
@@ -511,8 +513,22 @@ const Page = () => {
 
         if (targetInvoice) {
           setActionLoading(null);
+          const matchedService = serviceId
+            ? billing.services?.find(
+                (s: any) =>
+                  s.uuid === serviceId ||
+                  s.order_service_uuid === serviceId ||
+                  s.service_id === serviceNumericId,
+              )
+            : null;
+
           const previewInvoice = serviceId
-            ? targetInvoice
+            ? prepareServiceInvoicePreview(
+                targetInvoice,
+                serviceId,
+                serviceNumericId,
+                matchedService?.service_name,
+              ) || targetInvoice
             : prepareOrderInvoicePreview(
                 invoicesList,
                 targetInvoice,
@@ -2761,91 +2777,85 @@ const Page = () => {
                                                   )}
                                                 </div>
                                               </div>
-                                              <div className="text-sm text-gray-600 space-y-0.5">
-                                                {(() => {
-                                                  const serviceBasePrice =
-                                                    serviceTargetInvoice?.subtotal !=
-                                                    null
-                                                      ? parseFloat(
-                                                          serviceTargetInvoice.subtotal,
-                                                        )
-                                                      : service.amount *
-                                                        splitMultiplier;
-                                                  const serviceTaxAmount =
-                                                    serviceTargetInvoice?.tax !=
-                                                    null
-                                                      ? parseFloat(
-                                                          serviceTargetInvoice.tax,
-                                                        )
-                                                      : serviceBasePrice *
-                                                        (taxRate / 100);
-                                                  const serviceTotalPrice =
-                                                    serviceTargetInvoice?.total !=
-                                                    null
-                                                      ? parseFloat(
-                                                          serviceTargetInvoice.total,
-                                                        )
-                                                      : serviceBasePrice +
-                                                        serviceTaxAmount;
+                                                <div className="text-sm text-gray-600 space-y-0.5">
+                                                  {(() => {
+                                                    const pricing =
+                                                      getServiceActualInvoicePricing({
+                                                        invoices: orderInvoices,
+                                                        service,
+                                                        splitMultiplier,
+                                                        isCoAgentUser,
+                                                        currentUser,
+                                                        fallbackTaxRate: taxRate,
+                                                      });
 
-                                                  return (
-                                                    <>
-                                                      <p>
-                                                        Base Price:{" "}
-                                                        <span className="font-medium text-gray-800">
-                                                          {serviceBasePrice.toLocaleString(
-                                                            "en-US",
-                                                            {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            },
-                                                          )}
-                                                        </span>
-                                                        {isCoAgentShared && (
-                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                                                            {
-                                                              splitInfo?.splitPercentage
-                                                            }
-                                                            % share
+                                                    const serviceBasePrice =
+                                                      pricing.basePrice;
+                                                    const serviceTaxAmount =
+                                                      pricing.taxAmount;
+                                                    const serviceTotalPrice =
+                                                      pricing.totalPrice;
+                                                    const effectiveTaxRate =
+                                                      pricing.appliedTaxRate;
+
+                                                    return (
+                                                      <>
+                                                        <p>
+                                                          Base Price:{" "}
+                                                          <span className="font-medium text-gray-800">
+                                                            {serviceBasePrice.toLocaleString(
+                                                              "en-US",
+                                                              {
+                                                                style: "currency",
+                                                                currency: "USD",
+                                                              },
+                                                            )}
                                                           </span>
-                                                        )}
-                                                      </p>
-                                                      {taxRate > 0 ? (
-                                                        <>
-                                                          <p className="text-xs text-gray-500">
-                                                            GST ({taxRate}%):{" "}
-                                                            <span className="font-medium">
-                                                              {serviceTaxAmount.toLocaleString(
-                                                                "en-US",
-                                                                {
-                                                                  style:
-                                                                    "currency",
-                                                                  currency:
-                                                                    "USD",
-                                                                },
-                                                              )}
+                                                          {isCoAgentShared && (
+                                                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                                              {
+                                                                splitInfo?.splitPercentage
+                                                              }
+                                                              % share
                                                             </span>
-                                                          </p>
-                                                          <p className="text-[13px] font-semibold text-gray-700">
-                                                            Total Price:{" "}
-                                                            <span className="text-[#6BAE41]">
-                                                              {serviceTotalPrice.toLocaleString(
-                                                                "en-US",
-                                                                {
-                                                                  style:
-                                                                    "currency",
-                                                                  currency:
-                                                                    "USD",
-                                                                },
-                                                              )}
-                                                            </span>
-                                                          </p>
-                                                        </>
-                                                      ) : null}
-                                                    </>
-                                                  );
-                                                })()}
-                                              </div>
+                                                          )}
+                                                        </p>
+                                                        {effectiveTaxRate > 0 ? (
+                                                          <>
+                                                            <p className="text-xs text-gray-500">
+                                                              GST ({effectiveTaxRate}%):{" "}
+                                                              <span className="font-medium">
+                                                                {serviceTaxAmount.toLocaleString(
+                                                                  "en-US",
+                                                                  {
+                                                                    style:
+                                                                      "currency",
+                                                                    currency:
+                                                                      "USD",
+                                                                  },
+                                                                )}
+                                                              </span>
+                                                            </p>
+                                                            <p className="text-[13px] font-semibold text-gray-700">
+                                                              Total Price:{" "}
+                                                              <span className="text-[#6BAE41]">
+                                                                {serviceTotalPrice.toLocaleString(
+                                                                  "en-US",
+                                                                  {
+                                                                    style:
+                                                                      "currency",
+                                                                    currency:
+                                                                      "USD",
+                                                                  },
+                                                                )}
+                                                              </span>
+                                                            </p>
+                                                          </>
+                                                        ) : null}
+                                                      </>
+                                                    );
+                                                  })()}
+                                                </div>
 
                                               {(() => {
                                                 const serviceSlot =
