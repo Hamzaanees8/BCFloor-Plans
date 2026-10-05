@@ -2432,57 +2432,205 @@ export default function OneDayCalendar({
     }
   }, [events]);
 
-  const hasCheckedForNextAvailableDay = React.useRef(false);
+  const isDateAvailable = useCallback(
+    (targetDate: string): boolean => {
+      const activeVendors = vendorsData.filter(
+        (v) => v.uuid && selectedVendors?.includes(v.uuid),
+      );
+      if (activeVendors.length === 0) return false;
 
-  // Auto-jump to next available day ONLY ONCE if current day has NO available slots
-  useEffect(() => {
-    // If external masterDate is passed (parent controls date), do NOT auto-jump
-    if (masterDate) return;
-
-    const hasAnyAvailableSlot = events.some((e) =>
-      e.className?.includes("slot-available"),
-    );
-
-    if (!hasAnyAvailableSlot && !hasCheckedForNextAvailableDay.current) {
-      hasCheckedForNextAvailableDay.current = true;
-
-      const searchForNextAvailableDay = () => {
-        const filteredVendors = vendorsData.filter(
-          (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid),
+      const currentServiceForCheck = servicesData?.find(
+        (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
+      );
+      const productOptionForCheck =
+        currentServiceForCheck?.product_options?.find(
+          (option) =>
+            (service.option_id && option.uuid === service.option_id) ||
+            (service.option_id &&
+              String(option.id) === String(service.option_id)),
         );
+      const requiredDuration = getEffectiveServiceDuration(
+        productOptionForCheck,
+        currentServiceForCheck,
+        activeSquareFootage,
+      );
+      const requiredSlotsCount = Math.max(1, Math.ceil(requiredDuration / 15));
 
-        if (filteredVendors.length === 0) return;
+      const isFloorPlan = isFloorPlanService(
+        service.title,
+        service.uuid,
+        service.id,
+        servicesData,
+      );
+      const isMatterport = isMatterportService(
+        service.title,
+        service.uuid,
+        service.id,
+        servicesData,
+      );
+      const isSpecialService = isFloorPlan || isMatterport;
+      const allowLunch = portalSettings?.allow_booking_through_lunch ?? false;
 
-        // ... search logic implementation ...
-      };
+      const otherServiceSlots = selectedSlots.filter(
+        (s: Slot) => s.service_id !== service.uuid && s.date === targetDate,
+      );
 
-      searchForNextAvailableDay();
+      for (const vendor of activeVendors) {
+        const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+        const shouldEnforce = isSpecialService
+          ? vendorHasNextBookingFlag
+          : true;
+        const useFullDay =
+          scheduleOverride === 1 &&
+          !(isSpecialService && vendorHasNextBookingFlag);
+
+        let validResult: ValidStartSlotResult;
+        if (useFullDay) {
+          const fullDayWorkHours: WorkHours = {
+            start_time: "00:00:00",
+            end_time: "23:59:59",
+            timezone: propertyTimezone || "America/Vancouver",
+            work_days: [
+              {
+                day: dayjs(targetDate).format("ddd").toLowerCase(),
+                start_time: "00:00:00",
+                end_time: "23:59:59",
+                is_off: 0,
+                is_twilight: 0,
+              },
+            ],
+          };
+          validResult = getVendorValidStartSlots(
+            vendor,
+            targetDate,
+            fullDayWorkHours,
+            AllBookedSlots,
+            otherServiceSlots,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsCount,
+            allowLunch,
+            shouldEnforce,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightService,
+            currentServiceForCheck?.is_travel_required !== false,
+            destinationAddress,
+          );
+        } else {
+          if (!vendor.work_hours) continue;
+          const vendorTimezone =
+            vendor.work_hours.timezone || "America/Vancouver";
+          const targetTimezone = propertyTimezone || "America/Vancouver";
+          const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
+            targetDate,
+            vendor.work_hours,
+            vendorTimezone,
+            targetTimezone,
+          );
+          validResult = getVendorValidStartSlots(
+            vendor,
+            targetDate,
+            convertedWorkHours,
+            AllBookedSlots,
+            otherServiceSlots,
+            vendor.additional_breaks || [],
+            vendor.calendar_events || [],
+            requiredSlotsCount,
+            allowLunch,
+            shouldEnforce,
+            service.uuid,
+            selectedSlots,
+            15,
+            isTwilightService,
+            currentServiceForCheck?.is_travel_required !== false,
+            destinationAddress,
+          );
+        }
+
+        if (validResult.startSlots.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [
+      vendorsData,
+      selectedVendors,
+      servicesData,
+      service,
+      activeSquareFootage,
+      portalSettings?.allow_booking_through_lunch,
+      selectedSlots,
+      scheduleOverride,
+      propertyTimezone,
+      AllBookedSlots,
+      isTwilightService,
+      destinationAddress,
+    ],
+  );
+
+  const handleNextDay = useCallback(() => {
+    let nextDate = dayjs(currentDate).add(1, "day");
+    for (let i = 0; i < 30; i++) {
+      const dateStr = nextDate.format("YYYY-MM-DD");
+      if (isDateAvailable(dateStr)) {
+        break;
+      }
+      nextDate = nextDate.add(1, "day");
     }
-  }, [
-    events,
-    vendorsData,
-    selectedVendors,
-    currentDate,
-    selectedSlots,
-    service,
-    AllBookedSlots,
-    propertyTimezone,
-    setSelectedDate,
-    servicesData,
-    scheduleOverride,
-    portalSettings?.allow_booking_through_lunch,
-    activeSquareFootage,
-    destinationAddress,
-    masterDate,
-  ]);
+
+    const targetDateStr = nextDate.format("YYYY-MM-DD");
+    lastMasterDateStr.current = targetDateStr;
+    setCurrentDate(targetDateStr);
+    setSelectedDate(targetDateStr);
+    if (calendarRef.current) {
+      calendarRef.current.getApi().gotoDate(targetDateStr);
+    }
+  }, [currentDate, isDateAvailable, setSelectedDate]);
+
+  const handlePrevDay = useCallback(() => {
+    const prevDate = dayjs(currentDate).subtract(1, "day");
+    if (minDate && prevDate.isBefore(dayjs(minDate).startOf("day"))) {
+      return;
+    }
+    const targetDateStr = prevDate.format("YYYY-MM-DD");
+    lastMasterDateStr.current = targetDateStr;
+    setCurrentDate(targetDateStr);
+    setSelectedDate(targetDateStr);
+    if (calendarRef.current) {
+      calendarRef.current.getApi().gotoDate(targetDateStr);
+    }
+  }, [currentDate, minDate, setSelectedDate]);
+
+  // Initial jump on mount if the starting date has no available slots
+  useEffect(() => {
+    if (existingSlot) return;
+    if (hasJumpedToInitialDate.current) return;
+    if (!calendarRef.current) return;
+
+    if (!isDateAvailable(currentDate)) {
+      let nextDate = dayjs(currentDate).add(1, "day");
+      for (let i = 0; i < 30; i++) {
+        const dateStr = nextDate.format("YYYY-MM-DD");
+        if (isDateAvailable(dateStr)) {
+          lastMasterDateStr.current = dateStr;
+          setCurrentDate(dateStr);
+          setSelectedDate(dateStr);
+          calendarRef.current.getApi().gotoDate(dateStr);
+          break;
+        }
+        nextDate = nextDate.add(1, "day");
+      }
+    }
+    hasJumpedToInitialDate.current = true;
+  }, [existingSlot, isDateAvailable, currentDate, setSelectedDate]);
 
   const vendorsKey = JSON.stringify(selectedVendors);
   const recommendVal = recommendTimeMap?.[serviceKey];
   useEffect(() => {
     hasScrolledToFirstSlot.current = false;
-    // Only reset the auto-jump guard on vendor or recommendation changes, NOT on date changes.
-    // The lastAutoJumpDate ref already prevents re-running on the same date.
-    hasCheckedForNextAvailableDay.current = false;
   }, [vendorsKey, recommendVal]); // intentionally exclude currentDate
 
   useEffect(() => {
@@ -3932,8 +4080,18 @@ export default function OneDayCalendar({
           selectable={true}
           editable={true}
           initialDate={initialDateStr}
+          customButtons={{
+            customPrev: {
+              icon: "chevron-left",
+              click: handlePrevDay,
+            },
+            customNext: {
+              icon: "chevron-right",
+              click: handleNextDay,
+            },
+          }}
           headerToolbar={{
-            left: "prev,next",
+            left: "customPrev,customNext",
             center: "title",
             right: "",
           }}
@@ -3941,8 +4099,10 @@ export default function OneDayCalendar({
           titleFormat={{ weekday: "short", day: "numeric" }}
           datesSet={(arg: DatesSetArg) => {
             const calendarDate = dayjs(arg.start).format("YYYY-MM-DD");
-            setCurrentDate(calendarDate);
-            setSelectedDate(calendarDate);
+            if (calendarDate !== currentDate) {
+              setCurrentDate(calendarDate);
+              setSelectedDate(calendarDate);
+            }
           }}
         />
 

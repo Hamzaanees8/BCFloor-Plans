@@ -20,6 +20,7 @@ import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { GetOne as GetOneAgent } from '@/app/dashboard/agents/agents';
 import { GetCoAgents } from '@/app/dashboard/sub-accounts/subaccounts';
+import AddCoAgentModal from '@/components/AddCoAgentModal';
 import {
     Table,
     TableBody,
@@ -63,6 +64,7 @@ const Contact = () => {
     const [hasToken, setHasToken] = useState(true);
     const [allLinkedCoAgents, setAllLinkedCoAgents] = useState<any[]>([]);
     const [selectedExistingCoAgent, setSelectedExistingCoAgent] = useState<any | null>(null);
+    const [isCreateCoAgentModalOpen, setIsCreateCoAgentModalOpen] = useState(false);
 
     // Reset co-agents when primary agent changes
     const prevSelectedAgentIdRef = useRef(selectedAgentId);
@@ -74,26 +76,33 @@ const Contact = () => {
         prevSelectedAgentIdRef.current = selectedAgentId;
     }, [selectedAgentId, setCoAgents, setIsSplitInvoice]);
 
+    const fetchLinkedCoAgents = React.useCallback(async (targetAgentUuid?: string) => {
+        const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
+        if (!token) return [];
+        const uuid = targetAgentUuid || selectedAgentId || (isAgentUser && userInfo ? userInfo.uuid : undefined);
+        try {
+            const res: any = await GetCoAgents(token, uuid);
+            let list: any[] = [];
+            if (Array.isArray(res?.data)) {
+                list = res.data;
+            } else if (Array.isArray(res)) {
+                list = res;
+            }
+            setAllLinkedCoAgents(list);
+            return list;
+        } catch (err: any) {
+            console.error("Failed to fetch linked co-agents for order contact:", err);
+            setAllLinkedCoAgents([]);
+            return [];
+        }
+    }, [selectedAgentId, isAgentUser, userInfo]);
+
     useEffect(() => {
         const checkToken = () => {
             const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
             setHasToken(!!token);
             if (token) {
-                const targetAgentUuid = selectedAgentId || (isAgentUser && userInfo ? userInfo.uuid : undefined);
-                GetCoAgents(token, targetAgentUuid)
-                    .then((res: any) => {
-                        if (Array.isArray(res?.data)) {
-                            setAllLinkedCoAgents(res.data);
-                        } else if (Array.isArray(res)) {
-                            setAllLinkedCoAgents(res);
-                        } else {
-                            setAllLinkedCoAgents([]);
-                        }
-                    })
-                    .catch((err: any) => {
-                        console.error("Failed to fetch linked co-agents for order contact:", err);
-                        setAllLinkedCoAgents([]);
-                    });
+                fetchLinkedCoAgents();
             }
         };
         
@@ -106,7 +115,7 @@ const Contact = () => {
             window.removeEventListener('storage', checkToken);
             window.removeEventListener('agentLogin', checkToken);
         };
-    }, [selectedAgentId, isAgentUser, userInfo]);
+    }, [fetchLinkedCoAgents]);
 
     const selectedAgent = useMemo(() => {
         const found = agentsData.find((agent) => agent.uuid === selectedAgentId);
@@ -177,30 +186,23 @@ const Contact = () => {
 
         return result;
     }, [allLinkedCoAgents]);
-    //     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]); // Keeping for backward compatibility if needed, but primary flow will direct update coAgents
+
     const [percentage, setPercentage] = useState<number | ''>('');
     const [userName, setUserName] = useState<string>("");
 
-    // New Co-Agent States
+    // Co-Agent Selection / Edit States
     const [coAgentName, setCoAgentName] = useState("");
     const [coAgentEmail, setCoAgentEmail] = useState("");
-    const [coAgentMode, setCoAgentMode] = useState<'existing' | 'new'>('existing');
     const [editingCoAgentIndex, setEditingCoAgentIndex] = useState<number | null>(null);
-    //     const [adminEmail, setAdminEmail] = useState("");
-    //     const removeAdmin = () => setAdminEmail("");
     const [openAddCoAgentDialog, setOpenAddCoAgentDialog] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
 
     // New States for Notes Redesign
     const [editingNote, setEditingNote] = useState<any | null>(null);
     const [editNoteText, setEditNoteText] = useState('');
 
-
-    const token = localStorage.getItem('token')
-
-
+    const token = localStorage.getItem('token') || localStorage.getItem('agentToken');
 
     const coAgentOptions = useMemo(() => {
         return availableCoAgents.map((a) => {
@@ -222,23 +224,71 @@ const Contact = () => {
         });
     }, [availableCoAgents, coAgents, editingCoAgentIndex]);
 
-    // Updated Handle Add/Update
-    const handleSaveCoAgent = () => {
-        const rawEmail = coAgentEmail.trim();
-        const email = rawEmail.toLowerCase();
-        const name = coAgentName.trim();
+    const handleCoAgentCreated = async (createdData?: any) => {
+        const targetAgentUuid = selectedAgentId || (isAgentUser && userInfo ? userInfo.uuid : undefined);
+        const updatedList = await fetchLinkedCoAgents(targetAgentUuid);
 
-        // Validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!rawEmail || !emailRegex.test(rawEmail)) {
-            if (coAgentMode === 'new' || editingCoAgentIndex !== null) { // Only validate strict email for new/edit manual
-                toast.error("Please enter a valid email.");
-                return;
+        const createdUuid = createdData?.uuid || createdData?.agent_uuid || createdData?.id;
+        const createdEmail = (createdData?.email || "").toLowerCase().trim();
+
+        const found = updatedList.find((co: any) => 
+            (createdUuid && (co.uuid === createdUuid || String(co.id) === String(createdUuid))) ||
+            (createdEmail && co.email && co.email.toLowerCase().trim() === createdEmail)
+        );
+
+        if (found) {
+            const fullName = `${found.first_name || ""} ${found.last_name || ""}`.trim() || found.name || (found.email ? found.email.split("@")[0] : "Co-Agent");
+            setSelectedExistingCoAgent({
+                id: found.id,
+                uuid: found.uuid,
+                agent_id: found.id,
+                agent_uuid: found.uuid,
+                name: fullName,
+                email: found.email || "",
+                primary_phone: found.primary_phone || found.number || "",
+                role: "Co-Agent / Partner",
+                percentage: Number(found.split || found.percentage || 0),
+                split: found.split ?? found.percentage,
+            });
+            setCoAgentName(fullName);
+            setCoAgentEmail(found.email || "");
+            if (found.split || found.percentage) {
+                setPercentage(Number(found.split || found.percentage));
             }
+        } else if (createdData) {
+            const fullName = `${createdData.first_name || ""} ${createdData.last_name || ""}`.trim() || createdData.name || (createdData.email ? createdData.email.split("@")[0] : "Co-Agent");
+            setSelectedExistingCoAgent({
+                id: createdData.id,
+                uuid: createdData.uuid,
+                agent_id: createdData.id || createdData.agent_id,
+                agent_uuid: createdData.uuid || createdData.agent_uuid,
+                name: fullName,
+                email: createdData.email || "",
+                primary_phone: createdData.primary_phone || createdData.number || "",
+                role: "Co-Agent / Partner",
+                percentage: Number(createdData.split || createdData.percentage || 0),
+                split: createdData.split ?? createdData.percentage,
+            });
+            setCoAgentName(fullName);
+            setCoAgentEmail(createdData.email || "");
         }
 
-        if (coAgentMode === 'new' && !name) {
-            toast.error("Please enter a name.");
+        setOpenAddCoAgentDialog(true);
+    };
+
+    // Updated Handle Add/Update
+    const handleSaveCoAgent = () => {
+        if (!selectedExistingCoAgent && editingCoAgentIndex === null) {
+            toast.error("Please select a co-agent.");
+            return;
+        }
+
+        const rawEmail = (selectedExistingCoAgent?.email || coAgentEmail || "").trim();
+        const email = rawEmail.toLowerCase();
+        const name = (selectedExistingCoAgent?.name || coAgentName || "").trim();
+
+        if (!rawEmail) {
+            toast.error("Please select a valid co-agent.");
             return;
         }
 
@@ -249,7 +299,7 @@ const Contact = () => {
             const matchId = selectedExistingCoAgent?.id && agent.agent_id && String(selectedExistingCoAgent.id) === String(agent.agent_id);
             const matchEmail = email && agent.email && agent.email.trim().toLowerCase() === email;
             const matchName = name && agent.name && agent.name.trim().toLowerCase() === name.toLowerCase();
-            return matchUuid || matchId || matchEmail || (matchName && (!email || !agent.email));
+            return matchUuid || matchId || matchEmail || matchName;
         });
 
         if (isDuplicate) {
@@ -305,9 +355,8 @@ const Contact = () => {
         setCoAgentName("");
         setPercentage("");
         setEditingCoAgentIndex(null);
-        setCoAgentMode('existing');
         setSelectedExistingCoAgent(null);
-    }
+    };
 
     const handleEditCoAgent = (index: number) => {
         const agent = coAgents[index];
@@ -315,13 +364,19 @@ const Contact = () => {
         setCoAgentEmail(agent.email);
         setPercentage(agent.percentage || '');
         setEditingCoAgentIndex(index);
-        setCoAgentMode('new'); // Edit mode is effectively "new" (manual) mode but pre-filled
         const existingMatch = availableCoAgents.find(a => 
             (agent.agent_uuid && a.uuid === agent.agent_uuid) ||
             (agent.agent_id && String(a.id) === String(agent.agent_id)) ||
             (agent.email && a.email && agent.email.toLowerCase() === a.email.toLowerCase())
         );
-        setSelectedExistingCoAgent(existingMatch || null);
+        setSelectedExistingCoAgent(existingMatch || {
+            agent_id: agent.agent_id,
+            agent_uuid: agent.agent_uuid,
+            name: agent.name,
+            email: agent.email,
+            primary_phone: agent.primary_phone,
+            percentage: agent.percentage,
+        });
         setOpenAddCoAgentDialog(true);
     };
 
@@ -364,7 +419,6 @@ const Contact = () => {
     };
 
     const handleOpenAddCoAgentDialog = () => {
-        setCoAgentMode('existing');
         setCoAgentName('');
         setCoAgentEmail('');
         setPercentage('');
@@ -683,10 +737,10 @@ const Contact = () => {
                                             <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
                                         </div>
                                         <Dialog open={openAddCoAgentDialog} onOpenChange={setOpenAddCoAgentDialog}>
-                                            <DialogContent className="w-[320px] md:w-[470px] h-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                                            <DialogContent className="w-[90vw] max-w-[480px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                                                 <DialogHeader>
                                                     <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
-                                                        {editingCoAgentIndex !== null ? 'Edit Co-Agent' : 'Add Co-Agent'}
+                                                        {editingCoAgentIndex !== null ? 'Edit Co-Agent Split' : 'Add Co-Agent / Partner'}
                                                         <button
                                                             type="button"
                                                             onClick={closeCoAgentDialog}
@@ -698,91 +752,98 @@ const Contact = () => {
                                                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                                                 </DialogHeader>
 
-                                                <div className="w-full">
-                                                    <div className="grid w-full grid-cols-2 mb-4 bg-[#E4E4E4] p-1 rounded-md">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setCoAgentMode('existing')}
-                                                            className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'existing' ? `${userType}-bg shadow-sm text-white` : 'text-[#666666]'}`}
-                                                        >
-                                                            Select Existing
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setCoAgentMode('new')}
-                                                            className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'new' ? `${userType}-bg shadow-sm text-white` : 'text-[#666666]'}`}
-                                                        >
-                                                            Add New
-                                                        </button>
-                                                    </div>
-
-                                                    {coAgentMode === 'existing' ? (
-                                                        <div className="space-y-4">
-                                                            <div className="flex flex-col gap-2">
-                                                                <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
-                                                                <SearchableSelect
-                                                                    options={coAgentOptions}
-                                                                    value={selectedExistingCoAgent?.uuid || selectedExistingCoAgent?.email || coAgentEmail}
-                                                                    onChange={handleSelectExisting}
-                                                                    placeholder="Search co-agents..."
-                                                                    className="w-full"
-                                                                />
-                                                                {availableCoAgents.length === 0 && (
-                                                                    <p className="text-xs text-amber-600 mt-1">No existing co-agents found for this agent. Switch to &quot;Add New&quot; tab above to enter details.</p>
-                                                                )}
-                                                            </div>
+                                                <div className="w-full space-y-4">
+                                                    {editingCoAgentIndex !== null ? (
+                                                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                                                            <p className="text-xs font-semibold text-gray-500 uppercase">Co-Agent Details</p>
+                                                            <p className="text-sm font-semibold text-gray-800 mt-1">{coAgentName || selectedExistingCoAgent?.name || "Co-Agent"}</p>
+                                                            <p className="text-xs text-gray-600">{coAgentEmail || selectedExistingCoAgent?.email}</p>
                                                         </div>
                                                     ) : (
-                                                        <div className="space-y-4">
-                                                            <div className="flex flex-col gap-2">
-                                                                <label className="text-sm font-normal text-[#666666]">Name <span className="text-red-500">*</span></label>
-                                                                <Input
-                                                                    value={coAgentName}
-                                                                    onChange={(e) => setCoAgentName(e.target.value)}
-                                                                    className="h-[42px] bg-[#EEEEEE]"
-                                                                />
+                                                        <div className="flex flex-col gap-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <label className="text-sm font-normal text-[#666666]">Select Co-Agent <span className="text-red-500">*</span></label>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setOpenAddCoAgentDialog(false);
+                                                                        setIsCreateCoAgentModalOpen(true);
+                                                                    }}
+                                                                    className={`text-xs font-semibold ${userType}-text hover:underline flex items-center gap-1 cursor-pointer`}
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5" />
+                                                                    <span>Create New Co-Agent</span>
+                                                                </button>
                                                             </div>
-                                                            <div className="flex flex-col gap-2">
-                                                                <label className="text-sm font-normal text-[#666666]">Email <span className="text-red-500">*</span></label>
-                                                                <Input
-                                                                    type="email"
-                                                                    value={coAgentEmail}
-                                                                    onChange={(e) => setCoAgentEmail(e.target.value)}
-                                                                    className="h-[42px] bg-[#EEEEEE]"
-                                                                />
-                                                            </div>
+                                                            <SearchableSelect
+                                                                options={coAgentOptions}
+                                                                value={selectedExistingCoAgent?.uuid || selectedExistingCoAgent?.email || coAgentEmail}
+                                                                onChange={handleSelectExisting}
+                                                                placeholder="Search co-agents..."
+                                                                className="w-full"
+                                                            />
+                                                            {availableCoAgents.length === 0 ? (
+                                                                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 flex flex-col gap-1.5 mt-1">
+                                                                    <span>No co-agents found linked with this agent.</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setOpenAddCoAgentDialog(false);
+                                                                            setIsCreateCoAgentModalOpen(true);
+                                                                        }}
+                                                                        className={`text-xs font-semibold ${userType}-text hover:underline text-left cursor-pointer`}
+                                                                    >
+                                                                        + Click here to create &amp; link a new Co-Agent
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-[11px] text-gray-500">
+                                                                    Select a linked co-agent or click &ldquo;Create New Co-Agent&rdquo; to add a new partner.
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     )}
-                                                </div>
 
-                                                {/* Common Fields */}
-                                                <div className="mt-4">
-                                                    <label className="text-sm font-normal text-[#666666] block mb-2">Percentage <span className="text-red-500">*</span></label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            type="number"
-                                                            min={0}
-                                                            max={100}
-                                                            value={percentage === '' ? '' : percentage}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                if (val === '') setPercentage('');
-                                                                else setPercentage(Number(val));
-                                                            }}
-                                                            className="h-[42px] bg-[#EEEEEE] appearance-none"
-                                                        />
-                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                                    {/* Percentage Field */}
+                                                    <div>
+                                                        <label className="text-sm font-normal text-[#666666] block mb-2">Split Percentage (%)</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                max={100}
+                                                                value={percentage === '' ? '' : percentage}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    if (val === '') setPercentage('');
+                                                                    else setPercentage(Number(val));
+                                                                }}
+                                                                placeholder="e.g. 50"
+                                                                className="h-[42px] bg-[#EEEEEE] appearance-none pr-8"
+                                                            />
+                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
+                                                        </div>
+                                                        <p className="text-[11px] text-gray-500 mt-1">
+                                                            Enter the percentage of invoice costs allocated to this co-agent.
+                                                        </p>
                                                     </div>
                                                 </div>
 
                                                 <DialogFooter className="mt-6 flex gap-2">
                                                     <Button variant="outline" onClick={closeCoAgentDialog} className="w-full">Cancel</Button>
                                                     <Button onClick={handleSaveCoAgent} className={`w-full ${userType}-bg text-white hover:opacity-90`}>
-                                                        {editingCoAgentIndex !== null ? 'Update' : 'Add'}
+                                                        {editingCoAgentIndex !== null ? 'Update' : 'Add to Order'}
                                                     </Button>
                                                 </DialogFooter>
                                             </DialogContent>
                                         </Dialog>
+
+                                        <AddCoAgentModal
+                                            open={isCreateCoAgentModalOpen}
+                                            setOpen={setIsCreateCoAgentModalOpen}
+                                            onSuccess={handleCoAgentCreated}
+                                            agentUuid={effectiveAgent?.uuid || selectedAgentId || (isAgentUser && userInfo ? userInfo.uuid : undefined)}
+                                        />
                                     </div>
                                     {coAgents.length > 0 && (
                                         <div className="mt-[12px] border rounded-md overflow-hidden bg-white shadow-sm">

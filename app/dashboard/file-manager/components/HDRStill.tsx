@@ -1560,8 +1560,8 @@ function FileTab1({
           </div>
         </div>
       );
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       API_URL,
       bookingToUse?.payment_status,

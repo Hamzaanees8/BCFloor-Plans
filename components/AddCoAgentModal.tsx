@@ -12,7 +12,7 @@ import { AddCoAgent, CoAgentPayload } from "@/app/dashboard/sub-accounts/subacco
 interface AddCoAgentModalProps {
     open: boolean;
     setOpen: (open: boolean) => void;
-    onSuccess?: () => void;
+    onSuccess?: (createdData?: any) => void;
     agentUuid?: string;
 }
 
@@ -70,7 +70,7 @@ export default function AddCoAgentModal({
             return;
         }
 
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
         if (!token) {
             toast.error("Authentication token not found.");
             return;
@@ -95,7 +95,7 @@ export default function AddCoAgentModal({
             handleReset();
             setOpen(false);
             if (onSuccess) {
-                onSuccess();
+                onSuccess(res?.data || res);
             }
         } catch (err: any) {
             console.error("Failed to add co-agent:", err);
