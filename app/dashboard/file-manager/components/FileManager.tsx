@@ -57,6 +57,7 @@ import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-s
 import { Loader2, X } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
+import { isVoidOrCancelled } from "../../billing/billing";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -380,6 +381,7 @@ const FileManager = () => {
     deletedSnapshotUuids,
     setDeletedSnapshotUuids,
     setDroppedMarkers,
+    tourSettings,
     tourDefaultSettings,
     setTourSettings,
     setTourDefaultSettings,
@@ -508,6 +510,8 @@ const FileManager = () => {
   }, [groupedServices, searchParams, activeTab]);
 
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
+  const [modalInvoices, setModalInvoices] = useState<any[] | null>(null);
+  const [modalTitle, setModalTitle] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
@@ -1228,18 +1232,110 @@ const FileManager = () => {
       return false;
     };
 
+    // Filter matching invoices for agent if user is agent
+    const userUuid = currentUser?.data?.uuid || currentUser?.uuid;
+    const userEmail = (
+      currentUser?.data?.primary_email ||
+      currentUser?.primary_email ||
+      currentUser?.data?.email ||
+      currentUser?.email ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+    const isCoAgent =
+      userType === "agent" && isUserCoAgent(currentUser, userType);
+
+    const scopedInvoices =
+      userType === "agent"
+        ? allInvoices.filter((inv: any) => {
+            const invEmail = (inv?.agent?.email || inv?.email || "")
+              .toLowerCase()
+              .trim();
+            const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
+            if (userUuid && invUuid && invUuid === userUuid) return true;
+            if (
+              userEmail &&
+              invEmail &&
+              (invEmail === userEmail || invEmail.includes(userEmail))
+            )
+              return true;
+            return isCoAgent
+              ? inv?.agent_type === "co-agent" || inv?.agent_type === "co_agent"
+              : inv?.agent_type === "primary" ||
+                  (!inv?.split_details &&
+                    inv?.agent_type !== "co-agent" &&
+                    inv?.agent_type !== "co_agent");
+          })
+        : allInvoices;
+
+    const invoicesToSearch =
+      scopedInvoices.length > 0 ? scopedInvoices : allInvoices;
+
     // Find all invoices that contain a matching item
-    const matchingInvoices = allInvoices.filter((inv: any) => {
-      const isConsolidated = inv.notes
-        ?.toLowerCase()
-        .includes("consolidated");
-      if (isConsolidated && allInvoices.length > 1) return false;
-      return inv.items?.some(isItemMatch);
-    });
+    let matchingInvoices = invoicesToSearch.filter(
+      (inv: any) => !isVoidOrCancelled(inv.status) && inv.items?.some(isItemMatch),
+    );
+    if (matchingInvoices.length === 0) {
+      matchingInvoices = invoicesToSearch.filter((inv: any) =>
+        inv.items?.some(isItemMatch),
+      );
+    }
+
+    // Prefer single-service invoices over consolidated if both exist
+    const singleMatching = matchingInvoices.filter(
+      (inv: any) =>
+        !inv.notes?.toLowerCase().includes("consolidated") ||
+        inv.items?.length === 1,
+    );
+    const candidateInvoices =
+      singleMatching.length > 0 ? singleMatching : matchingInvoices;
+
+    // For Admin: If there are multiple split invoices for this service across agents
+    if (userType !== "agent" && candidateInvoices.length > 1) {
+      const scopedCandidateInvoices = candidateInvoices.map((inv: any) => {
+        if (isSpecificServiceRequested && Array.isArray(inv.items)) {
+          const scopedItems = inv.items.filter(isItemMatch);
+          if (scopedItems.length > 0) {
+            const subtotal = scopedItems.reduce(
+              (acc: number, item: any) =>
+                acc +
+                (parseFloat(item.amount) ||
+                  parseFloat(item.quantity || "1") *
+                    parseFloat(item.unit_price || "0") ||
+                  0),
+              0,
+            );
+            const taxRate = parseFloat(inv.tax_rate || "0") / 100;
+            const taxAmount = subtotal * taxRate;
+            const total = subtotal + taxAmount;
+            return {
+              ...inv,
+              items: scopedItems,
+              subtotal: subtotal.toFixed(2),
+              tax_amount: taxAmount.toFixed(2),
+              total: total.toFixed(2),
+              _original_items: inv.items,
+            };
+          }
+        }
+        return inv;
+      });
+
+      setModalInvoices(scopedCandidateInvoices);
+      setModalTitle(
+        serviceName
+          ? `Split Invoices — ${serviceName}`
+          : "Split Service Invoices",
+      );
+      setShowInvoicesModal(true);
+      return;
+    }
 
     // Pick the most specific invoice (e.g. smallest item count) or the first matching invoice
     const serviceInv: any =
-      matchingInvoices.sort(
+      candidateInvoices.sort(
         (a: any, b: any) =>
           (a.items?.length || 0) - (b.items?.length || 0),
       )[0] || null;
@@ -1290,7 +1386,7 @@ const FileManager = () => {
     } else if (isSpecificServiceRequested) {
       toast.info("Invoice for this specific print request is not available.");
     } else {
-      const fallbackInv = allInvoices[0];
+      const fallbackInv = invoicesToSearch[0] || allInvoices[0];
       if (fallbackInv) {
         setViewingInvoice(fallbackInv);
       } else {
@@ -1338,12 +1434,147 @@ const FileManager = () => {
       activeService?.category?.name ||
       (activeServiceGroup?.[0]?.service as any)?.category?.name;
 
-    const primaryInvoice =
+    const userUuid = currentUser?.data?.uuid || currentUser?.uuid;
+    const userEmail = (
+      currentUser?.data?.primary_email ||
+      currentUser?.primary_email ||
+      currentUser?.data?.email ||
+      currentUser?.email ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+    const isPrimaryOwner = Boolean(
+      userUuid &&
+        ((orderData as any)?.agent_uuid === userUuid ||
+          (orderData as any)?.agent?.uuid === userUuid),
+    );
+    const isCoAgentUser =
+      userType === "agent" && isUserCoAgent(currentUser, userType);
+
+    // Calculate splitMultiplier
+    let splitMultiplier = 1;
+    if (userType === "agent") {
+      const rawCo =
+        (orderData as any)?.co_agents ||
+        (orderData as any)?.coagents ||
+        (orderData as any)?.order?.co_agents;
+      let coList: any[] = [];
+      if (Array.isArray(rawCo)) coList = rawCo;
+      else if (typeof rawCo === "string") {
+        try {
+          const parsed = JSON.parse(rawCo);
+          if (Array.isArray(parsed)) coList = parsed;
+        } catch {}
+      }
+
+      const matchingCo = coList.find((ca: any) => {
+        if (!ca) return false;
+        const caEmail = (ca.email || (typeof ca === "string" ? ca : ""))
+          .toLowerCase()
+          .trim();
+        const caId = ca.agent_id || ca.id || ca.uuid;
+        return (
+          (userEmail && caEmail && caEmail === userEmail) ||
+          (userUuid && caId && String(caId) === String(userUuid))
+        );
+      });
+
+      if (matchingCo) {
+        const pct = Number(
+          matchingCo.split ||
+            matchingCo.split_percentage ||
+            matchingCo.percentage ||
+            0,
+        );
+        if (pct > 0) splitMultiplier = pct / 100;
+      } else if (isPrimaryOwner && coList.length > 0) {
+        const totalCoSplit = coList.reduce((sum: number, ca: any) => {
+          return (
+            sum +
+            Number(
+              ca?.split || ca?.split_percentage || ca?.percentage || 0,
+            )
+          );
+        }, 0);
+        if (totalCoSplit > 0 && totalCoSplit < 100) {
+          splitMultiplier = (100 - totalCoSplit) / 100;
+        }
+      } else if (Array.isArray(invoices)) {
+        for (const inv of invoices) {
+          if (inv.split_details?.splits) {
+            const foundSplit = inv.split_details.splits.find(
+              (s: any) =>
+                (userEmail && s.email?.toLowerCase() === userEmail) ||
+                (userUuid &&
+                  (s.agent_uuid === userUuid ||
+                    s.agent_id === currentUser?.id)),
+            );
+            if (foundSplit) {
+              const pct = Number(foundSplit.percentage || 0);
+              if (pct > 0) splitMultiplier = pct / 100;
+              break;
+            }
+          }
+          if (
+            isPrimaryOwner &&
+            (inv.agent_type === "primary" ||
+              (!inv.split_details && inv.agent_type !== "co-agent")) &&
+            ((userEmail &&
+              inv.agent?.email?.toLowerCase() === userEmail) ||
+              (userUuid &&
+                (inv.agent?.uuid === userUuid ||
+                  inv.agent_uuid === userUuid)))
+          ) {
+            const pct = Number(inv.split_percentage || inv.percentage || 0);
+            if (pct > 0 && pct < 100) {
+              splitMultiplier = pct / 100;
+              break;
+            }
+          }
+          if (
+            (inv.agent_type === "co-agent" ||
+              inv.agent_type === "co_agent") &&
+            ((userEmail &&
+              inv.agent?.email?.toLowerCase() === userEmail) ||
+              (userUuid &&
+                (inv.agent?.uuid === userUuid ||
+                  inv.agent_uuid === userUuid)))
+          ) {
+            const pct = Number(inv.split_percentage || inv.percentage || 0);
+            if (pct > 0) {
+              splitMultiplier = pct / 100;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    const userTargetInvoice =
       invoices.find(
         (inv) =>
-          inv.agent_type === "primary" || (inv.agent && !inv.split_details),
+          userType === "agent"
+            ? (userUuid &&
+                (inv.agent?.uuid === userUuid ||
+                  inv.agent_uuid === userUuid)) ||
+              (userEmail &&
+                inv.agent?.email &&
+                inv.agent.email.toLowerCase() === userEmail) ||
+              (isCoAgentUser
+                ? inv.agent_type === "co-agent" ||
+                  inv.agent_type === "co_agent"
+                : inv.agent_type === "primary" ||
+                  (!inv.split_details &&
+                    inv.agent_type !== "co-agent" &&
+                    inv.agent_type !== "co_agent"))
+            : inv.agent_type === "primary" ||
+              (inv.agent && !inv.split_details),
       ) || invoices[0];
-    const gstRate = parseFloat(primaryInvoice?.tax_rate || "0") / 100;
+    const gstRate =
+      parseFloat(
+        userTargetInvoice?.tax_rate || invoices[0]?.tax_rate || "0",
+      ) / 100;
 
     let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
     if (currentBookedService) {
@@ -1355,6 +1586,10 @@ const FileManager = () => {
         catalogService: activeService,
         squareFootage,
         invoices,
+        userType,
+        currentUser,
+        isCoAgentUser,
+        splitMultiplier,
       });
       currentBookedService = {
         ...currentBookedService,
@@ -1718,7 +1953,11 @@ const FileManager = () => {
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
-      setFileManagerMode(tourDefaultSettings?.always_enable_sorting ? "reorder" : "upload");
+      const isAlwaysSort = Boolean(
+        tourSettings?.always_enable_sorting ??
+          tourDefaultSettings?.always_enable_sorting,
+      );
+      setFileManagerMode(isAlwaysSort ? "reorder" : "upload");
       const token = localStorage.getItem("token");
       if (!token) return;
 
@@ -1841,6 +2080,7 @@ const FileManager = () => {
       deletedSnapshotUuids,
       setDeletedSnapshotUuids,
       setDroppedMarkers,
+      tourSettings,
       tourDefaultSettings,
     ],
   );
@@ -2116,17 +2356,30 @@ const FileManager = () => {
         }}
       >
         {/* Invoices List Modal */}
-        <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
+        <Dialog
+          open={showInvoicesModal}
+          onOpenChange={(open) => {
+            setShowInvoicesModal(open);
+            if (!open) {
+              setModalInvoices(null);
+              setModalTitle(null);
+            }
+          }}
+        >
           <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
             <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
               <DialogTitle
                 className="flex items-center justify-between text-[18px] font-[600] uppercase"
                 style={{ color: `var(--${userType}-page-tab-color)` }}
               >
-                Order Invoices
+                {modalTitle || (modalInvoices ? "Split Service Invoices" : "Order Invoices")}
                 <Button
                   className="border-none !shadow-none bg-transparent hover:bg-transparent p-0"
-                  onClick={() => setShowInvoicesModal(false)}
+                  onClick={() => {
+                    setShowInvoicesModal(false);
+                    setModalInvoices(null);
+                    setModalTitle(null);
+                  }}
                 >
                   <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                 </Button>
@@ -2144,8 +2397,9 @@ const FileManager = () => {
               ) : (
                 (() => {
                   const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
+                  const baseList = modalInvoices || invoices;
                   const filteredList = isCoAgentUser
-                    ? invoices.filter(
+                    ? baseList.filter(
                         (inv) =>
                           inv.agent_type === "co-agent" ||
                           (currentUser?.uuid &&
@@ -2154,7 +2408,7 @@ const FileManager = () => {
                           (currentUser?.email &&
                             inv.agent?.email === currentUser.email),
                       )
-                    : invoices;
+                    : baseList;
 
                   if (filteredList.length === 0) {
                     return (
@@ -2698,7 +2952,11 @@ const FileManager = () => {
           </Button>
           {userType !== "vendor" && (
             <Button
-              onClick={() => setShowInvoicesModal(true)}
+              onClick={() => {
+                setModalInvoices(null);
+                setModalTitle(null);
+                setShowInvoicesModal(true);
+              }}
               className={`rounded-[6px] border-[1px] ${userType}-border font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 h-[28px] w-[60px] text-[10px] px-1 md:h-[35px] md:w-[110px] md:text-[14px] md:px-4`}
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >

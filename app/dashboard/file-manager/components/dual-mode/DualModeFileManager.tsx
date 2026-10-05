@@ -160,6 +160,7 @@ export function DualModeFileManager({
                                             mode={mode}
                                             renderItem={renderItem}
                                             columns={imagesPerRow}
+                                            disabled={disabled || isSaving}
                                         />
                                     )}
 
@@ -210,6 +211,7 @@ export function DualModeFileManager({
                                                     mode={mode}
                                                     renderItem={renderItem}
                                                     columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
+                                                    disabled={disabled || isSaving}
                                                 />
                                             </div>
                                         </AccordionContent>
@@ -239,6 +241,7 @@ export function DualModeFileManager({
                                                 mode={mode}
                                                 renderItem={renderItem}
                                                 columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
+                                                disabled={disabled || isSaving}
                                             />
                                         )}
                                     </AccordionContent>
@@ -296,6 +299,7 @@ export function DualModeFileManager({
                                                 mode={mode}
                                                 renderItem={renderItem}
                                                 columns={(isMobile ? imagesPerRow : Math.max(1, Math.floor(imagesPerRow / 2)))}
+                                                disabled={disabled || isSaving}
                                             />
                                         )}
                                     </AccordionContent>
@@ -323,6 +327,7 @@ export function DualModeFileManager({
                                                 mode={mode}
                                                 renderItem={renderItem}
                                                 columns={imagesPerRow}
+                                                disabled={disabled || isSaving}
                                             />
                                         </div>
                                     </AccordionContent>
@@ -358,6 +363,7 @@ export function DualModeFileManager({
                                             mode={mode}
                                             renderItem={renderItem}
                                             columns={imagesPerRow}
+                                            disabled={disabled || isSaving}
                                         />
                                     )}
 

@@ -357,60 +357,252 @@ export const resolveServicePrice = (params: {
   catalogService?: any;
   squareFootage: number;
   invoices?: any[];
+  userType?: string | null;
+  currentUser?: any;
+  isCoAgentUser?: boolean;
+  splitMultiplier?: number;
 }): number => {
-  const { orderService, catalogService, squareFootage, invoices } = params;
+  const {
+    orderService,
+    catalogService,
+    squareFootage,
+    invoices,
+    userType,
+    currentUser,
+    isCoAgentUser = false,
+    splitMultiplier = 1,
+  } = params;
   if (!orderService) return 0;
 
+  const serviceUuid = orderService?.uuid || orderService?.order_service_uuid;
+  const serviceNumericId =
+    orderService?.service_id || orderService?.service?.id || orderService?.id;
+  const serviceName =
+    catalogService?.name || orderService?.service?.name || orderService?.name;
+
+  const isMatchingItem = (i: any) => {
+    const sUuid =
+      i.order_service?.uuid || i.orderService?.uuid || i.order_service_uuid;
+    const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+    const svcId =
+      i.order_service?.service_id ||
+      i.order_service?.service?.id ||
+      i.orderService?.service_id ||
+      i.orderService?.service?.id ||
+      i.service_id;
+
+    if (
+      serviceUuid &&
+      (sUuid === serviceUuid ||
+        String(sId) === String(serviceUuid) ||
+        (svcId != null && String(svcId) === String(serviceUuid)))
+    ) {
+      return true;
+    }
+    if (
+      orderService.id &&
+      (sId === orderService.id || String(sId) === String(orderService.id))
+    ) {
+      return true;
+    }
+    if (
+      serviceNumericId != null &&
+      (svcId === serviceNumericId ||
+        String(svcId) === String(serviceNumericId) ||
+        sId === serviceNumericId ||
+        String(sId) === String(serviceNumericId))
+    ) {
+      return true;
+    }
+    if (
+      serviceName &&
+      i.description &&
+      i.description.toLowerCase().trim() === serviceName.toLowerCase().trim()
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const getItemAmount = (item: any) => {
+    return (
+      parseFloat(item.amount) ||
+      (parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0)
+    );
+  };
+
   // 1. Check invoices
-  if (invoices && invoices.length > 0) {
-    for (const invoice of invoices) {
-      if (invoice.items && invoice.items.length > 0) {
-        const matchingItems = invoice.items.filter(
-          (i: any) =>
-            i.order_service_id === orderService.id ||
-            i.orderService?.id === orderService.id
-        );
-        
-        if (matchingItems.length > 0) {
-          const totalAmount = matchingItems.reduce((sum: number, item: any) => {
-            const itemAmount = parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0));
-            return sum + itemAmount;
-          }, 0);
-          
-          if (totalAmount > 0) {
-            return totalAmount;
+  if (Array.isArray(invoices) && invoices.length > 0) {
+    const activeInvoices = invoices.filter(
+      (inv: any) => inv?.status !== "void" && inv?.status !== "cancelled",
+    );
+    const invoicePool = activeInvoices.length > 0 ? activeInvoices : invoices;
+
+    const userUuid = currentUser?.data?.uuid || currentUser?.uuid;
+    const userEmail = (
+      currentUser?.data?.primary_email ||
+      currentUser?.primary_email ||
+      currentUser?.data?.email ||
+      currentUser?.email ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+    const userName = (
+      `${currentUser?.data?.first_name || currentUser?.first_name || ""} ${currentUser?.data?.last_name || currentUser?.last_name || ""}`
+    )
+      .toLowerCase()
+      .trim();
+
+    const isAgent = userType === "agent" || isCoAgentUser;
+
+    if (isAgent) {
+      // AGENT VIEW: isolate this specific agent's invoice
+      const matchesThisAgent = (inv: any) => {
+        const invEmail = (inv?.agent?.email || inv?.email || "")
+          .toLowerCase()
+          .trim();
+        const invName = (
+          inv?.agent?.name ||
+          inv?.agent_name ||
+          `${inv?.agent?.first_name || ""} ${inv?.agent?.last_name || ""}`
+        )
+          .toLowerCase()
+          .trim();
+        const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
+
+        if (userUuid && invUuid && invUuid === userUuid) return true;
+        if (
+          userEmail &&
+          invEmail &&
+          (invEmail === userEmail || invEmail.includes(userEmail))
+        )
+          return true;
+        if (
+          userName &&
+          invName &&
+          (invName === userName || invName.includes(userName))
+        )
+          return true;
+
+        if (isCoAgentUser) {
+          return (
+            inv?.agent_type === "co-agent" || inv?.agent_type === "co_agent"
+          );
+        } else {
+          return (
+            inv?.agent_type === "primary" ||
+            (!inv?.split_details &&
+              inv?.agent_type !== "co-agent" &&
+              inv?.agent_type !== "co_agent")
+          );
+        }
+      };
+
+      const agentInvoices = invoicePool.filter(matchesThisAgent);
+      const targetInvoices =
+        agentInvoices.length > 0 ? agentInvoices : invoicePool;
+
+      const singleSvcInv = targetInvoices.find(
+        (inv: any) =>
+          (!inv.notes?.toLowerCase().includes("consolidated") ||
+            inv.items?.length === 1) &&
+          inv.items?.some(isMatchingItem),
+      );
+      const chosenInvoice =
+        singleSvcInv ||
+        targetInvoices.find((inv: any) => inv.items?.some(isMatchingItem));
+
+      if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
+        const match = chosenInvoice.items.find(isMatchingItem);
+        if (match) {
+          const amt = getItemAmount(match);
+          if (amt > 0) return amt;
+        }
+      }
+    } else {
+      // ADMIN VIEW: sum matching items across all split invoices (70% + 30% = 100%)
+      const matchingInvoices = invoicePool.filter(
+        (inv: any) => Array.isArray(inv?.items) && inv.items.some(isMatchingItem),
+      );
+
+      if (matchingInvoices.length > 0) {
+        // Group matching invoices by unique agent
+        const agentMap = new Map<string, any[]>();
+
+        matchingInvoices.forEach((inv: any) => {
+          let agentKey = "";
+          if (inv.agent?.uuid || inv.agent_uuid) {
+            agentKey = `uuid:${inv.agent?.uuid || inv.agent_uuid}`;
+          } else if (inv.agent?.email || inv.email) {
+            agentKey = `email:${(inv.agent?.email || inv.email).toLowerCase()}`;
+          } else if (inv.agent_type) {
+            agentKey = `type:${inv.agent_type}`;
+          } else if (inv.split_details) {
+            agentKey = `split:${inv.id || inv.uuid}`;
+          } else {
+            agentKey = `inv:${inv.id || inv.uuid}`;
           }
+
+          if (!agentMap.has(agentKey)) {
+            agentMap.set(agentKey, []);
+          }
+          agentMap.get(agentKey)!.push(inv);
+        });
+
+        let combinedAmount = 0;
+        let matchCount = 0;
+
+        // For each distinct agent, pick their best matching invoice (prefer single-service invoice)
+        agentMap.forEach((agentInvs) => {
+          const singleSvcInv = agentInvs.find(
+            (inv: any) =>
+              !inv.notes?.toLowerCase().includes("consolidated") ||
+              inv.items?.length === 1,
+          );
+          const chosenInv = singleSvcInv || agentInvs[0];
+          if (chosenInv && Array.isArray(chosenInv.items)) {
+            const matchItem = chosenInv.items.find(isMatchingItem);
+            if (matchItem) {
+              combinedAmount += getItemAmount(matchItem);
+              matchCount++;
+            }
+          }
+        });
+
+        if (matchCount > 0 && combinedAmount > 0) {
+          return combinedAmount;
         }
       }
     }
   }
 
-  // 2. Check sq ft calculation
+  // 2. Check sq ft calculation (Fallback)
   const options = catalogService?.product_options || [];
   if (squareFootage > 0 && options.length > 0) {
-    // Only apply sqft pricing if the booked option actually has a sq_ft_rate or matches one.
-    // Usually, the booked option itself has the sq_ft_rate.
     const bookedOption = orderService.option;
     if (
       bookedOption &&
-      (!bookedOption.sq_ft_range || String(bookedOption.sq_ft_range).trim() === '') &&
+      (!bookedOption.sq_ft_range ||
+        String(bookedOption.sq_ft_range).trim() === "") &&
       bookedOption.sq_ft_rate &&
       parseFloat(bookedOption.sq_ft_rate) > 0
     ) {
       const rate = parseFloat(bookedOption.sq_ft_rate);
-      const minPrice = parseFloat(bookedOption.min_price || '0');
-      return Math.max(rate * squareFootage, minPrice);
+      const minPrice = parseFloat(bookedOption.min_price || "0");
+      const rawPrice = Math.max(rate * squareFootage, minPrice);
+      return rawPrice * splitMultiplier;
     }
   }
 
   // 3. Flat price fallback from booked option
   if (orderService.option && orderService.option.amount) {
-    return parseFloat(orderService.option.amount);
+    return parseFloat(orderService.option.amount) * splitMultiplier;
   }
 
   // 4. Raw amount fallback
   if (orderService.amount) {
-    return parseFloat(orderService.amount);
+    return parseFloat(orderService.amount) * splitMultiplier;
   }
 
   return 0;

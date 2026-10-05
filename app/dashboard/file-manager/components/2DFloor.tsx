@@ -62,12 +62,12 @@ type Props = {
   currentBookedService?: OrderService;
   onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
   gstRate?: number;
-  onSave?: () => void;
+  onSave?: (overrideChangedFiles?: Files[]) => void;
   isScrolled?: boolean;
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({
+const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => void }> = ({
   orderData,
   setOrderData,
   currentService,
@@ -97,7 +97,14 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
     setApprovalSelectedUuids,
     setFileManagerMode,
     fileManagerMode,
+    tourSettings,
+    tourDefaultSettings,
+    isSaving,
   } = useFileManagerContext();
+  const isAlwaysSort = Boolean(
+    tourSettings?.always_enable_sorting ??
+      tourDefaultSettings?.always_enable_sorting,
+  );
   const [replacingFile, setReplacingFile] = useState<File | null>(null);
   const [openPreview, setOpenPreview] = useState(false);
   const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -1556,6 +1563,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
               <ModeToggle
                 mode={fileManagerMode}
                 onModeChange={handleModeChange}
+                isAlwaysSort={isAlwaysSort}
+                isSaving={isSaving}
               />
             </div>
             <GridSizeToggle />
@@ -1621,7 +1630,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
           onItemsChange={(newItems) => {
             setFileItems(newItems);
 
-            // Update local state and context to reflect new sort order
+            const newlyChangedFiles: Files[] = [];
             newItems.forEach((item, index) => {
               const newSortOrder = index + 1;
               if (item.status === "local") {
@@ -1636,39 +1645,46 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
                 );
               } else if (item.status === "uploaded" && filesData) {
                 // For existing files, update FilesData and mark as changed
-                setFilesData((prev) => {
-                  if (!prev) return prev;
-                  const hasModifications = prev.files.some(
-                    (f) =>
-                      f.uuid === item.serverId && f.sort_order !== newSortOrder,
-                  );
-
-                  if (hasModifications) {
-                    setChangedFileUuids((prevSet) => {
-                      const newSet = new Set(prevSet);
-                      newSet.add(item.serverId!);
-                      return newSet;
-                    });
-
-                    return {
-                      ...prev,
-                      files: prev.files.map((f) => {
-                        if (f.uuid === item.serverId) {
-                          return { ...f, sort_order: newSortOrder };
-                        }
-                        return f;
-                      }),
-                    };
-                  }
-                  return prev;
-                });
+                const fileObj = filesData.files.find((f) => f.uuid === item.serverId);
+                if (fileObj && fileObj.sort_order !== newSortOrder) {
+                  newlyChangedFiles.push({ ...fileObj, sort_order: newSortOrder });
+                }
               }
             });
+
+            if (newlyChangedFiles.length > 0) {
+              setChangedFileUuids((prevSet) => {
+                const newSet = new Set(prevSet);
+                newlyChangedFiles.forEach((f) => newSet.add(f.uuid));
+                return newSet;
+              });
+
+              setFilesData((prev) => {
+                if (!prev) return prev;
+                const changedMap = new Map(
+                  newlyChangedFiles.map((f) => [f.uuid, f.sort_order]),
+                );
+                return {
+                  ...prev,
+                  files: prev.files.map((f) => {
+                    const updatedSort = changedMap.get(f.uuid);
+                    if (updatedSort !== undefined) {
+                      return { ...f, sort_order: updatedSort };
+                    }
+                    return f;
+                  }),
+                };
+              });
+
+              if (isAlwaysSort && onSave) {
+                onSave(newlyChangedFiles);
+              }
+            }
           }}
           onDropFiles={handleFilesChange}
           onClickUpload={() => fileInputRef.current?.click()}
           renderItem={renderFileItem}
-          disabled={userType === "agent"}
+          disabled={isSaving}
           onSave={onSave}
           savedFilesAction={adminSavedFilesAction}
           singleAccordionTitle="all floor plans"
@@ -1677,6 +1693,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({
             <ModeToggle
               mode={fileManagerMode}
               onModeChange={handleModeChange}
+              isAlwaysSort={isAlwaysSort}
+              isSaving={isSaving}
             />
           }
         />

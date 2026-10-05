@@ -426,7 +426,10 @@ const Page = () => {
         serviceId || serviceNumericId != null
           ? invoicesList.filter((inv: any) =>
               inv.items?.some((i: any) => {
-                const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                const sUuid =
+                  i.order_service?.uuid ||
+                  i.orderService?.uuid ||
+                  i.order_service_uuid;
                 const sId =
                   i.order_service_id ||
                   i.order_service?.id ||
@@ -464,50 +467,34 @@ const Page = () => {
         !isCoAgent;
 
       if (action === "view") {
-        if (serviceId && isSplitService && activeServiceInvoices.length > 1) {
-          // If service is split, Primary Agent & Admin see the 2 split invoices for this service
-          setActionLoading(null);
-          setInvoices(invoicesList);
-          setSelectedBilling(billing);
-          setSelectedOrderUuid(billing.order_uuid);
-          setSelectedServiceId(serviceId);
-          setShowInvoicesModal(true);
-          setInvoicesLoading(false);
-          return;
-        }
-
-        if (!serviceId && !isCoAgent) {
-          // Check if order has split invoices (primary and co-agent)
-          const activeOrderInvoices = invoicesList.filter(
-            (inv: any) => !isVoidOrCancelled(inv.status),
-          );
-          const hasCoAgent = activeOrderInvoices.some(
-            (inv: any) =>
-              inv.agent_type === "co-agent" ||
-              (Boolean(inv.split_details) && inv.agent_type !== "primary"),
-          );
-          const uniqueAgents = new Set(
-            activeOrderInvoices
-              .map((inv: any) => inv.agent?.uuid || inv.agent_uuid)
-              .filter(Boolean),
-          );
-          const isSplitOrder =
-            activeOrderInvoices.length > 1 &&
-            (hasCoAgent ||
-              uniqueAgents.size > 1 ||
-              activeOrderInvoices.some((inv: any) =>
-                Boolean(inv.split_details),
-              ));
-
-          if (isSplitOrder) {
+        if (userType !== "agent") {
+          // ADMIN view:
+          if (serviceId && (matchingServiceInvoices.length > 1 || isSplitService)) {
             setActionLoading(null);
             setInvoices(invoicesList);
             setSelectedBilling(billing);
             setSelectedOrderUuid(billing.order_uuid);
-            setSelectedServiceId(null);
+            setSelectedServiceId(serviceId);
             setShowInvoicesModal(true);
             setInvoicesLoading(false);
             return;
+          }
+
+          if (!serviceId) {
+            // For Admin clicking the main order Invoice button, show all order invoices in modal if there are multiple invoices
+            const activeOrderInvoices = invoicesList.filter(
+              (inv: any) => !isVoidOrCancelled(inv.status),
+            );
+            if (activeOrderInvoices.length > 1 || invoicesList.length > 1) {
+              setActionLoading(null);
+              setInvoices(invoicesList);
+              setSelectedBilling(billing);
+              setSelectedOrderUuid(billing.order_uuid);
+              setSelectedServiceId(null);
+              setShowInvoicesModal(true);
+              setInvoicesLoading(false);
+              return;
+            }
           }
         }
 
@@ -996,11 +983,28 @@ const Page = () => {
                 (s.agent_uuid === userUuid || s.agent_id === currentUser.id)),
           );
           if (foundSplit) {
+            const pct = Number(foundSplit.percentage || 0);
             return {
               isOwner: isPrimaryOwner,
-              isShared: !isPrimaryOwner,
-              splitPercentage: Number(foundSplit.percentage || 0),
+              isShared: pct < 100,
+              splitPercentage: pct,
               splitDetails: inv.split_details,
+              allCoAgents: coList,
+            };
+          }
+        }
+        if (
+          isPrimaryOwner &&
+          (inv.agent_type === "primary" || (!inv.split_details && inv.agent_type !== "co-agent")) &&
+          ((userEmail && inv.agent?.email?.toLowerCase() === userEmail) ||
+            (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
+        ) {
+          const pct = Number(inv.split_percentage || inv.percentage || 0);
+          if (pct > 0 && pct < 100) {
+            return {
+              isOwner: true,
+              isShared: true,
+              splitPercentage: pct,
               allCoAgents: coList,
             };
           }
@@ -1020,6 +1024,20 @@ const Page = () => {
               allCoAgents: coList,
             };
           }
+        }
+      }
+
+      if (isPrimaryOwner && coList.length > 0) {
+        const totalCoSplit = coList.reduce((sum: number, ca: any) => {
+          return sum + Number(ca?.split || ca?.split_percentage || ca?.percentage || 0);
+        }, 0);
+        if (totalCoSplit > 0 && totalCoSplit < 100) {
+          return {
+            isOwner: true,
+            isShared: true,
+            splitPercentage: 100 - totalCoSplit,
+            allCoAgents: coList,
+          };
         }
       }
 
@@ -1452,11 +1470,12 @@ const Page = () => {
                 const splitInfo = getBillingSplitInfo(billing);
                 const isCoAgentUser =
                   userType === "agent" && isUserCoAgent(currentUser, userType);
-                const isCoAgentShared =
-                  isCoAgentUser &&
+                const isAgentShared =
+                  userType === "agent" &&
                   splitInfo?.isShared &&
                   (splitInfo?.splitPercentage || 0) > 0;
-                const splitMultiplier = isCoAgentShared
+                const isCoAgentShared = isAgentShared;
+                const splitMultiplier = isAgentShared
                   ? (splitInfo?.splitPercentage || 100) / 100
                   : 1;
 
@@ -2785,6 +2804,7 @@ const Page = () => {
                                                         service,
                                                         splitMultiplier,
                                                         isCoAgentUser,
+                                                        userType,
                                                         currentUser,
                                                         fallbackTaxRate: taxRate,
                                                       });
@@ -3066,19 +3086,17 @@ const Page = () => {
                   userType === "agent" && isUserCoAgent(currentUser, userType);
                 let filteredList = selectedServiceId
                   ? invoices.filter((inv) => {
-                      const isConsolidated = inv.notes
-                        ?.toLowerCase()
-                        .includes("consolidated");
                       const isLateFee =
                         inv.notes?.toLowerCase().includes("late fee") ||
                         inv.notes?.toLowerCase().includes("late_fee") ||
                         inv.type === "late_fee" ||
                         inv.is_late_fee;
                       if (isLateFee) return false;
-                      if (isConsolidated) return false;
                       return inv.items?.some((i: any) => {
                         const sUuid =
-                          i.order_service?.uuid || i.orderService?.uuid;
+                          i.order_service?.uuid ||
+                          i.orderService?.uuid ||
+                          i.order_service_uuid;
                         const sId =
                           i.order_service_id ||
                           i.order_service?.id ||
@@ -3108,6 +3126,22 @@ const Page = () => {
                         inv.type === "late_fee" ||
                         inv.is_late_fee,
                     );
+
+                // If single-service invoices exist for this service, prefer them over consolidated
+                if (
+                  selectedServiceId &&
+                  filteredList.some(
+                    (inv) =>
+                      !inv.notes?.toLowerCase().includes("consolidated") ||
+                      inv.items?.length === 1,
+                  )
+                ) {
+                  filteredList = filteredList.filter(
+                    (inv) =>
+                      !inv.notes?.toLowerCase().includes("consolidated") ||
+                      inv.items?.length === 1,
+                  );
+                }
 
                 if (isCoAgentUser) {
                   // For Co-Agent, strictly show their own invoice only (1 invoice)

@@ -249,10 +249,15 @@ export function getBestTargetInvoice(
   const pool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
 
   if (isCoAgent) {
-    const coAgentInv = pool.find((inv: any) => matchesCoAgent(inv));
+    const multiCoInv = pool.find((inv: any) => matchesCoAgent(inv) && (inv.notes?.toLowerCase().includes("consolidated") || (inv.items?.length || 0) > 1));
+    const coAgentInv = multiCoInv || pool.find((inv: any) => matchesCoAgent(inv));
     if (coAgentInv) return coAgentInv;
+  } else if (userType === "agent") {
+    const multiPrimaryInv = pool.find((inv: any) => (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) && (inv.notes?.toLowerCase().includes("consolidated") || (inv.items?.length || 0) > 1));
+    const primaryInv = multiPrimaryInv || pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
+    if (primaryInv) return primaryInv;
   } else {
-    // If Primary Agent or Admin is looking at the order, prioritize primary agent invoice
+    // If Admin is looking at the order, prioritize primary agent invoice
     const primaryInv = pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
     if (primaryInv) return primaryInv;
   }
@@ -539,6 +544,7 @@ export function getServiceActualInvoicePricing({
   service,
   splitMultiplier = 1,
   isCoAgentUser = false,
+  userType,
   currentUser,
   fallbackTaxRate = 0,
 }: {
@@ -546,6 +552,7 @@ export function getServiceActualInvoicePricing({
   service: any;
   splitMultiplier?: number;
   isCoAgentUser?: boolean;
+  userType?: string | null;
   currentUser?: any;
   fallbackTaxRate?: number;
 }): {
@@ -578,7 +585,6 @@ export function getServiceActualInvoicePricing({
   const activeInvoices = invoices.filter((inv) => !isVoidOrCancelled(inv?.status));
   const invoicePool = activeInvoices.length > 0 ? activeInvoices : invoices;
 
-  // Filter pool for co-agent if isCoAgentUser
   const userUuid = currentUser?.data?.uuid || currentUser?.uuid;
   const userEmail = (
     currentUser?.data?.primary_email ||
@@ -586,6 +592,9 @@ export function getServiceActualInvoicePricing({
     currentUser?.data?.email ||
     currentUser?.email ||
     ""
+  ).toLowerCase().trim();
+  const userName = (
+    `${currentUser?.data?.first_name || currentUser?.first_name || ""} ${currentUser?.data?.last_name || currentUser?.last_name || ""}`
   ).toLowerCase().trim();
 
   const isMatchingItem = (item: any) => {
@@ -618,20 +627,28 @@ export function getServiceActualInvoicePricing({
     }
   }
 
-  if (isCoAgentUser) {
-    // Co-Agent view: isolate items from the co-agent's invoice(s)
-    const coAgentInvoices = invoicePool.filter((inv) => {
-      const invEmail = (inv?.agent?.email || inv?.email || "").toLowerCase().trim();
-      const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
-      return (
-        inv?.agent_type === "co-agent" ||
-        inv?.agent_type === "co_agent" ||
-        (userUuid && invUuid === userUuid) ||
-        (userEmail && (invEmail === userEmail || invEmail.includes(userEmail)))
-      );
-    });
+  const isAgent = userType === "agent" || isCoAgentUser;
 
-    const targetInvoices = coAgentInvoices.length > 0 ? coAgentInvoices : invoicePool;
+  if (isAgent) {
+    // AGENT VIEW: isolate this specific agent's invoice(s)
+    const matchesThisAgent = (inv: any) => {
+      const invEmail = (inv?.agent?.email || inv?.email || "").toLowerCase().trim();
+      const invName = (inv?.agent?.name || inv?.agent_name || `${inv?.agent?.first_name || ""} ${inv?.agent?.last_name || ""}`).toLowerCase().trim();
+      const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
+
+      if (userUuid && invUuid && invUuid === userUuid) return true;
+      if (userEmail && invEmail && (invEmail === userEmail || invEmail.includes(userEmail))) return true;
+      if (userName && invName && (invName === userName || invName.includes(userName))) return true;
+
+      if (isCoAgentUser) {
+        return inv?.agent_type === "co-agent" || inv?.agent_type === "co_agent";
+      } else {
+        return inv?.agent_type === "primary" || (!inv?.split_details && inv?.agent_type !== "co-agent" && inv?.agent_type !== "co_agent");
+      }
+    };
+
+    const agentInvoices = invoicePool.filter(matchesThisAgent);
+    const targetInvoices = agentInvoices.length > 0 ? agentInvoices : invoicePool;
 
     // Prefer individual invoice for this service if one exists
     const singleSvcInv = targetInvoices.find(
@@ -644,7 +661,8 @@ export function getServiceActualInvoicePricing({
       if (match) {
         const basePrice = getItemAmount(match);
         if (basePrice > 0) {
-          const taxAmount = basePrice * (taxRate / 100);
+          const invTaxRate = chosenInvoice.tax_rate != null && parseFloat(chosenInvoice.tax_rate) > 0 ? parseFloat(chosenInvoice.tax_rate) : taxRate;
+          const taxAmount = basePrice * (invTaxRate / 100);
           const totalPrice = basePrice + taxAmount;
           return {
             basePrice,
@@ -652,34 +670,56 @@ export function getServiceActualInvoicePricing({
             totalPrice,
             isFromInvoice: true,
             matchingInvoicesCount: 1,
-            appliedTaxRate: taxRate,
+            appliedTaxRate: invTaxRate,
           };
         }
       }
     }
   } else {
-    // Admin / Primary Agent view:
-    // Check if order has split invoices
-    const splitInvoices = invoicePool.filter(
-      (inv) => inv.agent_type === "co-agent" || inv.agent_type === "co_agent" || inv.agent_type === "primary" || Boolean(inv.split_details)
+    // ADMIN VIEW: sum of both / all split invoices (70% + 30% = 100%)
+    const matchingInvoices = invoicePool.filter((inv) =>
+      Array.isArray(inv?.items) && inv.items.some(isMatchingItem)
     );
 
-    if (splitInvoices.length > 0) {
-      // Split order: combine 1 matching item per distinct split invoice/agent
+    if (matchingInvoices.length > 0) {
+      // Group matching invoices by unique agent.
+      // An agent is uniquely identified by uuid, email, agent_type, or invoice id.
+      const agentMap = new Map<string, any[]>();
+
+      matchingInvoices.forEach((inv) => {
+        let agentKey = "";
+        if (inv.agent?.uuid || inv.agent_uuid) {
+          agentKey = `uuid:${inv.agent?.uuid || inv.agent_uuid}`;
+        } else if (inv.agent?.email || inv.email) {
+          agentKey = `email:${(inv.agent?.email || inv.email).toLowerCase()}`;
+        } else if (inv.agent_type) {
+          agentKey = `type:${inv.agent_type}`;
+        } else if (inv.split_details) {
+          agentKey = `split:${inv.id || inv.uuid}`;
+        } else {
+          agentKey = `inv:${inv.id || inv.uuid}`;
+        }
+
+        if (!agentMap.has(agentKey)) {
+          agentMap.set(agentKey, []);
+        }
+        agentMap.get(agentKey)!.push(inv);
+      });
+
       let combinedBasePrice = 0;
       let matches = 0;
-      const processedAgents = new Set<string>();
 
-      splitInvoices.forEach((inv) => {
-        const agentKey = inv.agent_type || inv.agent?.uuid || inv.agent_uuid || inv.uuid;
-        if (agentKey && processedAgents.has(agentKey)) return;
-
-        if (Array.isArray(inv.items)) {
-          const matchingItem = inv.items.find(isMatchingItem);
-          if (matchingItem) {
-            combinedBasePrice += getItemAmount(matchingItem);
+      // For each distinct agent, pick their best matching invoice (prefer single-service invoice over multi-service/consolidated)
+      agentMap.forEach((agentInvs) => {
+        const singleSvcInv = agentInvs.find(
+          (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1)
+        );
+        const chosenInv = singleSvcInv || agentInvs[0];
+        if (chosenInv && Array.isArray(chosenInv.items)) {
+          const matchItem = chosenInv.items.find(isMatchingItem);
+          if (matchItem) {
+            combinedBasePrice += getItemAmount(matchItem);
             matches++;
-            if (agentKey) processedAgents.add(agentKey);
           }
         }
       });
@@ -695,31 +735,6 @@ export function getServiceActualInvoicePricing({
           matchingInvoicesCount: matches,
           appliedTaxRate: taxRate,
         };
-      }
-    }
-
-    // Non-split order: look for single matching item (prefer individual invoice, fallback to consolidated)
-    const individualInv = invoicePool.find(
-      (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
-    );
-    const chosenInvoice = individualInv || invoicePool.find((inv) => inv.items?.some(isMatchingItem));
-
-    if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
-      const match = chosenInvoice.items.find(isMatchingItem);
-      if (match) {
-        const basePrice = getItemAmount(match);
-        if (basePrice > 0) {
-          const taxAmount = basePrice * (taxRate / 100);
-          const totalPrice = basePrice + taxAmount;
-          return {
-            basePrice,
-            taxAmount,
-            totalPrice,
-            isFromInvoice: true,
-            matchingInvoicesCount: 1,
-            appliedTaxRate: taxRate,
-          };
-        }
       }
     }
   }

@@ -129,8 +129,14 @@ function FileTab1({
     setFilesToHide,
     approvalSelectedUuids,
     setApprovalSelectedUuids,
+    tourSettings,
     tourDefaultSettings,
+    isSaving,
   } = useFileManagerContext();
+  const isAlwaysSort = Boolean(
+    tourSettings?.always_enable_sorting ??
+      tourDefaultSettings?.always_enable_sorting,
+  );
   // Letterbox Correction (global tour setting): ON → object-contain (original ratio + black bars), OFF → object-cover (fill card)
   const letterboxClass = tourDefaultSettings?.letterbox_correction
     ? "object-contain"
@@ -451,33 +457,44 @@ function FileTab1({
     const localItems = newItems.filter((item) => item.status === "local");
 
     // Assign sort_orders to uploaded items using preserved slot values
+    const newlyChangedFiles: Files[] = [];
     uploadedItems.forEach((item, uploadedIndex) => {
       const newSortOrder = uploadedSlots[uploadedIndex] ?? uploadedIndex + 1;
       if (!filesData) return;
+      const fileObj = filesData.files.find((f) => f.uuid === item.serverId);
+      if (fileObj && fileObj.sort_order !== newSortOrder) {
+        newlyChangedFiles.push({ ...fileObj, sort_order: newSortOrder });
+      }
+    });
+
+    if (newlyChangedFiles.length > 0) {
+      setChangedFileUuids((prevSet) => {
+        const newSet = new Set(prevSet);
+        newlyChangedFiles.forEach((f) => newSet.add(f.uuid));
+        return newSet;
+      });
+
       setFilesData((prev) => {
         if (!prev) return prev;
-        const hasModifications = prev.files.some(
-          (f) => f.uuid === item.serverId && f.sort_order !== newSortOrder,
+        const changedMap = new Map(
+          newlyChangedFiles.map((f) => [f.uuid, f.sort_order]),
         );
-        if (hasModifications) {
-          setChangedFileUuids((prevSet) => {
-            const newSet = new Set(prevSet);
-            newSet.add(item.serverId!);
-            return newSet;
-          });
-          return {
-            ...prev,
-            files: prev.files.map((f) => {
-              if (f.uuid === item.serverId) {
-                return { ...f, sort_order: newSortOrder };
-              }
-              return f;
-            }),
-          };
-        }
-        return prev;
+        return {
+          ...prev,
+          files: prev.files.map((f) => {
+            const updatedSort = changedMap.get(f.uuid);
+            if (updatedSort !== undefined) {
+              return { ...f, sort_order: updatedSort };
+            }
+            return f;
+          }),
+        };
       });
-    });
+
+      if (isAlwaysSort && onSave) {
+        onSave(newlyChangedFiles);
+      }
+    }
 
     // Assign sort_orders to local (not-yet-uploaded) items appended after all slots
     localItems.forEach((item, localIndex) => {
@@ -2492,6 +2509,8 @@ function FileTab1({
               <ModeToggle
                 mode={fileManagerMode}
                 onModeChange={handleModeChange}
+                isAlwaysSort={isAlwaysSort}
+                isSaving={isSaving}
               />
             </div>
             <GridSizeToggle />
@@ -2605,7 +2624,7 @@ function FileTab1({
             onDropFiles={handleDropFiles}
             onClickUpload={handleFileInputClick}
             renderItem={renderFileItem}
-            disabled={effectiveUserType === "agent"}
+            disabled={isSaving}
             userTypeOverride={effectiveUserType}
             onSave={onSave}
             savedFilesAction={adminSavedFilesAction}
@@ -2613,6 +2632,8 @@ function FileTab1({
               <ModeToggle
                 mode={fileManagerMode}
                 onModeChange={handleModeChange}
+                isAlwaysSort={isAlwaysSort}
+                isSaving={isSaving}
               />
             }
             unselectedAction={unselectedAction}

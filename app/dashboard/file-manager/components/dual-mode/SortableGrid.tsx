@@ -134,12 +134,13 @@ export function SortableItem({
 }
 
 export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, disabled = false }: SortableGridProps) {
-    const { imagesPerRow: contextImagesPerRow } = useFileManagerContext();
+    const { imagesPerRow: contextImagesPerRow, isSaving } = useFileManagerContext();
 
     const imagesPerRow = columns ?? contextImagesPerRow;
     const [activeId, setActiveId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [initialOrderMap, setInitialOrderMap] = useState<Map<string, number> | null>(null);
+    const prevIsSavingRef = React.useRef(isSaving);
 
     const isReorderMode = mode === 'reorder';
 
@@ -161,6 +162,19 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
             setSelectedIds(new Set());
         }
     }, [isReorderMode, items]);
+
+    // When save completes, reset initial baseline map to the new saved items order so Reordered badges are cleared
+    useEffect(() => {
+        if (prevIsSavingRef.current && !isSaving) {
+            const map = new Map<string, number>();
+            items.forEach((item, index) => {
+                map.set(item.clientId, index);
+            });
+            setInitialOrderMap(map);
+            setSelectedIds(new Set());
+        }
+        prevIsSavingRef.current = isSaving;
+    }, [isSaving, items]);
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -293,27 +307,34 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
                     className={`grid gap-4 transition-opacity duration-200 ${disabled ? 'opacity-70 pointer-events-none cursor-wait' : ''}`}
                     style={{ gridTemplateColumns: `repeat(${imagesPerRow}, minmax(0, 1fr))` }}
                 >
-                    {items.map((item, index) => {
-                        const isSelected = selectedIds.has(item.clientId);
-                        const initialIdx = initialOrderMap ? initialOrderMap.get(item.clientId) : undefined;
-                        const isReordered = initialIdx !== undefined && initialIdx !== index;
-                        const isUnchanged = initialIdx !== undefined && initialIdx === index;
+                    {(() => {
+                        const hasAnyReorder = items.some((item, index) => {
+                            const initialIdx = initialOrderMap ? initialOrderMap.get(item.clientId) : undefined;
+                            return initialIdx !== undefined && initialIdx !== index;
+                        });
 
-                        return (
-                            <SortableItem
-                                key={item.clientId}
-                                id={item.clientId}
-                                item={item}
-                                disabled={!isReorderMode || disabled}
-                                isSelected={isSelected}
-                                isReordered={isReordered}
-                                isUnchanged={isUnchanged}
-                                isReorderMode={isReorderMode}
-                                onToggleSelect={handleToggleSelect}
-                                renderItem={renderItem}
-                            />
-                        );
-                    })}
+                        return items.map((item, index) => {
+                            const isSelected = selectedIds.has(item.clientId);
+                            const initialIdx = initialOrderMap ? initialOrderMap.get(item.clientId) : undefined;
+                            const isReordered = hasAnyReorder && initialIdx !== undefined && initialIdx !== index;
+                            const isUnchanged = hasAnyReorder && initialIdx !== undefined && initialIdx === index;
+
+                            return (
+                                <SortableItem
+                                    key={item.clientId}
+                                    id={item.clientId}
+                                    item={item}
+                                    disabled={!isReorderMode || disabled}
+                                    isSelected={isSelected}
+                                    isReordered={isReordered}
+                                    isUnchanged={isUnchanged}
+                                    isReorderMode={isReorderMode}
+                                    onToggleSelect={handleToggleSelect}
+                                    renderItem={renderItem}
+                                />
+                            );
+                        });
+                    })()}
                 </div>
             </SortableContext>
 

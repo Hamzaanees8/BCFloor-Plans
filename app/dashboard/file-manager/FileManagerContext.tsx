@@ -615,10 +615,17 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   );
 
   useEffect(() => {
-    if (tourDefaultSettings?.always_enable_sorting) {
+    const isAlwaysSort = Boolean(
+      tourSettings?.always_enable_sorting ??
+        tourDefaultSettings?.always_enable_sorting,
+    );
+    if (isAlwaysSort) {
       setFileManagerMode("reorder");
     }
-  }, [tourDefaultSettings?.always_enable_sorting]);
+  }, [
+    tourSettings?.always_enable_sorting,
+    tourDefaultSettings?.always_enable_sorting,
+  ]);
 
   const [restoreDetailFieldHandler, setRestoreDetailFieldHandler] = useState<
     ((id: string) => void) | null

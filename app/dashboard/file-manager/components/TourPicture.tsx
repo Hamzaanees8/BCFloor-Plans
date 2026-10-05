@@ -159,7 +159,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
           setTransition(settings.transition_effect[0]);
         }
       }
-      if (settings.always_enable_sorting) {
+      const isAlways = Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting);
+      if (isAlways) {
         setIsReorderMode(true);
       }
     }
@@ -322,6 +323,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       } catch (error) {
         console.error("Failed to save reorder", error);
         toast.error("Failed to save image order");
+        setIsReorderMode(isAlwaysSort);
       } finally {
         setIsSaving(false);
       }

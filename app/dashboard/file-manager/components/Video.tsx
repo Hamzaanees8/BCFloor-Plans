@@ -111,7 +111,7 @@ function Video({
   orderData: Order | null;
   isListing?: boolean;
   reviewFilesEnabled?: boolean;
-  onSave?: () => void;
+  onSave?: (overrideChangedFiles?: Files[]) => void;
   mediaDateBoundary?: MediaDateBoundary;
   currentBookedService?: OrderService;
   onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
@@ -145,8 +145,14 @@ function Video({
     setIsHidingMode,
     approvalSelectedUuids,
     setApprovalSelectedUuids,
+    tourSettings,
     tourDefaultSettings,
+    isSaving,
   } = useFileManagerContext();
+  const isAlwaysSort = Boolean(
+    tourSettings?.always_enable_sorting ??
+      tourDefaultSettings?.always_enable_sorting,
+  );
   // Letterbox Correction (global tour setting): ON → object-contain (original ratio + black bars), OFF → object-cover (fill card)
   const letterboxClass = tourDefaultSettings?.letterbox_correction
     ? "object-contain"
@@ -569,7 +575,7 @@ function Video({
   const handleFileItemsChange = (newItems: FileItem[]) => {
     setFileItems(newItems);
 
-    // Update local state and context to reflect new sort order
+    const newlyChangedFiles: Files[] = [];
     newItems.forEach((item, index) => {
       const newSortOrder = index + 1;
       if (item.status === "local") {
@@ -584,33 +590,41 @@ function Video({
         );
       } else if (item.status === "uploaded" && filesData) {
         // For existing files, update FilesData and mark as changed
-        setFilesData((prev) => {
-          if (!prev) return prev;
-          const hasModifications = prev.files.some(
-            (f) => f.uuid === item.serverId && f.sort_order !== newSortOrder,
-          );
-
-          if (hasModifications) {
-            setChangedFileUuids((prevSet) => {
-              const newSet = new Set(prevSet);
-              newSet.add(item.serverId!);
-              return newSet;
-            });
-
-            return {
-              ...prev,
-              files: prev.files.map((f) => {
-                if (f.uuid === item.serverId) {
-                  return { ...f, sort_order: newSortOrder };
-                }
-                return f;
-              }),
-            };
-          }
-          return prev;
-        });
+        const fileObj = filesData.files.find((f) => f.uuid === item.serverId);
+        if (fileObj && fileObj.sort_order !== newSortOrder) {
+          newlyChangedFiles.push({ ...fileObj, sort_order: newSortOrder });
+        }
       }
     });
+
+    if (newlyChangedFiles.length > 0) {
+      setChangedFileUuids((prevSet) => {
+        const newSet = new Set(prevSet);
+        newlyChangedFiles.forEach((f) => newSet.add(f.uuid));
+        return newSet;
+      });
+
+      setFilesData((prev) => {
+        if (!prev) return prev;
+        const changedMap = new Map(
+          newlyChangedFiles.map((f) => [f.uuid, f.sort_order]),
+        );
+        return {
+          ...prev,
+          files: prev.files.map((f) => {
+            const updatedSort = changedMap.get(f.uuid);
+            if (updatedSort !== undefined) {
+              return { ...f, sort_order: updatedSort };
+            }
+            return f;
+          }),
+        };
+      });
+
+      if (isAlwaysSort && onSave) {
+        onSave(newlyChangedFiles);
+      }
+    }
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
@@ -1697,6 +1711,8 @@ function Video({
             <ModeToggle
               mode={fileManagerMode}
               onModeChange={handleModeChange}
+              isAlwaysSort={isAlwaysSort}
+              isSaving={isSaving}
             />
           </div>
           <GridSizeToggle />
@@ -1746,7 +1762,7 @@ function Video({
             onDropFiles={handleDropFiles}
             onClickUpload={handleFileInputClick}
             renderItem={renderFileItem}
-            disabled={userType === "agent"}
+            disabled={isSaving}
             onSave={onSave}
             savedFilesAction={adminSavedFilesAction}
             selectedAction={selectedAction}
@@ -1756,6 +1772,8 @@ function Video({
               <ModeToggle
                 mode={fileManagerMode}
                 onModeChange={handleModeChange}
+                isAlwaysSort={isAlwaysSort}
+                isSaving={isSaving}
               />
             }
           />
