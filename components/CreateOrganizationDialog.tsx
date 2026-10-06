@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { X, Edit2, Trash2, AlertCircle, Eye, EyeOff, Copy, Check, CreditCard, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import {
@@ -62,6 +62,9 @@ interface FormErrors {
     trial_ends_at?: string;
     domain?: string;
     customDomain?: string;
+    stripe_publishable_key?: string;
+    stripe_secret_key?: string;
+    stripe_webhook_secret?: string;
 }
 
 // Accepts hostnames like: example.com, sub.example.com, my-brand.agent.bcfloorplans.com
@@ -98,6 +101,10 @@ const emptyForm = (): OrganizationPayload => ({
     from_name: "",
     from_email: "",
     domains: [],
+    stripe_publishable_key: "",
+    stripe_secret_key: "",
+    stripe_webhook_secret: "",
+    byo_stripe_enabled: false,
 });
 
 const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialData }) => {
@@ -109,6 +116,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     const [isLoading, setIsLoading] = useState(false);
     const [domainValidationError, setDomainValidationError] = useState<string | null>(null);
     const [subdomainWarnings, setSubdomainWarnings] = useState<Map<number, string>>(new Map());
+
+    const [showSecretKey, setShowSecretKey] = useState(false);
+    const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+    const [copiedWebhook, setCopiedWebhook] = useState(false);
 
     const [orgAudios, setOrgAudios] = useState<AgentAudio[]>([]);
     const [audioUploading, setAudioUploading] = useState(false);
@@ -144,6 +155,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                     from_name: initialData.from_name || "",
                     from_email: initialData.from_email || "",
                     domains: initialData.domains || [],
+                    stripe_publishable_key: initialData.stripe_publishable_key || "",
+                    stripe_secret_key: "",
+                    stripe_webhook_secret: "",
+                    byo_stripe_enabled: initialData.byo_stripe_enabled ?? Boolean(initialData.stripe_publishable_key || initialData.has_stripe_secret_key),
                 });
             } else {
                 setForm(emptyForm());
@@ -153,6 +168,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             setIsDomainsManuallyEdited(false);
             setEditIndex(null);
             setNewDomain("");
+            setShowSecretKey(false);
+            setShowWebhookSecret(false);
+            setCopiedWebhook(false);
 
             if (initialData?.uuid) {
                 // Fetch current branding to pre-fill colors and logo
@@ -300,6 +318,28 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             newErrors.customDomain = domainValidationError;
         }
 
+        // Validate Stripe credentials if entered
+        if (form.stripe_publishable_key && form.stripe_publishable_key.trim()) {
+            const pk = form.stripe_publishable_key.trim();
+            if (!/^(pk_test_|pk_live_)/.test(pk)) {
+                newErrors.stripe_publishable_key = "Publishable key must start with pk_test_ or pk_live_";
+            }
+        }
+
+        if (form.stripe_secret_key && form.stripe_secret_key.trim()) {
+            const sk = form.stripe_secret_key.trim();
+            if (!/^(sk_test_|sk_live_|rk_test_|rk_live_)/.test(sk)) {
+                newErrors.stripe_secret_key = "Secret key must start with sk_test_ or sk_live_ (or restricted rk_...)";
+            }
+        }
+
+        if (form.stripe_webhook_secret && form.stripe_webhook_secret.trim()) {
+            const whsec = form.stripe_webhook_secret.trim();
+            if (!/^whsec_/.test(whsec)) {
+                newErrors.stripe_webhook_secret = "Webhook signing secret must start with whsec_";
+            }
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -331,6 +371,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 from_name: form.is_whitelabel ? (form.from_name?.trim() || null) : null,
                 from_email: form.is_whitelabel ? (form.from_email?.trim() || null) : null,
                 domains: form.is_whitelabel ? (form.domains?.map(d => ({ ...d, domain: cleanDomain(d.domain || '') })) || []) : [],
+                byo_stripe_enabled: form.byo_stripe_enabled,
+                stripe_publishable_key: form.stripe_publishable_key?.trim() || null,
+                stripe_secret_key: form.stripe_secret_key?.trim() ? form.stripe_secret_key.trim() : undefined,
+                stripe_webhook_secret: form.stripe_webhook_secret?.trim() ? form.stripe_webhook_secret.trim() : undefined,
             };
 
             if (isEdit && initialData?.uuid) {
@@ -371,6 +415,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 if (apiError.errors.contact_email) mapped.contact_email = apiError.errors.contact_email[0];
                 if (apiError.errors.contact_phone) mapped.contact_phone = apiError.errors.contact_phone[0];
                 if (apiError.errors.slug) mapped.slug = apiError.errors.slug[0];
+                if (apiError.errors.stripe_publishable_key) mapped.stripe_publishable_key = apiError.errors.stripe_publishable_key[0];
+                if (apiError.errors.stripe_secret_key) mapped.stripe_secret_key = apiError.errors.stripe_secret_key[0];
+                if (apiError.errors.stripe_webhook_secret) mapped.stripe_webhook_secret = apiError.errors.stripe_webhook_secret[0];
                 setErrors(mapped);
                 const first = Object.values(apiError.errors).flat()[0];
                 toast.error(first || "Validation error, please check the form.");
@@ -1039,6 +1086,198 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                         This organization does not have whitelabel permission. Enable the toggle above to unlock slug, domain, logo, and custom domain mapping settings.
                                     </p>
                                 </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Stripe Payment Integration (BYO Stripe) ── */}
+                    <hr className="border-[#BBBBBB]" />
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-[#4290E9]" />
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[#999]">
+                                    Stripe Payment Integration
+                                </p>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide ${
+                                form.byo_stripe_enabled
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    : "bg-slate-100 text-slate-600 border border-slate-200"
+                            }`}>
+                                {form.byo_stripe_enabled ? "BYO Stripe Active" : "Platform Default"}
+                            </span>
+                        </div>
+
+                        {/* Enable BYO Stripe toggle */}
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-lg mb-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="org-byo-stripe" className="text-sm font-medium cursor-pointer text-slate-800">
+                                    Bring Your Own (BYO) Stripe Account
+                                </Label>
+                                <p className="text-xs text-slate-500">
+                                    Route customer & agent payments directly into your custom Stripe account.
+                                </p>
+                            </div>
+                            <Switch
+                                id="org-byo-stripe"
+                                checked={form.byo_stripe_enabled ?? false}
+                                onCheckedChange={(val) => setField("byo_stripe_enabled", val)}
+                                className={
+                                    form.byo_stripe_enabled
+                                        ? "data-[state=checked]:bg-[#6BAE41]"
+                                        : "data-[state=unchecked]:bg-slate-300"
+                                }
+                            />
+                        </div>
+
+                        {form.byo_stripe_enabled ? (
+                            <div className="space-y-4">
+                                {/* Publishable Key */}
+                                <div>
+                                    <Label className="flex items-center justify-between">
+                                        <span>Stripe Publishable Key</span>
+                                        <span className="text-[10px] text-slate-400 font-mono">pk_live_... / pk_test_...</span>
+                                    </Label>
+                                    <Input
+                                        id="org-stripe-pk"
+                                        type="text"
+                                        placeholder="pk_live_... or pk_test_..."
+                                        value={form.stripe_publishable_key ?? ""}
+                                        onChange={(e) => setField("stripe_publishable_key", e.target.value)}
+                                        className={inputCls(errors.stripe_publishable_key)}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                    {errors.stripe_publishable_key && (
+                                        <p className="text-red-500 text-[10px] mt-1">{errors.stripe_publishable_key}</p>
+                                    )}
+                                </div>
+
+                                {/* Secret Key */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Label className="flex items-center gap-1.5">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500" />
+                                            <span>Stripe Secret Key</span>
+                                        </Label>
+                                        <span className="text-[10px] text-slate-400 font-mono">sk_live_... / sk_test_...</span>
+                                    </div>
+                                    <div className="relative">
+                                        <Input
+                                            id="org-stripe-sk"
+                                            type={showSecretKey ? "text" : "password"}
+                                            placeholder={
+                                                initialData?.has_stripe_secret_key
+                                                    ? "•••••••••••••••• (Secret Key is configured)"
+                                                    : "sk_live_... or sk_test_..."
+                                            }
+                                            value={form.stripe_secret_key ?? ""}
+                                            onChange={(e) => setField("stripe_secret_key", e.target.value)}
+                                            className={`${inputCls(errors.stripe_secret_key)} pr-10`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowSecretKey(!showSecretKey)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            title={showSecretKey ? "Hide key" : "Show key"}
+                                        >
+                                            {showSecretKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {initialData?.has_stripe_secret_key && !form.stripe_secret_key && (
+                                        <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3" /> Existing secret key configured on server. Leave blank to keep it.
+                                        </p>
+                                    )}
+                                    {errors.stripe_secret_key && (
+                                        <p className="text-red-500 text-[10px] mt-1">{errors.stripe_secret_key}</p>
+                                    )}
+                                </div>
+
+                                {/* Webhook Secret */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Label className="flex items-center gap-1.5">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500" />
+                                            <span>Stripe Webhook Signing Secret</span>
+                                        </Label>
+                                        <span className="text-[10px] text-slate-400 font-mono">whsec_...</span>
+                                    </div>
+                                    <div className="relative">
+                                        <Input
+                                            id="org-stripe-whsec"
+                                            type={showWebhookSecret ? "text" : "password"}
+                                            placeholder={
+                                                initialData?.has_stripe_webhook_secret
+                                                    ? "•••••••••••••••• (Webhook secret is configured)"
+                                                    : "whsec_..."
+                                            }
+                                            value={form.stripe_webhook_secret ?? ""}
+                                            onChange={(e) => setField("stripe_webhook_secret", e.target.value)}
+                                            className={`${inputCls(errors.stripe_webhook_secret)} pr-10`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            title={showWebhookSecret ? "Hide secret" : "Show secret"}
+                                        >
+                                            {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {initialData?.has_stripe_webhook_secret && !form.stripe_webhook_secret && (
+                                        <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3" /> Existing webhook secret configured on server. Leave blank to keep it.
+                                        </p>
+                                    )}
+                                    {errors.stripe_webhook_secret && (
+                                        <p className="text-red-500 text-[10px] mt-1">{errors.stripe_webhook_secret}</p>
+                                    )}
+                                </div>
+
+                                {/* Webhook Instructions Box */}
+                                <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold flex items-center gap-1.5 text-blue-950">
+                                            Stripe Webhook URL Endpoint:
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const url = "https://api.bcfloorplans.com/webhook/stripe/agentpayment";
+                                                navigator.clipboard.writeText(url);
+                                                setCopiedWebhook(true);
+                                                toast.success("Webhook URL copied to clipboard");
+                                                setTimeout(() => setCopiedWebhook(false), 2000);
+                                            }}
+                                            className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-white border border-blue-300 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors"
+                                        >
+                                            {copiedWebhook ? (
+                                                <>
+                                                    <Check className="w-3 h-3 text-emerald-600" />
+                                                    <span className="text-emerald-700">Copied</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="w-3 h-3" />
+                                                    <span>Copy URL</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="font-mono text-[11px] bg-white/80 p-1.5 rounded border border-blue-200 select-all break-all text-blue-950">
+                                        https://api.bcfloorplans.com/webhook/stripe/agentpayment
+                                    </p>
+                                    <p className="text-[11px] text-blue-800 leading-relaxed">
+                                        In your Stripe Dashboard (Developers &gt; Webhooks), add this endpoint URL and enable the <strong>checkout.session.completed</strong> event.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-600">
+                                Custom Stripe credentials are disabled. Payments will default to the platform Stripe account.
                             </div>
                         )}
                     </div>

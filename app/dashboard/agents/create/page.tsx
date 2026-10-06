@@ -79,6 +79,7 @@ import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import AgentDiscount from "@/components/AgentDiscount";
 import SubAccountsTable from "../components/SubAccountsTable";
+import CoAgentsTab from "../components/CoAgentsTab";
 import { AudioLibrary } from "../components/AudioLibrary";
 import { Listings } from "@/lib/types";
 import Link from "next/link";
@@ -1242,7 +1243,7 @@ const AgentForm = () => {
   const showSubAccountsTab = !isCoAgentUser || isFirstClassAgent;
 
   useEffect(() => {
-    if (!showSubAccountsTab && activeTab === "sub_accounts") {
+    if (!showSubAccountsTab && (activeTab === "sub_accounts" || activeTab === "co_agents")) {
       setActiveTab("details");
     }
   }, [showSubAccountsTab, activeTab]);
@@ -1380,6 +1381,7 @@ const AgentForm = () => {
     } else {
       console.log("Agent ID is undefined.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, userType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1950,6 +1952,7 @@ const AgentForm = () => {
       >
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => setActiveTab("details")}
             className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
                         ${
@@ -1961,17 +1964,32 @@ const AgentForm = () => {
             DETAILS
           </button>
           {showSubAccountsTab && (
-            <button
-              onClick={() => setActiveTab("sub_accounts")}
-              className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                        ${
-                          activeTab === "sub_accounts"
-                            ? `${userType}-bg text-white`
-                            : "bg-[#F2F2F2] text-[#666666]"
-                        }`}
-            >
-              SUB ACCOUNTS
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab("sub_accounts")}
+                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                          ${
+                            activeTab === "sub_accounts"
+                              ? `${userType}-bg text-white`
+                              : "bg-[#F2F2F2] text-[#666666]"
+                          }`}
+              >
+                SUB ACCOUNTS
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("co_agents")}
+                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                          ${
+                            activeTab === "co_agents"
+                              ? `${userType}-bg text-white`
+                              : "bg-[#F2F2F2] text-[#666666]"
+                          }`}
+              >
+                CO-AGENTS
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -3590,6 +3608,19 @@ const AgentForm = () => {
       )}
       {showSubAccountsTab && activeTab === "sub_accounts" && (
         <SubAccountsTable
+          agentId={
+            userId ||
+            (currentUser as any)?.agent_uuid ||
+            (currentUser as any)?.agent?.uuid ||
+            currentUser?.uuid ||
+            String(
+              (currentUser as any)?.agent_id || (currentUser as any)?.id || "",
+            )
+          }
+        />
+      )}
+      {showSubAccountsTab && activeTab === "co_agents" && (
+        <CoAgentsTab
           agentId={
             userId ||
             (currentUser as any)?.agent_uuid ||

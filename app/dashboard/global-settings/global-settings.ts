@@ -725,6 +725,13 @@ export interface Organization {
   booking_cutoff_time?: string;
   show_org_details_on_empty_schedule?: boolean;
   allow_print_request?: boolean;
+  // BYO Stripe fields
+  stripe_publishable_key?: string | null;
+  stripe_secret_key?: string | null;
+  stripe_webhook_secret?: string | null;
+  has_stripe_secret_key?: boolean;
+  has_stripe_webhook_secret?: boolean;
+  byo_stripe_enabled?: boolean;
 }
 
 export interface OrganizationPayload {
@@ -757,6 +764,18 @@ export interface OrganizationPayload {
   booking_cutoff_time?: string;
   show_org_details_on_empty_schedule?: boolean;
   allow_print_request?: boolean;
+  // BYO Stripe fields
+  stripe_publishable_key?: string | null;
+  stripe_secret_key?: string | null;
+  stripe_webhook_secret?: string | null;
+  byo_stripe_enabled?: boolean;
+}
+
+export interface StripeKeysPayload {
+  stripe_publishable_key?: string | null;
+  stripe_secret_key?: string | null;
+  stripe_webhook_secret?: string | null;
+  byo_stripe_enabled?: boolean;
 }
 
 export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {
@@ -790,6 +809,29 @@ export async function UpdateOrganization(uuid: string, payload: Partial<Organiza
     throw error;
   }
   return data;
+}
+
+export async function UpdateOrganizationStripeKeys(uuid: string, payload: StripeKeysPayload): Promise<{ status: boolean; message: string; data?: any }> {
+  try {
+    const response = await api.patch(`/organizations/${uuid}/stripe-keys`, payload);
+    const data = response.data;
+    if (data.status !== true && data.success !== true) {
+      const error = new Error(data.message || 'Request failed');
+      (error as FetchErrors).errors = data.errors;
+      throw error;
+    }
+    return data;
+  } catch {
+    // Fallback: If PATCH /stripe-keys endpoint isn't mounted separately, try PUT /organizations/:uuid
+    const response = await api.post(`/organizations/${uuid}`, { ...payload, _method: 'PUT' });
+    const data = response.data;
+    if (data.status !== true && data.success !== true) {
+      const err = new Error(data.message || 'Request failed');
+      (err as FetchErrors).errors = data.errors;
+      throw err;
+    }
+    return data;
+  }
 }
 
 export async function DeleteOrganization(uuid: string): Promise<{ status: boolean; message: string }> {

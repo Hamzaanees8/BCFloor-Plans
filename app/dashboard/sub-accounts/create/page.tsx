@@ -153,7 +153,7 @@ const OrdersForm = () => {
                 if (Array.isArray(data.data)) {
                     const filtered = data.data.filter((role: { name: string }) => {
                         const n = role.name.toLowerCase();
-                        return n === 'co agent' || n === 'assistant' || n === 'admin' || n === 'agent admin' || n === 'agent-admin';
+                        return n === 'assistant' || n === 'admin' || n === 'agent admin' || n === 'agent-admin';
                     });
                     setRoles(filtered);
                 } else {
@@ -327,7 +327,6 @@ const OrdersForm = () => {
                     "book appointments",
                     "edit appointments",
                     "view all appointments",
-                    "view only appointments for co-agent",
                     "receive notifications",
                     "access billing",
                     "create sub-accounts",
@@ -348,11 +347,6 @@ const OrdersForm = () => {
 
         if (roleName === 'admin' || roleName === 'agent admin' || roleName === 'agent-admin') {
             newPermissions = permissions.map((p) => Number(p.id));
-        } else if (roleName === 'co agent') {
-            const allowed = ['book appointments', 'edit appointments', 'view only appointments for co-agent'];
-            newPermissions = permissions
-                .filter((p) => allowed.includes(p.name.toLowerCase()))
-                .map((p) => Number(p.id));
         } else if (roleName === 'assistant') {
             const allowed = ['book appointments', 'edit appointments', 'view all appointments'];
             newPermissions = permissions

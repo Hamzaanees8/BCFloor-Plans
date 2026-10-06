@@ -59,7 +59,9 @@ export default function AddCoAgentModal({
             errors.phone = ["Invalid phone number format"];
         }
 
-        if (password.trim() && password.trim().length < 6) {
+        if (!password.trim()) {
+            errors.password = ["Password is required"];
+        } else if (password.trim().length < 6) {
             errors.password = ["Password must be at least 6 characters"];
         }
 
@@ -214,10 +216,13 @@ export default function AddCoAgentModal({
                     </div>
 
                                         <div className="col-span-2">
-                        <label className="text-[14px] font-normal text-[#424242]">Password (Optional)</label>
+                        <label className="text-[14px] font-normal text-[#424242]">
+                            Password <span className="text-red-500">*</span>
+                        </label>
                         <div className="relative mt-[6px]">
                             <Input
                                 type={showPassword ? "text" : "password"}
+                                required
                                 value={password}
                                 onChange={(e) => {
                                     setPassword(e.target.value);
@@ -245,7 +250,7 @@ export default function AddCoAgentModal({
                             <p className="text-red-500 text-[11px] mt-1">{fieldErrors.password[0]}</p>
                         )}
                         <p className="text-[11px] text-[#777777] mt-1">
-                            Set a password for direct login access, or leave blank to send an email invitation setup link.
+                            Set a password for direct login access (minimum 6 characters).
                         </p>
                     </div>
 
