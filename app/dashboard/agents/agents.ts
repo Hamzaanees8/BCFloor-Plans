@@ -353,7 +353,7 @@ export async function ResetPasswordAgent(
 
 export async function ConnectCalendar(redirectBackUrl?: string) {
   const response = await api.get(`/agent/calendar/connect`, {
-    params: { redirect_back_url: redirectBackUrl }
+    params: { redirect_back_url: redirectBackUrl || (typeof window !== 'undefined' ? window.location.href : undefined) }
   });
   return response.data;
 }
