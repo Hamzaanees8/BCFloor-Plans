@@ -66,6 +66,7 @@ import { DualModeFileManager } from "./dual-mode/DualModeFileManager";
 import { PanoramaBadge } from "./PanoramaBadge";
 import { PanoramaViewer } from "./PanoramaViewer";
 import { isPanoramaFile } from "../utils/panoramaUtils";
+import { getNormalizedServiceSlots } from "../utils/sortOrderUtils";
 import { api } from "@/lib/api";
 import { ModeToggle } from "./dual-mode/ModeToggle";
 import { FileItem, DualMode } from "./dual-mode/types";
@@ -443,11 +444,10 @@ function FileTab1({
     // We only redistribute those values across the new positions.
     // This prevents service-level drag from corrupting globally-assigned numbers.
 
-    // Collect the globally-sorted sort_order slots currently owned by this service
-    const uploadedSlots = (filesData?.files ?? [])
-      .filter((f) => f.service?.uuid === currentService?.uuid && !f.is_hidden)
-      .map((f) => f.sort_order)
-      .sort((a, b) => a - b); // ascending slot pool
+    // Collect the service's uploaded files and calculate normalized slots
+    const serviceUploadedFiles = (filesData?.files ?? [])
+      .filter((f) => f.service?.uuid === currentService?.uuid && !f.is_hidden);
+    const uploadedSlots = getNormalizedServiceSlots(serviceUploadedFiles);
 
     // Highest existing slot — new local files get appended after this
     const maxSlot = uploadedSlots.length > 0 ? Math.max(...uploadedSlots) : 0;
@@ -511,10 +511,6 @@ function FileTab1({
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
-    if (effectiveUserType === "agent") {
-      return;
-    }
-
     const validFiles = droppedFiles.filter(
       (file) => !file.type.startsWith("video/"),
     );
@@ -2628,6 +2624,8 @@ function FileTab1({
             userTypeOverride={effectiveUserType}
             onSave={onSave}
             savedFilesAction={adminSavedFilesAction}
+            uploadSubtitle="RAW, JPG, PNG, PDF"
+            uploadSizeText="Max 100MB per file"
             modeToggleButton={
               <ModeToggle
                 mode={fileManagerMode}

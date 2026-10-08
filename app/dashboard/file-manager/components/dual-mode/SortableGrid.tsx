@@ -144,16 +144,19 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
 
     const isReorderMode = mode === 'reorder';
 
-    // Capture initial order map when reorder mode is activated, reset when exited
+    // Capture initial order map when reorder mode is activated, reset when exited or when items list populates
     useEffect(() => {
         if (isReorderMode) {
             setInitialOrderMap((prev) => {
-                if (!prev) {
-                    const map = new Map<string, number>();
-                    items.forEach((item, index) => {
-                        map.set(item.clientId, index);
-                    });
-                    return map;
+                if (!prev || prev.size === 0 || (items.length > 0 && prev.size !== items.length)) {
+                    if (items.length > 0) {
+                        const map = new Map<string, number>();
+                        items.forEach((item, index) => {
+                            map.set(item.clientId, index);
+                        });
+                        return map;
+                    }
+                    return null;
                 }
                 return prev;
             });
@@ -166,11 +169,13 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
     // When save completes, reset initial baseline map to the new saved items order so Reordered badges are cleared
     useEffect(() => {
         if (prevIsSavingRef.current && !isSaving) {
-            const map = new Map<string, number>();
-            items.forEach((item, index) => {
-                map.set(item.clientId, index);
-            });
-            setInitialOrderMap(map);
+            if (items.length > 0) {
+                const map = new Map<string, number>();
+                items.forEach((item, index) => {
+                    map.set(item.clientId, index);
+                });
+                setInitialOrderMap(map);
+            }
             setSelectedIds(new Set());
         }
         prevIsSavingRef.current = isSaving;

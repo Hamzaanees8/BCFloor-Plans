@@ -40,6 +40,7 @@ import { FileItem } from "./dual-mode/types";
 import { getGlobalPhotoOrder, computeGlobalReorderUpdates } from "../utils/sortOrderUtils";
 import { Files } from "../FileManagerContext";
 import { Button } from "@/components/ui/button";
+import { GetFilesData } from "../file-manager";
 
 function TourPicture({ orderData }: { orderData: Order | null }) {
   const { userType } = useAppContext();
@@ -241,9 +242,18 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     );
   }, [filesData?.files, orderData, isMediaApprovedByAgent, API_URL]);
 
+  const pendingSaveRef = React.useRef<FileItem[] | null>(null);
+  const isSavingRef = React.useRef(isSaving);
+  isSavingRef.current = isSaving;
+
   const saveReorderedFiles = useCallback(
     async (itemsToSave: FileItem[]) => {
-      if (!filesData || isSaving) return;
+      if (!filesData) return;
+
+      if (isSavingRef.current) {
+        pendingSaveRef.current = itemsToSave;
+        return;
+      }
 
       // Compute globally-unique sort_orders: position 0 → sort_order 1, etc.
       const reorderedFiles = itemsToSave
@@ -319,6 +329,28 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
           isUpdate: true,
           successMessage: "Images sorted successfully."
         });
+
+        // Fetch fresh data to ensure context filesData is fully consistent
+        try {
+          const freshFilesData = await GetFilesData(token, orderData.uuid);
+          if (freshFilesData?.data?.[0]) {
+            const updatedTour = freshFilesData.data[0];
+            if (updatedTour.files) {
+              updatedTour.files = updatedTour.files.map((f: any) => ({
+                ...f,
+                is_processing:
+                  f.status === "processing" ||
+                  f.is_processing ||
+                  (f.type === "photo" &&
+                    (!f.variant_urls || Object.keys(f.variant_urls).length === 0)),
+              }));
+            }
+            setFilesData(updatedTour);
+          }
+        } catch (fetchErr) {
+          console.error("Error refreshing files data after sort:", fetchErr);
+        }
+
         setIsReorderMode(isAlwaysSort);
       } catch (error) {
         console.error("Failed to save reorder", error);
@@ -326,6 +358,11 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         setIsReorderMode(isAlwaysSort);
       } finally {
         setIsSaving(false);
+        if (pendingSaveRef.current) {
+          const nextItems = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+          saveReorderedFiles(nextItems);
+        }
       }
     },
     [

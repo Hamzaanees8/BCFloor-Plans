@@ -1689,6 +1689,8 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
           savedFilesAction={adminSavedFilesAction}
           singleAccordionTitle="all floor plans"
           hideDashedBorder={true}
+          uploadSubtitle="RAW, JPG, PNG, PDF"
+          uploadSizeText="Max 100MB per file"
           modeToggleButton={
             <ModeToggle
               mode={fileManagerMode}

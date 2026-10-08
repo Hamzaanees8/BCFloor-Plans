@@ -22,19 +22,16 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "./ui/button";
 import { useAppContext } from "@/app/context/AppContext";
 import { Pagination } from "./TablePagination";
 import { CoAgent } from "@/app/dashboard/sub-accounts/subaccounts";
 import { formatPhoneNumber } from "@/lib/utils";
-import { UserX, AlertTriangle } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 
 interface CoAgentTableProps {
     coAgentData: CoAgent[];
     loading: boolean;
     error: boolean;
-    onUnlink: (uuid: string) => void;
+    onUnlink?: (uuid: string) => void;
     onQuickView?: (data: any) => void;
     isSuperAdmin?: boolean;
 }
@@ -43,7 +40,6 @@ export default function CoAgentTable({
     coAgentData,
     loading,
     error,
-    onUnlink,
     onQuickView,
 }: CoAgentTableProps) {
     const { userType } = useAppContext();
@@ -52,9 +48,6 @@ export default function CoAgentTable({
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [searchTerm, setSearchTerm] = React.useState("");
-
-    const [unlinkModalOpen, setUnlinkModalOpen] = React.useState(false);
-    const [targetAgentToUnlink, setTargetAgentToUnlink] = React.useState<{ uuid: string; name: string } | null>(null);
 
     const columns = React.useMemo<ColumnDef<CoAgent>[]>(() => [
         {
@@ -120,23 +113,9 @@ export default function CoAgentTable({
         {
             id: "actions",
             header: () => <div className="text-right">ACTIONS</div>,
-            cell: ({ row }) => {
-                const item = row.original;
-                const fullName = `${item.first_name || ""} ${item.last_name || ""}`.trim() || item.email;
+            cell: () => {
                 return (
                     <div className="flex justify-end">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setTargetAgentToUnlink({ uuid: item.uuid, name: fullName });
-                                setUnlinkModalOpen(true);
-                            }}
-                            className="h-8 px-2.5 text-[#E06D5E] hover:text-[#c44f40] hover:bg-[#FEE2E2] flex items-center gap-1.5 text-[13px] font-normal"
-                        >
-                            <UserX className="w-4 h-4" />
-                            <span>Unlink</span>
-                        </Button>
                     </div>
                 );
             },
@@ -254,40 +233,6 @@ export default function CoAgentTable({
                 <div className="p-4 border-t border-[#E5E5E5]">
                     <Pagination table={table} data={filteredData} />
                 </div>
-            )}
-
-            {unlinkModalOpen && targetAgentToUnlink && (
-                <Dialog open={unlinkModalOpen} onOpenChange={setUnlinkModalOpen}>
-                    <DialogContent className="w-[90vw] max-w-[420px] rounded-[8px] p-5 gap-4 font-alexandria [&>button]:hidden">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 text-[17px] font-[600] text-red-600">
-                                <AlertTriangle className="w-5 h-5" />
-                                <span>Unlink Co-Agent Partner</span>
-                            </DialogTitle>
-                        </DialogHeader>
-                        <p className="text-[14px] text-[#555555] leading-relaxed">
-                            Are you sure you want to unlink <strong>{targetAgentToUnlink.name}</strong>? You will no longer share quick-selection in order bookings.
-                        </p>
-                        <DialogFooter className="flex justify-end gap-2 mt-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setUnlinkModalOpen(false)}
-                                className="h-[38px] text-[14px]"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    onUnlink(targetAgentToUnlink.uuid);
-                                    setUnlinkModalOpen(false);
-                                }}
-                                className="h-[38px] text-[14px] bg-red-600 hover:bg-red-700 text-white"
-                            >
-                                Unlink Partner
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
             )}
         </div>
     );

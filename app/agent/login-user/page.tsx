@@ -131,8 +131,8 @@ function LoginUser() {
                 <Button
                     type='submit'
                     disabled={isLoading || !isOrganizationLoaded || (requiresOrganization && !organization)}
-                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--agent-bg-color)]' : 'bg-[#fff]'}  hover:bg-[var(--agent-bg-color)] hover:text-[#fff] border-[1px] border-[var(--agent-bg-color)] text-[var(--agent-bg-color)] rounded-[6px] h-[42px] font-[600] text-[20px]`}
-                    style={{ borderColor: 'var(--agent-bg-color)', color: isLoading ? '#fff' : 'var(--agent-bg-color)' }}>
+                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--agent-bg-color)]' : 'bg-[#fff]'} hover:bg-[var(--agent-bg-color)] hover:text-[#fff] border-[1px] border-[var(--agent-bg-color)] text-[var(--agent-bg-color)] transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px]`}
+                    style={{ borderColor: 'var(--agent-bg-color)', color: isLoading ? '#fff' : undefined }}>
                     {isLoading ? (
                         <div role="status">
                             <svg

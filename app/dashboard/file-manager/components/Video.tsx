@@ -628,10 +628,6 @@ function Video({
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
-    if (userType === "agent") {
-      return;
-    }
-
     const videoFiles = droppedFiles.filter((file) =>
       file.type.startsWith("video/"),
     );
@@ -1768,6 +1764,8 @@ function Video({
             selectedAction={selectedAction}
             singleAccordionTitle="all videos"
             hideDashedBorder={true}
+            uploadSubtitle="Video MP4"
+            uploadSizeText="Max 50GB per file"
             modeToggleButton={
               <ModeToggle
                 mode={fileManagerMode}

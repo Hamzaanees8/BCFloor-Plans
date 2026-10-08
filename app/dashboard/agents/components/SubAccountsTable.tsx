@@ -100,7 +100,7 @@ const SubAccountsTable = ({ agentId }: { agentId: string }) => {
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[16px] md:text-[18px] font-[600] text-[#333333]">
+          <span className={`text-[16px] md:text-[18px] font-[600] ${userType}-text`}>
             Sub-Accounts / Staff ({filteredSubAccounts.length})
           </span>
         </div>

@@ -132,18 +132,16 @@ const typeToLabelMap: Record<QuickViewCardProps["type"], string> = {
   subaccount: "Sub Account Quick View",
 };
 type QuickViewCardProps =
-  | { type: "admin"; data: AdminData; onClose?: () => void }
-  | { type: "agent"; data: AgentData; onClose?: () => void }
-  | { type: "vendors"; data: VendorData; onClose?: () => void }
-  | { type: "listing"; data: Listings; onClose?: () => void }
-  | { type: "subaccount"; data: SubAccountData; onClose?: () => void }
-  | { type: "notification"; data: NotificationData; onClose?: () => void };
+  | { type: "admin"; data: AdminData; onClose?: () => void; hideEdit?: boolean }
+  | { type: "agent"; data: AgentData; onClose?: () => void; hideEdit?: boolean }
+  | { type: "vendors"; data: VendorData; onClose?: () => void; hideEdit?: boolean }
+  | { type: "listing"; data: Listings; onClose?: () => void; hideEdit?: boolean }
+  | { type: "subaccount"; data: SubAccountData; onClose?: () => void; hideEdit?: boolean }
+  | { type: "notification"; data: NotificationData; onClose?: () => void; hideEdit?: boolean };
 
-export default function QuickViewCard({
-  type,
-  data,
-  onClose,
-}: QuickViewCardProps) {
+export default function QuickViewCard(props: QuickViewCardProps) {
+  const { type, data, onClose } = props;
+  const hideEdit = "hideEdit" in props ? props.hideEdit : false;
   const { userType } = useAppContext();
   const { organization } = useOrganization();
   const orgCreatedByName = organization?.name || organization?.from_name || "Support Team";
@@ -1605,7 +1603,7 @@ export default function QuickViewCard({
         <CardFooter className="p-0 !mt-[40px]">
           {userType !== "vendor" && (
             <div className=" w-full flex justify-end gap-[10px] mr-[15px]">
-              {type === "agent" && (
+              {type === "agent" && !hideEdit && (
                 <Link
                   href={`/dashboard/agents/create/${data.uuid}`}
                   className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
@@ -1613,7 +1611,7 @@ export default function QuickViewCard({
                   Edit
                 </Link>
               )}
-              {type === "subaccount" && (
+              {type === "subaccount" && !hideEdit && (
                 <Link
                   href={`/dashboard/sub-accounts/create?agentId=${data.agent?.uuid}&subAccountId=${data.uuid}`}
                   className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
@@ -1621,7 +1619,7 @@ export default function QuickViewCard({
                   Edit
                 </Link>
               )}
-              {type === "admin" && (
+              {type === "admin" && !hideEdit && (
                 <Link
                   href={`/dashboard/admin/create/${data.uuid}`}
                   className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
@@ -1630,7 +1628,7 @@ export default function QuickViewCard({
                 </Link>
               )}
 
-              {type === "listing" && (
+              {type === "listing" && !hideEdit && (
                 <Link
                   href={`/dashboard/listings/create/${data.uuid}`}
                   className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
@@ -1638,7 +1636,7 @@ export default function QuickViewCard({
                   Edit
                 </Link>
               )}
-              {type === "vendors" && (
+              {type === "vendors" && !hideEdit && (
                 <Link
                   href={`/dashboard/vendors/create/${data.uuid}`}
                   className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}

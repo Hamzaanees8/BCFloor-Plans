@@ -71,13 +71,13 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
 
     /* Whitelabel Variables */
-    --primary-color: #6BAE41; /* Default to agent green */
+    --primary-color: #790163; /* Default to agent color */
     --secondary-color: #ffffff;
     --logo-url: none;
 
     /* Organization Specific Branding */
-    --org-primary: #6BAE41;
-    --org-secondary: #DC9600;
+    --org-primary: #790163;
+    --org-secondary: #007c85;
     --org-logo: none;
 
     /* Environment Banner Height (0px when disabled/production) */
@@ -392,22 +392,22 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-bg,
 .agent_admin-bg,
 .assistant-bg {
-  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41)));
+  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #790163)));
 }
 
 .hover-agent-bg:hover,
 .hover-co_agent-bg:hover,
 .hover-agent_admin-bg:hover,
 .hover-assistant-bg:hover {
-  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
+  background-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #790163))) !important;
 }
 
 .vendor-bg {
-  background-color: var(--vendor-bg-color, #DC9600);
+  background-color: var(--vendor-bg-color, #007c85);
 }
 
 .hover-vendor-bg:hover {
-  background-color: var(--vendor-bg-color, #DC9600) !important;
+  background-color: var(--vendor-bg-color, #007c85) !important;
 }
 
 
@@ -419,11 +419,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-text,
 .agent_admin-text,
 .assistant-text {
-  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6BAE41))) !important;
+  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #790163))) !important;
 }
 
 .vendor-text {
-  color: var(--vendor-text-color, #DC9600) !important;
+  color: var(--vendor-text-color, #007c85) !important;
 }
 
 .admin-border {
@@ -434,11 +434,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-border,
 .agent_admin-border,
 .assistant-border {
-  border: 1px solid var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
+  border: 1px solid var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #790163))) !important;
 }
 
 .vendor-border {
-  border: 1px solid var(--vendor-bg-color, #DC9600) !important;
+  border: 1px solid var(--vendor-bg-color, #007c85) !important;
 }
 
 .admin-accent {
@@ -450,12 +450,12 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-accent,
 .agent_admin-accent,
 .assistant-accent {
-  accent-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #6BAE41))) !important;
+  accent-color: var(--co_agent-bg-color, var(--agent-bg-color, var(--primary-color, #790163))) !important;
   color: #fff !important;
 }
 
 .vendor-accent {
-  accent-color: var(--vendor-bg-color, #DC9600) !important;
+  accent-color: var(--vendor-bg-color, #007c85) !important;
   color: #fff !important;
 }
 
@@ -467,11 +467,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-text-svg>svg,
 .agent_admin-text-svg>svg,
 .assistant-text-svg>svg {
-  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #6bae41)));
+  color: var(--co_agent-text-color, var(--agent-text-color, var(--primary-color, #790163)));
 }
 
 .vendor-text-svg>svg {
-  color: var(--vendor-text-color, #DC9600);
+  color: var(--vendor-text-color, #007c85);
 }
 
 .admin-fill-svg>svg {
@@ -482,11 +482,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .co_agent-fill-svg>svg,
 .agent_admin-fill-svg>svg,
 .assistant-fill-svg>svg {
-  fill: var(--co_agent-bg-color, var(--agent-bg-color, #6bae41));
+  fill: var(--co_agent-bg-color, var(--agent-bg-color, #790163));
 }
 
 .vendor-fill-svg>svg {
-  fill: var(--vendor-bg-color, #DC9600);
+  fill: var(--vendor-bg-color, #007c85);
 }
 
 /* White Label Hover Logic */
@@ -1235,4 +1235,4 @@ textarea::placeholder {
 [class*="sticky"][class*="top-0"],
 [class*="sticky"][class*="top-[0px]"] {
   top: var(--env-banner-height, 0px) !important;
-}
+}

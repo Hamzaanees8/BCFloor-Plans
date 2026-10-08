@@ -152,7 +152,7 @@ const CoAgentsPage = () => {
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[16px] md:text-[18px] font-[600] text-[#333333]">
+          <span className={`text-[16px] md:text-[18px] font-[600] ${userType}-text`}>
             Co-Agents / Partners ({filteredCoAgents.length})
           </span>
         </div>
@@ -210,6 +210,7 @@ const CoAgentsPage = () => {
           <QuickViewCard
             type="agent"
             data={selectedData1}
+            hideEdit={true}
             onClose={() => setShowCard(false)}
           />
         )}

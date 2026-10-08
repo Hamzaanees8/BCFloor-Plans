@@ -50,6 +50,28 @@ export function computeGlobalReorderUpdates(
 }
 
 /**
+ * Extract, sort, and normalize the sort_order slots for a service.
+ * If slots are missing, duplicate, or non-positive (e.g. legacy 0 or null),
+ * they are normalized to distinct, strictly ascending positive integers.
+ */
+export function getNormalizedServiceSlots(serviceFiles: Files[]): number[] {
+    const rawSlots = serviceFiles
+        .map((f) => (typeof f.sort_order === 'number' && !isNaN(f.sort_order) && f.sort_order > 0 ? f.sort_order : null))
+        .filter((s): s is number => s !== null)
+        .sort((a, b) => a - b);
+
+    // Check if we have a full set of distinct positive slots
+    const uniqueSlots = Array.from(new Set(rawSlots));
+    if (uniqueSlots.length === serviceFiles.length) {
+        return uniqueSlots;
+    }
+
+    // If slots are not unique or incomplete, generate clean sequential slots
+    const base = uniqueSlots.length > 0 && uniqueSlots[0] > 0 ? uniqueSlots[0] : 1;
+    return serviceFiles.map((_, i) => base + i);
+}
+
+/**
  * For a SERVICE-LEVEL reorder: the set of sort_order values a service occupies
  * globally stays the same — only which file holds which value changes.
  *

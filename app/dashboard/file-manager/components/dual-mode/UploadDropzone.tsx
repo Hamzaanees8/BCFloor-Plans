@@ -10,37 +10,37 @@ interface UploadDropzoneProps {
     disabled?: boolean;
 }
 
-export function UploadDropzone({ mode, onDropFiles, children, disabled }: UploadDropzoneProps) {
+export function UploadDropzone({ onDropFiles, children, disabled }: UploadDropzoneProps) {
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
     const { userType } = useAppContext();
 
     const handleDragEnter = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (mode !== 'upload' || disabled) return;
+        if (disabled) return;
         dragCounter.current += 1;
         setIsDragging(true);
-    }, [mode, disabled]);
+    }, [disabled]);
 
     const handleDragLeave = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (mode !== 'upload' || disabled) return;
+        if (disabled) return;
         dragCounter.current -= 1;
         if (dragCounter.current === 0) {
             setIsDragging(false);
         }
-    }, [mode, disabled]);
+    }, [disabled]);
 
     const handleDragOver = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (mode !== 'upload' || disabled) return;
-    }, [mode, disabled]);
+        if (disabled) return;
+    }, [disabled]);
 
     const handleDrop = useCallback((e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
-        if (mode !== 'upload' || disabled) return;
+        if (disabled) return;
 
         setIsDragging(false);
         dragCounter.current = 0;
@@ -49,7 +49,7 @@ export function UploadDropzone({ mode, onDropFiles, children, disabled }: Upload
         if (droppedFiles.length > 0) {
             onDropFiles(droppedFiles);
         }
-    }, [mode, onDropFiles, disabled]);
+    }, [onDropFiles, disabled]);
 
     useEffect(() => {
         window.addEventListener('dragenter', handleDragEnter);
@@ -67,7 +67,7 @@ export function UploadDropzone({ mode, onDropFiles, children, disabled }: Upload
 
     return (
         <div className="relative w-full h-full min-h-[200px]">
-            {isDragging && mode === 'upload' && !disabled && (
+            {isDragging && !disabled && (
                 <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm pointer-events-none transition-all">
                     <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
                         <div className={`${userType}-bg p-6 rounded-full shadow-2xl`}>

@@ -2250,6 +2250,9 @@ const FileManager = () => {
     };
   }, [activeTab, checkPackageLimitForTab]);
 
+  const isSavingFileManagerRef = React.useRef(false);
+  const pendingSaveOverrideRef = React.useRef<Files[] | null>(null);
+
   const handleSave = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
       const warning = checkPackageLimitForTab(activeTab);
@@ -2283,6 +2286,14 @@ const FileManager = () => {
         return;
       }
 
+      if (isSavingFileManagerRef.current) {
+        if (overrideChangedFiles) {
+          pendingSaveOverrideRef.current = overrideChangedFiles;
+        }
+        return;
+      }
+
+      isSavingFileManagerRef.current = true;
       setIsSaving(true);
       try {
         if (activeTab === "CreateFeatureSheet") {
@@ -2295,7 +2306,13 @@ const FileManager = () => {
       } catch (error) {
         console.error("Error during save:", error);
       } finally {
+        isSavingFileManagerRef.current = false;
         setIsSaving(false);
+        if (pendingSaveOverrideRef.current) {
+          const nextOverride = pendingSaveOverrideRef.current;
+          pendingSaveOverrideRef.current = null;
+          handleSave(nextOverride);
+        }
       }
     },
     [activeTab, checkPackageLimitForTab, handleUpload, setIsSaving],
