@@ -594,7 +594,14 @@ export interface MediaSettingsPayload {
     allow_client_upload: boolean;
     enable_matterport_default_expiry?: boolean;
     matterport_default_expiry_days?: number;
-    matterport_renewal_plans?: { id: string; months: number; label: string; price: number }[];
+    matterport_renewal_plans?: {
+      id: string;
+      label: string;
+      unit?: "days" | "months";
+      days?: number;
+      months?: number;
+      price: number;
+    }[];
     matterport_auto_invoice_enabled?: boolean;
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];

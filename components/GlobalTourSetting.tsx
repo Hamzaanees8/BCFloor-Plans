@@ -51,6 +51,15 @@ type PhotoSizesType = {
     mls: SizeType;
 };
 
+export interface RenewalPlan {
+    id: string;
+    label: string; // e.g. "30 Days Hosting", "60 Days Extension"
+    unit?: "days" | "months";
+    days?: number; // e.g. 30, 60, 90
+    months?: number; // e.g. 3, 6, 12
+    price: number; // CAD
+}
+
 type TourDefaultsType = {
     music_enabled: boolean;
     default_song: string;
@@ -66,17 +75,18 @@ type TourDefaultsType = {
     require_payment_before_download: boolean;
     enable_matterport_default_expiry?: boolean;
     matterport_default_expiry_days?: number;
-    matterport_renewal_plans?: { id: string; months: number; label: string; price: number }[];
+    matterport_renewal_plans?: RenewalPlan[];
     matterport_auto_invoice_enabled?: boolean;
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];
     always_enable_sorting?: boolean;
 };
 
-const defaultRenewalPlans = [
-    { id: "3_months", months: 3, label: "3 Months", price: 35 },
-    { id: "6_months", months: 6, label: "6 Months", price: 60 },
-    { id: "12_months", months: 12, label: "1 Year (12 Months)", price: 100 },
+const defaultRenewalPlans: RenewalPlan[] = [
+    { id: "30_days", unit: "days", days: 30, months: 1, label: "30 Days Extension", price: 20 },
+    { id: "3_months", unit: "months", months: 3, days: 90, label: "3 Months", price: 35 },
+    { id: "6_months", unit: "months", months: 6, days: 180, label: "6 Months", price: 60 },
+    { id: "12_months", unit: "months", months: 12, days: 365, label: "1 Year (12 Months)", price: 100 },
 ];
 
 const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object>((props, ref) => {
@@ -482,85 +492,148 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                             </div>
 
                                             {/* Renewal Pricing Tiers */}
-                                            <div className="space-y-2">
+                                            <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-[#666666] font-semibold">Matterport Renewal Plans (Pricing Tiers)</Label>
+                                                    <div>
+                                                        <Label className="text-[#666666] font-semibold">Matterport Renewal Plans (Pricing Tiers)</Label>
+                                                        <p className="text-[11px] text-gray-500">Configure hosting extension plans available for agents and admins</p>
+                                                    </div>
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => {
                                                             const current = tourDefaults.matterport_renewal_plans || defaultRenewalPlans;
-                                                            const nextId = `custom_${Date.now()}`;
+                                                            const nextId = `plan_${Date.now()}`;
                                                             handleTourDefaultChange('matterport_renewal_plans', [
                                                                 ...current,
-                                                                { id: nextId, months: 6, label: "6 Months Extension", price: 50 }
+                                                                { id: nextId, unit: "days", days: 30, months: 1, label: "30 Days Extension", price: 25 }
                                                             ]);
                                                         }}
-                                                        className="text-xs h-7 border-[#4290E9] text-[#4290E9]"
+                                                        className="text-xs h-7 border-[#4290E9] text-[#4290E9] hover:bg-blue-50"
                                                     >
                                                         + Add Renewal Plan
                                                     </Button>
                                                 </div>
-                                                <div className="space-y-2">
-                                                    {(tourDefaults.matterport_renewal_plans || defaultRenewalPlans).map((plan, idx) => (
-                                                        <div key={plan.id || idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md border border-gray-200">
-                                                            <Input
-                                                                type="text"
-                                                                placeholder="Plan Label (e.g. 6 Months)"
-                                                                value={plan.label}
-                                                                onChange={(e) => {
-                                                                    const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
-                                                                    updated[idx] = { ...updated[idx], label: e.target.value };
-                                                                    handleTourDefaultChange('matterport_renewal_plans', updated);
-                                                                }}
-                                                                className="h-9 text-xs bg-white flex-1"
-                                                            />
-                                                            <div className="flex items-center gap-1 w-28">
-                                                                <Input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    placeholder="Months"
-                                                                    value={plan.months}
-                                                                    onChange={(e) => {
-                                                                        const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
-                                                                        updated[idx] = { ...updated[idx], months: parseInt(e.target.value) || 1 };
+                                                <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                                                    {(tourDefaults.matterport_renewal_plans || defaultRenewalPlans).map((plan, idx) => {
+                                                        const currentUnit = plan.unit || (plan.days && !plan.months ? "days" : "months");
+                                                        const durationValue = currentUnit === "days" ? (plan.days || 30) : (plan.months || 1);
+
+                                                        return (
+                                                            <div key={plan.id || idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+                                                                {/* Plan Label */}
+                                                                <div className="flex-1 min-w-[140px]">
+                                                                    <Input
+                                                                        type="text"
+                                                                        placeholder="Label (e.g. 60 Days Extension)"
+                                                                        value={plan.label}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                            updated[idx] = { ...updated[idx], label: e.target.value };
+                                                                            handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                        }}
+                                                                        className="h-9 text-xs bg-white"
+                                                                    />
+                                                                </div>
+
+                                                                {/* Duration Unit Selector */}
+                                                                <div className="w-24">
+                                                                    <Select
+                                                                        value={currentUnit}
+                                                                        onValueChange={(val: "days" | "months") => {
+                                                                            const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                            const newDays = val === "days" ? (plan.days || (plan.months ? plan.months * 30 : 30)) : undefined;
+                                                                            const newMonths = val === "months" ? (plan.months || (plan.days ? Math.round(plan.days / 30) : 1)) : undefined;
+                                                                            updated[idx] = {
+                                                                                ...updated[idx],
+                                                                                unit: val,
+                                                                                days: newDays,
+                                                                                months: newMonths,
+                                                                            };
+                                                                            handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className="h-9 text-xs bg-white">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="days">Days</SelectItem>
+                                                                            <SelectItem value="months">Months</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+
+                                                                {/* Duration Number */}
+                                                                <div className="w-24 flex items-center gap-1">
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        placeholder={currentUnit === "days" ? "Days" : "Months"}
+                                                                        value={durationValue}
+                                                                        onChange={(e) => {
+                                                                            const val = parseInt(e.target.value) || 1;
+                                                                            const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                            if (currentUnit === "days") {
+                                                                                updated[idx] = {
+                                                                                    ...updated[idx],
+                                                                                    unit: "days",
+                                                                                    days: val,
+                                                                                    months: Math.max(1, Math.round(val / 30)),
+                                                                                };
+                                                                            } else {
+                                                                                updated[idx] = {
+                                                                                    ...updated[idx],
+                                                                                    unit: "months",
+                                                                                    months: val,
+                                                                                    days: val * 30,
+                                                                                };
+                                                                            }
+                                                                            handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                        }}
+                                                                        className="h-9 text-xs bg-white text-center"
+                                                                    />
+                                                                    <span className="text-[11px] text-gray-500 shrink-0">
+                                                                        {currentUnit === "days" ? "d" : "mo"}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Price CAD */}
+                                                                <div className="w-28 flex items-center gap-1">
+                                                                    <span className="text-xs text-gray-500 font-medium">$</span>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        placeholder="CAD"
+                                                                        value={plan.price}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
+                                                                            updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
+                                                                            handleTourDefaultChange('matterport_renewal_plans', updated);
+                                                                        }}
+                                                                        className="h-9 text-xs bg-white"
+                                                                    />
+                                                                    <span className="text-[10px] text-gray-400 shrink-0">CAD</span>
+                                                                </div>
+
+                                                                {/* Remove Plan */}
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        const updated = (tourDefaults.matterport_renewal_plans || defaultRenewalPlans).filter((_, i) => i !== idx);
                                                                         handleTourDefaultChange('matterport_renewal_plans', updated);
                                                                     }}
-                                                                    className="h-9 text-xs bg-white"
-                                                                />
-                                                                <span className="text-[11px] text-gray-500">mos</span>
+                                                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                                                                    title="Remove Plan"
+                                                                >
+                                                                    ✕
+                                                                </Button>
                                                             </div>
-                                                            <div className="flex items-center gap-1 w-28">
-                                                                <span className="text-xs text-gray-500">$</span>
-                                                                <Input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    placeholder="CAD"
-                                                                    value={plan.price}
-                                                                    onChange={(e) => {
-                                                                        const updated = [...(tourDefaults.matterport_renewal_plans || defaultRenewalPlans)];
-                                                                        updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
-                                                                        handleTourDefaultChange('matterport_renewal_plans', updated);
-                                                                    }}
-                                                                    className="h-9 text-xs bg-white"
-                                                                />
-                                                            </div>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    const updated = (tourDefaults.matterport_renewal_plans || defaultRenewalPlans).filter((_, i) => i !== idx);
-                                                                    handleTourDefaultChange('matterport_renewal_plans', updated);
-                                                                }}
-                                                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                            >
-                                                                ✕
-                                                            </Button>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
 

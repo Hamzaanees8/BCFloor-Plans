@@ -12,6 +12,7 @@ import {
   ExternalLink,
   MoreVertical,
   Globe,
+  FileText,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,7 +26,12 @@ interface MobileMatterportListProps {
   tours: MatterportAd[];
   loading: boolean;
   isSuperAdmin: boolean;
-  options: { label: string; confirm1?: boolean }[];
+  userType?: string;
+  onRenew?: (tour: MatterportAd) => void;
+  onViewInvoice?: (invoiceUuid: string) => void;
+  onRemind?: (tour: MatterportAd) => void;
+  sendingReminderUuid?: string | null;
+  options?: { label: string; confirm1?: boolean }[];
 }
 
 const MobileCopyableLink = ({ label, url }: { label: string; url: string }) => {
@@ -88,10 +94,13 @@ export default function MobileMatterportList({
   tours,
   loading,
   isSuperAdmin,
-  options,
+  userType = 'agent',
+  onRenew,
+  onViewInvoice,
+  onRemind,
+  sendingReminderUuid,
+  options = [],
 }: MobileMatterportListProps) {
-  // No settings needed
-
   if (loading) {
     return (
       <div className="p-4 space-y-3 pb-20">
@@ -119,8 +128,10 @@ export default function MobileMatterportList({
   return (
     <div className="p-4 space-y-3 pb-20">
       {tours.map((tour) => {
+        const isReminding = sendingReminderUuid === tour.tourUuid;
+
         return (
-          <Card key={tour.orderuud} className="overflow-hidden border border-gray-100 shadow-sm">
+          <Card key={tour.orderuud || tour.tourUuid} className="overflow-hidden border border-gray-100 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -154,22 +165,65 @@ export default function MobileMatterportList({
                   </div>
                 </div>
 
+                {/* Dropdown Options if available */}
+                {options.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1.5">
+                        <MoreVertical className="h-4 w-4 text-gray-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {options.map((opt) => (
+                        <DropdownMenuItem key={opt.label}>
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
 
-                {/* Dropdown Options */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1.5">
-                      <MoreVertical className="h-4 w-4 text-gray-400" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {options.map((opt) => (
-                      <DropdownMenuItem key={opt.label}>
-                        {opt.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {/* Action Buttons: Renew, Invoice & Remind */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => onRenew?.(tour)}
+                  className="flex-1 h-8 bg-[#4290E9] hover:bg-[#357ac8] text-white text-xs font-semibold rounded-md shadow-xs flex items-center justify-center gap-1.5 min-w-[120px]"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  {tour.latestInvoice && !(tour.latestInvoice.status === 'paid' || tour.latestInvoice.paymentStatus === 'PAID') ? 'Renew / Pay' : 'Renew Hosting'}
+                </Button>
+                {tour.latestInvoice && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewInvoice ? onViewInvoice(tour.latestInvoice?.uuid || tour.orderuud) : onRenew?.(tour)}
+                    className={`h-8 px-3 text-xs font-semibold rounded-md flex items-center justify-center gap-1 ${
+                      tour.latestInvoice.status === 'paid' || tour.latestInvoice.paymentStatus === 'PAID'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-amber-300 bg-amber-50 text-amber-800'
+                    }`}
+                    title="View Invoice in Popup"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Invoice
+                  </Button>
+                )}
+                {userType === 'admin' && onRemind && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isReminding}
+                    onClick={() => onRemind(tour)}
+                    className="h-8 px-3 border-gray-300 text-gray-700 hover:bg-gray-100 text-xs rounded-md flex items-center justify-center gap-1"
+                  >
+                    {isReminding ? 'Sending...' : 'Remind'}
+                  </Button>
+                )}
               </div>
 
               {/* Copy Links */}

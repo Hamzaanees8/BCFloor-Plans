@@ -73,8 +73,10 @@ export enum MatterportRenewalAction {
 
 export interface RenewalPlan {
   id: string;
-  months: number;
   label: string;
+  unit?: "days" | "months";
+  days?: number;
+  months?: number;
   price: number;
 }
 
@@ -101,6 +103,16 @@ export interface MatterportAd {
   agentId?: number;
   agentUuid?: string;
   coAgents?: any[];
+  latestInvoice?: {
+    id: number;
+    uuid: string;
+    invoiceNumber: string;
+    status: string;
+    total: number;
+    subtotal?: number;
+    taxAmount?: number;
+    paymentStatus?: string;
+  } | null;
 }
 
 export async function GetMatterPort(token: string, status = "all", search = "") {
@@ -134,7 +146,9 @@ export async function RenewMatterport(
   token: string,
   tourUuid: string,
   payload: {
-    duration_months: number;
+    duration_days?: number;
+    duration_months?: number;
+    plan_id?: string;
     amount: number;
     payment_method: string;
     notes?: string;
@@ -265,6 +279,22 @@ export const mapMatterportApiToAd = (
     renewal: MatterportRenewalAction.RENEW,
     brandedLink: brandedLinkObj?.link,
     unbrandedLink: unbrandedLinkObj?.link,
+    latestInvoice: (() => {
+      const pendingRen = apiItem.renewals?.find((r: any) => r.payment_status !== 'PAID' && r.invoice);
+      const ren = pendingRen || ((apiItem.renewals && apiItem.renewals.length > 0) ? apiItem.renewals[0] : null);
+      const inv = ren?.invoice || null;
+      if (!inv) return null;
+      return {
+        id: inv.id,
+        uuid: inv.uuid,
+        invoiceNumber: inv.invoice_number || `INV-#${inv.id}`,
+        status: inv.status,
+        subtotal: Number(inv.subtotal || 0),
+        taxAmount: Number(inv.tax_amount || 0),
+        total: Number(inv.total || 0),
+        paymentStatus: ren?.payment_status || (inv.status === 'paid' ? 'PAID' : 'PENDING'),
+      };
+    })(),
   };
 };
 

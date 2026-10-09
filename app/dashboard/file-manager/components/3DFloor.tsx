@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Copy, ClipboardCheck, Loader2 } from "lucide-react";
+import { Check, Copy, ClipboardCheck, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Services } from "../../services/page";
@@ -482,6 +482,15 @@ function FileTab2({
     });
   };
 
+  const isLinkExpired = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const expiry = parseLocalDate(dateStr);
+    if (!expiry) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expiry < today;
+  };
+
   return (
     <div className="font-alexandria w-full">
       {!isListing && (
@@ -654,15 +663,6 @@ function FileTab2({
                 />
               </div>
             )}
-            {/* {userType !== 'agent' && userType !== 'vendor' && (
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[28px] md:h-[32px] w-auto px-2 md:px-4 flex justify-center items-center border-none text-[11px] md:text-sm`}
-                            >
-                                Upgrade Plan
-                            </Button>
-                        )} */}
             <UpgradeServicePopup
               open={openUpgrade}
               setOpen={setOpenUpgrade}
@@ -683,34 +683,6 @@ function FileTab2({
           className={`p-3 md:p-4 flex ${userType === "agent" ? "flex-col md:flex-row justify-between" : "justify-end"} items-start md:items-center gap-x-4 gap-y-3 border-b border-gray-200 font-alexandria`}
         >
           <div className="flex items-center gap-2 flex-wrap md:flex-nowrap w-full md:w-auto"></div>
-
-          {/* {userType === 'agent' && (
-                        <div className="flex items-center gap-8">
-                            <div className="flex flex-col items-center">
-                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
-                                </span>
-                                <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
-                            </div>
-                            <div className="flex flex-col items-center">
-                                <span className="text-[22px] font-medium text-[#666666] leading-none">
-                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0}
-                                </span>
-                                <span className="text-[12px] text-[#666666] mt-1">Available</span>
-                            </div>
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpenUpgrade(true)}
-                                className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
-                                style={{ 
-                                    borderColor: `var(--${userType}-page-tab-color)`, 
-                                    color: `var(--${userType}-page-tab-color)` 
-                                }}
-                            >
-                                Upgrade Plan
-                            </Button>
-                        </div>
-                    )} */}
         </div>
       )}
       <div className="flex flex-col items-center justify-center my-4 w-full">
@@ -1001,13 +973,25 @@ function FileTab2({
                     </div>
                   )}
                   {canAgentView && (
-                    <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
-                      <iframe
-                        src={brandedLink}
-                        className="w-full h-full border"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
+                    brandedApiLinkObj?.is_hidden || isLinkExpired(brandedExpiry) ? (
+                      <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-2 shadow-xs">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-1">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <h4 className="font-bold text-sm text-amber-950">3D Tour Hosting Unavailable</h4>
+                        <p className="text-xs text-amber-800 max-w-md mx-auto">
+                          3D Tour hosting is currently unavailable or has expired. Please contact your administrator or renew hosting to restore access.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
+                        <iframe
+                          src={brandedLink}
+                          className="w-full h-full border"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    )
                   )}
                 </div>
               </AccordionContent>
@@ -1033,13 +1017,25 @@ function FileTab2({
                     </div>
                   )}
                   {canAgentView && (
-                    <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
-                      <iframe
-                        src={unbrandedLink}
-                        className="w-full h-full border"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
+                    unbrandedApiLinkObj?.is_hidden || isLinkExpired(unbrandedExpiry) ? (
+                      <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-2 shadow-xs">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-1">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <h4 className="font-bold text-sm text-amber-950">3D Tour Hosting Unavailable</h4>
+                        <p className="text-xs text-amber-800 max-w-md mx-auto">
+                          3D Tour hosting is currently unavailable or has expired. Please contact your administrator or renew hosting to restore access.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="relative w-full px-4 md:px-0 max-w-[1094.4px] h-[616px]">
+                        <iframe
+                          src={unbrandedLink}
+                          className="w-full h-full border"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    )
                   )}
                 </div>
               </AccordionContent>

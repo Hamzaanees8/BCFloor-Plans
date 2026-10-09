@@ -308,6 +308,26 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                         <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
                                             You have not paid for this service yet. Pay the service to visit/view Matterport.
                                         </div>
+                                    ) : isExpired || filesData?.links?.find(l => l.type === "branded")?.is_hidden ? (
+                                        <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-3 shadow-xs">
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-1">
+                                                <AlertTriangle className="w-5 h-5" />
+                                            </div>
+                                            <h4 className="font-bold text-sm text-amber-950">3D Tour Hosting Unavailable</h4>
+                                            <p className="text-xs text-amber-800 max-w-md mx-auto">
+                                                3D Tour hosting is currently unavailable or has expired. Please contact your administrator or renew hosting to restore access.
+                                            </p>
+                                            {userType === 'agent' && (
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => setRenewModalOpen(true)}
+                                                    className="mt-2 bg-[#4290E9] hover:bg-[#357ac8] text-white text-xs font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5"
+                                                >
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                    Renew Hosting Now
+                                                </Button>
+                                            )}
+                                        </div>
                                     ) : (
                                         brandedLinks.map(
                                             (link, idx) =>
@@ -337,6 +357,26 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                     {isUnpaidAgent ? (
                                         <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
                                             You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        </div>
+                                    ) : isExpired || filesData?.links?.find(l => l.type === "unbranded")?.is_hidden ? (
+                                        <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-3 shadow-xs">
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-1">
+                                                <AlertTriangle className="w-5 h-5" />
+                                            </div>
+                                            <h4 className="font-bold text-sm text-amber-950">3D Tour Hosting Unavailable</h4>
+                                            <p className="text-xs text-amber-800 max-w-md mx-auto">
+                                                3D Tour hosting is currently unavailable or has expired. Please contact your administrator or renew hosting to restore access.
+                                            </p>
+                                            {userType === 'agent' && (
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => setRenewModalOpen(true)}
+                                                    className="mt-2 bg-[#4290E9] hover:bg-[#357ac8] text-white text-xs font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5"
+                                                >
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                    Renew Hosting Now
+                                                </Button>
+                                            )}
                                         </div>
                                     ) : (
                                         unbrandedLinks.map(

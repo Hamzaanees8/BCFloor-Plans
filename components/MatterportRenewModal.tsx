@@ -18,10 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Calendar, ShieldCheck, Check } from "lucide-react";
+import { Loader2, Calendar, ShieldCheck, Check, CreditCard, FileText, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { MatterportAd, RenewMatterport, RenewalPlan } from "@/app/dashboard/matterport/matterport";
-
 
 interface MatterportRenewModalProps {
   open: boolean;
@@ -30,12 +29,14 @@ interface MatterportRenewModalProps {
   onSuccess: () => void;
   renewalPlans?: RenewalPlan[];
   isAgentView?: boolean;
+  onViewInvoice?: (invoiceUuid: string) => void;
 }
 
 const defaultPlans: RenewalPlan[] = [
-  { id: "3_months", months: 3, label: "3 Months", price: 35 },
-  { id: "6_months", months: 6, label: "6 Months", price: 60 },
-  { id: "12_months", months: 12, label: "1 Year (12 Months)", price: 100 },
+  { id: "30_days", unit: "days", days: 30, months: 1, label: "30 Days Extension", price: 20 },
+  { id: "3_months", unit: "months", months: 3, days: 90, label: "3 Months", price: 35 },
+  { id: "6_months", unit: "months", months: 6, days: 180, label: "6 Months", price: 60 },
+  { id: "12_months", unit: "months", months: 12, days: 365, label: "1 Year (12 Months)", price: 100 },
 ];
 
 export default function MatterportRenewModal({
@@ -45,37 +46,69 @@ export default function MatterportRenewModal({
   onSuccess,
   renewalPlans = defaultPlans,
   isAgentView = false,
+  onViewInvoice,
 }: MatterportRenewModalProps) {
   const plans = renewalPlans && renewalPlans.length > 0 ? renewalPlans : defaultPlans;
 
   const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[1]?.id || plans[0]?.id || "6_months");
   const [customPrice, setCustomPrice] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>(isAgentView ? "invoice" : "manual");
+  const [paymentMethod, setPaymentMethod] = useState<string>(isAgentView ? "stripe" : "manual");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
+  const existingInvoice = tourItem?.latestInvoice || null;
+  const isInvoicePaid = existingInvoice?.status === "paid" || existingInvoice?.paymentStatus === "PAID";
+  const hasExistingUnpaidInvoice = !!existingInvoice && !isInvoicePaid;
+
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) || plans[0];
-  const finalPrice = customPrice !== "" ? parseFloat(customPrice) || 0 : (selectedPlan?.price ?? 60);
+  const finalPrice = !isAgentView && customPrice !== "" 
+    ? parseFloat(customPrice) || 0 
+    : (selectedPlan?.price ?? 60);
+
+  const subtotal = finalPrice;
+  const gstAmount = subtotal * 0.05;
+  const totalPayable = subtotal + gstAmount;
 
   useEffect(() => {
     if (plans.length > 0) {
-      const defaultP = plans[1] || plans[0];
-      setSelectedPlanId(defaultP.id);
-      setCustomPrice(String(defaultP.price));
+      // If there's an existing invoice, match the plan if possible
+      let matchedPlan = plans[1] || plans[0];
+      if (existingInvoice && existingInvoice.subtotal) {
+        const found = plans.find((p) => Math.abs(Number(p.price) - Number(existingInvoice.subtotal)) < 0.5);
+        if (found) matchedPlan = found;
+      }
+
+      setSelectedPlanId(matchedPlan.id);
+      setCustomPrice(String(matchedPlan.price));
+      setPaymentMethod(isAgentView ? "stripe" : "manual");
     }
-  }, [tourItem, plans]);
+  }, [tourItem, plans, isAgentView, existingInvoice]);
 
   const calculateNewExpiry = () => {
-    const months = selectedPlan?.months || 6;
+    const isDays = selectedPlan?.unit === "days" || (selectedPlan?.days && !selectedPlan?.months);
+    const durationDays = isDays ? (selectedPlan?.days || 30) : 0;
+    const durationMonths = !isDays ? (selectedPlan?.months || 1) : 0;
+
     let base = new Date();
+    base.setHours(0, 0, 0, 0);
+
     if (tourItem?.rawExpiryDate) {
       const currentExpiry = new Date(tourItem.rawExpiryDate);
-      if (currentExpiry > new Date()) {
+      currentExpiry.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (currentExpiry > today) {
         base = currentExpiry;
       }
     }
+
     const newDate = new Date(base);
-    newDate.setMonth(newDate.getMonth() + months);
+    if (isDays && durationDays > 0) {
+      newDate.setDate(newDate.getDate() + durationDays);
+    } else if (durationMonths > 0) {
+      newDate.setMonth(newDate.getMonth() + durationMonths);
+    }
+
     return newDate.toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
@@ -83,7 +116,7 @@ export default function MatterportRenewModal({
     });
   };
 
-  const handleRenew = async () => {
+  const handleAction = async (targetMethod: string) => {
     if (!tourItem) return;
     const token = localStorage.getItem("token") || "";
     if (!token) {
@@ -93,24 +126,50 @@ export default function MatterportRenewModal({
 
     setLoading(true);
     try {
+      const isDays = selectedPlan?.unit === "days" || (selectedPlan?.days && !selectedPlan?.months);
+      const daysCount = isDays ? (selectedPlan?.days || 30) : (selectedPlan?.days || (selectedPlan?.months ? selectedPlan.months * 30 : 30));
+      const monthsCount = !isDays ? (selectedPlan?.months || 1) : (selectedPlan?.months || (selectedPlan?.days ? Math.max(1, Math.round(selectedPlan.days / 30)) : 1));
+
+      const returnUrl = typeof window !== "undefined"
+        ? (window.location.origin + window.location.pathname)
+        : undefined;
+
       const payload = {
-        duration_months: selectedPlan?.months || 6,
+        duration_days: daysCount,
+        duration_months: monthsCount,
+        plan_id: selectedPlan?.id,
         amount: finalPrice,
-        payment_method: paymentMethod,
+        payment_method: targetMethod,
         notes: notes,
+        return_url: returnUrl,
       };
 
       const res = await RenewMatterport(token, tourItem.tourUuid || tourItem.orderuud, payload);
-      if (res.success) {
-        toast.success(res.message || "Matterport hosting successfully renewed!");
+      if (res && res.success) {
+        const checkoutUrl = res.checkout_url || res.data?.checkout_url;
+        if (targetMethod === "stripe" && checkoutUrl) {
+          toast.success("Redirecting to Stripe payment...");
+          window.location.href = checkoutUrl;
+          return;
+        }
+
+        if (targetMethod === "invoice") {
+          const invNum = res.data?.invoice?.invoice_number || existingInvoice?.invoiceNumber || "Invoice";
+          toast.success(`Invoice ${invNum} updated successfully for ${selectedPlan.label}.`);
+        } else if (targetMethod === "manual") {
+          toast.success("Hosting renewed and marked as paid!");
+        } else {
+          toast.success(res.message || "Matterport hosting successfully updated!");
+        }
+
         onOpenChange(false);
         onSuccess();
       } else {
-        toast.error(res.message || "Failed to renew hosting.");
+        toast.error(res?.message || "Failed to process hosting renewal.");
       }
     } catch (err: any) {
       console.error("Renewal error:", err);
-      toast.error(err.response?.data?.message || "An error occurred while renewing.");
+      toast.error(err.response?.data?.message || err.message || "An error occurred while renewing.");
     } finally {
       setLoading(false);
     }
@@ -118,23 +177,67 @@ export default function MatterportRenewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-white rounded-xl p-6 shadow-2xl border border-gray-100 font-alexandria">
+      <DialogContent className="max-w-md bg-white rounded-xl p-6 shadow-2xl border border-gray-100 font-alexandria max-h-[90vh] overflow-y-auto">
         <DialogHeader className="mb-4">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <DialogTitle className="text-lg font-bold text-gray-900">
-              Renew 3D Tour / Matterport Hosting
+              {hasExistingUnpaidInvoice
+                ? "Manage Renewal Invoice & Payment"
+                : isAgentView
+                ? "Renew 3D Tour Hosting"
+                : "Renew 3D Tour / Matterport Hosting"}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-gray-500">
-            Extend hosting duration and update public 3D tour status.
+            {hasExistingUnpaidInvoice
+              ? "Select an extension duration to update the existing invoice or proceed to pay online."
+              : isAgentView
+              ? "Select an extension plan to keep your 3D tour active and visible on your public listing."
+              : "Extend hosting duration and update public 3D tour status."}
           </DialogDescription>
         </DialogHeader>
 
         {tourItem && (
           <div className="space-y-4">
+            {/* Existing Invoice Notice Banner */}
+            {existingInvoice && (
+              <div
+                className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+                  isInvoicePaid
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                    : "bg-amber-50 border-amber-300 text-amber-900"
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <FileText className="w-4 h-4 text-amber-700" />
+                    <span>Invoice #{existingInvoice.invoiceNumber}</span>
+                  </div>
+                  <div className="text-[11px] opacity-85">
+                    Status: <strong className="uppercase">{isInvoicePaid ? "Paid" : "Unpaid"}</strong>
+                    {existingInvoice.total ? ` • Current Amount: $${Number(existingInvoice.total).toFixed(2)} CAD` : ""}
+                  </div>
+                </div>
+                {onViewInvoice && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onViewInvoice(existingInvoice.uuid || tourItem.orderuud);
+                    }}
+                    className="h-7 px-2 text-[11px] font-semibold bg-white hover:bg-gray-50 border-amber-300 text-amber-900 shadow-2xs flex items-center gap-1"
+                  >
+                    <span>View Invoice</span>
+                    <ExternalLink className="w-3 h-3 text-amber-600" />
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Tour Info Card */}
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs space-y-1.5">
               <div className="flex justify-between">
@@ -168,10 +271,17 @@ export default function MatterportRenewModal({
               </div>
             </div>
 
-            {/* Plan Selection Tiers */}
+            {/* Dynamic Plan Selection Grid */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-gray-700">Select Renewal Extension</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-gray-700">
+                  {hasExistingUnpaidInvoice ? "Select Duration / Days to Update Invoice" : "Select Renewal Extension Plan"}
+                </Label>
+                {hasExistingUnpaidInvoice && (
+                  <span className="text-[10px] text-blue-600 font-medium">Updates Existing Invoice</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
                 {plans.map((p) => {
                   const isSelected = selectedPlanId === p.id;
                   return (
@@ -179,17 +289,28 @@ export default function MatterportRenewModal({
                       key={p.id}
                       onClick={() => {
                         setSelectedPlanId(p.id);
-                        setCustomPrice(String(p.price));
+                        if (!isAgentView) {
+                          setCustomPrice(String(p.price));
+                        }
                       }}
-                      className={`cursor-pointer p-3 rounded-lg border text-center transition-all ${
+                      className={`cursor-pointer p-3 rounded-lg border text-center transition-all flex flex-col justify-between ${
                         isSelected
-                          ? "border-[#4290E9] bg-blue-50/50 shadow-xs"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          ? "border-[#4290E9] bg-blue-50/60 shadow-xs ring-1 ring-[#4290E9]"
+                          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
                       }`}
                     >
-                      <div className="text-xs font-bold text-gray-800">{p.label}</div>
-                      <div className="text-sm font-extrabold text-[#4290E9] mt-1">
-                        ${Number(p.price).toFixed(0)} <span className="text-[10px] font-normal text-gray-500">CAD</span>
+                      <div>
+                        <div className="text-xs font-bold text-gray-800 line-clamp-2">{p.label}</div>
+                        {p.unit === "days" && p.days && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">{p.days} Days</div>
+                        )}
+                        {p.unit === "months" && p.months && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">{p.months} Months</div>
+                        )}
+                      </div>
+                      <div className="text-sm font-extrabold text-[#4290E9] mt-2">
+                        ${Number(p.price).toFixed(2)}{" "}
+                        <span className="text-[10px] font-normal text-gray-500">CAD</span>
                       </div>
                     </div>
                   );
@@ -197,7 +318,7 @@ export default function MatterportRenewModal({
               </div>
             </div>
 
-            {/* New Expiration Preview */}
+            {/* Live New Expiration Preview */}
             <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-emerald-800 font-medium">
                 <Calendar className="w-4 h-4 text-emerald-600" />
@@ -206,12 +327,28 @@ export default function MatterportRenewModal({
               <span className="font-bold text-emerald-900">{calculateNewExpiry()}</span>
             </div>
 
-            {/* Payment & Amount details for Admin */}
-            {!isAgentView ? (
+            {/* Invoice & Price Breakdown */}
+            <div className="bg-gray-50/80 p-3 rounded-lg border border-gray-200 text-xs space-y-1.5">
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotal:</span>
+                <span className="font-semibold text-gray-900">${subtotal.toFixed(2)} CAD</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Estimated GST (5%):</span>
+                <span className="font-semibold text-gray-900">${gstAmount.toFixed(2)} CAD</span>
+              </div>
+              <div className="border-t border-gray-200 pt-1.5 flex justify-between items-center text-sm">
+                <span className="font-bold text-gray-900">Total Payable:</span>
+                <span className="font-extrabold text-[#4290E9]">${totalPayable.toFixed(2)} CAD</span>
+              </div>
+            </div>
+
+            {/* Admin Custom Controls */}
+            {!isAgentView && (
               <div className="space-y-3 pt-1 border-t border-gray-100">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Amount ($ CAD)</Label>
+                    <Label className="text-xs text-gray-600">Custom Price ($ CAD)</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -221,15 +358,15 @@ export default function MatterportRenewModal({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Payment Handling</Label>
+                    <Label className="text-xs text-gray-600">Payment Action</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                       <SelectTrigger className="h-9 text-xs bg-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="manual">Mark Paid (Manual/Cash)</SelectItem>
-                        <SelectItem value="invoice">Generate Invoice</SelectItem>
-                        <SelectItem value="stripe">Charge Card (Stripe)</SelectItem>
+                        <SelectItem value="stripe">Pay Online (Stripe)</SelectItem>
+                        <SelectItem value="invoice">{hasExistingUnpaidInvoice ? "Update Existing Invoice" : "Generate Invoice"}</SelectItem>
+                        <SelectItem value="manual">Mark Paid (Manual / Cash)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -238,23 +375,17 @@ export default function MatterportRenewModal({
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">Notes (Optional)</Label>
                   <Input
-                    placeholder="e.g. Agent requested 6mo extension"
+                    placeholder="e.g. Agent requested 30 days extension"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="h-9 text-xs bg-white"
                   />
                 </div>
               </div>
-            ) : (
-              <div className="space-y-1 text-xs text-gray-500">
-                <p>
-                  Total Due: <strong className="text-gray-900">${finalPrice.toFixed(2)} CAD</strong> (+ applicable GST/PST).
-                </p>
-              </div>
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
               <Button
                 type="button"
                 variant="outline"
@@ -264,24 +395,61 @@ export default function MatterportRenewModal({
               >
                 Cancel
               </Button>
-              <Button
-                type="button"
-                onClick={handleRenew}
-                disabled={loading}
-                className="h-9 text-xs font-bold px-5 bg-[#4290E9] hover:bg-[#357ac8] text-white flex items-center gap-1.5"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    Confirm & Renew
-                  </>
+
+              <div className="flex items-center gap-2">
+                {/* Update Invoice Only Button */}
+                {(hasExistingUnpaidInvoice || (!isAgentView && paymentMethod === "invoice")) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleAction("invoice")}
+                    disabled={loading}
+                    className="h-9 text-xs font-semibold px-3 border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
+                    {hasExistingUnpaidInvoice ? "Update Invoice" : "Save Invoice"}
+                  </Button>
                 )}
-              </Button>
+
+                {/* Mark Paid (Admin Only) */}
+                {!isAgentView && paymentMethod === "manual" && (
+                  <Button
+                    type="button"
+                    onClick={() => handleAction("manual")}
+                    disabled={loading}
+                    className="h-9 text-xs font-bold px-4 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    Mark Paid
+                  </Button>
+                )}
+
+                {/* Pay via Stripe (Default for Agent & when Stripe is selected) */}
+                {(isAgentView || paymentMethod === "stripe") && (
+                  <Button
+                    type="button"
+                    onClick={() => handleAction("stripe")}
+                    disabled={loading}
+                    className="h-9 text-xs font-bold px-4 bg-[#4290E9] hover:bg-[#357ac8] text-white flex items-center gap-1.5 shadow-sm"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-3.5 h-3.5" />
+                        Pay ${totalPayable.toFixed(2)} CAD
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}

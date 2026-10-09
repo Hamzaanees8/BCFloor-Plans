@@ -17,14 +17,16 @@ import {
 } from "./matterport";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
-import { Copy, Check, ExternalLink, ShieldCheck, Mail } from "lucide-react";
+import { Copy, Check, ExternalLink, ShieldCheck, Mail, FileText } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileMatterportList from "@/components/mobile/matterport/MobileMatterportList";
 import MatterportRenewModal from "@/components/MatterportRenewModal";
+import InvoiceModal from "@/app/dashboard/invoice/components/InvoiceModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { isUserCoAgent } from "@/lib/permissions";
@@ -93,6 +95,13 @@ const MatterportPage = () => {
   const [selectedTourForRenewal, setSelectedTourForRenewal] = useState<MatterportAd | null>(null);
   const [renewalModalOpen, setRenewalModalOpen] = useState<boolean>(false);
   const [sendingReminderUuid, setSendingReminderUuid] = useState<string | null>(null);
+  const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
+
+  const handleOpenInvoiceModal = (invoiceUuid: string) => {
+    setSelectedInvoiceUuid(invoiceUuid);
+    setIsInvoiceModalOpen(true);
+  };
   const [currentUser, setCurrentUser] = useState<any>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -154,6 +163,10 @@ const MatterportPage = () => {
     }
   }, []);
 
+  const searchParams = useSearchParams();
+  const tourParam = searchParams.get("tour") || searchParams.get("tour_uuid");
+  const autoSelectedRef = useRef<boolean>(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("token") || "";
@@ -177,6 +190,34 @@ const MatterportPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Handle post-checkout redirect notifications
+  useEffect(() => {
+    const renewed = searchParams.get("renewed");
+    if (renewed === "success") {
+      toast.success("Payment completed! 3D tour hosting renewal is being activated.");
+      fetchData();
+    } else if (renewed === "cancelled") {
+      toast.error("Renewal checkout was cancelled.");
+    }
+  }, [searchParams, fetchData]);
+
+  // URL Auto-Selection & Focus
+  useEffect(() => {
+    if (tourParam && matterports.length > 0 && !autoSelectedRef.current) {
+      const target = matterports.find(
+        (t) =>
+          t.tourUuid === tourParam ||
+          t.orderuud === tourParam ||
+          t.propertyuuid === tourParam
+      );
+      if (target) {
+        autoSelectedRef.current = true;
+        setSelectedTourForRenewal(target);
+        setRenewalModalOpen(true);
+      }
+    }
+  }, [matterports, tourParam]);
 
   const handleSendReminder = async (tour: MatterportAd) => {
     const token = localStorage.getItem("token") || "";
@@ -327,6 +368,27 @@ const MatterportPage = () => {
                   )}
                 </div>
               )}
+              {item.latestInvoice && (
+                <div className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenInvoiceModal(item.latestInvoice?.uuid || item.orderuud)}
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer text-left ${
+                      item.latestInvoice.status === "paid" || item.latestInvoice.paymentStatus === "PAID"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                        : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                    }`}
+                    title={item.latestInvoice.status === "paid" ? "View Paid Renewal Invoice in Popup" : "View Renewal Invoice in Popup"}
+                  >
+                    <span>📄 {item.latestInvoice.invoiceNumber}</span>
+                    <span className="font-normal text-[10px]">
+                      {item.latestInvoice.status === "paid" || item.latestInvoice.paymentStatus === "PAID"
+                        ? "(Paid)"
+                        : `($${item.latestInvoice.total.toFixed(2)} - Unpaid)`}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           );
         },
@@ -391,9 +453,11 @@ const MatterportPage = () => {
         cell: ({ row }) => {
           const tour = row.original;
           const isReminding = sendingReminderUuid === tour.tourUuid;
+          const hasInvoice = !!tour.latestInvoice;
+          const isInvoicePaid = tour.latestInvoice?.status === "paid" || tour.latestInvoice?.paymentStatus === "PAID";
 
           return (
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
               <Button
                 type="button"
                 size="sm"
@@ -402,23 +466,44 @@ const MatterportPage = () => {
                   setRenewalModalOpen(true);
                 }}
                 className="h-8 px-2.5 bg-[#4290E9] hover:bg-[#357ac8] text-white text-xs font-semibold rounded-md shadow-xs flex items-center gap-1"
-                title="Renew / Pay for Hosting"
+                title={userType === "agent" ? "Renew / Pay Hosting" : "Renew Tour Hosting"}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Renew
+                {hasInvoice && !isInvoicePaid ? "Renew / Pay" : "Renew"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isReminding}
-                onClick={() => handleSendReminder(tour)}
-                className="h-8 px-2 border-gray-300 text-gray-700 hover:bg-gray-100 text-xs rounded-md flex items-center gap-1"
-                title="Send Reminder Email to Agent"
-              >
-                <Mail className="w-3.5 h-3.5 text-gray-500" />
-                {isReminding ? "Sending..." : "Remind"}
-              </Button>
+
+              {hasInvoice && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenInvoiceModal(tour.latestInvoice?.uuid || tour.orderuud)}
+                  className={`h-8 px-2.5 text-xs font-semibold rounded-md flex items-center gap-1 transition-colors shadow-2xs ${
+                    isInvoicePaid
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  }`}
+                  title={`View Invoice #${tour.latestInvoice?.invoiceNumber} in Popup`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Invoice</span>
+                </Button>
+              )}
+
+              {userType === "admin" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isReminding}
+                  onClick={() => handleSendReminder(tour)}
+                  className="h-8 px-2 border-gray-300 text-gray-700 hover:bg-gray-100 text-xs rounded-md flex items-center gap-1"
+                  title="Send Reminder Email to Agent"
+                >
+                  <Mail className="w-3.5 h-3.5 text-gray-500" />
+                  {isReminding ? "Sending..." : "Remind"}
+                </Button>
+              )}
             </div>
           );
         },
@@ -438,7 +523,7 @@ const MatterportPage = () => {
     }
 
     return cols;
-  }, [isSuperAdmin, sendingReminderUuid]);
+  }, [isSuperAdmin, sendingReminderUuid, userType]);
 
   if (isMobile) {
     return (
@@ -490,6 +575,14 @@ const MatterportPage = () => {
           tours={filteredData}
           loading={loading}
           isSuperAdmin={isSuperAdmin}
+          userType={userType}
+          onRenew={(tour) => {
+            setSelectedTourForRenewal(tour);
+            setRenewalModalOpen(true);
+          }}
+          onViewInvoice={handleOpenInvoiceModal}
+          onRemind={handleSendReminder}
+          sendingReminderUuid={sendingReminderUuid}
           options={[]}
         />
 
@@ -499,6 +592,17 @@ const MatterportPage = () => {
           tourItem={selectedTourForRenewal}
           onSuccess={fetchData}
           renewalPlans={renewalPlans}
+          isAgentView={userType === "agent"}
+          onViewInvoice={handleOpenInvoiceModal}
+        />
+
+        <InvoiceModal
+          isOpen={isInvoiceModalOpen}
+          uuid={selectedInvoiceUuid || ""}
+          onClose={() => {
+            setIsInvoiceModalOpen(false);
+            setSelectedInvoiceUuid(null);
+          }}
         />
       </div>
     );
@@ -605,6 +709,17 @@ const MatterportPage = () => {
         tourItem={selectedTourForRenewal}
         onSuccess={fetchData}
         renewalPlans={renewalPlans}
+        isAgentView={userType === "agent"}
+        onViewInvoice={handleOpenInvoiceModal}
+      />
+
+      <InvoiceModal
+        isOpen={isInvoiceModalOpen}
+        uuid={selectedInvoiceUuid || ""}
+        onClose={() => {
+          setIsInvoiceModalOpen(false);
+          setSelectedInvoiceUuid(null);
+        }}
       />
     </div>
   );
