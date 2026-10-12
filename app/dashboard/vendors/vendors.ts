@@ -492,14 +492,20 @@ export interface StripeConnectResponse {
 }
 
 export const connectStripe = async (
-  vendorId: string
+  vendorId: string,
+  returnUrl?: string,
+  refreshUrl?: string
 ): Promise<StripeConnectResponse> => {
   try {
-    const response = await api.post(`/vendor/stripe/connect`, {
+    const payload: { vendor_id: string; return_url?: string; refresh_url?: string } = {
       vendor_id: vendorId,
-    });
+    };
+    if (returnUrl) payload.return_url = returnUrl;
+    if (refreshUrl) payload.refresh_url = refreshUrl;
 
-    const data = await response.data;
+    const response = await api.post(`/vendor/stripe/connect`, payload);
+
+    const data = response.data;
 
     return {
       success: true,
@@ -511,7 +517,7 @@ export const connectStripe = async (
     console.error("Stripe connect error:", error);
     return {
       success: false,
-      error: error.message || "Failed to connect Stripe",
+      error: error?.response?.data?.message || error.message || "Failed to connect Stripe",
     };
   }
 };

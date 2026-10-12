@@ -1290,7 +1290,7 @@ const VendorForm = () => {
       let vendorIdToUse: string = "";
 
       if (userType === "admin") {
-        vendorIdToUse = currentUser?.uuid || "";
+        vendorIdToUse = currentUser?.uuid || userId || "";
         if (!vendorIdToUse) {
           toast.error("No vendor selected");
           return;
@@ -1305,6 +1305,9 @@ const VendorForm = () => {
             console.error("Failed to parse userInfo:", err);
           }
         }
+        if (!vendorIdToUse && currentUser?.uuid) {
+          vendorIdToUse = currentUser.uuid;
+        }
       }
 
       if (!vendorIdToUse) {
@@ -1312,10 +1315,11 @@ const VendorForm = () => {
         return;
       }
 
-      const result = await connectStripe(vendorIdToUse);
+      const returnUrl = typeof window !== "undefined" ? window.location.href : undefined;
+      const result = await connectStripe(vendorIdToUse, returnUrl);
       if (result.success && result.url) {
         toast.success("Redirecting to Stripe...");
-        window.open(result.url, "_blank");
+        window.location.href = result.url;
       } else {
         toast.error(result.error || "Failed to connect Stripe");
       }
@@ -1343,6 +1347,15 @@ const VendorForm = () => {
   //   }
   //   setIsCalendarLoading(false);
   // };
+  const stripeStatus = searchParams.get("stripe");
+  useEffect(() => {
+    if (stripeStatus === "success") {
+      toast.success("Stripe connected successfully!");
+    } else if (stripeStatus === "refresh") {
+      toast.info("Stripe onboarding link expired. Please reconnect.");
+    }
+  }, [stripeStatus]);
+
   useEffect(() => {
     if (state && code) {
       VerifyGoogleCalendar({ state, code });

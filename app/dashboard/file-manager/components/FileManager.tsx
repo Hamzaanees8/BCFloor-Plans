@@ -655,10 +655,12 @@ const FileManager = () => {
           );
         }
 
-        // remove session_id from URL
+                // remove session_id and renewed from URL
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
-        router.replace(`?${params.toString()}`);
+        params.delete("renewed");
+        const query = params.toString();
+        router.replace(query ? `?${query}` : window.location.pathname);
       } catch (error) {
         console.error("Stripe session error:", error);
         toast.error(

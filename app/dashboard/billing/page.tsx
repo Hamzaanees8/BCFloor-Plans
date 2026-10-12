@@ -881,7 +881,9 @@ const Page = () => {
 
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
-        router.replace(`?${params.toString()}`);
+        params.delete("renewed");
+        const query = params.toString();
+        router.replace(query ? `?${query}` : window.location.pathname);
 
         setTimeout(() => {
           window.close();

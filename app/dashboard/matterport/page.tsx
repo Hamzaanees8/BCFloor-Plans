@@ -17,7 +17,7 @@ import {
 } from "./matterport";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 import { useUser } from "@/context/UserContext";
@@ -164,6 +164,7 @@ const MatterportPage = () => {
   }, []);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tourParam = searchParams.get("tour") || searchParams.get("tour_uuid");
   const autoSelectedRef = useRef<boolean>(false);
 
@@ -194,13 +195,43 @@ const MatterportPage = () => {
   // Handle post-checkout redirect notifications
   useEffect(() => {
     const renewed = searchParams.get("renewed");
+    const sessionId = searchParams.get("session_id");
+
     if (renewed === "success") {
-      toast.success("Payment completed! 3D tour hosting renewal is being activated.");
-      fetchData();
+      const verifyAndRefresh = async () => {
+        if (sessionId) {
+          try {
+            const token = localStorage.getItem("token") || "";
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stripe/session?session_id=${sessionId}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            });
+          } catch (e) {
+            console.error("Error verifying checkout session:", e);
+          }
+        }
+        toast.success("Payment completed! 3D tour hosting renewal is being activated.");
+        await fetchData();
+
+        const params = new URLSearchParams(window.location.search);
+        params.delete("renewed");
+        params.delete("session_id");
+        const query = params.toString();
+        router.replace(query ? `?${query}` : window.location.pathname);
+      };
+
+      verifyAndRefresh();
     } else if (renewed === "cancelled") {
       toast.error("Renewal checkout was cancelled.");
+      const params = new URLSearchParams(window.location.search);
+      params.delete("renewed");
+      params.delete("session_id");
+      const query = params.toString();
+      router.replace(query ? `?${query}` : window.location.pathname);
     }
-  }, [searchParams, fetchData]);
+  }, [searchParams, fetchData, router]);
 
   // URL Auto-Selection & Focus
   useEffect(() => {
