@@ -23,19 +23,19 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     useEffect(() => {
         if (filesData?.links && links.length === 0) {
             const apiLinks = filesData.links
-                .filter(l => !l.is_hidden && l.link)
+                .filter(l => !l.is_hidden && (l.link || l.uuid))
                 .map(l => ({
                     uuid: l.uuid,
                     type: l.type as "branded" | "unbranded",
                     service_id: typeof l.service_id === 'string' ? l.service_id : (l.service?.uuid || String(l.service_id)),
-                    link: l.link,
+                    link: l.link || "",
                     expiry_date: l.expiry_date
                 }));
             
             const uniqueLinks: typeof apiLinks = [];
             const seen = new Set();
             for (const l of apiLinks) {
-                const key = `${l.type}-${l.link}`;
+                const key = `${l.type}-${l.link || l.uuid}`;
                 if (!seen.has(key)) {
                     seen.add(key);
                     uniqueLinks.push(l);
@@ -127,7 +127,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     return (
         <div className='font-alexandria w-full'>
             {/* Expiration Status Banner */}
-            {hasLinks && expiryDateStr && (
+            {hasLinks && expiryDateStr && !isUnpaidAgent && (
                 <div className="mb-6 px-4 md:px-8">
                     {isExpired ? (
                         <div className="bg-red-50 border border-red-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -297,7 +297,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             )}
             <div className='w-full'>
                 <Accordion type="single" collapsible className="w-full">
-                    {brandedLinks.some(l => isValidUrl(l.link)) && (
+                    {brandedLinks.some(l => isValidUrl(l.link) || isUnpaidAgent) && (
                         <AccordionItem value="Preview-Branded">
                             <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                 Matterport Preview-Branded
@@ -305,8 +305,18 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                             <AccordionContent>
                                 <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
                                     {isUnpaidAgent ? (
-                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
-                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                                            <span>You have not paid for this service yet. Pay the service invoice to view and access Matterport links.</span>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => {
+                                                    window.location.href = `/dashboard/billing?order=${orderData?.uuid || ''}`;
+                                                }}
+                                                className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-3.5 py-1.5 h-8 rounded shrink-0 shadow-xs"
+                                            >
+                                                Pay Service Invoice
+                                            </Button>
                                         </div>
                                     ) : isExpired || filesData?.links?.find(l => l.type === "branded")?.is_hidden ? (
                                         <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-3 shadow-xs">
@@ -347,7 +357,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                         </AccordionItem>
                     )}
 
-                    {unbrandedLinks.some(l => isValidUrl(l.link)) && (
+                    {unbrandedLinks.some(l => isValidUrl(l.link) || isUnpaidAgent) && (
                         <AccordionItem value="Preview-Unbranded">
                             <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[15px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                 Matterport Preview-Unbranded
@@ -355,8 +365,18 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                             <AccordionContent>
                                 <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
                                     {isUnpaidAgent ? (
-                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
-                                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                        <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                                            <span>You have not paid for this service yet. Pay the service invoice to view and access Matterport links.</span>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => {
+                                                    window.location.href = `/dashboard/billing?order=${orderData?.uuid || ''}`;
+                                                }}
+                                                className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-3.5 py-1.5 h-8 rounded shrink-0 shadow-xs"
+                                            >
+                                                Pay Service Invoice
+                                            </Button>
                                         </div>
                                     ) : isExpired || filesData?.links?.find(l => l.type === "unbranded")?.is_hidden ? (
                                         <div className="w-[90%] md:w-[80%] bg-amber-50 border border-amber-300 text-amber-900 px-6 py-8 rounded-xl text-center space-y-3 shadow-xs">

@@ -30,6 +30,8 @@ import InvoiceModal from "@/app/dashboard/invoice/components/InvoiceModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { isUserCoAgent } from "@/lib/permissions";
+import { GetInvoicesByOrder } from "@/app/dashboard/invoice/invoice_api";
+import { isRenewalInvoice } from "@/app/dashboard/billing/billing";
 
 const CopyableLink = ({ url }: { url: string }) => {
   const [copied, setCopied] = useState(false);
@@ -82,6 +84,11 @@ const CopyableLink = ({ url }: { url: string }) => {
 };
 
 const MatterportPage = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tourParam = searchParams.get("tour") || searchParams.get("tour_uuid");
+  const autoSelectedRef = useRef<boolean>(false);
+
   const [matterports, setMatterports] = useState<MatterportAd[]>([]);
   const [renewalPlans, setRenewalPlans] = useState<RenewalPlan[]>([]);
   const [filter, setFilter] = useState("Show All");
@@ -98,10 +105,39 @@ const MatterportPage = () => {
   const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
 
-  const handleOpenInvoiceModal = (invoiceUuid: string) => {
+  const handleOpenInvoiceModal = useCallback((invoiceUuid: string) => {
     setSelectedInvoiceUuid(invoiceUuid);
     setIsInvoiceModalOpen(true);
-  };
+  }, []);
+
+  const handlePayServiceInvoice = useCallback(async (tour: MatterportAd) => {
+    if (!tour.orderuud) {
+      router.push("/dashboard/billing");
+      return;
+    }
+    try {
+      toast.info("Fetching service invoice...");
+      const res = await GetInvoicesByOrder(tour.orderuud);
+      const invList = Array.isArray(res?.data) ? res.data : [];
+      const unpaidServiceInv =
+        invList.find(
+          (i: any) =>
+            !isRenewalInvoice(i) &&
+            (i.status || "").toLowerCase() !== "paid" &&
+            (i.status || "").toLowerCase() !== "void",
+        ) ||
+        invList.find((i: any) => !isRenewalInvoice(i)) ||
+        invList[0];
+
+      if (unpaidServiceInv?.uuid) {
+        handleOpenInvoiceModal(unpaidServiceInv.uuid);
+      } else {
+        router.push(`/dashboard/billing?order=${tour.orderuud}`);
+      }
+    } catch {
+      router.push(`/dashboard/billing?order=${tour.orderuud}`);
+    }
+  }, [router, handleOpenInvoiceModal]);
   const [currentUser, setCurrentUser] = useState<any>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -163,10 +199,7 @@ const MatterportPage = () => {
     }
   }, []);
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const tourParam = searchParams.get("tour") || searchParams.get("tour_uuid");
-  const autoSelectedRef = useRef<boolean>(false);
+
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -245,10 +278,21 @@ const MatterportPage = () => {
       if (target) {
         autoSelectedRef.current = true;
         setSelectedTourForRenewal(target);
-        setRenewalModalOpen(true);
+        if (
+          userType === "agent" &&
+          target.orderPaymentStatus &&
+          target.orderPaymentStatus.toUpperCase() !== "PAID"
+        ) {
+          toast.warning(
+            "Please pay your 3D Tour service invoice first before renewing hosting.",
+          );
+          handlePayServiceInvoice(target);
+        } else {
+          setRenewalModalOpen(true);
+        }
       }
     }
-  }, [matterports, tourParam]);
+  }, [matterports, tourParam, handlePayServiceInvoice, userType]);
 
   const handleSendReminder = async (tour: MatterportAd) => {
     const token = localStorage.getItem("token") || "";
@@ -494,7 +538,18 @@ const MatterportPage = () => {
                 size="sm"
                 onClick={() => {
                   setSelectedTourForRenewal(tour);
-                  setRenewalModalOpen(true);
+                  if (
+                    userType === "agent" &&
+                    tour.orderPaymentStatus &&
+                    tour.orderPaymentStatus.toUpperCase() !== "PAID"
+                  ) {
+                    toast.warning(
+                      "Please pay your 3D Tour service invoice first before renewing hosting.",
+                    );
+                    handlePayServiceInvoice(tour);
+                  } else {
+                    setRenewalModalOpen(true);
+                  }
                 }}
                 className="h-8 px-2.5 bg-[#4290E9] hover:bg-[#357ac8] text-white text-xs font-semibold rounded-md shadow-xs flex items-center gap-1"
                 title={userType === "agent" ? "Renew / Pay Hosting" : "Renew Tour Hosting"}
@@ -554,7 +609,7 @@ const MatterportPage = () => {
     }
 
     return cols;
-  }, [isSuperAdmin, sendingReminderUuid, userType]);
+  }, [isSuperAdmin, sendingReminderUuid, userType, handlePayServiceInvoice, handleOpenInvoiceModal]);
 
   if (isMobile) {
     return (
@@ -609,7 +664,18 @@ const MatterportPage = () => {
           userType={userType}
           onRenew={(tour) => {
             setSelectedTourForRenewal(tour);
-            setRenewalModalOpen(true);
+            if (
+              userType === "agent" &&
+              tour.orderPaymentStatus &&
+              tour.orderPaymentStatus.toUpperCase() !== "PAID"
+            ) {
+              toast.warning(
+                "Please pay your 3D Tour service invoice first before renewing hosting.",
+              );
+              handlePayServiceInvoice(tour);
+            } else {
+              setRenewalModalOpen(true);
+            }
           }}
           onViewInvoice={handleOpenInvoiceModal}
           onRemind={handleSendReminder}

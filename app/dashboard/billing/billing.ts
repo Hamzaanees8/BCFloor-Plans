@@ -150,6 +150,33 @@ export const isPartiallyRefunded = (status?: string) => {
   return s === "partially_refunded" || s === "partial_refunded";
 };
 
+export function isRenewalInvoice(inv: any): boolean {
+  if (!inv) return false;
+  if (inv.is_renewal === true || inv.invoice_type === "renewal") return true;
+  const notes = (inv.notes || "").toLowerCase();
+  if (
+    notes.includes("hosting renewal") ||
+    notes.includes("3d tour hosting renewal") ||
+    notes.includes("matterport renewal") ||
+    notes.includes("tour hosting renewal")
+  ) {
+    return true;
+  }
+  return (
+    Array.isArray(inv.items) &&
+    inv.items.some((i: any) => {
+      const desc = (i.description || "").toLowerCase();
+      return (
+        desc.includes("hosting renewal") ||
+        (desc.includes("renewal") &&
+          (desc.includes("matterport") ||
+            desc.includes("3d tour") ||
+            desc.includes("tour hosting")))
+      );
+    })
+  );
+}
+
 export function getBestTargetInvoice(
   invoicesList: any[],
   serviceUuid?: string,
@@ -220,7 +247,10 @@ export function getBestTargetInvoice(
 
     if (serviceInvoices.length > 0) {
       const activeServiceInvoices = serviceInvoices.filter((inv: any) => !isVoidOrCancelled(inv.status));
-      const pool = activeServiceInvoices.length > 0 ? activeServiceInvoices : serviceInvoices;
+      const rawPool = activeServiceInvoices.length > 0 ? activeServiceInvoices : serviceInvoices;
+      // Filter out renewal invoices so the service's own invoice is strictly preferred
+      const nonRenewals = rawPool.filter((inv: any) => !isRenewalInvoice(inv));
+      const pool = nonRenewals.length > 0 ? nonRenewals : rawPool;
 
       if (isCoAgent) {
         const coAgentInv = pool.find((inv: any) => matchesCoAgent(inv));
@@ -244,9 +274,11 @@ export function getBestTargetInvoice(
     }
   }
 
-  // 2. Fallback: select the best overall invoice for the order
+  // 2. Fallback: select the best overall invoice for the order (preferring non-renewals)
   const activeInvoices = invoicesList.filter((inv: any) => !isVoidOrCancelled(inv.status));
-  const pool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
+  const rawOrderPool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
+  const nonRenewalOrderPool = rawOrderPool.filter((inv: any) => !isRenewalInvoice(inv));
+  const pool = nonRenewalOrderPool.length > 0 ? nonRenewalOrderPool : rawOrderPool;
 
   if (isCoAgent) {
     const multiCoInv = pool.find((inv: any) => matchesCoAgent(inv) && (inv.notes?.toLowerCase().includes("consolidated") || (inv.items?.length || 0) > 1));

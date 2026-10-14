@@ -57,7 +57,7 @@ import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-s
 import { Loader2, X } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
-import { isVoidOrCancelled } from "../../billing/billing";
+import { isVoidOrCancelled, isRenewalInvoice } from "../../billing/billing";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -754,9 +754,18 @@ const FileManager = () => {
       }
     });
 
+    const isLinkPresent = (l: any) => {
+      if (l.has_link === true) return true;
+      if (l.has_link === false) return false;
+      if (typeof l.link === "string") return l.link.trim() !== "";
+      if ((l.link === null || l.link === undefined) && (l.uuid || l.id))
+        return true;
+      return false;
+    };
+
     const links = filesData?.links ?? [];
     links.forEach((l) => {
-      if (l.link && String(l.link).trim() !== "") {
+      if (isLinkPresent(l)) {
         if (l.service_id != null) {
           set.add(l.service_id);
           set.add(String(l.service_id));
@@ -772,17 +781,30 @@ const FileManager = () => {
     });
 
     // If any 3D link exists in the tour, match any 3D/Matterport service in the order
-    const hasAny3DLink = links.some(
-      (l) => l.link && String(l.link).trim() !== "",
-    );
+    const hasAny3DLink = links.some(isLinkPresent);
     if (hasAny3DLink) {
       services.forEach((s) => {
-        const sName = s.service?.name?.toLowerCase() || "";
-        const cName = (s.service as any)?.category?.name?.toLowerCase() || "";
+        const sName = (
+          s.service?.name ||
+          (s as any).service_name ||
+          (s as any).name ||
+          ""
+        ).toLowerCase();
+        const cName = (
+          (s.service as any)?.category?.name ||
+          (s as any)?.category_name ||
+          ""
+        ).toLowerCase();
         if (
           sName.includes("matterport") ||
           sName.includes("3d tour") ||
           sName.includes("3d floor") ||
+          sName.includes("virtual tour") ||
+          sName.includes("3d rendering") ||
+          sName.includes("3d walkthrough") ||
+          sName.includes("3d/matterport") ||
+          sName.includes("3d / matterport") ||
+          sName === "3d" ||
           cName.includes("3d") ||
           cName.includes("matterport")
         ) {
@@ -796,6 +818,12 @@ const FileManager = () => {
           }
           if (s.service?.uuid) {
             set.add(s.service.uuid);
+          }
+          if ((s as any).order_service_uuid) {
+            set.add((s as any).order_service_uuid);
+          }
+          if (s.uuid) {
+            set.add(s.uuid);
           }
         }
       });
@@ -1224,10 +1252,16 @@ const FileManager = () => {
         const desc = (i.description || "").toLowerCase();
         const custom = (i.custom || "").toLowerCase();
         const sName = serviceName.toLowerCase();
+        // Do not match hosting renewal descriptions when matching a service by name
+        const isRenewalItem =
+          desc.includes("hosting renewal") ||
+          (desc.includes("renewal") &&
+            (desc.includes("matterport") || desc.includes("3d tour")));
         if (
-          desc.includes(sName) ||
-          sName.includes(desc) ||
-          custom.includes(sName)
+          !isRenewalItem &&
+          (desc.includes(sName) ||
+            sName.includes(desc) ||
+            custom.includes(sName))
         )
           return true;
       }
@@ -1283,6 +1317,16 @@ const FileManager = () => {
       matchingInvoices = invoicesToSearch.filter((inv: any) =>
         inv.items?.some(isItemMatch),
       );
+    }
+
+    // When a specific service is requested (e.g. from BlockedMediaMessage), strictly prefer service invoices over renewal invoices
+    if (isSpecificServiceRequested) {
+      const nonRenewals = matchingInvoices.filter(
+        (inv: any) => !isRenewalInvoice(inv),
+      );
+      if (nonRenewals.length > 0) {
+        matchingInvoices = nonRenewals;
+      }
     }
 
     // Prefer single-service invoices over consolidated if both exist
@@ -2475,6 +2519,15 @@ const FileManager = () => {
                                 >
                                   {status}
                                 </span>
+                                {isRenewalInvoice(invoice) ? (
+                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                                    Hosting Renewal
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                                    Service Invoice
+                                  </span>
+                                )}
                                 {invoice.agent_type && (
                                   <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
                                     {invoice.agent_type}
@@ -2631,9 +2684,20 @@ const FileManager = () => {
                       >
                         Invoice
                       </span>
-                      <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 mt-1.5 break-all">
-                        #{viewingInvoice.invoice_number || viewingInvoice.id}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 break-all">
+                          #{viewingInvoice.invoice_number || viewingInvoice.id}
+                        </span>
+                        {isRenewalInvoice(viewingInvoice) ? (
+                          <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                            Hosting Renewal Invoice
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                            Service Order Invoice
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div

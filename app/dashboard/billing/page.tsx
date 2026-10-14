@@ -34,6 +34,7 @@ import {
   prepareOrderInvoicePreview,
   getServiceActualInvoicePricing,
   prepareServiceInvoicePreview,
+  isRenewalInvoice,
 } from "./billing";
 import {
   ChevronDown,
@@ -681,8 +682,17 @@ const Page = () => {
             serviceIdsWithMedia.add(f.service.uuid);
           }
         });
+        const isLinkPresent = (l: any) => {
+          if (l.has_link === true) return true;
+          if (l.has_link === false) return false;
+          if (typeof l.link === "string") return l.link.trim() !== "";
+          if ((l.link === null || l.link === undefined) && (l.uuid || l.id))
+            return true;
+          return false;
+        };
+
         links.forEach((l: any) => {
-          if (l.link && String(l.link).trim() !== "") {
+          if (isLinkPresent(l)) {
             if (l.service_id != null) {
               serviceIdsWithMedia.add(l.service_id);
               serviceIdsWithMedia.add(String(l.service_id));
@@ -698,16 +708,37 @@ const Page = () => {
         });
 
         // Match 3D/Matterport service if any 3D link exists in tour
-        const hasAny3DLink = links.some(
-          (l: any) => l.link && String(l.link).trim() !== "",
-        );
-        if (hasAny3DLink && Array.isArray(services)) {
-          services.forEach((s: any) => {
-            const sName = (s.service?.name || s.name || "").toLowerCase();
+        const hasAny3DLink = links.some(isLinkPresent);
+        const targetServices =
+          Array.isArray(services) && services.length > 0
+            ? services
+            : billings.find((b) => b.order_uuid === orderUuid)?.services || [];
+
+        if (hasAny3DLink && Array.isArray(targetServices)) {
+          targetServices.forEach((s: any) => {
+            const sName = (
+              s.service_name ||
+              s.service?.name ||
+              s.name ||
+              ""
+            ).toLowerCase();
+            const cName = (
+              (s.service as any)?.category?.name ||
+              (s as any)?.category_name ||
+              ""
+            ).toLowerCase();
             if (
               sName.includes("matterport") ||
               sName.includes("3d tour") ||
-              sName.includes("3d floor")
+              sName.includes("3d floor") ||
+              sName.includes("virtual tour") ||
+              sName.includes("3d rendering") ||
+              sName.includes("3d walkthrough") ||
+              sName.includes("3d/matterport") ||
+              sName.includes("3d / matterport") ||
+              sName === "3d" ||
+              cName.includes("3d") ||
+              cName.includes("matterport")
             ) {
               if (s.service_id != null) {
                 serviceIdsWithMedia.add(s.service_id);
@@ -723,6 +754,12 @@ const Page = () => {
               }
               if (s.service?.uuid) {
                 serviceIdsWithMedia.add(s.service.uuid);
+              }
+              if (s.order_service_uuid) {
+                serviceIdsWithMedia.add(s.order_service_uuid);
+              }
+              if (s.uuid) {
+                serviceIdsWithMedia.add(s.uuid);
               }
             }
           });
@@ -742,7 +779,7 @@ const Page = () => {
         setRowMediaLoading((prev) => ({ ...prev, [orderUuid]: false }));
       }
     },
-    [],
+    [billings],
   );
 
   const toggleRow = (orderUuid: string) => {
@@ -1684,10 +1721,15 @@ const Page = () => {
                         const servicesWithoutMedia = agentMediaRestriction
                           ? billing.services.filter((svc) => {
                               const svcId = svc.service_id;
-                              return (
-                                !serviceMediaSet.has(svcId) &&
-                                !serviceMediaSet.has(String(svcId))
-                              );
+                              const hasMedia =
+                                serviceMediaSet.has(svcId) ||
+                                serviceMediaSet.has(String(svcId)) ||
+                                (svc.order_service_uuid &&
+                                  serviceMediaSet.has(
+                                    svc.order_service_uuid,
+                                  )) ||
+                                (svc.uuid && serviceMediaSet.has(svc.uuid));
+                              return !hasMedia;
                             })
                           : [];
                         const payAllBlockedByMedia =
@@ -2440,7 +2482,13 @@ const Page = () => {
                                         svcMediaSet.has(serviceNumericId) ||
                                         svcMediaSet.has(
                                           String(serviceNumericId),
-                                        );
+                                        ) ||
+                                        (service.order_service_uuid &&
+                                          svcMediaSet.has(
+                                            service.order_service_uuid,
+                                          )) ||
+                                        (service.uuid &&
+                                          svcMediaSet.has(service.uuid));
                                       const servicePayBlockedByMedia =
                                         userType === "agent" &&
                                         svcMediaSet !== undefined &&
@@ -3086,6 +3134,25 @@ const Page = () => {
               (() => {
                 const isCoAgentUser =
                   userType === "agent" && isUserCoAgent(currentUser, userType);
+                let isMatterportService = false;
+                if (selectedServiceId && selectedBilling?.services) {
+                  const targetSvc = selectedBilling.services.find(
+                    (s: any) =>
+                      s.uuid === selectedServiceId ||
+                      s.order_service_uuid === selectedServiceId ||
+                      s.service_id?.toString() === selectedServiceId,
+                  );
+                  const name = (targetSvc?.service_name || "").toLowerCase();
+                  if (
+                    name.includes("matterport") ||
+                    name.includes("3d tour") ||
+                    name.includes("3d floor") ||
+                    name.includes("virtual tour")
+                  ) {
+                    isMatterportService = true;
+                  }
+                }
+
                 let filteredList = selectedServiceId
                   ? invoices.filter((inv) => {
                       const isLateFee =
@@ -3094,7 +3161,7 @@ const Page = () => {
                         inv.type === "late_fee" ||
                         inv.is_late_fee;
                       if (isLateFee) return false;
-                      return inv.items?.some((i: any) => {
+                      const hasServiceItem = inv.items?.some((i: any) => {
                         const sUuid =
                           i.order_service?.uuid ||
                           i.orderService?.uuid ||
@@ -3116,6 +3183,12 @@ const Page = () => {
                             svcId.toString() === selectedServiceId)
                         );
                       });
+                      if (hasServiceItem) return true;
+                      // Include renewal invoices when viewing Matterport service
+                      if (isMatterportService && isRenewalInvoice(inv)) {
+                        return true;
+                      }
+                      return false;
                     })
                   : invoices.filter(
                       (inv) =>
@@ -3126,7 +3199,8 @@ const Page = () => {
                         inv.notes?.toLowerCase().includes("late fee") ||
                         inv.notes?.toLowerCase().includes("late_fee") ||
                         inv.type === "late_fee" ||
-                        inv.is_late_fee,
+                        inv.is_late_fee ||
+                        isRenewalInvoice(inv),
                     );
 
                 // If single-service invoices exist for this service, prefer them over consolidated
@@ -3156,6 +3230,17 @@ const Page = () => {
                     return isOwner || inv.agent_type === "co-agent";
                   });
                 }
+
+                // Sort: Service order invoices first, then hosting renewals, then by issued_at descending
+                filteredList.sort((a, b) => {
+                  const aRenewal = isRenewalInvoice(a) ? 1 : 0;
+                  const bRenewal = isRenewalInvoice(b) ? 1 : 0;
+                  if (aRenewal !== bRenewal) return aRenewal - bRenewal;
+                  return (
+                    new Date(b.issued_at || 0).getTime() -
+                    new Date(a.issued_at || 0).getTime()
+                  );
+                });
 
                 if (filteredList.length === 0) {
                   return (
@@ -3225,6 +3310,15 @@ const Page = () => {
                               >
                                 {badgeText}
                               </span>
+                              {isRenewalInvoice(invoice) ? (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                                  Hosting Renewal
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                                  Service Invoice
+                                </span>
+                              )}
                               {invoice.agent_type && (
                                 <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-[#BBBBBB]">
                                   {invoice.agent_type}{" "}
@@ -3553,12 +3647,23 @@ const Page = () => {
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-[#BBBBBB]">
               <div className="flex justify-between items-center w-full sm:w-auto">
-                <h2
-                  className="text-base sm:text-xl font-bold"
-                  style={{ color: roleSettings.pageTabColor }}
-                >
-                  Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
-                </h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2
+                    className="text-base sm:text-xl font-bold"
+                    style={{ color: roleSettings.pageTabColor }}
+                  >
+                    Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
+                  </h2>
+                  {isRenewalInvoice(viewingInvoice) ? (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                      Hosting Renewal
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                      Service Invoice
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => setViewingInvoice(null)}
                   className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"
@@ -3797,14 +3902,25 @@ const Page = () => {
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-[#BBBBBB]">
               <div className="flex justify-between items-center w-full sm:w-auto">
-                <h2
-                  className="text-base sm:text-xl font-bold"
-                  style={{ color: roleSettings.pageTabColor }}
-                >
-                  Invoice #
-                  {serviceInvoicePopup.invoice.invoice_number ||
-                    serviceInvoicePopup.invoice.id}
-                </h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2
+                    className="text-base sm:text-xl font-bold"
+                    style={{ color: roleSettings.pageTabColor }}
+                  >
+                    Invoice #
+                    {serviceInvoicePopup.invoice.invoice_number ||
+                      serviceInvoicePopup.invoice.id}
+                  </h2>
+                  {isRenewalInvoice(serviceInvoicePopup.invoice) ? (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                      Hosting Renewal
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                      Service Invoice
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => setServiceInvoicePopup(null)}
                   className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"

@@ -113,6 +113,7 @@ export interface MatterportAd {
     taxAmount?: number;
     paymentStatus?: string;
   } | null;
+  orderPaymentStatus?: string;
 }
 
 export async function GetMatterPort(token: string, status = "all", search = "") {
@@ -263,6 +264,7 @@ export const mapMatterportApiToAd = (
     coAgents: coAgentsList,
     orderNumber: orderObj?.id ? `#${orderObj.id}` : "",
     orderuud: orderObj?.uuid ?? "",
+    orderPaymentStatus: orderObj?.payment_status || "UNPAID",
     propertyuuid: orderObj?.property?.uuid ?? "",
     address: orderObj ? `${orderObj.property_address || ""}, ${orderObj.property_location || ""}`.trim() : "N/A",
     organizationName: org?.name || "Global / None",
