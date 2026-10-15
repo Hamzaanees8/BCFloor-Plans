@@ -339,7 +339,7 @@ const MatterportPage = () => {
       );
     }
 
-    if (isCoAgent && currentUser) {
+    if ((userType === "agent" || isCoAgent) && currentUser) {
       const u = currentUser.data || currentUser.user || currentUser;
       const userEmail = (
         u.primary_email ||
@@ -378,7 +378,7 @@ const MatterportPage = () => {
     }
 
     return result;
-  }, [matterports, filter, addressFilter, orgFilter, isCoAgent, currentUser]);
+  }, [matterports, filter, addressFilter, orgFilter, isCoAgent, currentUser, userType]);
 
   const columns = useMemo<ColumnDef<MatterportAd>[]>(() => {
     const cols: ColumnDef<MatterportAd>[] = [

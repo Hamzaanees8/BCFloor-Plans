@@ -1031,10 +1031,16 @@ const AgentForm = () => {
             type: logo.type || "General",
             path: logo.path || undefined,
           }))
-          .filter((l: CompanyLogoState) => Boolean(l.url));
+          .filter(
+            (l: CompanyLogoState) =>
+              Boolean(l.url) && !l.path?.startsWith("organizations/"),
+          );
 
         setCompanyLogos(parsedLogos);
-      } else if (currentUser.company_logo_url || currentUser.company_logo) {
+      } else if (
+        (currentUser.company_logo_url || currentUser.company_logo) &&
+        !currentUser.company_logo?.includes("organizations/")
+      ) {
         setCompanyLogos([
           {
             uuid: "default-logo",
@@ -1576,6 +1582,19 @@ const AgentForm = () => {
           try {
             await uploadFiles(filesToUpload, agentUuid);
             toast.success("Logos uploaded successfully");
+            // If editing an existing agent, re-fetch fresh agent data to ensure payload has exact S3 paths
+            if (!isNewAgent) {
+              const freshAgent = await GetOne(agentUuid);
+              if (freshAgent?.data?.company_logos) {
+                payload.company_logos = freshAgent.data.company_logos.map(
+                  (l: any) => ({
+                    type: l.type || "General",
+                    path: l.path,
+                    uuid: l.uuid,
+                  }),
+                );
+              }
+            }
           } catch (error) {
             console.error("Failed to upload logos:", error);
             toast.error("Logo upload failed, proceeding to save agent data");

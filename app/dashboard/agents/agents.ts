@@ -100,15 +100,22 @@ export function payloadToFormData(payload: AgentPayload): FormData {
             });
           }
         } else if (key === 'company_logos') {
-          value.forEach((logo, index) => {
-            if (logo.file) {
-              formData.append(`${key}[${index}][file]`, logo.file);
-            }
-            formData.append(`${key}[${index}][type]`, logo.type || '');
-            if (logo.uuid) {
-              formData.append(`${key}[${index}][uuid]`, logo.uuid);
-            }
-          });
+          if (value.length === 0) {
+            formData.append('company_logos', '');
+          } else {
+            value.forEach((logo, index) => {
+              if (logo.file) {
+                formData.append(`${key}[${index}][file]`, logo.file);
+              }
+              formData.append(`${key}[${index}][type]`, logo.type || '');
+              if (logo.path) {
+                formData.append(`${key}[${index}][path]`, logo.path);
+              }
+              if (logo.uuid) {
+                formData.append(`${key}[${index}][uuid]`, logo.uuid);
+              }
+            });
+          }
         } else {
           value.forEach(val => {
             formData.append(key + "[]", val);

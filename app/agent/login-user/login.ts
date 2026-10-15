@@ -5,6 +5,7 @@ type LoginPayload = {
     password: string;
     role: string;
     organization_id?: number;
+    organization_slug?: string;
     domain?: string;
 };
 
@@ -19,7 +20,6 @@ type LoginResponse = {
         type: string
     }
 };
-
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -38,4 +38,40 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     }
 
     return await res.json();
+}
+
+export type AgentSignupPayload = {
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+    organization_slug?: string;
+    organization_id?: number;
+    company_name?: string;
+    primary_phone?: string;
+};
+
+export async function agentSignup(payload: AgentSignupPayload) {
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com').replace(/\/api\/?$/, '');
+    const res = await fetch(`${baseUrl}/api/agent/signup`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        if (json.errors) {
+            const firstKey = Object.keys(json.errors)[0];
+            const msg = json.errors[firstKey]?.[0];
+            throw new Error(msg || json.message || "Signup failed");
+        }
+        throw new Error(json.message || "Signup failed");
+    }
+
+    return json;
 }
