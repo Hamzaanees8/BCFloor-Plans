@@ -1,4 +1,5 @@
 import { ListingsPayload } from "../listings/listing";
+import { DateTime } from "luxon";
 
 export interface OrderPayload {
   agent_id: string;
@@ -876,6 +877,39 @@ export async function getPropertyTimezone(address: string): Promise<PropertyLoca
   }
 }
 
+/**
+ * Resolves a Canadian province or location string to its standard IANA timezone.
+ */
+export function resolveTimezoneFromProvince(
+  provinceOrLocation?: string,
+  defaultTz = "America/Vancouver"
+): string {
+  if (!provinceOrLocation) return defaultTz;
+
+  const loc = provinceOrLocation.trim().toUpperCase();
+
+  // If already an IANA timezone string (contains '/')
+  if (loc.includes("/")) return provinceOrLocation.trim();
+
+  // Check Canadian provinces
+  if (loc.includes("BC") || loc.includes("BRITISH COLUMBIA")) return "America/Vancouver";
+  if (loc.includes("AB") || loc.includes("ALBERTA")) return "America/Edmonton";
+  if (loc.includes("SK") || loc.includes("SASKATCHEWAN")) return "America/Regina";
+  if (loc.includes("MB") || loc.includes("MANITOBA")) return "America/Winnipeg";
+  if (loc.includes("ON") || loc.includes("ONTARIO")) return "America/Toronto";
+  if (loc.includes("QC") || loc.includes("QUEBEC")) return "America/Toronto";
+  if (loc.includes("NB") || loc.includes("NEW BRUNSWICK")) return "America/Halifax";
+  if (loc.includes("NS") || loc.includes("NOVA SCOTIA")) return "America/Halifax";
+  if (loc.includes("PE") || loc.includes("PRINCE EDWARD")) return "America/Halifax";
+  if (loc.includes("NL") || loc.includes("NEWFOUNDLAND")) return "America/St_Johns";
+
+  // US States
+  if (loc.includes("CA") || loc.includes("CALIFORNIA") || loc.includes("WA") || loc.includes("WASHINGTON")) return "America/Los_Angeles";
+  if (loc.includes("NY") || loc.includes("NEW YORK") || loc.includes("FL") || loc.includes("FLORIDA")) return "America/New_York";
+
+  return defaultTz;
+}
+
 
 export function convertTimeToUTC(date: string, time: string, fromTimezone: string): string {
   const timeParts = time.split(':');
@@ -947,6 +981,32 @@ export function convertUTCToTimezone(utcTime: string, toTimezone: string): strin
 }
 
 
+/**
+ * Converts a time string (HH:mm or HH:mm:ss) from one IANA timezone to another on a specific date.
+ * If timezones are identical, missing, or conversion fails, returns the timeStr as-is.
+ */
+export function convertTimeToTimezone(
+  dateStr: string,
+  timeStr?: string,
+  fromTz?: string,
+  toTz?: string
+): string | undefined {
+  if (!timeStr) return undefined;
+  if (!fromTz || !toTz || fromTz === toTz) return timeStr;
+
+  const cleanTime = timeStr.trim().slice(0, 5); // ensures "HH:mm"
+  try {
+    const dt = DateTime.fromISO(`${dateStr}T${cleanTime}`, { zone: fromTz }).setZone(toTz);
+    return dt.isValid ? dt.toFormat("HH:mm") : timeStr;
+  } catch {
+    return timeStr;
+  }
+}
+
+/**
+ * Converts vendor working hours and breaks to the property's local timezone.
+ * If timezones match or either is missing, returns workHours directly with zero overhead.
+ */
 export function convertVendorWorkHoursToPropertyTimezone(
   date: string,
   workHours: {
@@ -962,10 +1022,8 @@ export function convertVendorWorkHoursToPropertyTimezone(
       is_twilight: string | number | boolean;
     }[];
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  vendorTimezone: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  propertyTimezone: string
+  vendorTimezone?: string,
+  propertyTimezone?: string
 ): {
   start_time?: string;
   end_time?: string;
@@ -979,73 +1037,62 @@ export function convertVendorWorkHoursToPropertyTimezone(
     is_twilight: string | number | boolean;
   }[];
 } {
-  // Bypassing timezone conversion for now: return workHours directly
-  return workHours;
-
-  /*
-  if (vendorTimezone === propertyTimezone) {
+  // Guard: If timezones match or either is missing, return as-is immediately (Zero Regression)
+  if (!vendorTimezone || !propertyTimezone || vendorTimezone === propertyTimezone) {
     return workHours;
   }
 
-  const converted: typeof workHours = { ...workHours };
+  const converted = { ...workHours };
 
   if (workHours.start_time) {
-    const utcTime = convertTimeToUTC(date, workHours.start_time, vendorTimezone);
-    converted.start_time = convertUTCToTimezone(utcTime, propertyTimezone);
+    converted.start_time = convertTimeToTimezone(date, workHours.start_time, vendorTimezone, propertyTimezone);
   }
-
   if (workHours.end_time) {
-    const utcTime = convertTimeToUTC(date, workHours.end_time, vendorTimezone);
-    converted.end_time = convertUTCToTimezone(utcTime, propertyTimezone);
+    converted.end_time = convertTimeToTimezone(date, workHours.end_time, vendorTimezone, propertyTimezone);
   }
-
   if (workHours.break_start) {
-    const utcTime = convertTimeToUTC(date, workHours.break_start, vendorTimezone);
-    converted.break_start = convertUTCToTimezone(utcTime, propertyTimezone);
+    converted.break_start = convertTimeToTimezone(date, workHours.break_start, vendorTimezone, propertyTimezone);
   }
-
   if (workHours.break_end) {
-    const utcTime = convertTimeToUTC(date, workHours.break_end, vendorTimezone);
-    converted.break_end = convertUTCToTimezone(utcTime, propertyTimezone);
+    converted.break_end = convertTimeToTimezone(date, workHours.break_end, vendorTimezone, propertyTimezone);
   }
 
-  if (workHours.work_days && Array.isArray(workHours.work_days)) {
-    converted.work_days = workHours.work_days.map(day => {
-      const isDayOff = day.is_off === '1' || day.is_off === 1 || day.is_off === true;
+  if (Array.isArray(workHours.work_days)) {
+    converted.work_days = workHours.work_days.map((day) => {
+      const isDayOff = day.is_off === "1" || day.is_off === 1 || day.is_off === true;
       if (isDayOff) {
         return day;
       }
 
-      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-      const targetDayIndex = dayNames.indexOf(day.day.toLowerCase());
-      const currentDate = new Date(date);
-      const currentDayIndex = currentDate.getDay();
-
-      let daysDiff = targetDayIndex - currentDayIndex;
-      if (daysDiff < 0) {
-        daysDiff += 7;
-      }
-
-      const dayDate = new Date(currentDate);
-      dayDate.setDate(currentDate.getDate() + daysDiff);
-      const dayDateStr = dayDate.toISOString().split('T')[0];
-
-      const startUtc = convertTimeToUTC(dayDateStr, day.start_time, vendorTimezone);
-      const endUtc = convertTimeToUTC(dayDateStr, day.end_time, vendorTimezone);
-
-      const convertedStartTime = convertUTCToTimezone(startUtc, propertyTimezone);
-      const convertedEndTime = convertUTCToTimezone(endUtc, propertyTimezone);
-
       return {
         ...day,
-        start_time: convertedStartTime,
-        end_time: convertedEndTime,
+        start_time: convertTimeToTimezone(date, day.start_time, vendorTimezone, propertyTimezone) || day.start_time,
+        end_time: convertTimeToTimezone(date, day.end_time, vendorTimezone, propertyTimezone) || day.end_time,
       };
     });
   }
 
   return converted;
-  */
+}
+
+/**
+ * Converts vendor additional breaks to the property's local timezone.
+ */
+export function convertVendorBreaksToPropertyTimezone<T extends { start_time?: string; end_time?: string }>(
+  date: string,
+  breaks: T[],
+  vendorTimezone?: string,
+  propertyTimezone?: string
+): T[] {
+  if (!breaks || !breaks.length || !vendorTimezone || !propertyTimezone || vendorTimezone === propertyTimezone) {
+    return breaks;
+  }
+
+  return breaks.map((brk) => ({
+    ...brk,
+    start_time: convertTimeToTimezone(date, brk.start_time, vendorTimezone, propertyTimezone) || brk.start_time,
+    end_time: convertTimeToTimezone(date, brk.end_time, vendorTimezone, propertyTimezone) || brk.end_time,
+  }));
 }
 
 export async function SyncToMls(

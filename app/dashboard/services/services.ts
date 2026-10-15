@@ -75,7 +75,9 @@ interface ServicePayload {
 export interface PackagePayload {
     name: string;
     discount: number;
+    discount_type?: 'percentage' | 'dollar';
     service_ids: string[];
+    description?: string | null;
     status?: boolean | number;
 }
 export interface UpdateServicePayload {
@@ -163,7 +165,7 @@ export function packagePayloadToFormData(payload: PackagePayload): FormData {
         if (
             value === undefined ||
             value === null ||
-            value === '' ||
+            (value === '' && key !== 'description') ||
             (Array.isArray(value) && value.length === 0)
         ) {
             continue;
@@ -444,6 +446,20 @@ export async function UpdateVendorServiceStatus(vendorServiceId: string, payload
 
 export async function DeleteService(setviceId: string, token: string) {
     const response = await api.delete(`/services/${setviceId}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function DeletePackage(packageId: string, token: string) {
+    const response = await api.delete(`/packages/${packageId}`, {
         headers: {
             Authorization: `Bearer ${token}`,
         },

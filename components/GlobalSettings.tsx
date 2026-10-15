@@ -250,7 +250,7 @@ const GlobalSettings = () => {
     const [endTime, setEndTime] = useState("8:00 AM");
     const [workWeek, setWorkWeek] = useState<string[]>([]);
     const [repeat, setRepeat] = useState("");
-    const [timeZone, setTimeZone] = useState("America/Edmonton");
+    const [timeZone, setTimeZone] = useState("America/Vancouver");
     const [commuteTime, setCommuteTime] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [discounts, setDiscounts] = React.useState<Discount[]>([]);

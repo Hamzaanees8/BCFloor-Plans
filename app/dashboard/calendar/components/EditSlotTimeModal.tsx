@@ -26,7 +26,7 @@ import { Services } from "../../services/page";
 import OneDayCalendar from "../../orders/components/OneDayCalendar";
 import { useOrderContext, Slot } from "../../orders/context/OrderContext";
 import { splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
-import { UpdateSlotTime, getPropertyTimezone } from "../../orders/orders";
+import { UpdateSlotTime, getPropertyTimezone, resolveTimezoneFromProvince } from "../../orders/orders";
 import { sendEmailNotification } from "../calendar";
 import { api } from "@/lib/api";
 import { useAppContext } from "@/app/context/AppContext";
@@ -140,9 +140,20 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
         const loc = await getPropertyTimezone(
           currentOrder.property_address || "",
         );
-        setPropertyTimezone(loc?.timeZoneId || undefined);
+        const resolved =
+          loc?.timeZoneId ||
+          resolveTimezoneFromProvince(
+            currentOrder.property?.province || currentOrder.property_location,
+            "America/Vancouver",
+          );
+        setPropertyTimezone(resolved);
       } catch (err) {
         console.error("Failed to fetch property timezone:", err);
+        const fallback = resolveTimezoneFromProvince(
+          currentOrder.property?.province || currentOrder.property_location,
+          "America/Vancouver",
+        );
+        setPropertyTimezone(fallback);
       }
     };
     fetchTimezone();

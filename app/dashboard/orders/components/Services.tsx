@@ -318,10 +318,12 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     }, 0);
 
     const discount = activePackage
-        ? rawTotalPrice * ((activePackage.discount || 0) / 100)
+        ? (activePackage.discount_type === 'dollar'
+            ? Math.min(rawTotalPrice, Number(activePackage.discount) || 0)
+            : rawTotalPrice * ((Number(activePackage.discount) || 0) / 100))
         : 0;
 
-    const totalPrice = rawTotalPrice - discount;
+    const totalPrice = Math.max(0, rawTotalPrice - discount);
 
     return (
         <div className='px-[10px] flex flex-col gap-[15px] font-alexandria mt-[20px]'>
@@ -631,7 +633,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                                 <span>{activePackage.name}</span>
                                             </div>
                                             <div className="flex justify-between text-[11px] text-green-600 font-[500]">
-                                                <span>Discount ({activePackage.discount}%)</span>
+                                                <span>Discount ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`})</span>
                                                 <span>- ${discount.toFixed(2)}</span>
                                             </div>
                                         </>

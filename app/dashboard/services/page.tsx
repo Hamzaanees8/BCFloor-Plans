@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService, UpdatePackageStatus, BulkUpdateServiceSort } from './services';
+import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService, DeletePackage, UpdatePackageStatus, BulkUpdateServiceSort } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
@@ -77,9 +77,11 @@ export interface Packages {
   id: number;
   uuid?: string;
   name?: string;
+  description?: string;
   status?: boolean;
   services: Services[];
   discount?: number;
+  discount_type?: 'percentage' | 'dollar';
 }
 
 const Page = () => {
@@ -162,11 +164,13 @@ const Page = () => {
   const handleDelete = async (listingId: string, isPackage = false) => {
     try {
       const token = localStorage.getItem("token") || "";
-      await DeleteService(listingId, token);
-      toast.success(isPackage ? "Package deleted successfully" : "Service deleted successfully");
       if (isPackage) {
+        await DeletePackage(listingId, token);
+        toast.success("Package deleted successfully");
         setPackagesData((prev) => prev.filter((pkg) => pkg.uuid !== listingId));
       } else {
+        await DeleteService(listingId, token);
+        toast.success("Service deleted successfully");
         setServicesData((prev) => prev.filter((service) => service.uuid !== listingId));
       }
     } catch (error) {
@@ -375,6 +379,18 @@ const Page = () => {
           {row.original.services?.length > 3 && " ..."}
         </div>
       )
+    },
+    {
+      header: "Discount",
+      cell: ({ row }) => {
+        const pkg = row.original;
+        if (!pkg.discount || pkg.discount <= 0) return <span>-</span>;
+        return (
+          <div className="text-[15px] font-[400]" style={{ color: roleSettings.pageText }}>
+            {pkg.discount_type === 'dollar' ? `$${pkg.discount}` : `${pkg.discount}%`}
+          </div>
+        );
+      }
     },
     {
       header: "Status",

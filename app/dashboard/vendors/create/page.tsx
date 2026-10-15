@@ -275,7 +275,7 @@ const VendorForm = () => {
     })),
     break_start: "13:00",
     break_end: "14:00",
-    timezone: "America/Edmonton",
+    timezone: "America/Vancouver",
     commuteTime: 30,
     repeat: true,
     googleSync: false,
@@ -594,7 +594,7 @@ const VendorForm = () => {
       if (currentUser?.work_hours || currentUser?.settings) {
         setWorkHours((prev) => ({
           ...prev,
-          timezone: currentUser.work_hours?.timezone || "America/Edmonton",
+          timezone: currentUser.work_hours?.timezone || "America/Vancouver",
           break_start: currentUser.work_hours?.break_start || "",
           break_end: currentUser.work_hours?.break_end || "",
           commuteTime: currentUser.work_hours?.commute_minutes || 0,

@@ -33,6 +33,9 @@ const Page = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
   const [monthsToLoad, setMonthsToLoad] = React.useState(1);
+  const [dateScope, setDateScope] = React.useState<string>("1");
+  const [customStartDate, setCustomStartDate] = React.useState<string>("");
+  const [customEndDate, setCustomEndDate] = React.useState<string>("");
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   const { userType, setUnreadNotificationCount } = useAppContext();
@@ -63,10 +66,40 @@ const Page = () => {
   const [searchName, setSearchName] = React.useState("");
   const [filterReadStatus, setFilterReadStatus] = React.useState("all");
 
-  const fetchNotifications = async (months: number, isLoadMore = false) => {
+  const getDateScopeLabel = (scope: string) => {
+    switch (scope) {
+      case "1":
+        return "Last 30 Days";
+      case "3":
+        return "Last 3 Months";
+      case "6":
+        return "Last 6 Months";
+      case "12":
+        return "Last 1 Year";
+      case "all":
+        return "All Dates";
+      case "custom":
+        return customStartDate && customEndDate
+          ? `${customStartDate} to ${customEndDate}`
+          : "Custom Range";
+      default:
+        return `${scope} Months`;
+    }
+  };
+
+  const fetchNotifications = async (
+    options?: {
+      scope?: string;
+      months?: number;
+      startDate?: string;
+      endDate?: string;
+      isLoadMore?: boolean;
+    }
+  ) => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
+    const isLoadMore = options?.isLoadMore || false;
     if (isLoadMore) {
       setIsLoadingMore(true);
     } else {
@@ -75,7 +108,20 @@ const Page = () => {
     setError(false);
 
     try {
-      const res = await GetNotifications(token, months);
+      const activeScope = options?.scope ?? dateScope;
+      let filterParam: any = {};
+      if (activeScope === "all") {
+        filterParam = { all: true };
+      } else if (activeScope === "custom") {
+        const s = options?.startDate ?? customStartDate;
+        const e = options?.endDate ?? customEndDate;
+        filterParam = { start_date: s || undefined, end_date: e || undefined };
+      } else {
+        const m = options?.months ?? (Number(activeScope) || 1);
+        filterParam = { months: m };
+      }
+
+      const res = await GetNotifications(token, filterParam);
       const data = res.data || [];
 
       if (isLoadMore) {
@@ -85,15 +131,6 @@ const Page = () => {
         const newNotifications = data.filter(
           (n: NotificationData) => !existingUuids.has(n.uuid),
         );
-
-        // Keep hasMore true - only set to false if API returns empty or same data
-        if (
-          data.length === 0 ||
-          (newNotifications.length === 0 &&
-            data.length === notificationData.length)
-        ) {
-
-        }
 
         // Always combine data even if no new notifications
         const combined = [...notificationData, ...newNotifications];
@@ -107,11 +144,11 @@ const Page = () => {
 
         // Show success toast
         toast.success(
-          `Loaded ${newNotifications.length} new notification${newNotifications.length !== 1 ? "s" : ""} from month ${months}`,
+          `Loaded ${newNotifications.length} new notification${newNotifications.length !== 1 ? "s" : ""}`,
           { id: "load-notifications" },
         );
       } else {
-        // Initial load
+        // Initial or filter-changed load
         setNotificationData(data);
 
         // Calculate unread from initial data
@@ -137,18 +174,49 @@ const Page = () => {
   };
 
   useEffect(() => {
-    fetchNotifications(monthsToLoad, monthsToLoad > 1);
+    fetchNotifications({ scope: "1", months: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthsToLoad]);
+  }, []);
+
+  const handleDateScopeChange = (value: string) => {
+    setDateScope(value);
+    if (value !== "custom") {
+      const months = Number(value) || 1;
+      setMonthsToLoad(months);
+      fetchNotifications({ scope: value, months });
+    }
+  };
+
+  const handleApplyCustomRange = () => {
+    if (!customStartDate && !customEndDate) {
+      toast.error("Please select a start or end date.");
+      return;
+    }
+    fetchNotifications({
+      scope: "custom",
+      startDate: customStartDate,
+      endDate: customEndDate,
+    });
+  };
 
   const handleLoadMore = () => {
-    const newMonths = monthsToLoad + 1;
+    if (dateScope === "all") {
+      toast.info("All notifications are already loaded.");
+      return;
+    }
+    const currentMonths = Number(dateScope) || monthsToLoad;
+    const newMonths = currentMonths + 1;
     toast.loading(`Loading month ${newMonths} notifications...`, {
       id: "load-notifications",
       duration: Infinity, // Keep toast until we dismiss it
     });
     setMonthsToLoad(newMonths);
-    // The useEffect will be triggered by the monthsToLoad change
+    setDateScope(String(newMonths));
+    fetchNotifications({
+      scope: String(newMonths),
+      months: newMonths,
+      isLoadMore: true,
+    });
   };
 
   const handleNotificationClick = async (notification: NotificationData) => {
@@ -397,27 +465,87 @@ const Page = () => {
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchAddress(e.target.value)}
             value={searchAddress}
           />
+          <Input
+            placeholder="Search Name..."
+            className="h-9 bg-white text-xs"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
+            value={searchName}
+          />
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder="Search Name..."
-              className="h-9 bg-white text-xs"
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
-              value={searchName}
-            />
             <Select
               onValueChange={(value) => setFilterReadStatus(value)}
-              defaultValue="all"
+              value={filterReadStatus}
             >
               <SelectTrigger className="h-9 bg-white text-xs">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="read">Read</SelectItem>
                 <SelectItem value="unread">Unread</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select
+              onValueChange={(value) => handleDateScopeChange(value)}
+              value={dateScope}
+            >
+              <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 30 Days</SelectItem>
+                <SelectItem value="3">Last 3 Months</SelectItem>
+                <SelectItem value="6">Last 6 Months</SelectItem>
+                <SelectItem value="12">Last 1 Year</SelectItem>
+                <SelectItem value="all">All Dates</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {dateScope === "custom" && (
+            <div className="p-2.5 bg-white rounded border border-gray-200 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-12 text-gray-600 font-medium">From:</span>
+                <Input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="h-8 bg-gray-50 text-xs flex-1"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-12 text-gray-600 font-medium">To:</span>
+                <Input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="h-8 bg-gray-50 text-xs flex-1"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={handleApplyCustomRange}
+                className="h-8 w-full text-xs"
+              >
+                Apply Range
+              </Button>
+            </div>
+          )}
+
+          {(searchAddress.trim() || searchName.trim()) && dateScope !== "all" && (
+            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900 flex items-center justify-between">
+              <span>Searching in {getDateScopeLabel(dateScope)}</span>
+              <button
+                type="button"
+                onClick={() => handleDateScopeChange("all")}
+                className="font-semibold text-blue-700 underline ml-2 cursor-pointer"
+              >
+                Search All Dates
+              </button>
+            </div>
+          )}
         </div>
 
         <MobileNotificationsList
@@ -429,17 +557,19 @@ const Page = () => {
         />
 
         {/* Load More Months Button */}
-        <div className="flex justify-center py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadMore}
-            disabled={isLoadingMore}
-            className="text-xs px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
-          >
-            {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
-          </Button>
-        </div>
+        {dateScope !== "all" && dateScope !== "custom" && (
+          <div className="flex justify-center py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="text-xs px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
+            >
+              {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
+            </Button>
+          </div>
+        )}
 
         {showCard && selectedNotification && (
           <QuickViewCard
@@ -485,7 +615,7 @@ const Page = () => {
       </div>
 
       <div
-        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-3 gap-4 h-[60px] font-alexandria sticky top-[80px] z-40"
+        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-1 md:grid-cols-4 gap-3 min-h-[60px] font-alexandria sticky top-[80px] z-40 items-center"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
       >
         <Input
@@ -510,7 +640,7 @@ const Page = () => {
 
         <Select
           onValueChange={(value) => setFilterReadStatus(value)}
-          defaultValue="all"
+          value={filterReadStatus}
         >
           <SelectTrigger
             className="w-full h-[38px]"
@@ -519,16 +649,83 @@ const Page = () => {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="read">Read</SelectItem>
             <SelectItem value="unread">Unread</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select
+          onValueChange={(value) => handleDateScopeChange(value)}
+          value={dateScope}
+        >
+          <SelectTrigger
+            className="w-full h-[38px]"
+            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+          >
+            <SelectValue placeholder="Date Range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">Last 30 Days</SelectItem>
+            <SelectItem value="3">Last 3 Months</SelectItem>
+            <SelectItem value="6">Last 6 Months</SelectItem>
+            <SelectItem value="12">Last 1 Year</SelectItem>
+            <SelectItem value="all">All Dates</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {dateScope === "custom" && (
+        <div
+          className="w-full px-4 py-2 border-b border-gray-200 flex flex-wrap items-center gap-3 text-xs"
+          style={{ backgroundColor: `var(--${userType}-page-bg, #ECECEC)` }}
+        >
+          <span className="font-medium text-gray-700">From:</span>
+          <Input
+            type="date"
+            value={customStartDate}
+            onChange={(e) => setCustomStartDate(e.target.value)}
+            className="h-8 w-40 bg-white text-xs"
+          />
+          <span className="font-medium text-gray-700">To:</span>
+          <Input
+            type="date"
+            value={customEndDate}
+            onChange={(e) => setCustomEndDate(e.target.value)}
+            className="h-8 w-40 bg-white text-xs"
+          />
+          <Button
+            size="sm"
+            onClick={handleApplyCustomRange}
+            className="h-8 px-3 text-xs"
+          >
+            Apply Range
+          </Button>
+        </div>
+      )}
+
+      {(searchAddress.trim() || searchName.trim()) && dateScope !== "all" && (
+        <div className="w-full px-4 py-2 bg-blue-50/80 border-b border-blue-200/60 flex items-center justify-between text-xs text-blue-900 font-alexandria">
+          <span>
+            Searching in <strong>{getDateScopeLabel(dateScope)}</strong>
+            {filteredNotifications.length === 0
+              ? " — no matching notifications found in this date range."
+              : ` — showing ${filteredNotifications.length} matching result(s).`}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleDateScopeChange("all")}
+            className="font-semibold text-blue-700 hover:text-blue-900 underline ml-2 cursor-pointer flex items-center gap-1"
+          >
+            Search across All Dates
+          </button>
+        </div>
+      )}
 
       <div className="w-full">
         <DataTable
-          key={`${searchAddress}-${searchName}-${filterReadStatus}`}
+          key={`${searchAddress}-${searchName}-${filterReadStatus}-${dateScope}`}
           columns={columns}
           data={filteredNotifications}
           loading={loading}
@@ -540,17 +737,19 @@ const Page = () => {
         />
 
         {/* Load More Months Button */}
-        <div className="flex justify-center py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadMore}
-            disabled={isLoadingMore}
-            className="text-sm px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
-          >
-            {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
-          </Button>
-        </div>
+        {dateScope !== "all" && dateScope !== "custom" && (
+          <div className="flex justify-center py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="text-sm px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
+            >
+              {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
+            </Button>
+          </div>
+        )}
 
         {showCard && selectedNotification && (
           <QuickViewCard

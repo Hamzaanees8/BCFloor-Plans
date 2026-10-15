@@ -48,7 +48,7 @@ export default function PackageCard({ pkg, isSelected, onSelect }: PackageCardPr
                     </h3>
                     {typeof pkg.discount === 'number' && pkg.discount > 0 && (
                         <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 rounded">
-                            {pkg.discount}% OFF
+                            {pkg.discount_type === 'dollar' ? `$${pkg.discount} OFF` : `${pkg.discount}% OFF`}
                         </span>
                     )}
                 </div>

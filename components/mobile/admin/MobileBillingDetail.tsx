@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, type BillingItem } from '@/app/dashboard/billing/billing'
+import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, formatOrderDate, type BillingItem } from '@/app/dashboard/billing/billing'
 import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from '@/app/dashboard/invoice/invoice_api'
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
 import InvoicePdfDocument from '@/app/dashboard/invoice/components/InvoicePdfDocument'
@@ -331,7 +331,7 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
 
           <div className="flex items-center gap-2 text-xs text-gray-400 border-t border-gray-100 pt-2.5">
             <Calendar className="w-3.5 h-3.5" />
-            <span>Ordered: {new Date(billing.created_at || 0).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span>Ordered: {formatOrderDate(billing.created_at)}</span>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-center text-xs">

@@ -35,10 +35,12 @@ import {
   getServiceActualInvoicePricing,
   prepareServiceInvoicePreview,
   isRenewalInvoice,
+  formatOrderDate,
 } from "./billing";
 import {
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   ExternalLink,
   FileText,
   Loader2,
@@ -137,6 +139,7 @@ const Page = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [addressFilter, setAddressFilter] = useState<string>("");
+  const [sortField, setSortField] = useState<"order_id" | "created_at">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -1134,6 +1137,11 @@ const Page = () => {
   });
 
   const sortedBillings = [...filteredBillings].sort((a, b) => {
+    if (sortField === "created_at") {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+    }
     const orderA = a.order_id || 0;
     const orderB = b.order_id || 0;
     return sortOrder === "asc" ? orderA - orderB : orderB - orderA;
@@ -1381,20 +1389,29 @@ const Page = () => {
                 className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px] cursor-pointer select-none"
                 style={{
                   color:
-                    sortOrder === "asc" || sortOrder === "desc"
+                    sortField === "order_id"
                       ? roleSettings.pageTabColor
                       : "#7D7D7D",
                 }}
-                onClick={() =>
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-                }
+                onClick={() => {
+                  if (sortField === "order_id") {
+                    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                  } else {
+                    setSortField("order_id");
+                    setSortOrder("desc");
+                  }
+                }}
               >
                 <div className="flex items-center gap-2">
                   Order ID
-                  {sortOrder === "asc" ? (
-                    <ChevronUp className="w-4 h-4" />
+                  {sortField === "order_id" ? (
+                    sortOrder === "asc" ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )
                   ) : (
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronsUpDown className="w-4 h-4 text-gray-400" />
                   )}
                 </div>
               </TableHead>
@@ -1410,6 +1427,36 @@ const Page = () => {
               )}
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Address
+              </TableHead>
+              <TableHead
+                className="text-[14px] font-[700] text-[#7D7D7D] cursor-pointer select-none"
+                style={{
+                  color:
+                    sortField === "created_at"
+                      ? roleSettings.pageTabColor
+                      : "#7D7D7D",
+                }}
+                onClick={() => {
+                  if (sortField === "created_at") {
+                    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                  } else {
+                    setSortField("created_at");
+                    setSortOrder("desc");
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  Order Date
+                  {sortField === "created_at" ? (
+                    sortOrder === "asc" ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )
+                  ) : (
+                    <ChevronsUpDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
               </TableHead>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Total Amount
@@ -1454,6 +1501,9 @@ const Page = () => {
                     <Skeleton className="h-4 w-[150px] bg-gray-200" />
                   </TableCell>
                   <TableCell className="py-4">
+                    <Skeleton className="h-4 w-[90px] bg-gray-200" />
+                  </TableCell>
+                  <TableCell className="py-4">
                     <Skeleton className="h-4 w-[80px] bg-gray-200" />
                   </TableCell>
                   <TableCell className="py-4">
@@ -1474,7 +1524,7 @@ const Page = () => {
               <TableRow>
                 <TableCell
                   colSpan={
-                    (userType !== "agent" ? 1 : 0) + (isSuperAdmin ? 1 : 0) + 7
+                    (userType !== "agent" ? 1 : 0) + (isSuperAdmin ? 1 : 0) + 8
                   }
                   className="py-10 text-center text-gray-500 text-lg"
                 >
@@ -1547,6 +1597,9 @@ const Page = () => {
                       )}
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                         {address}
+                      </TableCell>
+                      <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
+                        {formatOrderDate(billing.created_at)}
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1749,7 +1802,7 @@ const Page = () => {
                               colSpan={
                                 (userType !== "agent" ? 1 : 0) +
                                 (isSuperAdmin ? 1 : 0) +
-                                7
+                                8
                               }
                               className="p-0"
                             >
@@ -2084,9 +2137,7 @@ const Page = () => {
                                           Created Date
                                         </p>
                                         <p className="font-medium">
-                                          {new Date(
-                                            billing.created_at,
-                                          ).toLocaleDateString()}
+                                          {formatOrderDate(billing.created_at)}
                                         </p>
                                       </div>
                                     </div>
@@ -2291,9 +2342,9 @@ const Page = () => {
                                                             <tr key={idx}>
                                                               <td className="py-2">
                                                                 {txn.paid_at
-                                                                  ? new Date(
+                                                                  ? formatOrderDate(
                                                                       txn.paid_at,
-                                                                    ).toLocaleDateString()
+                                                                    )
                                                                   : "—"}
                                                               </td>
                                                               <td className="py-2 font-semibold">
@@ -2941,9 +2992,9 @@ const Page = () => {
                                                       <span className="font-semibold">
                                                         Scheduled:
                                                       </span>{" "}
-                                                      {new Date(
+                                                      {formatOrderDate(
                                                         serviceSlot.slot_date,
-                                                      ).toLocaleDateString()}{" "}
+                                                      )}{" "}
                                                       at{" "}
                                                       {serviceSlot.start_time} -{" "}
                                                       {serviceSlot.end_time}
@@ -2993,9 +3044,9 @@ const Page = () => {
                                                           </a>
                                                           <span className="text-xs text-gray-500">
                                                             (
-                                                            {new Date(
+                                                            {formatOrderDate(
                                                               invoice.paid_at,
-                                                            ).toLocaleDateString()}
+                                                            )}
                                                             )
                                                           </span>
                                                         </div>

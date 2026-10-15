@@ -15,7 +15,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getBillings, type BillingItem } from '@/app/dashboard/billing/billing'
+import { getBillings, formatOrderDate, type BillingItem } from '@/app/dashboard/billing/billing'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 
@@ -250,13 +250,7 @@ export default function MobileBillingOverview() {
         ) : (
           filtered.map((item) => {
             const { cls, label } = getPaymentStatusBadge(item)
-            const formattedDate = item.created_at
-              ? new Date(item.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
-              : 'N/A'
+            const formattedDate = formatOrderDate(item.created_at)
 
             return (
               <Card

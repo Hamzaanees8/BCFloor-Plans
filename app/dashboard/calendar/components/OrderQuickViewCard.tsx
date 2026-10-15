@@ -38,6 +38,10 @@ export type CalendarEvent = {
   custom_duration?: number;
   custom_end_time?: string;
   buffer_minutes?: number;
+  property_timezone?: string;
+  vendor_timezone?: string;
+  property_start_time?: string;
+  property_end_time?: string;
 };
 
 type QuickViewCardProps = {
@@ -308,6 +312,11 @@ export default function OrderQuickViewCard({
                 {dayjs(CurrentOrder?.created_at).format("MMMM, DD, YYYY")}
               </span>
               <span className="text-[#666666] ml-0">{`${dayjs(new Date(data.start)).format("hh:mm A")} - ${dayjs(new Date(data.end)).format("hh:mm A")}`}</span>
+              {data.property_timezone && data.vendor_timezone && data.property_timezone !== data.vendor_timezone && (
+                <span className="text-[12px] text-amber-700 font-medium">
+                  Property Local: {dayjs(`2000-01-01 ${data.property_start_time}`).isValid() ? dayjs(`2000-01-01 ${data.property_start_time}`).format("hh:mm A") : data.property_start_time?.slice(0, 5)} – {dayjs(`2000-01-01 ${data.property_end_time}`).isValid() ? dayjs(`2000-01-01 ${data.property_end_time}`).format("hh:mm A") : data.property_end_time?.slice(0, 5)} ({data.property_timezone.split('/')[1]?.replace(/_/g, ' ') || data.property_timezone})
+                </span>
+              )}
               {data.custom_duration ? (
                 <span className="text-[12px] text-blue-600 font-semibold mt-0.5">
                   Duration: {Math.floor(data.custom_duration / 60) > 0 ? `${Math.floor(data.custom_duration / 60)}h ` : ''}{data.custom_duration % 60}m (Overridden)

@@ -109,6 +109,7 @@ const ServicesFrom = () => {
   const [openColorPicker1, setOpenColorPicker1] = useState(false);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [discount, setDiscount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<"percentage" | "dollar">("percentage");
   const [isTravelRequired, setIsTravelRequired] = useState<boolean>(true);
   const [gstEnabled, setGstEnabled] = useState<boolean>(true);
   const [pstEnabled, setPstEnabled] = useState<boolean>(false);
@@ -501,6 +502,8 @@ const ServicesFrom = () => {
 
           setServiceName(data.name);
           setDiscount(data.discount);
+          setDiscountType(data.discount_type === "dollar" ? "dollar" : "percentage");
+          setServiceDescription(data.description || "");
           setIsTravelRequired(
             data.is_travel_required === true || data.is_travel_required === 1,
           );
@@ -661,7 +664,9 @@ const ServicesFrom = () => {
         const packagePayload: PackagePayload = {
           name: serviceName,
           discount: Number(discount),
+          discount_type: discountType,
           service_ids: selectedServices,
+          description: ServiceDescription,
         };
 
         if (ServiceId) {
@@ -1228,73 +1233,75 @@ const ServicesFrom = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2">
-                          <label
-                            htmlFor="thumbnail"
-                            className="block text-sm font-medium"
-                            style={{ color: roleSettings.pageText }}
-                          >
-                            Thumbnail (Accepts JPG, PNG, SVG, WebP, GIF up to 20MB — Any aspect ratio)
-                          </label>
-                          {(thumbnailFile || currentService?.thumbnail_url) && (
-                            <div className="mt-2 mb-3 flex items-center gap-3">
-                              <div className="relative w-full h-[140px] rounded-md overflow-hidden border border-gray-300 bg-[repeating-conic-gradient(#f3f4f6_0%_25%,#ffffff_0%_50%)] bg-[length:16px_16px] flex items-center justify-center p-2 shadow-inner">
-                                {thumbnailFile ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={URL.createObjectURL(thumbnailFile)}
-                                    alt="Thumbnail preview"
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : currentService?.thumbnail_url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={currentService.thumbnail_url}
-                                    alt="Saved thumbnail"
-                                    className="w-full h-full object-contain"
-                                    onError={(e) => {
-                                      // Hide the image on error
-                                      e.currentTarget.style.display = "none";
-                                    }}
-                                  />
-                                ) : null}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex mt-[12px] rounded-[6px] ">
-                            {/* File info display area */}
-                            <div className="flex-grow rounded-tl-[6px] rounded-bl-[6px] bg-[#EEEEEE] border border-r-0 border-[#BBBBBB] p-2 h-[42px] flex items-center text-gray-500 text-sm truncate">
-                              {thumbnailName
-                                ? thumbnailName
-                                : "Select a thumbnail image"}
-                            </div>
-
-                            {/* Custom styled button */}
+                        {!isPackage && categoryObject?.name?.toLowerCase() !== "package" && (
+                          <div className="col-span-2">
                             <label
                               htmlFor="thumbnail"
-                              className="bg-[#DDDDDD] border rounded-tr-[6px] rounded-br-[6px] border-[#666666] px-4 py-2 text-[16] font-[400] text-gray-700 hover:bg-[#CCCCCC] cursor-pointer flex items-center"
+                              className="block text-sm font-medium"
+                              style={{ color: roleSettings.pageText }}
                             >
-                              Browse
+                              Thumbnail (Accepts JPG, PNG, SVG, WebP, GIF up to 20MB — Any aspect ratio)
                             </label>
+                            {(thumbnailFile || currentService?.thumbnail_url) && (
+                              <div className="mt-2 mb-3 flex items-center gap-3">
+                                <div className="relative w-full h-[140px] rounded-md overflow-hidden border border-gray-300 bg-[repeating-conic-gradient(#f3f4f6_0%_25%,#ffffff_0%_50%)] bg-[length:16px_16px] flex items-center justify-center p-2 shadow-inner">
+                                  {thumbnailFile ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={URL.createObjectURL(thumbnailFile)}
+                                      alt="Thumbnail preview"
+                                      className="w-full h-full object-contain"
+                                    />
+                                  ) : currentService?.thumbnail_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={currentService.thumbnail_url}
+                                      alt="Saved thumbnail"
+                                      className="w-full h-full object-contain"
+                                      onError={(e) => {
+                                        // Hide the image on error
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Hidden actual file input */}
-                            <input
-                              id="thumbnail"
-                              name="thumbnail"
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setThumbnailFile(file);
-                                  setThumbnailName(file.name);
-                                }
-                              }}
-                            />
+                            <div className="flex mt-[12px] rounded-[6px] ">
+                              {/* File info display area */}
+                              <div className="flex-grow rounded-tl-[6px] rounded-bl-[6px] bg-[#EEEEEE] border border-r-0 border-[#BBBBBB] p-2 h-[42px] flex items-center text-gray-500 text-sm truncate">
+                                {thumbnailName
+                                  ? thumbnailName
+                                  : "Select a thumbnail image"}
+                              </div>
+
+                              {/* Custom styled button */}
+                              <label
+                                htmlFor="thumbnail"
+                                className="bg-[#DDDDDD] border rounded-tr-[6px] rounded-br-[6px] border-[#666666] px-4 py-2 text-[16] font-[400] text-gray-700 hover:bg-[#CCCCCC] cursor-pointer flex items-center"
+                              >
+                                Browse
+                              </label>
+
+                              {/* Hidden actual file input */}
+                              <input
+                                id="thumbnail"
+                                name="thumbnail"
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setThumbnailFile(file);
+                                    setThumbnailName(file.name);
+                                  }
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <div className="col-span-2">
                           <label
@@ -1584,31 +1591,73 @@ const ServicesFrom = () => {
                         {categoryObject?.name.toLocaleLowerCase() ===
                           "package" && (
                           <div className="w-full col-span-2">
-                            <div className="w-full">
-                              <label htmlFor="">
-                                Discount <span className="text-red-500">*</span>
-                              </label>
-                              <Input
-                                type="number"
-                                min={-1} // allows clearing the input without defaulting to 0
-                                placeholder="Discount (Percentage)"
-                                className="px-3  w-full h-[42px] bg-[#eee] border border-[#BBBBBB] mt-[10px]"
-                                value={discount <= 0 ? "" : discount} // use your discount state here
-                                onChange={(e) => {
-                                  const val = e.target.value;
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div className="col-span-1">
+                                <label className="text-sm font-medium" style={{ color: roleSettings.pageText }}>
+                                  Discount Type <span className="text-red-500">*</span>
+                                </label>
+                                <Select
+                                  value={discountType}
+                                  onValueChange={(val: "percentage" | "dollar") => {
+                                    setDiscountType(val);
+                                    if (val === "percentage" && discount > 100) {
+                                      setDiscount(100);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full h-[42px] bg-[#eee] border border-[#BBBBBB] mt-[10px]">
+                                    <SelectValue placeholder="Discount Type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                                    <SelectItem value="dollar">Dollar Amount ($ CAD)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                                  if (val === "") {
-                                    setDiscount(0); // or null depending on your logic
-                                    return;
-                                  }
+                              <div className="col-span-2">
+                                <label className="text-sm font-medium" style={{ color: roleSettings.pageText }}>
+                                  Discount {discountType === "dollar" ? "($ CAD)" : "(%)"}{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative mt-[10px]">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={discountType === "percentage" ? 100 : undefined}
+                                    step={discountType === "dollar" ? "0.01" : "1"}
+                                    placeholder={
+                                      discountType === "dollar"
+                                        ? "Discount in dollars (e.g. 50.00)"
+                                        : "Discount in percentage (e.g. 15)"
+                                    }
+                                    className="px-3 pr-16 w-full h-[42px] bg-[#eee] border border-[#BBBBBB]"
+                                    value={discount <= 0 ? "" : discount}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
 
-                                  const parsed = parseInt(val, 10);
-                                  if (!isNaN(parsed) && parsed > 0) {
-                                    setDiscount(parsed);
-                                  }
-                                }}
-                              />
+                                      if (val === "") {
+                                        setDiscount(0);
+                                        return;
+                                      }
+
+                                      const parsed = parseFloat(val);
+                                      if (!isNaN(parsed) && parsed >= 0) {
+                                        if (discountType === "percentage" && parsed > 100) {
+                                          setDiscount(100);
+                                        } else {
+                                          setDiscount(parsed);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-xs pointer-events-none">
+                                    {discountType === "dollar" ? "$ CAD" : "%"}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
+
                             <div className="w-full mt-[16px] ">
                               <label htmlFor="">
                                 Add Services{" "}

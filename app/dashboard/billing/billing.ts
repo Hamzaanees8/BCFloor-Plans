@@ -67,6 +67,26 @@ export interface BillingItem {
   organization_id?: number | null;
 }
 
+/**
+ * Formats a date string into a clean, human-readable format: "19 July 2026"
+ */
+export function formatOrderDate(dateString?: string | null): string {
+  if (!dateString) return "—";
+  try {
+    const cleanStr =
+      typeof dateString === "string" ? dateString.replace(" ", "T") : dateString;
+    const date = new Date(cleanStr);
+    if (isNaN(date.getTime())) return "—";
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return "—";
+  }
+}
+
 export const getBillings = async (): Promise<BillingItem[]> => {
   const res = await api.get(`/billing`);
 

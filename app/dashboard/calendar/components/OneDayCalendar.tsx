@@ -15,6 +15,7 @@ import {
   formatTwilightTime,
   convertUTCToTimezone,
   convertVendorWorkHoursToPropertyTimezone,
+  convertVendorBreaksToPropertyTimezone,
 } from '../../orders/orders';
 import { getVendorValidStartSlots, ValidStartSlotResult, getVendorDayBounds } from '../../orders/components/OneDayCalendar';
 import { useAppContext } from '@/app/context/AppContext';
@@ -461,6 +462,12 @@ export default function OneDayCalendar({
           vendorTimezone,
           targetTimezone
         );
+        const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+          date,
+          vendor.additional_breaks || [],
+          vendorTimezone,
+          targetTimezone
+        );
 
         const { startSlots } = getVendorValidStartSlots(
           vendor,
@@ -468,7 +475,7 @@ export default function OneDayCalendar({
           convertedWorkHours as any,
           AllBookedSlots as unknown as MinimalSlot[],
           otherServiceSlots as unknown as MinimalSlot[],
-          vendor.additional_breaks || [],
+          convertedBreaks,
           vendor.calendar_events || [],
           requiredSlotsCountForService,
           allowBookingThroughLunch,
@@ -840,13 +847,19 @@ export default function OneDayCalendar({
             vendorTimezone,
             targetTimezone
           );
+          const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+            selectedDate,
+            vendor.additional_breaks || [],
+            vendorTimezone,
+            targetTimezone
+          );
           validResult = getVendorValidStartSlots(
             vendor,
             selectedDate,
             convertedWorkHours as any,
             AllBookedSlots as unknown as MinimalSlot[],
             otherSlotsForDate as unknown as MinimalSlot[],
-            vendor.additional_breaks || [],
+            convertedBreaks,
             vendor.calendar_events || [],
             requiredSlots,
             allowBookingThroughLunch,
@@ -1201,13 +1214,19 @@ export default function OneDayCalendar({
                                 vendorTimezone,
                                 targetTimezone
                               );
+                              const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+                                selDate,
+                                vendor.additional_breaks || [],
+                                vendorTimezone,
+                                targetTimezone
+                              );
                               validResult = getVendorValidStartSlots(
                                 vendor,
                                 selDate,
                                 convertedWH as any,
                                 AllBookedSlots as unknown as MinimalSlot[],
                                 otherSlotsForDate as unknown as MinimalSlot[],
-                                vendor.additional_breaks || [],
+                                convertedBreaks,
                                 vendor.calendar_events || [],
                                 requiredSlotsForModal,
                                 allowBookingThroughLunchModal,

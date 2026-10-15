@@ -25,7 +25,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import VendorSwapReassignModal from './VendorSwapReassignModal';
 import { EditSlotTimeModal } from './EditSlotTimeModal';
 import CancelOrderDialog from '../../orders/components/CancelOrderDialog';
-import { PreviewCancelService, CancelService } from '../../orders/orders';
+import { PreviewCancelService, CancelService, convertTimeToTimezone, resolveTimezoneFromProvince } from '../../orders/orders';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -62,6 +62,7 @@ export type CalanderVendor = {
         end_time: string;
         break_start: string;
         break_end: string;
+        timezone?: string;
     }
     additional_breaks?: {
         address: string
@@ -146,6 +147,10 @@ export type CalendarEvent = {
     custom_duration?: number;
     custom_end_time?: string;
     buffer_minutes?: number;
+    property_timezone?: string;
+    vendor_timezone?: string;
+    property_start_time?: string;
+    property_end_time?: string;
 };
 
 const customViews = {
@@ -338,6 +343,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             groupedByOrderServiceVendor[key].push(slot);
         }
 
+        const propertyTz = resolveTimezoneFromProvince(
+            order.property?.province || order.property_location,
+            'America/Vancouver'
+        );
+
         Object.values(groupedByOrderServiceVendor).forEach((slots) => {
             const sorted = [...slots].sort((a, b) => {
                 const aStart = dayjs(`${a.date} ${a.start_time}`);
@@ -364,14 +374,25 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         const lastSlot = currentGroup[currentGroup.length - 1];
                         const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
 
-                        let endDate = dayjs(`${lastSlot.date} ${lastSlot.custom_end_time || lastSlot.end_time}`).toDate();
+                        const matchedVendor = vendorData?.find(v => v.uuid === firstSlot.vendor?.uuid);
+                        const vendorTz = matchedVendor?.work_hours?.timezone || 'America/Vancouver';
+
+                        let displayStartTime = firstSlot.start_time;
+                        let displayEndTime = lastSlot.custom_end_time || lastSlot.end_time;
+
+                        if (userType === 'vendor' || userType === 'admin') {
+                            displayStartTime = convertTimeToTimezone(firstSlot.date, firstSlot.start_time, propertyTz, vendorTz) || firstSlot.start_time;
+                            displayEndTime = convertTimeToTimezone(lastSlot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
+                        }
+
+                        let endDate = dayjs(`${lastSlot.date} ${displayEndTime}`).toDate();
                         if (firstSlot.custom_duration) {
-                            endDate = dayjs(`${firstSlot.date} ${firstSlot.start_time}`).add(firstSlot.custom_duration, 'minute').toDate();
+                            endDate = dayjs(`${firstSlot.date} ${displayStartTime}`).add(firstSlot.custom_duration, 'minute').toDate();
                         }
 
                         groupedEvents.push({
                             title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
-                            start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
+                            start: dayjs(`${firstSlot.date} ${displayStartTime}`).toDate(),
                             end: endDate,
                             vendor_id: firstSlot.vendor?.uuid,
                             service_id: firstSlot.service_id,
@@ -383,7 +404,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             buffer_minutes: firstSlot.buffer_minutes ?? undefined,
                             // @ts-expect-error skip
                             color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
-                            resourceId: firstSlot.vendor?.uuid
+                            resourceId: firstSlot.vendor?.uuid,
+                            property_timezone: propertyTz,
+                            vendor_timezone: vendorTz,
+                            property_start_time: firstSlot.start_time,
+                            property_end_time: lastSlot.custom_end_time || lastSlot.end_time,
                         });
                         currentGroup = [slot];
                     }
@@ -395,14 +420,25 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 const lastSlot = currentGroup[currentGroup.length - 1];
                 const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
 
-                let endDate = dayjs(`${lastSlot.date} ${lastSlot.custom_end_time || lastSlot.end_time}`).toDate();
+                const matchedVendor = vendorData?.find(v => v.uuid === firstSlot.vendor?.uuid);
+                const vendorTz = matchedVendor?.work_hours?.timezone || 'America/Vancouver';
+
+                let displayStartTime = firstSlot.start_time;
+                let displayEndTime = lastSlot.custom_end_time || lastSlot.end_time;
+
+                if (userType === 'vendor' || userType === 'admin') {
+                    displayStartTime = convertTimeToTimezone(firstSlot.date, firstSlot.start_time, propertyTz, vendorTz) || firstSlot.start_time;
+                    displayEndTime = convertTimeToTimezone(lastSlot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
+                }
+
+                let endDate = dayjs(`${lastSlot.date} ${displayEndTime}`).toDate();
                 if (firstSlot.custom_duration) {
-                    endDate = dayjs(`${firstSlot.date} ${firstSlot.start_time}`).add(firstSlot.custom_duration, 'minute').toDate();
+                    endDate = dayjs(`${firstSlot.date} ${displayStartTime}`).add(firstSlot.custom_duration, 'minute').toDate();
                 }
 
                 groupedEvents.push({
                     title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
-                    start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
+                    start: dayjs(`${firstSlot.date} ${displayStartTime}`).toDate(),
                     end: endDate,
                     vendor_id: firstSlot.vendor?.uuid,
                     service_id: firstSlot.service_id,
@@ -414,7 +450,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     buffer_minutes: firstSlot.buffer_minutes ?? undefined,
                     // @ts-expect-error skip
                     color_id: firstSlot.vendor?.company?.vendor_id,
-                    resourceId: firstSlot.vendor?.uuid
+                    resourceId: firstSlot.vendor?.uuid,
+                    property_timezone: propertyTz,
+                    vendor_timezone: vendorTz,
+                    property_start_time: firstSlot.start_time,
+                    property_end_time: lastSlot.custom_end_time || lastSlot.end_time,
                 });
             }
         });
@@ -729,6 +769,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
                                 <div className="text-blue-600 font-medium my-1">
                                     {dayjs(event.start).format("MMM D, YYYY, hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                    {event.property_timezone && event.vendor_timezone && event.property_timezone !== event.vendor_timezone && (
+                                        <div className="text-[11px] text-amber-700 font-normal mt-0.5">
+                                            Property Local: {event.property_start_time?.slice(0, 5)} – {event.property_end_time?.slice(0, 5)} ({event.property_timezone.split('/')[1]?.replace('_', ' ')})
+                                        </div>
+                                    )}
                                 </div>
 
                                 {event.service_name && (() => {
@@ -1238,14 +1283,29 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     : (selectedVendors.includes('ALL') || selectedVendors.includes(String(slot.vendor_id)));
 
                 if (matchService && matchVendor) {
-                    let endDate = dayjs(`${slot.date} ${slot.custom_end_time || slot.end_time}`).toDate();
+                    const propertyTz = resolveTimezoneFromProvince(
+                        order.property?.province || order.property_location,
+                        'America/Vancouver'
+                    );
+                    const matchedVendor = vendorData?.find(v => v.uuid === slot.vendor?.uuid);
+                    const vendorTz = matchedVendor?.work_hours?.timezone || 'America/Vancouver';
+
+                    let displayStartTime = slot.start_time;
+                    let displayEndTime = slot.custom_end_time || slot.end_time;
+
+                    if (userType === 'vendor' || userType === 'admin') {
+                        displayStartTime = convertTimeToTimezone(slot.date, slot.start_time, propertyTz, vendorTz) || slot.start_time;
+                        displayEndTime = convertTimeToTimezone(slot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
+                    }
+
+                    let endDate = dayjs(`${slot.date} ${displayEndTime}`).toDate();
                     if (slot.custom_duration) {
-                        endDate = dayjs(`${slot.date} ${slot.start_time}`).add(slot.custom_duration, 'minute').toDate();
+                        endDate = dayjs(`${slot.date} ${displayStartTime}`).add(slot.custom_duration, 'minute').toDate();
                     }
 
                     monthlyEvents.push({
                         title: `${slot.vendor?.first_name ?? "Vendor"} ${slot.vendor?.last_name ?? ""}`.trim(),
-                        start: dayjs(`${slot.date} ${slot.start_time}`).toDate(),
+                        start: dayjs(`${slot.date} ${displayStartTime}`).toDate(),
                         end: endDate,
                         vendor_id: slot.vendor.uuid,
                         service_id: slot.service_id,
@@ -1254,7 +1314,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         custom_end_time: slot.custom_end_time ?? undefined,
                         buffer_minutes: slot.buffer_minutes ?? undefined,
                         // @ts-expect-error skip
-                        color_id: Number(slot.vendor?.company?.vendor_id ?? 0)
+                        color_id: Number(slot.vendor?.company?.vendor_id ?? 0),
+                        property_timezone: propertyTz,
+                        vendor_timezone: vendorTz,
+                        property_start_time: slot.start_time,
+                        property_end_time: slot.custom_end_time || slot.end_time,
                     });
                 }
             });

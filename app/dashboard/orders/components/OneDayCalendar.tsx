@@ -21,6 +21,7 @@ import { VendorData } from "../[id]/page";
 import { Order } from "../page";
 import {
   convertVendorWorkHoursToPropertyTimezone,
+  convertVendorBreaksToPropertyTimezone,
   fetchTwilightTime,
   TwilightResponse,
   formatTwilightTime,
@@ -628,8 +629,9 @@ export function getVendorValidStartSlots(
   while (cur.isBefore(end)) {
     const nxt = cur.add(interval, "minute");
 
-    const inAdditionalBreak = (vendor.additional_breaks || []).some(
-      (brk: { start_time: string; end_time: string }) => {
+    const breaksToCheck = (vendorTimeOffs && vendorTimeOffs.length > 0) ? vendorTimeOffs : (vendor.additional_breaks || []);
+    const inAdditionalBreak = breaksToCheck.some(
+      (brk: { start_time?: string; end_time?: string }) => {
         if (!brk.start_time || !brk.end_time) return false;
         const bStart = dayjs(`${date}T${brk.start_time}`);
         const bEnd = dayjs(`${date}T${brk.end_time}`);
@@ -1790,6 +1792,23 @@ export default function OneDayCalendar({
       const vId = vendor.uuid ?? "";
       if (!vId) return;
 
+      const vendorTimezone = vendor.work_hours?.timezone || "America/Vancouver";
+      const targetTimezone = propertyTimezone || "America/Vancouver";
+      const convertedWH = vendor.work_hours
+        ? convertVendorWorkHoursToPropertyTimezone(
+            date,
+            vendor.work_hours,
+            vendorTimezone,
+            targetTimezone,
+          )
+        : null;
+      const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+        date,
+        vendor.additional_breaks || [],
+        vendorTimezone,
+        targetTimezone,
+      );
+
       // 1. Mark break slots for this vendor
       fullDaySlots.forEach((slot) => {
         const slotStart = dayjs(slot.start);
@@ -1797,15 +1816,15 @@ export default function OneDayCalendar({
         const slotKey = `${slot.start}_${slot.end}`;
 
         let inBreak = false;
-        if (vendor.work_hours) {
+        if (convertedWH) {
           const dayOfWeek = dayjs(date).format("ddd").toLowerCase();
-          const daySchedule = vendor.work_hours.work_days?.find(
+          const daySchedule = convertedWH.work_days?.find(
             (d) => d.day === dayOfWeek,
           );
           const breakStartStr =
-            (daySchedule as any)?.break_start || vendor.work_hours.break_start;
+            (daySchedule as any)?.break_start || convertedWH.break_start;
           const breakEndStr =
-            (daySchedule as any)?.break_end || vendor.work_hours.break_end;
+            (daySchedule as any)?.break_end || convertedWH.break_end;
           if (breakStartStr && breakEndStr) {
             const brkStart = dayjs(`${date}T${breakStartStr}`);
             const brkEnd = dayjs(`${date}T${breakEndStr}`);
@@ -1822,7 +1841,7 @@ export default function OneDayCalendar({
         }
 
         if (!inBreak) {
-          inBreak = (vendor.additional_breaks || []).some((brk) => {
+          inBreak = (convertedBreaks || []).some((brk) => {
             if (!brk.start_time || !brk.end_time) return false;
             const brkStart = dayjs(`${date}T${brk.start_time}`);
             const brkEnd = dayjs(`${date}T${brk.end_time}`);
@@ -2047,6 +2066,12 @@ export default function OneDayCalendar({
           vendorTimezone,
           targetTimezone,
         );
+        const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+          currentDate,
+          vendor.additional_breaks || [],
+          vendorTimezone,
+          targetTimezone,
+        );
 
         const { startSlots, travelSlotsSet: vendorTravelSlots } =
           getVendorValidStartSlots(
@@ -2055,7 +2080,7 @@ export default function OneDayCalendar({
             convertedWorkHours,
             AllBookedSlots,
             otherServiceSlots,
-            vendor.additional_breaks || [],
+            convertedBreaks,
             vendor.calendar_events || [],
             requiredSlotsCountForService,
             allowBookingThroughLunch,
@@ -2529,13 +2554,19 @@ export default function OneDayCalendar({
             vendorTimezone,
             targetTimezone,
           );
+          const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+            targetDate,
+            vendor.additional_breaks || [],
+            vendorTimezone,
+            targetTimezone,
+          );
           validResult = getVendorValidStartSlots(
             vendor,
             targetDate,
             convertedWorkHours,
             AllBookedSlots,
             otherServiceSlots,
-            vendor.additional_breaks || [],
+            convertedBreaks,
             vendor.calendar_events || [],
             requiredSlotsCount,
             allowLunch,
@@ -2741,6 +2772,12 @@ export default function OneDayCalendar({
             vendorTimezone,
             targetTimezone,
           );
+          const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+            targetDate,
+            vendor.additional_breaks || [],
+            vendorTimezone,
+            targetTimezone,
+          );
           const isTwilightSvc =
             currentServiceClick?.category?.name === "Twilight Photos" ||
             service?.title?.includes("Twilight") ||
@@ -2751,7 +2788,7 @@ export default function OneDayCalendar({
             convertedWorkHours,
             AllBookedSlots,
             otherSlotsForDate,
-            vendor.additional_breaks || [],
+            convertedBreaks,
             vendor.calendar_events || [],
             requiredSlotsClick,
             allowBookingThroughLunch,
@@ -4267,13 +4304,20 @@ export default function OneDayCalendar({
                                   vendorTimezone,
                                   targetTimezone,
                                 );
+                              const convertedBreaks =
+                                convertVendorBreaksToPropertyTimezone(
+                                  selectedDateForModal,
+                                  vendor.additional_breaks || [],
+                                  vendorTimezone,
+                                  targetTimezone,
+                                );
                               validResult = getVendorValidStartSlots(
                                 vendor,
                                 selectedDateForModal,
                                 convertedWH,
                                 AllBookedSlots,
                                 otherSlotsForDate,
-                                vendor.additional_breaks || [],
+                                convertedBreaks,
                                 vendor.calendar_events || [],
                                 requiredSlotsForModal,
                                 allowBookingThroughLunchModal,

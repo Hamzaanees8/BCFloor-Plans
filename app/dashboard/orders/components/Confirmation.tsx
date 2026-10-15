@@ -174,9 +174,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
     const calculatePackageDiscount = React.useCallback((rawTotal: number) => {
         if (!activePackage || !activePackage.discount) return 0;
-        const packagePercent = Number(activePackage.discount) || 0;
-        if (packagePercent <= 0) return 0;
-        return Math.max(0, rawTotal * (packagePercent / 100));
+        const discountVal = Number(activePackage.discount) || 0;
+        if (discountVal <= 0) return 0;
+        if (activePackage.discount_type === 'dollar') {
+            return Math.min(rawTotal, discountVal);
+        }
+        return Math.max(0, rawTotal * (discountVal / 100));
     }, [activePackage]);
 
     const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
@@ -1129,14 +1132,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         {activePackage && (activePackage.discount || 0) > 0 && (
                                             <div className='flex items-center justify-between'>
                                                 <p className='font-normal text-[14px] text-green-600'>
-                                                    Package: {activePackage.name} ({activePackage.discount}%)
+                                                    Package: {activePackage.name} ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`})
                                                 </p>
                                                 <p className='font-normal text-[14px] text-green-600'>
                                                     - ${(
-                                                        (selectedServices.reduce((sum, s) => {
-                                                            if (s.payment_status?.toUpperCase() === 'PAID') return sum;
-                                                            return sum + getOriginalPrice(s);
-                                                        }, 0) * (activePackage.discount || 0)) / 100
+                                                        (() => {
+                                                            const unpaidTotal = selectedServices.reduce((sum, s) => {
+                                                                if (s.payment_status?.toUpperCase() === 'PAID') return sum;
+                                                                return sum + getOriginalPrice(s);
+                                                            }, 0);
+                                                            if (activePackage.discount_type === 'dollar') {
+                                                                return Math.min(unpaidTotal, Number(activePackage.discount) || 0);
+                                                            }
+                                                            return (unpaidTotal * (Number(activePackage.discount) || 0)) / 100;
+                                                        })()
                                                     ).toFixed(2)}
                                                 </p>
                                             </div>
@@ -1178,7 +1187,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 const rawShopTotal = selectedServices.reduce((sum, s) => {
                                                     return sum + getOriginalPrice(s);
                                                 }, 0);
-                                                packageDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
+                                                if (activePackage.discount_type === 'dollar') {
+                                                    packageDiscount = Math.min(rawShopTotal, Number(activePackage.discount) || 0);
+                                                } else {
+                                                    packageDiscount = (rawShopTotal * (Number(activePackage.discount) || 0)) / 100;
+                                                }
                                             }
 
                                             // Grand Total = Original total - All discounts
