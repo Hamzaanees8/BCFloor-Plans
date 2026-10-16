@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import PricingCard from './PricingCard'
 import PackageCard from './PackageCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
+import { Info, Package } from 'lucide-react'
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Services, Packages } from '../../services/page'
 import { useOrderContext } from '../context/OrderContext'
@@ -99,7 +100,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
     // const [selected, setSelected] = React.useState('Alphabetically')
     const [servicesData, setServicesData] = useState<Services[]>([]);
-    const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
+    const [openAccordions, setOpenAccordions] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
 
     const handleSelectPackage = (pkg: Packages) => {
@@ -197,8 +198,29 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             });
         });
 
+        // Filter out services from previous active package if switching packages
+        const prevPkgServiceIds = new Set<string>();
+        if (activePackage?.services) {
+            activePackage.services.forEach(pkgS => {
+                const fullS = contextServicesData.find(s => 
+                    (pkgS.uuid && s.uuid === pkgS.uuid) || 
+                    (pkgS.id && (s.id === pkgS.id || String(s.id) === String(pkgS.id)))
+                );
+                if (fullS?.uuid) prevPkgServiceIds.add(fullS.uuid);
+                if (pkgS.uuid) prevPkgServiceIds.add(pkgS.uuid);
+            });
+        }
+
+        const preservedNonPkgServices = selectedServices.filter(s => !s.uuid || !prevPkgServiceIds.has(s.uuid));
+        const newPkgTargetUuids = new Set(newSelectedServices.map(s => s.uuid).filter(Boolean));
+
+        const finalSelectedServices = [
+            ...preservedNonPkgServices.filter(s => !s.uuid || !newPkgTargetUuids.has(s.uuid)),
+            ...newSelectedServices
+        ];
+
         setSelectedOptions(newSelectedOptions);
-        setSelectedServices(newSelectedServices);
+        setSelectedServices(finalSelectedServices);
         setActivePackage(pkg);
     };
 
@@ -211,6 +233,27 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         }, {});
 
         const selectedCount = createCountMap(selectedIds);
+
+        // If a package is actively selected, verify all required package services remain in selectedServices
+        if (activePackage) {
+            const activePkgServiceIds = (activePackage.services || []).map(pkgS => {
+                const fullS = contextServicesData.find(s => 
+                    (pkgS.uuid && s.uuid === pkgS.uuid) || 
+                    (pkgS.id && (s.id === pkgS.id || String(s.id) === String(pkgS.id)))
+                );
+                return fullS?.uuid || pkgS.uuid;
+            }).filter(Boolean) as string[];
+
+            const hasAllActivePkgServices = activePkgServiceIds.length > 0 && activePkgServiceIds.every(id => (selectedCount[id] || 0) > 0);
+
+            if (hasAllActivePkgServices) {
+                return;
+            } else {
+                // User removed a service from the package; dissolve active package
+                setActivePackage(null);
+                return;
+            }
+        }
 
         let foundPackage = null;
 
@@ -237,7 +280,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         }
 
         setActivePackage(foundPackage);
-    }, [selectedServices, packagesData, contextServicesData, setActivePackage]);
+    }, [selectedServices, packagesData, contextServicesData, activePackage, setActivePackage]);
 
     useEffect(() => {
         const filteredListings = contextListingsData.find(
@@ -290,25 +333,70 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         });
         setServicesData(finalData);
 
-        const grouped = finalData.reduce((acc: Record<string, Services[]>, service: Services) => {
-            const category = service.category?.name ?? "";
-            if (!acc[category]) acc[category] = [];
-            acc[category].push(service);
-            return acc;
-        }, {});
-
-        const defaults = Object.keys(grouped).map((_, idx) => `group-${idx}`);
-        setAccordionDefaults(defaults);
     }, [contextServicesData, listingData, showAll, tempPropertyData?.square_footage]);
 
-    const groupedByCategory = servicesData?.reduce((acc, service) => {
-        const category = service.category?.name ?? "";
-        if (!acc[category]) {
-            acc[category] = [];
+    // Set of UUIDs/IDs belonging to the currently active package
+    const packageServiceUuids = useMemo(() => {
+        if (!activePackage || !activePackage.services) return new Set<string>();
+        const ids = new Set<string>();
+        (activePackage.services || []).forEach(pkgS => {
+            if (pkgS.uuid) ids.add(String(pkgS.uuid));
+            if (pkgS.id) ids.add(String(pkgS.id));
+            const fullS = contextServicesData.find(s => 
+                (pkgS.uuid && s.uuid === pkgS.uuid) || 
+                (pkgS.id && (s.id === pkgS.id || String(s.id) === String(pkgS.id)))
+            );
+            if (fullS?.uuid) ids.add(String(fullS.uuid));
+            if (fullS?.id) ids.add(String(fullS.id));
+        });
+        return ids;
+    }, [activePackage, contextServicesData]);
+
+    // Services included in the selected package
+    const packageServices = useMemo(() => {
+        if (!activePackage || packageServiceUuids.size === 0) return [];
+        return (contextServicesData || []).filter(s => 
+            (s.uuid && packageServiceUuids.has(String(s.uuid))) ||
+            (s.id && packageServiceUuids.has(String(s.id)))
+        );
+    }, [contextServicesData, packageServiceUuids, activePackage]);
+
+    // Remaining services NOT in the selected package
+    const nonPackageServices = useMemo(() => {
+        if (!activePackage || packageServiceUuids.size === 0) return servicesData;
+        return servicesData.filter(s => 
+            (!s.uuid || !packageServiceUuids.has(String(s.uuid))) &&
+            (!s.id || !packageServiceUuids.has(String(s.id)))
+        );
+    }, [servicesData, packageServiceUuids, activePackage]);
+
+    const groupedByCategory = useMemo(() => {
+        return nonPackageServices.reduce((acc, service) => {
+            const category = service.category?.name ?? "";
+            if (!category) return acc;
+            if (!acc[category]) {
+                acc[category] = [];
+            }
+            acc[category].push(service);
+            return acc;
+        }, {} as Record<string, Services[]>);
+    }, [nonPackageServices]);
+
+    useEffect(() => {
+        const categoryKeys = Object.keys(groupedByCategory).map((_, idx) => `group-${idx}`);
+        setOpenAccordions(prev => {
+            if (prev.length === 0) {
+                return activePackage ? ['selected-package', ...categoryKeys] : categoryKeys;
+            }
+            return prev;
+        });
+    }, [groupedByCategory, activePackage]);
+
+    useEffect(() => {
+        if (activePackage) {
+            setOpenAccordions(prev => prev.includes('selected-package') ? prev : ['selected-package', ...prev]);
         }
-        acc[category].push(service);
-        return acc;
-    }, {} as Record<string, Services[]>);
+    }, [activePackage]);
 
     const displayedServices = isAddFlow ? selectedServices.filter(s => !s.service_uuid) : selectedServices;
 
@@ -372,6 +460,35 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             )}
                         </Carousel>
                     </div>
+
+                    {/* Notification message line when a package is selected */}
+                    {activePackage && (
+                        <div
+                            className="mt-3 p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-sm transition-all shadow-sm"
+                            style={{
+                                backgroundColor: fieldBg,
+                                borderColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 45%, transparent)`,
+                            }}
+                        >
+                            <div className="flex items-start sm:items-center gap-2.5">
+                                <Info
+                                    className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0"
+                                    style={{ color: roleSettings.pageTabColor }}
+                                />
+                                <p className="leading-snug" style={{ color: roleSettings.pageText }}>
+                                    You have selected the <strong className="font-semibold">{activePackage.name}</strong> package. You can change the selected options, square footage, or quantity in the <strong className="font-semibold">Selected Package</strong> accordion below.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => handleSelectPackage(activePackage)}
+                                className="shrink-0 text-xs font-semibold underline hover:opacity-80 transition-opacity self-start sm:self-center cursor-pointer"
+                                style={{ color: roleSettings.pageTabColor }}
+                            >
+                                Deselect Package
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -432,49 +549,100 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
             <div className='flex flex-col lg:flex-row gap-5'>
                 <div className="w-full md:w-[70%] space-y-4">
-                    {accordionDefaults.length > 0 && groupedByCategory ? (
+                    {(servicesData.length > 0 || (activePackage && packageServices.length > 0)) && groupedByCategory ? (
                         <Accordion
                             type="multiple"
-                            defaultValue={Object.keys(groupedByCategory).map((_, idx) => `group-${idx}`)}
+                            value={openAccordions}
+                            onValueChange={setOpenAccordions}
                             className='w-full'
                         >
-                            {(
-                                Object.entries(groupedByCategory) as [string, Services[]][]
-                            )
-                                // .sort(([catA, servicesA], [catB, servicesB]) => {
-                                //     if (selected === "Alphabetically") {
-                                //         return catA.localeCompare(catB);
-                                //     } else if (selected === "By Service") {
-                                //         return servicesB.length - servicesA.length;
-                                //     }
-                                //     return 0;
-                                // })
-                                .map(([category, services], idx) => (
-                                    <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
-                                        <AccordionTrigger
-                                            className='text-[18px] font-[600] px-4 py-3 my-2 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'
-                                            style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
-                                        >
-                                            {category}
-                                        </AccordionTrigger>
-                                        <AccordionContent className="border-none">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
-                                                {services.map((service) => (
-                                                    <PricingCard
-                                                        key={service.uuid}
-                                                        pricingOptions={service.product_options}
-                                                        title={service.name ?? ''}
-                                                        selectedServices={selectedServices}
-                                                        setSelectedServices={setSelectedServices}
-                                                        service={service}
-                                                        squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
-                                                        showAll={showAll}
-                                                    />
-                                                ))}
+                            {/* Selected Package Accordion */}
+                            {activePackage && packageServices.length > 0 && (
+                                <AccordionItem
+                                    value="selected-package"
+                                    className="rounded-xl border transition-all mb-4 overflow-hidden shadow-xs"
+                                    style={{
+                                        borderColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 28%, #d1d5db)`,
+                                        backgroundColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 3%, #ffffff)`,
+                                    }}
+                                >
+                                    <AccordionTrigger
+                                        className='text-[16px] md:text-[17px] font-[500] px-4 py-3 border-b transition-colors decoration-transparent hover:no-underline'
+                                        style={{
+                                            color: roleSettings.pageText || '#1f2937',
+                                            backgroundColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 7%, ${fieldBg})`,
+                                            borderBottomColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 18%, transparent)`,
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2.5 flex-wrap text-left">
+                                            <div
+                                                className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+                                                style={{
+                                                    backgroundColor: `color-mix(in srgb, ${roleSettings.pageTabColor} 15%, transparent)`,
+                                                    color: roleSettings.pageTabColor,
+                                                }}
+                                            >
+                                                <Package className="w-4 h-4" />
                                             </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
+                                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                                                <span className="text-gray-500 font-normal text-[14px]">Package:</span>
+                                                <span className="font-medium text-gray-900">{activePackage.name}</span>
+                                            </div>
+                                            <span className="text-[11px] px-2.5 py-0.5 rounded-full font-normal text-emerald-800 bg-emerald-50 border border-emerald-200">
+                                                {packageServices.length} {packageServices.length === 1 ? 'Service' : 'Services'} Included
+                                            </span>
+                                            {typeof activePackage.discount === 'number' && activePackage.discount > 0 && (
+                                                <span className="text-[11px] px-2.5 py-0.5 rounded-full font-normal text-blue-800 bg-blue-50 border border-blue-200">
+                                                    {activePackage.discount_type === 'dollar' ? `$${activePackage.discount} OFF` : `${activePackage.discount}% OFF`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="border-none px-3.5 pb-4 pt-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
+                                            {packageServices.map((service) => (
+                                                <PricingCard
+                                                    key={service.uuid}
+                                                    pricingOptions={service.product_options}
+                                                    title={service.name ?? ''}
+                                                    selectedServices={selectedServices}
+                                                    setSelectedServices={setSelectedServices}
+                                                    service={service}
+                                                    squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
+                                                    showAll={showAll}
+                                                />
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )}
+
+                            {Object.entries(groupedByCategory).map(([category, services], idx) => (
+                                <AccordionItem key={category || idx} value={`group-${idx}`} className="border-none">
+                                    <AccordionTrigger
+                                        className='text-[18px] font-[600] px-4 py-3 my-2 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'
+                                        style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
+                                    >
+                                        {category}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="border-none">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
+                                            {services.map((service) => (
+                                                <PricingCard
+                                                    key={service.uuid}
+                                                    pricingOptions={service.product_options}
+                                                    title={service.name ?? ''}
+                                                    selectedServices={selectedServices}
+                                                    setSelectedServices={setSelectedServices}
+                                                    service={service}
+                                                    squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
+                                                    showAll={showAll}
+                                                />
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
                         </Accordion>
                     ) : (
                         <div className="w-full space-y-8 mt-4">

@@ -58,8 +58,6 @@ export default function OrgAgentSignupPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
 
@@ -158,8 +156,6 @@ export default function OrgAgentSignupPage() {
         email: email.trim().toLowerCase(),
         password,
         password_confirmation: passwordConfirmation,
-        company_name: companyName.trim() || undefined,
-        primary_phone: phone.trim() || undefined,
         organization_slug: orgData.slug || slug,
         organization_id: orgData.id || orgData.org_id,
       });
@@ -305,37 +301,6 @@ export default function OrgAgentSignupPage() {
             }}
           />
           {errors.email && <span className="text-red-500 text-xs">{errors.email}</span>}
-        </div>
-
-        {/* Brokerage / Company Name (Optional) */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-[500] text-[#333]" htmlFor="companyName">
-            Brokerage / Company Name <span className="text-[#888] font-normal">(optional)</span>
-          </label>
-          <Input
-            id="companyName"
-            name="companyName"
-            placeholder="e.g. Commerx Realty Ltd."
-            className="h-[42px] border-[2px] border-[#BBBBBB] rounded-[6px]"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-          />
-        </div>
-
-        {/* Phone Number (Optional) */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-[500] text-[#333]" htmlFor="phone">
-            Phone Number <span className="text-[#888] font-normal">(optional)</span>
-          </label>
-          <Input
-            type="tel"
-            id="phone"
-            name="phone"
-            placeholder="(555) 000-0000"
-            className="h-[42px] border-[2px] border-[#BBBBBB] rounded-[6px]"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
         </div>
 
         {/* Password */}

@@ -579,6 +579,34 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                 {errors.name && <p className="text-red-500 text-[10px] mt-1">{errors.name}</p>}
                             </div>
 
+                            {/* Slug */}
+                            <div>
+                                <Label>
+                                    Organization Slug{" "}
+                                    <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
+                                </Label>
+                                <Input
+                                    id="org-slug"
+                                    type="text"
+                                    placeholder="e.g. acme-realty"
+                                    value={form.slug ?? ""}
+                                    onChange={(e) =>
+                                        setField("slug", e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, "-"))
+                                    }
+                                    className={inputCls(errors.slug)}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                />
+                                {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
+                                {form.slug && (
+                                    <p className="text-[10px] text-[#999] mt-1">
+                                        Agent Signup URL:{' '}
+                                        <span className="font-mono text-[#4290E9]">
+                                            {typeof window !== 'undefined' ? `${window.location.origin}/${form.slug}/signup` : `/${form.slug}/signup`}
+                                        </span>
+                                    </p>
+                                )}
+                            </div>
+
                         </div>
                     </div>
 
@@ -800,33 +828,6 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         {form.is_whitelabel ? (
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                    {/* Slug */}
-                                    <div>
-                                        <Label>
-                                            Slug{" "}
-                                            <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
-                                        </Label>
-                                        <Input
-                                            id="org-slug"
-                                            type="text"
-                                            placeholder="e.g. acme-realty"
-                                            value={form.slug ?? ""}
-                                            onChange={(e) =>
-                                                setField("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))
-                                            }
-                                            className={inputCls(errors.slug)}
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                        />
-                                        {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
-                                        {form.slug && (
-                                            <p className="text-[10px] text-[#999] mt-1">
-                                                Portal URL preview:{' '}
-                                                <span className="font-mono text-[#4290E9]">
-                                                    {`${form.slug}.${getDefaultDomains()[1] || 'bookings-new.bcfloorplans.com'}`}
-                                                </span>
-                                            </p>
-                                        )}
-                                    </div>
 
                                     {/* Custom Domain */}
                                     <div>

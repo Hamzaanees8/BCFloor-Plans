@@ -367,7 +367,6 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     },
     [
       filesData,
-      isSaving,
       setFilesData,
       setIsSaving,
       startUpload,

@@ -1636,6 +1636,9 @@ const FileManager = () => {
         currentUser,
         isCoAgentUser,
         splitMultiplier,
+        packageData:
+          (orderData as any)?.package ||
+          (orderData as any)?.meta?.applied_package,
       });
       currentBookedService = {
         ...currentBookedService,

@@ -242,7 +242,22 @@ function Page() {
       orderService: sel,
       catalogService,
       squareFootage,
+      invoices: [],
+    });
+  };
+
+  const getDiscountedPrice = (sel: OrderService) => {
+    const squareFootage = Number(orderData?.property?.square_footage || 0);
+    const catalogService = services?.find((s) => s.uuid === sel.service?.uuid);
+
+    return resolveServicePrice({
+      orderService: sel,
+      catalogService,
+      squareFootage,
       invoices,
+      packageData:
+        (orderData as any)?.package ||
+        (orderData as any)?.meta?.applied_package,
     });
   };
 
@@ -1432,20 +1447,43 @@ function Page() {
                   <p className="text-[20px] text-[#666666] font-[700]">
                     Order Details
                   </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Package</span>
-                    {userType !== "vendor" && (
-                      <span className="col-span-1">
-                        $
-                        {orderData?.services
-                          ?.reduce(
-                            (total, service) => total + getOriginalPrice(service),
-                            0,
-                          )
-                          .toFixed(2)}
-                      </span>
-                    )}
-                  </p>
+                  {(() => {
+                    const appliedPackage = (orderData as any)?.meta?.applied_package || (orderData as any)?.package;
+                    const packageName = appliedPackage?.package_name || appliedPackage?.name;
+                    const totalServicePrice = orderData?.services?.reduce(
+                      (total, service) => total + getOriginalPrice(service),
+                      0,
+                    ) || 0;
+                    const packageDiscountItem = orderData?.totals?.find((t: any) => t.discount_type === 'package');
+                    const packageDiscountAmount = packageDiscountItem 
+                      ? Math.abs(parseFloat(packageDiscountItem.amount || '0')) 
+                      : (parseFloat(appliedPackage?.package_discount_amount || '0') || 0);
+                    const packagePrice = Math.max(0, totalServicePrice - packageDiscountAmount);
+
+                    if (packageName) {
+                      return (
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">Package ({packageName})</span>
+                          {userType !== "vendor" && (
+                            <span className="col-span-1">
+                              ${packagePrice.toFixed(2)}
+                            </span>
+                          )}
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <p className="grid grid-cols-4 gap-[15px]">
+                        <span className="col-span-3">Services Total</span>
+                        {userType !== "vendor" && (
+                          <span className="col-span-1">
+                            ${totalServicePrice.toFixed(2)}
+                          </span>
+                        )}
+                      </p>
+                    );
+                  })()}
 
                   <p className="grid grid-cols-4 gap-[15px]">
                     <span className="col-span-3">Items</span>
@@ -1458,6 +1496,9 @@ function Page() {
                       const isPaid =
                         service.payment_status?.toUpperCase() === "PAID";
                       const originalPrice = getOriginalPrice(service);
+                      const discountedPrice = getDiscountedPrice(service);
+                      const hasDiscount =
+                        discountedPrice > 0 && discountedPrice < originalPrice;
                       return (
                         <p
                           key={service.id}
@@ -1484,7 +1525,18 @@ function Page() {
                           </span>
                           {userType !== "vendor" && (
                             <span className="col-span-1">
-                              ${originalPrice.toFixed(2)}
+                              {hasDiscount ? (
+                                <span className="flex items-center gap-1.5">
+                                  <span className="line-through text-gray-400 text-xs">
+                                    ${originalPrice.toFixed(2)}
+                                  </span>
+                                  <span className="font-semibold text-gray-800">
+                                    ${discountedPrice.toFixed(2)}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span>${originalPrice.toFixed(2)}</span>
+                              )}
                             </span>
                           )}
                         </p>

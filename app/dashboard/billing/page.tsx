@@ -1544,13 +1544,32 @@ const Page = () => {
                 const primaryInvoice =
                   orderInvoices.find(
                     (inv) =>
-                      inv.agent_type === "primary" ||
-                      (inv.agent && !inv.split_details),
-                  ) || orderInvoices[0];
-                const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
-                const subtotalVal = billing.total_amount;
-                const taxAmount = subtotalVal * (taxRate / 100);
-                const rowGrandTotal = subtotalVal + taxAmount;
+                      inv.notes?.toLowerCase().includes("consolidated") ||
+                      (!inv.notes?.toLowerCase().includes("service invoice") &&
+                        (inv.agent_type === "primary" || !inv.split_details || inv.agent_type !== "co-agent")),
+                  ) ||
+                  orderInvoices.find((inv) => !inv.notes?.toLowerCase().includes("service invoice")) ||
+                  orderInvoices.find((inv) => inv.agent_type === "primary") ||
+                  orderInvoices[0];
+                const taxRate = parseFloat(
+                  primaryInvoice?.tax_rate || (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
+                );
+                const subtotalVal =
+                  primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
+                    ? parseFloat(primaryInvoice.subtotal)
+                    : billing.total_amount;
+                const taxAmount =
+                  primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
+                    ? parseFloat(primaryInvoice.tax_amount)
+                    : (billing.tax_amount != null
+                        ? billing.tax_amount
+                        : subtotalVal * (taxRate / 100));
+                const rowGrandTotal =
+                  primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
+                    ? parseFloat(primaryInvoice.total)
+                    : (billing.grand_total != null
+                        ? billing.grand_total
+                        : subtotalVal + taxAmount);
                 const rowRemaining =
                   billing.status === "paid"
                     ? 0
@@ -1698,11 +1717,15 @@ const Page = () => {
                           userType,
                         );
                         const primaryInvoice =
-                          targetOrderInvoice ||
                           orderInvoices.find(
                             (inv) =>
-                              inv.agent_type === "primary" ||
-                              (inv.agent && !inv.split_details),
+                              inv.notes?.toLowerCase().includes("consolidated") ||
+                              (!inv.notes?.toLowerCase().includes("service invoice") &&
+                                (inv.agent_type === "primary" || (inv.agent && !inv.split_details))),
+                          ) ||
+                          targetOrderInvoice ||
+                          orderInvoices.find(
+                            (inv) => !inv.notes?.toLowerCase().includes("service invoice"),
                           ) ||
                           orderInvoices[0];
 
@@ -1748,11 +1771,24 @@ const Page = () => {
                         );
 
                         const taxRate = parseFloat(
-                          primaryInvoice?.tax_rate || "0",
+                          primaryInvoice?.tax_rate || (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
                         );
-                        const subtotalVal = billing.total_amount;
-                        const taxAmount = subtotalVal * (taxRate / 100);
-                        const grandTotalVal = subtotalVal + taxAmount;
+                        const subtotalVal =
+                          primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
+                            ? parseFloat(primaryInvoice.subtotal)
+                            : billing.total_amount;
+                        const taxAmount =
+                          primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
+                            ? parseFloat(primaryInvoice.tax_amount)
+                            : (billing.tax_amount != null
+                                ? billing.tax_amount
+                                : subtotalVal * (taxRate / 100));
+                        const grandTotalVal =
+                          primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
+                            ? parseFloat(primaryInvoice.total)
+                            : (billing.grand_total != null
+                                ? billing.grand_total
+                                : subtotalVal + taxAmount);
                         const totalRefunded = billing.total_refunded || 0;
                         const effectiveGrandTotal = Math.max(
                           0,
@@ -2154,6 +2190,77 @@ const Page = () => {
                                       <>
                                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
                                           <div className="flex gap-6">
+                                            {(() => {
+                                              const packageDiscountItem = primaryInvoice?.items?.find((i: any) =>
+                                                i.description?.toLowerCase().includes("package discount")
+                                              );
+
+                                              // Sum all package discount items across all invoices for this order
+                                              const allOrderDiscountItemsSum = orderInvoices
+                                                .flatMap((inv: any) => inv.items || [])
+                                                .filter((i: any) => i.description?.toLowerCase().includes("package discount"))
+                                                .reduce((sum: number, i: any) => sum + Math.abs(parseFloat(i.amount || "0")), 0);
+
+                                              // If primary invoice has the package discount line (consolidated invoice), use it.
+                                              // Otherwise, if multiple service invoices exist, use their combined discount sum.
+                                              let packageDiscountVal = packageDiscountItem
+                                                ? Math.abs(parseFloat(packageDiscountItem.amount || "0"))
+                                                : allOrderDiscountItemsSum;
+
+                                              // Fallback to billing.package percentage if no discount line items
+                                              if (packageDiscountVal === 0 && billing.package) {
+                                                const discPercent = parseFloat(
+                                                  billing.package.discount ??
+                                                    billing.package.package_discount ??
+                                                    "0"
+                                                );
+                                                const discType = (
+                                                  billing.package.discount_type ??
+                                                    billing.package.package_discount_type ??
+                                                    "percentage"
+                                                ).toLowerCase();
+                                                if (discPercent > 0 && discType === "percentage") {
+                                                  const originalSubtotal = subtotalVal / (1 - discPercent / 100);
+                                                  packageDiscountVal = Math.round((originalSubtotal - subtotalVal) * 100) / 100;
+                                                }
+                                              }
+
+                                              const packageName = billing.package?.name || (billing.package as any)?.package_name || null;
+
+                                              if (packageDiscountVal > 0) {
+                                                return (
+                                                  <>
+                                                    <div>
+                                                      <span className="text-gray-500 block text-xs">
+                                                        Original Subtotal
+                                                      </span>
+                                                      <span className="font-semibold text-gray-500 line-through">
+                                                        {(
+                                                          (subtotalVal + packageDiscountVal) * splitMultiplier
+                                                        ).toLocaleString("en-US", {
+                                                          style: "currency",
+                                                          currency: "USD",
+                                                        })}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-gray-500 block text-xs">
+                                                        Discount {packageName ? `(${packageName})` : ""}
+                                                      </span>
+                                                      <span className="font-semibold text-emerald-600">
+                                                        -{(
+                                                          packageDiscountVal * splitMultiplier
+                                                        ).toLocaleString("en-US", {
+                                                          style: "currency",
+                                                          currency: "USD",
+                                                        })}
+                                                      </span>
+                                                    </div>
+                                                  </>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
                                             <div>
                                               <span className="text-gray-500 block text-xs">
                                                 Subtotal

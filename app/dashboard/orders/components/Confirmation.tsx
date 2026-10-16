@@ -698,13 +698,36 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
                                     <p style={{ color: roleSettings.pageTabColor }} className='text-[20px] font-[700]'>Order Details</p>
 
-                                    {/* Package amount - this should show the sum of all services */}
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>Package</span>
-                                        <span className='col-span-1'>
-                                            ${totalServiceAmount.toFixed(2)}
-                                        </span>
-                                    </p>
+                                    {/* Package / Services Total display */}
+                                    {(() => {
+                                        const appliedPackage = (orderData as any)?.meta?.applied_package || (orderData as any)?.package || activePackage;
+                                        const packageName = appliedPackage?.package_name || appliedPackage?.name;
+                                        const packageDiscountItem = orderData?.totals?.find((t: any) => t.discount_type === 'package');
+                                        const packageDiscountAmount = packageDiscountItem 
+                                            ? Math.abs(parseFloat(packageDiscountItem.amount || '0')) 
+                                            : (parseFloat(appliedPackage?.package_discount_amount || '0') || 0);
+                                        const packagePrice = Math.max(0, totalServiceAmount - packageDiscountAmount);
+
+                                        if (packageName) {
+                                            return (
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>Package ({packageName})</span>
+                                                    <span className='col-span-1'>
+                                                        ${packagePrice.toFixed(2)}
+                                                    </span>
+                                                </p>
+                                            );
+                                        }
+
+                                        return (
+                                            <p className='grid grid-cols-4 gap-[15px]'>
+                                                <span className='col-span-3'>Services Total</span>
+                                                <span className='col-span-1'>
+                                                    ${totalServiceAmount.toFixed(2)}
+                                                </span>
+                                            </p>
+                                        );
+                                    })()}
 
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>Items</span>
@@ -761,30 +784,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     </div>
 
                                     {(() => {
-                                        if (taxPreview?.tax_details && Object.keys(taxPreview.tax_details).length > 0) {
-                                            return Object.entries(taxPreview.tax_details).map(([tName, tInfo]) => (
-                                                <p key={tName} className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>{tName} ({tInfo.rate}%)</span>
-                                                    <span className='col-span-1'>${Number(tInfo.amount || 0).toFixed(2)}</span>
-                                                </p>
-                                            ));
-                                        }
-                                        return (
-                                            <>
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>GST/HST</span>
-                                                    <span className='col-span-1'>$0.00</span>
-                                                </p>
-
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>PST/RST/QST</span>
-                                                    <span className='col-span-1'>$0.00</span>
-                                                </p>
-                                            </>
-                                        );
-                                    })()}
-
-                                    {(() => {
                                         // Calculate subtotal from services
                                         const subtotal = orderData?.services?.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0) || 0;
 
@@ -799,8 +798,36 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         // Calculate discount percentage
                                         const discountPercent = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(2) : "0.00";
 
-                                        // Grand total is the final amount from the order
-                                        const grandTotal = parseFloat(orderData?.amount || "0");
+                                        // Calculate taxes from taxPreview
+                                        let taxTotal = 0;
+                                        let taxRows: React.ReactNode = null;
+
+                                        if (taxPreview?.tax_details && Object.keys(taxPreview.tax_details).length > 0) {
+                                            taxTotal = Object.values(taxPreview.tax_details).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                                            taxRows = Object.entries(taxPreview.tax_details).map(([tName, tInfo]) => (
+                                                <p key={tName} className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>{tName} ({tInfo.rate}%)</span>
+                                                    <span className='col-span-1'>${Number(tInfo.amount || 0).toFixed(2)}</span>
+                                                </p>
+                                            ));
+                                        } else {
+                                            taxRows = (
+                                                <>
+                                                    <p className='grid grid-cols-4 gap-[15px]'>
+                                                        <span className='col-span-3'>GST/HST</span>
+                                                        <span className='col-span-1'>$0.00</span>
+                                                    </p>
+                                                    <p className='grid grid-cols-4 gap-[15px]'>
+                                                        <span className='col-span-3'>PST/RST/QST</span>
+                                                        <span className='col-span-1'>$0.00</span>
+                                                    </p>
+                                                </>
+                                            );
+                                        }
+
+                                        // Grand total is the final net amount from the order + taxes
+                                        const netOrderAmount = parseFloat(orderData?.amount || "0");
+                                        const grandTotal = netOrderAmount + taxTotal;
 
                                         // Get paid amount and refunded amount from order data
                                         const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
@@ -827,6 +854,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                         </span>
                                                     </p>
                                                 )}
+
+                                                {/* Taxes */}
+                                                {taxRows}
 
                                                 {/* Order/Quote approx. */}
                                                 <p className='grid grid-cols-4 gap-[15px]'>

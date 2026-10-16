@@ -47,7 +47,6 @@ import {
     extractBaseDomain,
     getDefaultDomainErrorMessage,
     getSubdomainMismatchWarning,
-    getDefaultDomains,
     getDefaultToursDomain,
     cleanDomain,
 } from "@/lib/config/domains";
@@ -453,10 +452,11 @@ const OrganizationsSettings = React.forwardRef<
                 toast.error(domainValidationError);
                 return;
             }
-            if (formState.slug && !/^[a-z0-9\-]+$/.test(formState.slug)) {
-                toast.error("Slug may only contain lowercase letters, numbers, and hyphens.");
-                return;
-            }
+        }
+
+        if (formState.slug && !/^[a-z0-9\-]+$/.test(formState.slug)) {
+            toast.error("Slug may only contain lowercase letters, numbers, and hyphens.");
+            return;
         }
 
         setIsSaving(true);
@@ -745,6 +745,30 @@ const OrganizationsSettings = React.forwardRef<
                                 />
                             </div>
 
+                            {/* Organization Slug */}
+                            <div>
+                                <label className="text-sm font-semibold mb-2 block">
+                                    Organization Slug <span className="text-[#999] text-xs font-normal">(for agent signup)</span>
+                                </label>
+                                <Input
+                                    value={formState.slug}
+                                    onChange={(e) => setFormState(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, "-") }))}
+                                    className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB]"
+                                    style={{
+                                        backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                    }}
+                                    placeholder="e.g. commerx"
+                                />
+                                {formState.slug && (
+                                    <p className="text-[11px] text-[#888] mt-1">
+                                        Agent Signup URL:{' '}
+                                        <span className="font-mono text-[#4290E9]">
+                                            {typeof window !== 'undefined' ? `${window.location.origin}/${formState.slug}/signup` : `/${formState.slug}/signup`}
+                                        </span>
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Contact Name */}
                             <div>
                                 <label className="text-sm font-semibold mb-2 block">Contact Name</label>
@@ -886,28 +910,6 @@ const OrganizationsSettings = React.forwardRef<
                                         </Select>
                                     </div>
 
-                                    {/* Slug */}
-                                    <div>
-                                        <Label className="text-sm font-semibold mb-2 block">
-                                            Slug <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
-                                        </Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="e.g. acme-realty"
-                                            value={formState.slug}
-                                            onChange={(e) => setFormState(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))}
-                                            className="h-[42px] border-[1px] border-[#BBBBBB]"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                        />
-                                        {formState.slug && (
-                                            <p className="text-[10px] text-[#999] mt-1">
-                                                Portal URL preview:{' '}
-                                                <span className="font-mono text-[#4290E9]">
-                                                    {`${formState.slug}.${getDefaultDomains()[1] || 'bookings-new.bcfloorplans.com'}`}
-                                                </span>
-                                            </p>
-                                        )}
-                                    </div>
 
                                     {/* Custom Domain */}
                                     <div>

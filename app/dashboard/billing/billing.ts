@@ -51,6 +51,9 @@ export interface BillingItem {
   agent_name: string | null;
   agent_uuid: string | null;
   total_amount: number;
+  grand_total?: number;
+  tax_amount?: number;
+  tax_rate?: number;
   total_paid: number;
   total_refunded?: number;
   remaining_amount: number;
@@ -65,6 +68,7 @@ export interface BillingItem {
   created_at: string;
   organization?: { id: number; name: string } | null;
   organization_id?: number | null;
+  package?: any;
 }
 
 /**
@@ -300,26 +304,55 @@ export function getBestTargetInvoice(
   const nonRenewalOrderPool = rawOrderPool.filter((inv: any) => !isRenewalInvoice(inv));
   const pool = nonRenewalOrderPool.length > 0 ? nonRenewalOrderPool : rawOrderPool;
 
+  // Top Priority: Consolidated / whole-order invoice
+  const consolidated = pool.find(
+    (inv: any) =>
+      inv.notes?.toLowerCase().includes("consolidated") ||
+      (Array.isArray(inv.items) && inv.items.length > 1 && !inv.split_details && !inv.notes?.toLowerCase().includes("service invoice"))
+  );
+
   if (isCoAgent) {
-    const multiCoInv = pool.find((inv: any) => matchesCoAgent(inv) && (inv.notes?.toLowerCase().includes("consolidated") || (inv.items?.length || 0) > 1));
+    const multiCoInv = pool.find(
+      (inv: any) =>
+        matchesCoAgent(inv) &&
+        (inv.notes?.toLowerCase().includes("consolidated") ||
+          !inv.notes?.toLowerCase().includes("service invoice") ||
+          (inv.items?.length || 0) > 1),
+    );
     const coAgentInv = multiCoInv || pool.find((inv: any) => matchesCoAgent(inv));
     if (coAgentInv) return coAgentInv;
   } else if (userType === "agent") {
-    const multiPrimaryInv = pool.find((inv: any) => (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) && (inv.notes?.toLowerCase().includes("consolidated") || (inv.items?.length || 0) > 1));
-    const primaryInv = multiPrimaryInv || pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
+    const multiPrimaryInv = pool.find(
+      (inv: any) =>
+        (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) &&
+        (inv.notes?.toLowerCase().includes("consolidated") ||
+          !inv.notes?.toLowerCase().includes("service invoice") ||
+          (inv.items?.length || 0) > 1),
+    );
+    if (multiPrimaryInv) return multiPrimaryInv;
+    if (consolidated) return consolidated;
+    const nonServiceInv = pool.find(
+      (inv: any) => matchesPrimary(inv) && !inv.notes?.toLowerCase().includes("service invoice")
+    );
+    if (nonServiceInv) return nonServiceInv;
+    const primaryInv = pool.find(
+      (inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))
+    );
     if (primaryInv) return primaryInv;
   } else {
-    // If Admin is looking at the order, prioritize primary agent invoice
-    const primaryInv = pool.find((inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)));
+    // Admin: prioritize consolidated / whole-order invoice over single-service invoices
+    if (consolidated) return consolidated;
+    const nonServiceInv = pool.find(
+      (inv: any) =>
+        (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) &&
+        !inv.notes?.toLowerCase().includes("service invoice")
+    );
+    if (nonServiceInv) return nonServiceInv;
+    const primaryInv = pool.find(
+      (inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))
+    );
     if (primaryInv) return primaryInv;
   }
-
-  // Priority 1: Consolidated invoice (standard comprehensive overview)
-  const consolidated = pool.find((inv: any) => 
-    inv.notes?.toLowerCase().includes("consolidated") || 
-    (inv.items?.length > 1 && !inv.split_details)
-  );
-  if (consolidated) return consolidated;
 
   // Priority 2: Cancellation fee invoice
   const cancellation = pool.find((inv: any) => 
@@ -709,15 +742,30 @@ export function getServiceActualInvoicePricing({
     const chosenInvoice = singleSvcInv || targetInvoices.find((inv) => inv.items?.some(isMatchingItem));
 
     if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
-      const match = chosenInvoice.items.find(isMatchingItem);
-      if (match) {
-        const basePrice = getItemAmount(match);
-        if (basePrice > 0) {
+      if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
+        const basePrice = parseFloat(singleSvcInv.subtotal);
+        const invTaxRate = singleSvcInv.tax_rate != null && parseFloat(singleSvcInv.tax_rate) > 0 ? parseFloat(singleSvcInv.tax_rate) : taxRate;
+        const taxAmount = singleSvcInv.tax_amount != null && parseFloat(singleSvcInv.tax_amount) > 0 ? parseFloat(singleSvcInv.tax_amount) : basePrice * (invTaxRate / 100);
+        const totalPrice = singleSvcInv.total != null && parseFloat(singleSvcInv.total) > 0 ? parseFloat(singleSvcInv.total) : basePrice + taxAmount;
+        return {
+          basePrice,
+          taxAmount,
+          totalPrice,
+          isFromInvoice: true,
+          matchingInvoicesCount: 1,
+          appliedTaxRate: invTaxRate,
+        };
+      }
+
+      const matchingItems = chosenInvoice.items.filter(isMatchingItem);
+      if (matchingItems.length > 0) {
+        const netBasePrice = matchingItems.reduce((sum: number, item: any) => sum + getItemAmount(item), 0);
+        if (netBasePrice > 0) {
           const invTaxRate = chosenInvoice.tax_rate != null && parseFloat(chosenInvoice.tax_rate) > 0 ? parseFloat(chosenInvoice.tax_rate) : taxRate;
-          const taxAmount = basePrice * (invTaxRate / 100);
-          const totalPrice = basePrice + taxAmount;
+          const taxAmount = netBasePrice * (invTaxRate / 100);
+          const totalPrice = netBasePrice + taxAmount;
           return {
-            basePrice,
+            basePrice: netBasePrice,
             taxAmount,
             totalPrice,
             isFromInvoice: true,
@@ -764,14 +812,22 @@ export function getServiceActualInvoicePricing({
       // For each distinct agent, pick their best matching invoice (prefer single-service invoice over multi-service/consolidated)
       agentMap.forEach((agentInvs) => {
         const singleSvcInv = agentInvs.find(
-          (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1)
+          (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
         );
         const chosenInv = singleSvcInv || agentInvs[0];
         if (chosenInv && Array.isArray(chosenInv.items)) {
-          const matchItem = chosenInv.items.find(isMatchingItem);
-          if (matchItem) {
-            combinedBasePrice += getItemAmount(matchItem);
+          if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
+            combinedBasePrice += parseFloat(singleSvcInv.subtotal);
             matches++;
+          } else {
+            const matchingItems = chosenInv.items.filter(isMatchingItem);
+            if (matchingItems.length > 0) {
+              const netAmount = matchingItems.reduce((sum: number, item: any) => sum + getItemAmount(item), 0);
+              if (netAmount > 0) {
+                combinedBasePrice += netAmount;
+                matches++;
+              }
+            }
           }
         }
       });
@@ -792,7 +848,7 @@ export function getServiceActualInvoicePricing({
   }
 
   // Fallback if no matching invoice items were found
-  const basePrice = (service?.amount || 0) * splitMultiplier;
+  const basePrice = (service?.discounted_amount != null ? service.discounted_amount : (service?.amount || 0)) * splitMultiplier;
   const taxAmount = basePrice * (taxRate / 100);
   const totalPrice = basePrice + taxAmount;
   return {

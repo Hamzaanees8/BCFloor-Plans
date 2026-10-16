@@ -767,8 +767,12 @@ const InvoiceDocument = ({
                             </span>
                             <span className="text-sm font-bold text-gray-900">
                               {isEditing
-                                ? `$${Number(item.quantity * item.unit_price || 0).toFixed(2)}`
-                                : `$${Number(item.amount || 0).toFixed(2)}`}
+                                ? (Number(item.quantity * item.unit_price || 0) < 0 
+                                    ? `-$${Math.abs(Number(item.quantity * item.unit_price || 0)).toFixed(2)}` 
+                                    : `$${Number(item.quantity * item.unit_price || 0).toFixed(2)}`)
+                                : (Number(item.amount || 0) < 0 
+                                    ? `-$${Math.abs(Number(item.amount || 0)).toFixed(2)}` 
+                                    : `$${Number(item.amount || 0).toFixed(2)}`)}
                             </span>
                           </div>
                         </div>
@@ -888,7 +892,9 @@ const InvoiceDocument = ({
                       </>
                     ) : (
                       <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
-                        ${parseFloat(item.amount || "0").toFixed(2)}
+                        {parseFloat(item.amount || "0") < 0 
+                          ? `-$${Math.abs(parseFloat(item.amount || "0")).toFixed(2)}` 
+                          : `$${parseFloat(item.amount || "0").toFixed(2)}`}
                       </td>
                     )}
                   </tr>

@@ -361,6 +361,7 @@ export const resolveServicePrice = (params: {
   currentUser?: any;
   isCoAgentUser?: boolean;
   splitMultiplier?: number;
+  packageData?: any;
 }): number => {
   const {
     orderService,
@@ -371,6 +372,7 @@ export const resolveServicePrice = (params: {
     currentUser,
     isCoAgentUser = false,
     splitMultiplier = 1,
+    packageData,
   } = params;
   if (!orderService) return 0;
 
@@ -514,10 +516,16 @@ export const resolveServicePrice = (params: {
         targetInvoices.find((inv: any) => inv.items?.some(isMatchingItem));
 
       if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
-        const match = chosenInvoice.items.find(isMatchingItem);
-        if (match) {
-          const amt = getItemAmount(match);
-          if (amt > 0) return amt;
+        if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
+          return parseFloat(singleSvcInv.subtotal);
+        }
+        const matchingItems = chosenInvoice.items.filter(isMatchingItem);
+        if (matchingItems.length > 0) {
+          const netAmt = matchingItems.reduce(
+            (sum: number, it: any) => sum + getItemAmount(it),
+            0,
+          );
+          if (netAmt > 0) return netAmt;
         }
       }
     } else {
@@ -562,10 +570,21 @@ export const resolveServicePrice = (params: {
           );
           const chosenInv = singleSvcInv || agentInvs[0];
           if (chosenInv && Array.isArray(chosenInv.items)) {
-            const matchItem = chosenInv.items.find(isMatchingItem);
-            if (matchItem) {
-              combinedAmount += getItemAmount(matchItem);
+            if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
+              combinedAmount += parseFloat(singleSvcInv.subtotal);
               matchCount++;
+            } else {
+              const matchingItems = chosenInv.items.filter(isMatchingItem);
+              if (matchingItems.length > 0) {
+                const netAmt = matchingItems.reduce(
+                  (sum: number, it: any) => sum + getItemAmount(it),
+                  0,
+                );
+                if (netAmt > 0) {
+                  combinedAmount += netAmt;
+                  matchCount++;
+                }
+              }
             }
           }
         });
@@ -576,6 +595,27 @@ export const resolveServicePrice = (params: {
       }
     }
   }
+
+  const appliedPkg =
+    packageData ||
+    orderService?.package ||
+    orderService?.order?.package ||
+    orderService?.order?.meta?.applied_package;
+  const discountVal = parseFloat(
+    appliedPkg?.discount ?? appliedPkg?.package_discount ?? 0,
+  );
+  const discountType = (
+    appliedPkg?.discount_type ??
+    appliedPkg?.package_discount_type ??
+    "percentage"
+  ).toLowerCase();
+
+  const applyPackageDiscount = (val: number) => {
+    if (val > 0 && discountVal > 0 && discountType === "percentage") {
+      return Math.round(val * (1 - discountVal / 100) * 100) / 100;
+    }
+    return val;
+  };
 
   // 2. Check sq ft calculation (Fallback)
   const options = catalogService?.product_options || [];
@@ -591,18 +631,22 @@ export const resolveServicePrice = (params: {
       const rate = parseFloat(bookedOption.sq_ft_rate);
       const minPrice = parseFloat(bookedOption.min_price || "0");
       const rawPrice = Math.max(rate * squareFootage, minPrice);
-      return rawPrice * splitMultiplier;
+      return applyPackageDiscount(rawPrice * splitMultiplier);
     }
   }
 
   // 3. Flat price fallback from booked option
   if (orderService.option && orderService.option.amount) {
-    return parseFloat(orderService.option.amount) * splitMultiplier;
+    return applyPackageDiscount(
+      parseFloat(orderService.option.amount) * splitMultiplier,
+    );
   }
 
   // 4. Raw amount fallback
   if (orderService.amount) {
-    return parseFloat(orderService.amount) * splitMultiplier;
+    return applyPackageDiscount(
+      parseFloat(orderService.amount) * splitMultiplier,
+    );
   }
 
   return 0;
