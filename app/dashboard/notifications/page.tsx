@@ -350,22 +350,60 @@ const Page = () => {
     {
       header: "Type",
       cell: ({ row }) => {
+        const typeStr = (row.original.type || "").toLowerCase();
+        const subjectStr = (row.original.Subject || "").toLowerCase();
         const isApproval =
           row.original.type === "admin_approval_required" ||
-          (row.original.type || "").toLowerCase().includes("approval") ||
-          (row.original.Subject || "").toLowerCase().includes("approval");
+          typeStr.includes("approval") ||
+          subjectStr.includes("approval");
+        const isServiceCompleted =
+          row.original.type === "service_completed" ||
+          typeStr.includes("service_completed") ||
+          subjectStr.includes("service completed");
+        const isMediaUploaded =
+          row.original.type === "media_uploaded" ||
+          typeStr.includes("media_uploaded") ||
+          typeStr.includes("media ready") ||
+          subjectStr.includes("media");
+
         const formattedType = (row.original.type || row.original.Subject)
           ?.replace(/_/g, " ")
           ?.replace(/\b\w/g, (char: string) => char.toUpperCase());
 
-        return isApproval ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-[600] text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
-              {formattedType}
-            </span>
-          </div>
-        ) : (
+        if (isApproval) {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-[600] text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
+                {formattedType}
+              </span>
+            </div>
+          );
+        }
+
+        if (isServiceCompleted) {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-[600] text-emerald-900 bg-emerald-100/90 border border-emerald-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                {formattedType}
+              </span>
+            </div>
+          );
+        }
+
+        if (isMediaUploaded) {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-[600] text-blue-900 bg-blue-100/90 border border-blue-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                {formattedType}
+              </span>
+            </div>
+          );
+        }
+
+        return (
           <div className="text-[15px] font-[400] text-[#7D7D7D]">
             {formattedType}
           </div>
@@ -376,12 +414,18 @@ const Page = () => {
       header: "Address",
       cell: ({ row }) => {
         const notification = row.original;
-        const text = notification.source === "AgentPayment" || notification.source === "VendorPayment"
-          ? notification.source === "AgentPayment"
-            ? `${notification.meta_data?.property_address || "N/A"}`
-            : `${notification.source === "VendorPayment" ? `${notification.meta_data?.property_address || "N/A"}` : "Payment"}`
-          : notification?.order?.property_address
-            ? `${notification.order?.property_address} ${notification.order?.property_location}`
+        const address =
+          notification.meta_data?.property_address ||
+          notification.order?.property_address ||
+          "";
+        const location =
+          notification.meta_data?.property_location ||
+          notification.order?.property_location ||
+          "";
+        const text = address
+          ? `${address}${location && !address.includes(location) ? ` ${location}` : ""}`
+          : notification.source === "AgentPayment" || notification.source === "VendorPayment"
+            ? `${notification.meta_data?.property_address || "Payment"}`
             : "-";
 
         return (
@@ -393,7 +437,25 @@ const Page = () => {
     },
     {
       header: "Differences",
-      cell: () => <div className="text-[15px] font-[400] text-[#7D7D7D]">-</div>
+      cell: ({ row }) => {
+        const notification = row.original;
+        const summary = notification.meta_data?.changes_summary;
+        if (Array.isArray(summary) && summary.length > 0) {
+          return (
+            <div className="text-[13px] font-[400] text-[#7D7D7D] truncate max-w-[200px]" title={summary.join(", ")}>
+              {summary.join(", ")}
+            </div>
+          );
+        }
+        if (notification.diff_data?.amount) {
+          return (
+            <div className="text-[13px] font-[400] text-[#7D7D7D]">
+              ${notification.diff_data.amount.before} → ${notification.diff_data.amount.after}
+            </div>
+          );
+        }
+        return <div className="text-[15px] font-[400] text-[#7D7D7D]">-</div>;
+      },
     },
     {
       header: "Added",

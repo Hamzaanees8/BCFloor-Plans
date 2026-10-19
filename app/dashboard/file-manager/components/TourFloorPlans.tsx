@@ -1451,11 +1451,16 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
               ) : userType === "agent" &&
                 !orderData?.release_media_before_payment &&
                 !(orderData?.payment_status === "PAID") &&
+                !(selectedFile && "is_paid" in selectedFile && (selectedFile as any).is_paid) &&
                 !(
                   selectedFile &&
                   "is_complimentary" in selectedFile &&
                   selectedFile.is_complimentary
-                ) ? (
+                ) &&
+                !(orderData?.services?.some((s: any) =>
+                  (s.service?.name?.toLowerCase().includes("floor plan") || s.service?.name?.toLowerCase().includes("floorplan")) &&
+                  (s.payment_status === "PAID" || (s as any)?.media_access === true || (s.service as any)?.media_access === true)
+                )) ? (
                 <PdfPlaceholder
                   className="w-full h-full"
                   isRestricted={true}

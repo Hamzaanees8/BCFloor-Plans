@@ -20,6 +20,7 @@ import Link from "next/link";
 import CancelOrderDialog, {
   CancelPreviewData,
 } from "../../orders/components/CancelOrderDialog";
+import RemoveServiceModal from "../../orders/components/RemoveServiceModal";
 import VendorSwapReassignModal from "./VendorSwapReassignModal";
 import { PreviewCancelService, CancelService } from "../../orders/orders";
 import { toast } from "sonner";
@@ -76,6 +77,7 @@ export default function OrderQuickViewCard({
     name: string;
   } | null>(null);
   const [showSwapModal, setShowSwapModal] = React.useState(false);
+  const [showRemoveServiceModal, setShowRemoveServiceModal] = React.useState(false);
   const OrderVendor = vendorData?.find((vendor) => {
     return vendor.uuid == data.vendor_id;
   });
@@ -116,10 +118,19 @@ export default function OrderQuickViewCard({
 
   const isPast = isPastBooking(CurrentOrder);
 
+  const isPaid = serviceOptions?.payment_status?.toUpperCase() === "PAID";
+
   const showCancelButton =
     !!CurrentOrder &&
     CurrentOrder.order_status !== "Cancelled" &&
     (userType === "admin" || (userType === "agent" && !isPast));
+
+  const showRemoveButton =
+    userType === "admin" &&
+    !!CurrentOrder &&
+    CurrentOrder.order_status !== "Cancelled" &&
+    !isPaid &&
+    !!serviceOptions;
 
   const handleCancelServiceClick = async () => {
     const token = localStorage.getItem("token");
@@ -475,8 +486,32 @@ export default function OrderQuickViewCard({
               )}
             </Button>
           )}
+
+          {showRemoveButton && (
+            <Button
+              onClick={() => setShowRemoveServiceModal(true)}
+              className="bg-red-50 border-[1px] border-red-300 text-[14px] flex justify-center items-center text-red-700 hover:text-white rounded-none w-full h-[32px] hover:bg-red-600 hover:border-red-600 font-semibold"
+            >
+              Remove Service
+            </Button>
+          )}
         </div>
       </CardFooter>
+
+      {showRemoveServiceModal && CurrentOrder && serviceOptions && (
+        <RemoveServiceModal
+          isOpen={showRemoveServiceModal}
+          onClose={() => setShowRemoveServiceModal(false)}
+          orderUuid={CurrentOrder.uuid}
+          serviceUuid={serviceOptions.uuid}
+          serviceName={CurrentService?.name || serviceOptions.optionName || "Service"}
+          servicePrice={parseFloat(serviceOptions.amount || "0")}
+          onSuccess={() => {
+            refreshOrders?.();
+            onClose();
+          }}
+        />
+      )}
 
       {showCancelServiceDialog && CurrentOrder && (
         <CancelOrderDialog

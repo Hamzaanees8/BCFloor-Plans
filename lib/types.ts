@@ -257,13 +257,25 @@ export interface NotificationData {
         payment_type?: string;
         timestamp?: string;
         // Property and Services
+        property_id?: number | string;
+        property_uuid?: string;
         property_address?: string;
+        property_location?: string;
+        slot_uuid?: string;
+        service_name?: string;
+        date?: string;
+        start_time?: string;
+        end_time?: string;
+        agent_phone?: string;
+        agent_company?: string;
+        reason?: string;
         services?: Array<{
             uuid?: string;
             service_id?: number | string;
             service_name?: string;
             amount?: string | number;
         }>;
+        [key: string]: any;
     };
     order: {
         id: string | number;

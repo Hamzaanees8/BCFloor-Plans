@@ -580,7 +580,7 @@ const TourConfirm = ({
 
   const activeLinks = isPublicView
     ? publicMatterportLinks || []
-    : links.length > 0
+    : links.length > 0 && links.some((l) => l.link)
       ? links
       : rawApiLinks;
 
@@ -603,11 +603,17 @@ const TourConfirm = ({
 
   const hasMatterport = isPublicView
     ? displayMatterportLinks && displayMatterportLinks.length > 0
-    : orderData?.services?.some(
-        (s) =>
-          s.service?.name?.toLowerCase().includes("matterport") ||
-          s.service?.name?.toLowerCase().includes("3d tour"),
-      ) && displayMatterportLinks.length > 0;
+    : (orderData?.services?.some((s) => {
+        const sName = s.service?.name?.toLowerCase() || "";
+        const cName = (s.service as any)?.category?.name?.toLowerCase() || "";
+        return (
+          sName.includes("matterport") ||
+          sName.includes("3d tour") ||
+          sName.includes("3d floor") ||
+          sName.includes("virtual tour") ||
+          cName.includes("matterport")
+        );
+      }) || (displayMatterportLinks && displayMatterportLinks.length > 0)) && displayMatterportLinks.length > 0;
 
   const isPanoFile = React.useCallback((f: any) => {
     if (!f) return false;
@@ -2350,15 +2356,15 @@ const TourConfirm = ({
                           !orderData?.release_media_before_payment &&
                           !(
                             orderData?.payment_status === "PAID" ||
-                            orderData?.services?.find(
+                            orderData?.services?.some(
                               (s) =>
-                                s.service?.name
-                                  ?.toLowerCase()
-                                  .includes("matterport") ||
-                                s.service?.name
-                                  ?.toLowerCase()
-                                  .includes("3d tour"),
-                            )?.payment_status === "PAID"
+                                (s.service?.name?.toLowerCase().includes("matterport") ||
+                                 s.service?.name?.toLowerCase().includes("3d tour") ||
+                                 s.service?.name?.toLowerCase().includes("3d floor")) &&
+                                (s.payment_status === "PAID" ||
+                                 (s as any)?.media_access === true ||
+                                 (s.service as any)?.media_access === true)
+                            )
                           ) ? (
                             <div className="w-[90%] md:w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
                               You have not paid for this service yet. Pay the

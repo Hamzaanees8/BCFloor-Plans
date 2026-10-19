@@ -169,11 +169,19 @@ export default function TourTabs({
       s?.service?.name?.toLowerCase().includes("video") ||
       s?.service?.name?.toLowerCase().includes("reel"),
   );
-  const hasMatterport = orderData?.services?.some(
-    (s) =>
-      s?.service?.name?.toLowerCase().includes("matterport") ||
-      s?.service?.name?.toLowerCase().includes("3d tour"),
-  );
+  const hasMatterport =
+    (filesData?.links && filesData.links.length > 0) ||
+    orderData?.services?.some((s) => {
+      const sName = s?.service?.name?.toLowerCase() || "";
+      const cName = (s?.service as any)?.category?.name?.toLowerCase() || "";
+      return (
+        sName.includes("matterport") ||
+        sName.includes("3d tour") ||
+        sName.includes("3d floor") ||
+        sName.includes("virtual tour") ||
+        cName.includes("matterport")
+      );
+    });
   const hasFloorPlans = orderData?.services?.some((s) =>
     s?.service?.name?.toLowerCase().includes("floor plan"),
   );

@@ -9,8 +9,9 @@ import { DataTable } from '@/components/DataTable'
 import { ColumnDef } from "@tanstack/react-table"
 import DropdownActions from "@/components/DropdownActions"
 import { Button } from '@/components/ui/button'
-import { Plus, ChevronUp, ChevronDown, ChevronsUpDown, Eye, RotateCcw } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, ChevronsUpDown, Eye, RotateCcw, Trash2 } from 'lucide-react'
 import RefundModal from './components/RefundModal'
+import DeleteInvoiceModal from './components/DeleteInvoiceModal'
 import { Get as GetAgents } from '../agents/agents'
 import { GetListing } from '../listings/listing'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -50,6 +51,7 @@ const InvoiceListPage = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(false)
     const [refundModal, setRefundModal] = useState<{ open: boolean, invoice: any }>({ open: false, invoice: null })
+    const [deleteModal, setDeleteModal] = useState<{ open: boolean, invoice: any }>({ open: false, invoice: null })
     
     // Filters state
     const [search, setSearch] = useState('')
@@ -126,6 +128,10 @@ const InvoiceListPage = () => {
 
     const handleRefund = (invoice: any) => {
         setRefundModal({ open: true, invoice })
+    }
+
+    const handleDelete = (invoice: any) => {
+        setDeleteModal({ open: true, invoice })
     }
 
     const columns = useMemo<ColumnDef<Invoice>[]>(() => {
@@ -233,6 +239,10 @@ const InvoiceListPage = () => {
                             (parseFloat(inv.paid_amount || inv.total || '0') - parseFloat(inv.refunded_amount || '0')) > 0) ? [{
                             label: "Refund",
                             onClick: () => handleRefund(inv),
+                        }] : []),
+                        ...((role === 'admin' && !['paid', 'partially_paid', 'partial_paid'].includes((inv.status || '').toLowerCase()) && parseFloat(inv.paid_amount || '0') <= 0) ? [{
+                            label: "Delete",
+                            onClick: () => handleDelete(inv),
                         }] : []),
                     ];
 
@@ -471,6 +481,17 @@ const InvoiceListPage = () => {
                                                         Refund
                                                     </Button>
                                                 )}
+                                                {role === 'admin' && !['paid', 'partially_paid', 'partial_paid'].includes((inv.status || '').toLowerCase()) && parseFloat(inv.paid_amount || '0') <= 0 && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1 h-9 text-xs gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                                        onClick={() => handleDelete(inv)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        Delete
+                                                    </Button>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -495,6 +516,13 @@ const InvoiceListPage = () => {
                 isOpen={refundModal.open}
                 onClose={() => setRefundModal({ ...refundModal, open: false })}
                 invoice={refundModal.invoice}
+                onSuccess={fetchInvoices}
+            />
+
+            <DeleteInvoiceModal
+                isOpen={deleteModal.open}
+                onClose={() => setDeleteModal({ open: false, invoice: null })}
+                invoice={deleteModal.invoice}
                 onSuccess={fetchInvoices}
             />
         </div>

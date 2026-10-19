@@ -15,8 +15,9 @@ export async function CreateInvoice(data: any) {
     return response.data;
 }
 
-export async function DeleteInvoice(uuid: string) {
-    const response = await api.post(`/invoices/${uuid}`, { _method: 'DELETE' });
+export async function DeleteInvoice(uuid: string, removeService: boolean = false) {
+    const url = removeService ? `/invoices/${uuid}?remove_service=true` : `/invoices/${uuid}`;
+    const response = await api.delete(url);
     return response.data;
 }
 

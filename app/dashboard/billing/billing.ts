@@ -484,31 +484,45 @@ export function prepareOrderInvoicePreview(
     });
   });
 
-  invoicesList.forEach((inv: any) => {
-    (inv.items || []).forEach((item: any) => {
-      const key =
-        item.order_service?.uuid ||
-        item.orderService?.uuid ||
-        (item.order_service_id ? `id_${item.order_service_id}` : null) ||
-        item.description ||
-        item.id;
-
-      if (key && !itemsMap.has(key)) {
-        const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
-        const sUuid = item.order_service?.uuid || item.orderService?.uuid;
-        const statusInfo = (sUuid && serviceStatusMap.get(sUuid)) || (sId && serviceStatusMap.get(sId));
-        const itemStatus = statusInfo?.status || (isPaidOrSucceeded(inv.status) ? "paid" : "unpaid");
-
-        itemsMap.set(key, {
-          ...item,
-          item_status: itemStatus,
-          is_paid: itemStatus === "paid" || itemStatus === "partially_refunded",
-        });
-      }
+  let allItems: any[] = [];
+  if (Array.isArray(targetInvoice.items) && targetInvoice.items.length > 0) {
+    allItems = targetInvoice.items.map((item: any) => {
+      const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
+      const sUuid = item.order_service?.uuid || item.orderService?.uuid;
+      const statusInfo = (sUuid && serviceStatusMap.get(sUuid)) || (sId && serviceStatusMap.get(sId));
+      const itemStatus = statusInfo?.status || (isPaidOrSucceeded(targetInvoice.status) ? "paid" : "unpaid");
+      return {
+        ...item,
+        item_status: itemStatus,
+        is_paid: itemStatus === "paid" || itemStatus === "partially_refunded",
+      };
     });
-  });
+  } else {
+    invoicesList.forEach((inv: any) => {
+      (inv.items || []).forEach((item: any) => {
+        const key =
+          item.order_service?.uuid ||
+          item.orderService?.uuid ||
+          (item.order_service_id ? `id_${item.order_service_id}` : null) ||
+          item.description ||
+          item.id;
 
-  const allItems = Array.from(itemsMap.values());
+        if (key && !itemsMap.has(key)) {
+          const sId = item.order_service_id || item.order_service?.id || item.orderService?.id;
+          const sUuid = item.order_service?.uuid || item.orderService?.uuid;
+          const statusInfo = (sUuid && serviceStatusMap.get(sUuid)) || (sId && serviceStatusMap.get(sId));
+          const itemStatus = statusInfo?.status || (isPaidOrSucceeded(inv.status) ? "paid" : "unpaid");
+
+          itemsMap.set(key, {
+            ...item,
+            item_status: itemStatus,
+            is_paid: itemStatus === "paid" || itemStatus === "partially_refunded",
+          });
+        }
+      });
+    });
+    allItems = Array.from(itemsMap.values());
+  }
 
   let totalPaid = 0;
   let totalRefunded = 0;

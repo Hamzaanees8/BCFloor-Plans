@@ -54,10 +54,11 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2 } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
 import { isVoidOrCancelled, isRenewalInvoice } from "../../billing/billing";
+import DeleteInvoiceModal from "../../invoice/components/DeleteInvoiceModal";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -136,12 +137,12 @@ const FileManager = () => {
           (srvVendorUuid &&
             currentVendorUUID &&
             srvVendorUuid === currentVendorUUID) ||
-            (currentVendorId &&
-              (String(srvVendorId) === String(currentVendorId) ||
-                String(srv.vendor_id) === String(currentVendorId))) ||
-            (srv.vendor_id &&
-              currentVendorUUID &&
-              String(srv.vendor_id) === String(currentVendorUUID)),
+          (currentVendorId &&
+            (String(srvVendorId) === String(currentVendorId) ||
+              String(srv.vendor_id) === String(currentVendorId))) ||
+          (srv.vendor_id &&
+            currentVendorUUID &&
+            String(srv.vendor_id) === String(currentVendorUUID)),
         );
 
         if (isDirectlyAssigned) return true;
@@ -162,23 +163,23 @@ const FileManager = () => {
           (orderVendorUuid &&
             currentVendorUUID &&
             orderVendorUuid === currentVendorUUID) ||
-            (currentVendorId &&
-              (String(orderVendorId) === String(currentVendorId) ||
-                String(orderVendor?.vendor_id) === String(currentVendorId))) ||
-            (orderVendor?.vendor_id &&
-              currentVendorUUID &&
-              String(orderVendor.vendor_id) === String(currentVendorUUID)),
+          (currentVendorId &&
+            (String(orderVendorId) === String(currentVendorId) ||
+              String(orderVendor?.vendor_id) === String(currentVendorId))) ||
+          (orderVendor?.vendor_id &&
+            currentVendorUUID &&
+            String(orderVendor.vendor_id) === String(currentVendorUUID)),
         );
 
         const hasDifferentVendorAssigned = Boolean(
           (srvVendorUuid &&
             currentVendorUUID &&
             srvVendorUuid !== currentVendorUUID) ||
-            (srv.vendor_id &&
-              currentVendorUUID &&
-              String(srv.vendor_id) !== String(currentVendorUUID) &&
-              (!currentVendorId ||
-                String(srv.vendor_id) !== String(currentVendorId))),
+          (srv.vendor_id &&
+            currentVendorUUID &&
+            String(srv.vendor_id) !== String(currentVendorUUID) &&
+            (!currentVendorId ||
+              String(srv.vendor_id) !== String(currentVendorId))),
         );
 
         if (isOrderLevelVendor && !hasDifferentVendorAssigned) {
@@ -252,7 +253,8 @@ const FileManager = () => {
         (os as any).feature_sheet_id ||
         (os as any).feature_sheet_uuid ||
         (os as any).feature_sheet ||
-        ((os as any).custom && (os as any).custom.toLowerCase().includes("feature sheet"))
+        ((os as any).custom &&
+          (os as any).custom.toLowerCase().includes("feature sheet")),
       );
       if (hasFeatureSheet) return;
 
@@ -353,6 +355,14 @@ const FileManager = () => {
   }, [activeTab, activeServiceIndex]);
 
   const { userType } = useAppContext();
+  const isAdmin =
+    userType === "admin" ||
+    userType === "superadmin" ||
+    userType === "super_admin" ||
+    (typeof window !== "undefined" &&
+      ["admin", "superadmin", "super_admin"].includes(
+        localStorage.getItem("userType") || "",
+      ));
   const {
     selectedFiles,
     setSelectedFiles,
@@ -390,7 +400,9 @@ const FileManager = () => {
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
-  const [currentOrderStatus, setCurrentOrderStatus] = useState<string>(orderData?.order_status || "");
+  const [currentOrderStatus, setCurrentOrderStatus] = useState<string>(
+    orderData?.order_status || "",
+  );
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
@@ -407,7 +419,11 @@ const FileManager = () => {
     const token = localStorage.getItem("token") || "";
     setIsUpdatingStatus(true);
     try {
-      await EditOrderStatus(orderId as string, { order_status: newStatus }, token);
+      await EditOrderStatus(
+        orderId as string,
+        { order_status: newStatus },
+        token,
+      );
       setCurrentOrderStatus(newStatus);
       if (orderData) {
         orderData.order_status = newStatus;
@@ -440,7 +456,7 @@ const FileManager = () => {
       await EditOrderStatus(
         orderId as string,
         { release_media_before_payment: enable, _method: "PUT" },
-        token
+        token,
       );
       if (orderData) {
         orderData.release_media_before_payment = enable;
@@ -450,7 +466,7 @@ const FileManager = () => {
       toast.success(
         enable
           ? "Media released to agent before payment successfully"
-          : "Media release before payment revoked"
+          : "Media release before payment revoked",
       );
     } catch (err: any) {
       console.error("Failed to update media release:", err);
@@ -515,8 +531,13 @@ const FileManager = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [deleteInvoiceModal, setDeleteInvoiceModal] = useState<{
+    open: boolean;
+    invoice: any;
+  }>({ open: false, invoice: null });
   const [isEditingInvoice, setIsEditingInvoice] = useState<boolean>(false);
   const [editingInvoiceData, setEditingInvoiceData] = useState<any>(null);
+  const [isSavingInvoice, setIsSavingInvoice] = useState<boolean>(false);
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -530,6 +551,43 @@ const FileManager = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (showInvoicesModal && !invoicesLoading && invoices.length > 0) {
+      const isCoAgentUser =
+        userType === "agent" && isUserCoAgent(currentUser, userType);
+      const baseList = modalInvoices || invoices;
+      const filteredList = isCoAgentUser
+        ? baseList.filter(
+            (inv) =>
+              inv.agent_type === "co-agent" ||
+              (currentUser?.uuid &&
+                (inv.agent?.uuid === currentUser.uuid ||
+                  inv.agent_uuid === currentUser.uuid)) ||
+              (currentUser?.email && inv.agent?.email === currentUser.email),
+          )
+        : baseList;
+
+      const activeList = filteredList.filter(
+        (inv) => (inv.status || "").toLowerCase() !== "void",
+      );
+      const candidates = activeList.length > 0 ? activeList : filteredList;
+
+      if (candidates.length === 1) {
+        setShowInvoicesModal(false);
+        setModalInvoices(null);
+        setModalTitle(null);
+        setViewingInvoice(candidates[0]);
+      }
+    }
+  }, [
+    showInvoicesModal,
+    invoicesLoading,
+    modalInvoices,
+    invoices,
+    userType,
+    currentUser,
+  ]);
 
   const serviceIdFromURL = searchParams.get("serviceId");
 
@@ -655,7 +713,7 @@ const FileManager = () => {
           );
         }
 
-                // remove session_id and renewed from URL
+        // remove session_id and renewed from URL
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
         params.delete("renewed");
@@ -674,14 +732,23 @@ const FileManager = () => {
     processStripePayment();
   }, [searchParams, router, fetchOrder, orderData?.uuid, userType]);
 
-  useEffect(() => {
+  const refreshInvoices = React.useCallback(async () => {
     if (!orderData?.uuid || userType === "vendor") return;
     setInvoicesLoading(true);
-    GetInvoicesByOrder(orderData.uuid)
-      .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
-      .catch(() => console.log("Failed to load invoices"))
-      .finally(() => setInvoicesLoading(false));
-  }, [orderData?.uuid, userType]);
+    try {
+      const res = await GetInvoicesByOrder(orderData.uuid);
+      setInvoices(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.log("Failed to load invoices", e);
+    } finally {
+      setInvoicesLoading(false);
+    }
+    fetchOrder();
+  }, [orderData?.uuid, userType, fetchOrder]);
+
+  useEffect(() => {
+    refreshInvoices();
+  }, [refreshInvoices]);
 
   const handlePayInvoice = async (
     invoice: any,
@@ -923,7 +990,6 @@ const FileManager = () => {
       </TooltipContent>
     );
   };
-
 
   useEffect(() => {
     fetchOrder().then(() => {
@@ -1230,11 +1296,7 @@ const FileManager = () => {
       const osUuid = os?.uuid || i.order_service_uuid;
 
       if (targetServiceUuid && osUuid === targetServiceUuid) return true;
-      if (
-        targetServiceId &&
-        osId &&
-        Number(osId) === Number(targetServiceId)
-      )
+      if (targetServiceId && osId && Number(osId) === Number(targetServiceId))
         return true;
       if (
         targetFsUuid &&
@@ -1311,7 +1373,8 @@ const FileManager = () => {
 
     // Find all invoices that contain a matching item
     let matchingInvoices = invoicesToSearch.filter(
-      (inv: any) => !isVoidOrCancelled(inv.status) && inv.items?.some(isItemMatch),
+      (inv: any) =>
+        !isVoidOrCancelled(inv.status) && inv.items?.some(isItemMatch),
     );
     if (matchingInvoices.length === 0) {
       matchingInvoices = invoicesToSearch.filter((inv: any) =>
@@ -1340,36 +1403,7 @@ const FileManager = () => {
 
     // For Admin: If there are multiple split invoices for this service across agents
     if (userType !== "agent" && candidateInvoices.length > 1) {
-      const scopedCandidateInvoices = candidateInvoices.map((inv: any) => {
-        if (isSpecificServiceRequested && Array.isArray(inv.items)) {
-          const scopedItems = inv.items.filter(isItemMatch);
-          if (scopedItems.length > 0) {
-            const subtotal = scopedItems.reduce(
-              (acc: number, item: any) =>
-                acc +
-                (parseFloat(item.amount) ||
-                  parseFloat(item.quantity || "1") *
-                    parseFloat(item.unit_price || "0") ||
-                  0),
-              0,
-            );
-            const taxRate = parseFloat(inv.tax_rate || "0") / 100;
-            const taxAmount = subtotal * taxRate;
-            const total = subtotal + taxAmount;
-            return {
-              ...inv,
-              items: scopedItems,
-              subtotal: subtotal.toFixed(2),
-              tax_amount: taxAmount.toFixed(2),
-              total: total.toFixed(2),
-              _original_items: inv.items,
-            };
-          }
-        }
-        return inv;
-      });
-
-      setModalInvoices(scopedCandidateInvoices);
+      setModalInvoices(candidateInvoices);
       setModalTitle(
         serviceName
           ? `Split Invoices — ${serviceName}`
@@ -1382,46 +1416,10 @@ const FileManager = () => {
     // Pick the most specific invoice (e.g. smallest item count) or the first matching invoice
     const serviceInv: any =
       candidateInvoices.sort(
-        (a: any, b: any) =>
-          (a.items?.length || 0) - (b.items?.length || 0),
+        (a: any, b: any) => (a.items?.length || 0) - (b.items?.length || 0),
       )[0] || null;
 
     if (serviceInv) {
-      // If a specific service was requested, scope the invoice items to show ONLY this specific sheet/service
-      if (
-        isSpecificServiceRequested &&
-        serviceInv.items &&
-        serviceInv.items.length > 0
-      ) {
-        const scopedItems = serviceInv.items.filter(isItemMatch);
-        if (scopedItems.length > 0) {
-          const subtotal = scopedItems.reduce(
-            (acc: number, item: any) =>
-              acc +
-              (parseFloat(item.amount) ||
-                parseFloat(item.quantity || "1") *
-                  parseFloat(item.unit_price || "0") ||
-                0),
-            0,
-          );
-          const taxRate = parseFloat(serviceInv.tax_rate || "0") / 100;
-          const taxAmount = subtotal * taxRate;
-          const total = subtotal + taxAmount;
-
-          const scopedInvoice = {
-            ...serviceInv,
-            items: scopedItems,
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: total.toFixed(2),
-            _original_items: serviceInv.items,
-          };
-
-          setViewingInvoice(scopedInvoice);
-          return;
-        }
-      }
-
       try {
         const synced = await syncExtraItemsToInvoice(serviceInv);
         setViewingInvoice(synced);
@@ -1492,8 +1490,8 @@ const FileManager = () => {
       .trim();
     const isPrimaryOwner = Boolean(
       userUuid &&
-        ((orderData as any)?.agent_uuid === userUuid ||
-          (orderData as any)?.agent?.uuid === userUuid),
+      ((orderData as any)?.agent_uuid === userUuid ||
+        (orderData as any)?.agent?.uuid === userUuid),
     );
     const isCoAgentUser =
       userType === "agent" && isUserCoAgent(currentUser, userType);
@@ -1538,9 +1536,7 @@ const FileManager = () => {
         const totalCoSplit = coList.reduce((sum: number, ca: any) => {
           return (
             sum +
-            Number(
-              ca?.split || ca?.split_percentage || ca?.percentage || 0,
-            )
+            Number(ca?.split || ca?.split_percentage || ca?.percentage || 0)
           );
         }, 0);
         if (totalCoSplit > 0 && totalCoSplit < 100) {
@@ -1566,11 +1562,9 @@ const FileManager = () => {
             isPrimaryOwner &&
             (inv.agent_type === "primary" ||
               (!inv.split_details && inv.agent_type !== "co-agent")) &&
-            ((userEmail &&
-              inv.agent?.email?.toLowerCase() === userEmail) ||
+            ((userEmail && inv.agent?.email?.toLowerCase() === userEmail) ||
               (userUuid &&
-                (inv.agent?.uuid === userUuid ||
-                  inv.agent_uuid === userUuid)))
+                (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
           ) {
             const pct = Number(inv.split_percentage || inv.percentage || 0);
             if (pct > 0 && pct < 100) {
@@ -1579,13 +1573,10 @@ const FileManager = () => {
             }
           }
           if (
-            (inv.agent_type === "co-agent" ||
-              inv.agent_type === "co_agent") &&
-            ((userEmail &&
-              inv.agent?.email?.toLowerCase() === userEmail) ||
+            (inv.agent_type === "co-agent" || inv.agent_type === "co_agent") &&
+            ((userEmail && inv.agent?.email?.toLowerCase() === userEmail) ||
               (userUuid &&
-                (inv.agent?.uuid === userUuid ||
-                  inv.agent_uuid === userUuid)))
+                (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
           ) {
             const pct = Number(inv.split_percentage || inv.percentage || 0);
             if (pct > 0) {
@@ -1598,29 +1589,24 @@ const FileManager = () => {
     }
 
     const userTargetInvoice =
-      invoices.find(
-        (inv) =>
-          userType === "agent"
-            ? (userUuid &&
-                (inv.agent?.uuid === userUuid ||
-                  inv.agent_uuid === userUuid)) ||
-              (userEmail &&
-                inv.agent?.email &&
-                inv.agent.email.toLowerCase() === userEmail) ||
-              (isCoAgentUser
-                ? inv.agent_type === "co-agent" ||
-                  inv.agent_type === "co_agent"
-                : inv.agent_type === "primary" ||
-                  (!inv.split_details &&
-                    inv.agent_type !== "co-agent" &&
-                    inv.agent_type !== "co_agent"))
-            : inv.agent_type === "primary" ||
-              (inv.agent && !inv.split_details),
+      invoices.find((inv) =>
+        userType === "agent"
+          ? (userUuid &&
+              (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)) ||
+            (userEmail &&
+              inv.agent?.email &&
+              inv.agent.email.toLowerCase() === userEmail) ||
+            (isCoAgentUser
+              ? inv.agent_type === "co-agent" || inv.agent_type === "co_agent"
+              : inv.agent_type === "primary" ||
+                (!inv.split_details &&
+                  inv.agent_type !== "co-agent" &&
+                  inv.agent_type !== "co_agent"))
+          : inv.agent_type === "primary" || (inv.agent && !inv.split_details),
       ) || invoices[0];
     const gstRate =
-      parseFloat(
-        userTargetInvoice?.tax_rate || invoices[0]?.tax_rate || "0",
-      ) / 100;
+      parseFloat(userTargetInvoice?.tax_rate || invoices[0]?.tax_rate || "0") /
+      100;
 
     let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
     if (currentBookedService) {
@@ -1651,6 +1637,7 @@ const FileManager = () => {
 
     const isMediaBlockedForAgent =
       userType === "agent" &&
+      !orderData?.release_media_before_payment &&
       (currentBookedService?.media_access === false ||
         (currentBookedService?.service as any)?.media_access === false);
 
@@ -1958,7 +1945,7 @@ const FileManager = () => {
         (f as any).status === "processing" ||
         f.is_processing === true ||
         (f.type === "photo" &&
-          (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
+          (!f.variant_urls || Object.keys(f.variant_urls).length === 0)),
     );
   }, [filesData?.files]);
 
@@ -1972,11 +1959,7 @@ const FileManager = () => {
       if (!token) return;
 
       try {
-        const res = await GetFilesData(
-          token,
-          orderData.uuid,
-          includeHidden
-        );
+        const res = await GetFilesData(token, orderData.uuid, includeHidden);
         if (res.data && res.data.length > 0) {
           const updatedTour = res.data[0];
           if (updatedTour.files) {
@@ -1993,7 +1976,10 @@ const FileManager = () => {
           setFilesData(updatedTour);
         }
       } catch (err) {
-        console.error("Silent background polling error for processing media:", err);
+        console.error(
+          "Silent background polling error for processing media:",
+          err,
+        );
       }
     }, 30000);
 
@@ -2002,11 +1988,7 @@ const FileManager = () => {
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
-      const isAlwaysSort = Boolean(
-        tourSettings?.always_enable_sorting ??
-          tourDefaultSettings?.always_enable_sorting,
-      );
-      setFileManagerMode(isAlwaysSort ? "reorder" : "upload");
+      setFileManagerMode("upload");
       const token = localStorage.getItem("token");
       if (!token) return;
 
@@ -2106,6 +2088,7 @@ const FileManager = () => {
         console.log("Upload finished but response is falsy:", response);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       selectedFiles,
       floorFiles,
@@ -2184,8 +2167,10 @@ const FileManager = () => {
             (f) =>
               (f.service?.uuid === tabUuidToCheck ||
                 String(f.service_id) === String(tabUuidToCheck) ||
-                (bookingToUse?.service_id && String(f.service?.id) === String(bookingToUse.service_id)) ||
-                (bookingToUse?.service?.id && String(f.service?.id) === String(bookingToUse.service.id))) &&
+                (bookingToUse?.service_id &&
+                  String(f.service?.id) === String(bookingToUse.service_id)) ||
+                (bookingToUse?.service?.id &&
+                  String(f.service?.id) === String(bookingToUse.service.id))) &&
               !f.is_deleted &&
               !f.is_hidden,
           ) || [];
@@ -2197,10 +2182,7 @@ const FileManager = () => {
         let mediaLabel = "photos";
         if (serviceName.includes("video") || serviceName.includes("reel"))
           mediaLabel = "videos";
-        else if (
-          serviceName.includes("floor") ||
-          serviceName.includes("plan")
-        )
+        else if (serviceName.includes("floor") || serviceName.includes("plan"))
           mediaLabel = "floor plans";
         else if (
           serviceName.includes("matterport") ||
@@ -2230,7 +2212,14 @@ const FileManager = () => {
       }
       return null;
     },
-    [userType, groupedServices, activeServiceIndex, orderData, filesData, servicesData],
+    [
+      userType,
+      groupedServices,
+      activeServiceIndex,
+      orderData,
+      filesData,
+      servicesData,
+    ],
   );
 
   const executeNavigation = React.useCallback(
@@ -2438,7 +2427,8 @@ const FileManager = () => {
                 className="flex items-center justify-between text-[18px] font-[600] uppercase"
                 style={{ color: `var(--${userType}-page-tab-color)` }}
               >
-                {modalTitle || (modalInvoices ? "Split Service Invoices" : "Order Invoices")}
+                {modalTitle ||
+                  (modalInvoices ? "Split Service Invoices" : "Order Invoices")}
                 <Button
                   className="border-none !shadow-none bg-transparent hover:bg-transparent p-0"
                   onClick={() => {
@@ -2462,7 +2452,9 @@ const FileManager = () => {
                 </div>
               ) : (
                 (() => {
-                  const isCoAgentUser = userType === "agent" && isUserCoAgent(currentUser, userType);
+                  const isCoAgentUser =
+                    userType === "agent" &&
+                    isUserCoAgent(currentUser, userType);
                   const baseList = modalInvoices || invoices;
                   const filteredList = isCoAgentUser
                     ? baseList.filter(
@@ -2577,16 +2569,66 @@ const FileManager = () => {
                               <div className="flex gap-2 flex-wrap justify-start md:justify-end">
                                 <Button
                                   variant="outline"
-                                  onClick={() => setViewingInvoice(invoice)}
+                                  onClick={() => {
+                                    setShowInvoicesModal(false);
+                                    setViewingInvoice(invoice);
+                                  }}
                                   className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-border ${userType}-text hover-${userType}-bg hover:!text-white transition-all bg-transparent`}
                                 >
                                   View
                                 </Button>
+                                {isAdmin &&
+                                  !["paid", "void", "refunded"].includes(
+                                    (invoice.status || "").toLowerCase(),
+                                  ) && (
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        setViewingInvoice(invoice);
+                                        setEditingInvoiceData(
+                                          JSON.parse(JSON.stringify(invoice)),
+                                        );
+                                        setIsEditingInvoice(true);
+                                      }}
+                                      className="h-[35px] text-[13px] px-3 font-semibold border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-[6px] transition-all flex items-center gap-1.5"
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5" />
+                                      Edit
+                                    </Button>
+                                  )}
+                                {isAdmin &&
+                                  ![
+                                    "paid",
+                                    "void",
+                                    "refunded",
+                                    "partially_paid",
+                                    "partial_paid",
+                                  ].includes(
+                                    (invoice.status || "").toLowerCase(),
+                                  ) &&
+                                  parseFloat(invoice.paid_amount || "0") <=
+                                    0 && (
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        setDeleteInvoiceModal({
+                                          open: true,
+                                          invoice,
+                                        });
+                                      }}
+                                      className="h-[35px] text-[13px] px-3 font-semibold border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-[6px] transition-all flex items-center gap-1.5"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      Delete
+                                    </Button>
+                                  )}
                                 {userType !== "vendor" &&
                                   status !== "PAID" &&
                                   status !== "VOID" &&
                                   (currentUser?.uuid ===
-                                  (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                                  (invoice.agent?.uuid ||
+                                    invoice.agent_uuid) ? (
                                     (() => {
                                       const missingSvcs =
                                         getMissingServicesForInvoice(invoice);
@@ -2704,15 +2746,18 @@ const FileManager = () => {
                     </div>
 
                     <div
-                      className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === "admin" ? "flex-row" : "flex-col md:flex-row items-start"}`}
+                      className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${isAdmin ? "flex-row" : "flex-col md:flex-row items-start"}`}
                     >
-                      {userType === "admin" &&
-                        viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                        viewingInvoice.status?.toUpperCase() !== "VOID" &&
+                      {isAdmin &&
+                        !["paid", "void", "refunded"].includes(
+                          (viewingInvoice.status || "").toLowerCase(),
+                        ) &&
                         (isEditingInvoice ? (
                           <div className="flex gap-2 w-full md:w-auto flex-1">
                             <Button
+                              disabled={isSavingInvoice}
                               onClick={async () => {
+                                setIsSavingInvoice(true);
                                 try {
                                   await UpdateInvoice(viewingInvoice.uuid, {
                                     notes: editingInvoiceData.notes,
@@ -2765,34 +2810,67 @@ const FileManager = () => {
                                     error,
                                   );
                                   toast.error("Failed to update invoice");
+                                } finally {
+                                  setIsSavingInvoice(false);
                                 }
                               }}
-                              className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
+                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-5 text-[12px] md:text-[14px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all flex items-center justify-center gap-1.5"
                             >
-                              Save Changes
+                              <Save className="h-4 w-4" />
+                              {isSavingInvoice ? "Saving..." : "Save Changes"}
                             </Button>
                             <Button
-                              onClick={() => setIsEditingInvoice(false)}
+                              disabled={isSavingInvoice}
+                              onClick={() => {
+                                setIsEditingInvoice(false);
+                                setEditingInvoiceData(null);
+                              }}
                               variant="outline"
-                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50"
+                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-5 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50 border-gray-300"
                             >
                               Cancel
                             </Button>
                           </div>
                         ) : (
-                          <Button
-                            onClick={() => {
-                              setIsEditingInvoice(true);
-                              setEditingInvoiceData(
-                                JSON.parse(JSON.stringify(viewingInvoice)),
-                              );
-                            }}
-                            className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] ${userType}-bg hover-${userType}-bg border-none w-full md:w-auto shadow-sm transition-all`}
-                          >
-                            Update Invoice
-                          </Button>
+                          <>
+                            <Button
+                              onClick={() => {
+                                setIsEditingInvoice(true);
+                                setEditingInvoiceData(
+                                  JSON.parse(JSON.stringify(viewingInvoice)),
+                                );
+                              }}
+                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-5 text-[12px] md:text-[14px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Edit Invoice
+                            </Button>
+                            {isAdmin &&
+                              parseFloat(viewingInvoice.paid_amount || "0") <=
+                                0 &&
+                              ![
+                                "paid",
+                                "partially_paid",
+                                "partial_paid",
+                              ].includes(
+                                (viewingInvoice.status || "").toLowerCase(),
+                              ) && (
+                                <Button
+                                  onClick={() => {
+                                    setDeleteInvoiceModal({
+                                      open: true,
+                                      invoice: viewingInvoice,
+                                    });
+                                  }}
+                                  className="flex-1 h-[40px] md:h-[36px] px-2 md:px-5 text-[12px] md:text-[14px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all flex items-center justify-center gap-1.5"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete Invoice
+                                </Button>
+                              )}
+                          </>
                         ))}
-                        {userType !== "vendor" &&
+                      {userType !== "vendor" &&
                         viewingInvoice.status?.toUpperCase() !== "PAID" &&
                         viewingInvoice.status?.toUpperCase() !== "VOID" &&
                         viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
@@ -2817,7 +2895,9 @@ const FileManager = () => {
                                       </Button>
                                     </span>
                                   </TooltipTrigger>
-                                  {renderAgentBlockedTooltipContent(missingSvcs)}
+                                  {renderAgentBlockedTooltipContent(
+                                    missingSvcs,
+                                  )}
                                 </Tooltip>
                               </TooltipProvider>
                             ) : (
@@ -2834,7 +2914,7 @@ const FileManager = () => {
                           })()
                         ) : (
                           <div className="flex flex-row sm:flex-row gap-2 w-full md:w-auto flex-1">
-                            {(userType === "admin" ||
+                            {(isAdmin ||
                               (viewingInvoice.agent_type === "co-agent" &&
                                 viewingInvoice.split_details)) && (
                               <Button
@@ -2847,7 +2927,7 @@ const FileManager = () => {
                                 Pay on Behalf
                               </Button>
                             )}
-                            {userType !== "admin" && (
+                            {!isAdmin && (
                               <Button
                                 onClick={() => {
                                   handlePayInvoice(viewingInvoice, "self");
@@ -3039,6 +3119,32 @@ const FileManager = () => {
           {userType !== "vendor" && (
             <Button
               onClick={() => {
+                const isCoAgentUser =
+                  userType === "agent" && isUserCoAgent(currentUser, userType);
+                const baseList = invoices;
+                const filteredList = isCoAgentUser
+                  ? baseList.filter(
+                      (inv) =>
+                        inv.agent_type === "co-agent" ||
+                        (currentUser?.uuid &&
+                          (inv.agent?.uuid === currentUser.uuid ||
+                            inv.agent_uuid === currentUser.uuid)) ||
+                        (currentUser?.email &&
+                          inv.agent?.email === currentUser.email),
+                    )
+                  : baseList;
+
+                const activeInvoices = filteredList.filter(
+                  (inv) => (inv.status || "").toLowerCase() !== "void",
+                );
+                const candidates =
+                  activeInvoices.length > 0 ? activeInvoices : filteredList;
+
+                if (candidates.length === 1) {
+                  setViewingInvoice(candidates[0]);
+                  return;
+                }
+
                 setModalInvoices(null);
                 setModalTitle(null);
                 setShowInvoicesModal(true);
@@ -3187,42 +3293,88 @@ const FileManager = () => {
               </SafeLink>
               {currentOrderStatus && (
                 <div className="flex items-center gap-1.5 ml-1 shrink-0">
-                  <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase hidden sm:inline">Status:</span>
+                  <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase hidden sm:inline">
+                    Status:
+                  </span>
                   {userType === "admin" ? (
                     <div className="flex items-center gap-1">
                       <select
                         value={currentOrderStatus}
                         disabled={isUpdatingStatus}
-                        onChange={(e) => handleUpdateOrderStatus(e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateOrderStatus(e.target.value)
+                        }
                         className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 border cursor-pointer transition-colors shadow-sm outline-none ${
-                          currentOrderStatus === "Completed" ? "bg-emerald-600 text-white border-emerald-600" :
-                          currentOrderStatus === "Processing" ? "bg-blue-600 text-white border-blue-600" :
-                          currentOrderStatus === "In Progress" ? "bg-indigo-600 text-white border-indigo-600" :
-                          currentOrderStatus === "Pending" ? "bg-amber-500 text-white border-amber-500" :
-                          currentOrderStatus === "Cancelled" ? "bg-rose-500 text-white border-rose-500" :
-                          "bg-gray-500 text-white border-gray-500"
+                          currentOrderStatus === "Completed"
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : currentOrderStatus === "Processing"
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : currentOrderStatus === "In Progress"
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : currentOrderStatus === "Pending"
+                                  ? "bg-amber-500 text-white border-amber-500"
+                                  : currentOrderStatus === "Cancelled"
+                                    ? "bg-rose-500 text-white border-rose-500"
+                                    : "bg-gray-500 text-white border-gray-500"
                         } ${isUpdatingStatus ? "opacity-70 cursor-not-allowed" : ""}`}
                       >
-                        <option value="Processing" className="bg-white text-gray-800">Processing</option>
-                        <option value="In Progress" className="bg-white text-gray-800">In Progress</option>
-                        <option value="Pending" className="bg-white text-gray-800">Pending</option>
-                        <option value="Completed" className="bg-white text-gray-800">Completed</option>
-                        <option value="On Hold" className="bg-white text-gray-800">On Hold</option>
-                        <option value="Cancelled" className="bg-white text-gray-800">Cancelled</option>
+                        <option
+                          value="Processing"
+                          className="bg-white text-gray-800"
+                        >
+                          Processing
+                        </option>
+                        <option
+                          value="In Progress"
+                          className="bg-white text-gray-800"
+                        >
+                          In Progress
+                        </option>
+                        <option
+                          value="Pending"
+                          className="bg-white text-gray-800"
+                        >
+                          Pending
+                        </option>
+                        <option
+                          value="Completed"
+                          className="bg-white text-gray-800"
+                        >
+                          Completed
+                        </option>
+                        <option
+                          value="On Hold"
+                          className="bg-white text-gray-800"
+                        >
+                          On Hold
+                        </option>
+                        <option
+                          value="Cancelled"
+                          className="bg-white text-gray-800"
+                        >
+                          Cancelled
+                        </option>
                       </select>
                       {isUpdatingStatus && (
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
                       )}
                     </div>
                   ) : (
-                    <span className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 text-white ${
-                      currentOrderStatus === "Completed" ? "bg-emerald-600" :
-                      currentOrderStatus === "Processing" ? "bg-blue-600" :
-                      currentOrderStatus === "In Progress" ? "bg-indigo-600" :
-                      currentOrderStatus === "Pending" ? "bg-amber-500" :
-                      currentOrderStatus === "Cancelled" ? "bg-rose-500" :
-                      "bg-gray-500"
-                    }`}>
+                    <span
+                      className={`text-[9px] md:text-[10px] font-bold rounded px-2 py-1 text-white ${
+                        currentOrderStatus === "Completed"
+                          ? "bg-emerald-600"
+                          : currentOrderStatus === "Processing"
+                            ? "bg-blue-600"
+                            : currentOrderStatus === "In Progress"
+                              ? "bg-indigo-600"
+                              : currentOrderStatus === "Pending"
+                                ? "bg-amber-500"
+                                : currentOrderStatus === "Cancelled"
+                                  ? "bg-rose-500"
+                                  : "bg-gray-500"
+                      }`}
+                    >
                       {currentOrderStatus}
                     </span>
                   )}
@@ -3236,7 +3388,9 @@ const FileManager = () => {
                   <button
                     type="button"
                     onClick={() =>
-                      handleToggleReleaseMedia(!orderData?.release_media_before_payment)
+                      handleToggleReleaseMedia(
+                        !orderData?.release_media_before_payment,
+                      )
                     }
                     disabled={isReleaseMediaLoading}
                     title={
@@ -3380,9 +3534,11 @@ const FileManager = () => {
                 >
                   Tour
                 </div>
-                {userType !== "vendor" && (() => {
-                  const featureSheetBookings = (orderData?.services || []).filter(
-                    (os: any) => {
+                {userType !== "vendor" &&
+                  (() => {
+                    const featureSheetBookings = (
+                      orderData?.services || []
+                    ).filter((os: any) => {
                       const fullService =
                         servicesData?.find(
                           (s) =>
@@ -3415,34 +3571,33 @@ const FileManager = () => {
                         serviceType === "flyer" ||
                         serviceType === "tabloid"
                       );
-                    },
-                  );
-                  const isBooked = featureSheetBookings.length > 0;
+                    });
+                    const isBooked = featureSheetBookings.length > 0;
 
-                  return (
-                    <div
-                      key="CreateFeatureSheet"
-                      onClick={() => handleTabChange("CreateFeatureSheet")}
-                      className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
-                        isScrolled
-                          ? "h-[32px] md:h-[36px]"
-                          : "h-[45px] md:h-[60px]"
-                      } ${
-                        activeTab === "CreateFeatureSheet"
-                          ? `${userType}-bg text-white ${userType}-border`
-                          : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                      }`}
-                      style={{
-                        backgroundColor:
+                    return (
+                      <div
+                        key="CreateFeatureSheet"
+                        onClick={() => handleTabChange("CreateFeatureSheet")}
+                        className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                          isScrolled
+                            ? "h-[32px] md:h-[36px]"
+                            : "h-[45px] md:h-[60px]"
+                        } ${
                           activeTab === "CreateFeatureSheet"
-                            ? undefined
-                            : `var(--${userType}-page-bg, #F2F2F2)`,
-                      }}
-                    >
-                      {isBooked ? "Feature Sheets" : "Create Feature Sheet"}
-                    </div>
-                  );
-                })()}
+                            ? `${userType}-bg text-white ${userType}-border`
+                            : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                        }`}
+                        style={{
+                          backgroundColor:
+                            activeTab === "CreateFeatureSheet"
+                              ? undefined
+                              : `var(--${userType}-page-bg, #F2F2F2)`,
+                        }}
+                      >
+                        {isBooked ? "Feature Sheets" : "Create Feature Sheet"}
+                      </div>
+                    );
+                  })()}
               </div>
             </div>
             {/* {userType !== 'vendor' && (
@@ -3780,6 +3935,18 @@ const FileManager = () => {
         isLoading={isReleaseMediaLoading}
         onConfirm={() => executeReleaseMedia(true)}
       />
+
+      {deleteInvoiceModal.open && deleteInvoiceModal.invoice && (
+        <DeleteInvoiceModal
+          isOpen={deleteInvoiceModal.open}
+          onClose={() => setDeleteInvoiceModal({ open: false, invoice: null })}
+          invoice={deleteInvoiceModal.invoice}
+          onSuccess={async () => {
+            setViewingInvoice(null);
+            await refreshInvoices();
+          }}
+        />
+      )}
     </div>
   );
 };

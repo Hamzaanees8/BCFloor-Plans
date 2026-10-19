@@ -25,6 +25,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import VendorSwapReassignModal from './VendorSwapReassignModal';
 import { EditSlotTimeModal } from './EditSlotTimeModal';
 import CancelOrderDialog from '../../orders/components/CancelOrderDialog';
+import RemoveServiceModal from '../../orders/components/RemoveServiceModal';
 import { PreviewCancelService, CancelService, convertTimeToTimezone, resolveTimezoneFromProvince } from '../../orders/orders';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
@@ -240,6 +241,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [cancelServicePreviewData, setCancelServicePreviewData] = useState<any>(null);
     const [cancelTargetService, setCancelTargetService] = useState<{ uuid: string; service_uuid: string; name: string } | null>(null);
     const [cancelTargetOrder, setCancelTargetOrder] = useState<Order | null>(null);
+    const [showRemoveServiceModal, setShowRemoveServiceModal] = useState(false);
+    const [removeTargetOrder, setRemoveTargetOrder] = useState<Order | null>(null);
+    const [removeTargetService, setRemoveTargetService] = useState<{ uuid: string; name: string; price: number } | null>(null);
 
     useEffect(() => {
         const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
@@ -1166,6 +1170,34 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         }
     };
 
+    const handleRemoveServiceClick = (event: CalendarEvent) => {
+        const currentOrder = orderData.find((o) => o.uuid === event.order_id);
+        if (!currentOrder) {
+            toast.error("Order details not found.");
+            return;
+        }
+
+        const globalService = serviceData?.find((s) => s.id === Number(event.service_id));
+        const matchedOrderService = currentOrder.services?.find((os) => os.service_id === Number(event.service_id));
+        if (!matchedOrderService) {
+            toast.error("Order service record not found.");
+            return;
+        }
+
+        if (matchedOrderService.payment_status?.toUpperCase() === 'PAID') {
+            toast.error("Paid services cannot be removed directly. Please refund first or use Cancel Service.");
+            return;
+        }
+
+        setRemoveTargetOrder(currentOrder);
+        setRemoveTargetService({
+            uuid: matchedOrderService.uuid,
+            name: globalService?.name || matchedOrderService.optionName || "Service",
+            price: parseFloat(matchedOrderService.amount || "0"),
+        });
+        setShowRemoveServiceModal(true);
+    };
+
     const confirmDelete = async (breakEvent = breakToDelete) => {
         const token = localStorage.getItem('token');
         const breakUuid = breakEvent?.uuid;
@@ -1521,6 +1553,27 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         <Trash2 className="w-4 h-4 text-red-500" />
                         <span>{contextMenu.eventData?.order_id ? "Cancel Service" : "Delete / Cancel"}</span>
                     </button>
+
+                    {contextMenu.eventData?.order_id && userType === "admin" && (() => {
+                        const order = orderData.find((o) => o.uuid === contextMenu.eventData?.order_id);
+                        const os = order?.services?.find((s) => s.service_id === Number(contextMenu.eventData?.service_id));
+                        const isPaid = os?.payment_status?.toUpperCase() === 'PAID';
+                        if (!isPaid && order?.order_status !== 'Cancelled') {
+                            return (
+                                <button
+                                    className="w-full text-left px-3 py-2 text-[13px] hover:bg-red-100 text-red-700 flex items-center gap-2.5 transition-colors font-medium border-t border-red-100"
+                                    onClick={() => {
+                                        handleRemoveServiceClick(contextMenu.eventData!);
+                                        setContextMenu(null);
+                                    }}
+                                >
+                                    <Trash2 className="w-4 h-4 text-red-700" />
+                                    <span>Remove Service (Admin)</span>
+                                </button>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
             )}
 
@@ -1558,6 +1611,24 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 serviceData={serviceData}
                 refreshOrders={refreshOrders}
             />
+
+            {showRemoveServiceModal && removeTargetOrder && removeTargetService && (
+                <RemoveServiceModal
+                    isOpen={showRemoveServiceModal}
+                    onClose={() => {
+                        setShowRemoveServiceModal(false);
+                        setRemoveTargetOrder(null);
+                        setRemoveTargetService(null);
+                    }}
+                    orderUuid={removeTargetOrder.uuid}
+                    serviceUuid={removeTargetService.uuid}
+                    serviceName={removeTargetService.name}
+                    servicePrice={removeTargetService.price}
+                    onSuccess={() => {
+                        refreshOrders?.();
+                    }}
+                />
+            )}
 
             {showCancelServiceDialog && cancelTargetOrder && (
                 <CancelOrderDialog

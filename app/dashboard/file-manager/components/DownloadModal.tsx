@@ -59,6 +59,12 @@ type Props = {
   apiFiles: ApiFile[];
 };
 
+const isPdfUrl = (url?: string | null): boolean => {
+  if (!url) return false;
+  const clean = url.split('?')[0].split('#')[0].toLowerCase();
+  return clean.endsWith('.pdf');
+};
+
 const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles }) => {
   const { userType } = useAppContext();
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
@@ -306,29 +312,71 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                   )}
                 </div>
 
-                <div className="relative w-[140px] h-[85px] shrink-0 bg-black rounded-md overflow-hidden">
-                  {file.is_processing ? (
-                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                      <p className="text-gray-500 font-medium text-xs">Processing...</p>
+                {(() => {
+                  const isPdf = file.type === 'pdf' ||
+                    file.name.toLowerCase().endsWith('.pdf') ||
+                    isPdfUrl(file.url) ||
+                    isPdfUrl(file.thumbnail_url);
+
+                  const rasterThumb = (() => {
+                    if (file.thumbnail_url && !isPdfUrl(file.thumbnail_url)) return file.thumbnail_url;
+                    if (file.variant_urls?.thumb && !isPdfUrl(file.variant_urls.thumb)) return file.variant_urls.thumb;
+                    if (file.url && !isPdfUrl(file.url)) return file.url;
+                    return null;
+                  })();
+
+                  const pdfDocUrl = isPdf ? (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`) : null;
+
+                  return (
+                    <div className="relative w-[140px] h-[85px] shrink-0 bg-black flex items-center justify-center rounded-md overflow-hidden">
+                      {file.is_processing ? (
+                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                          <p className="text-gray-500 font-medium text-xs">Processing...</p>
+                        </div>
+                      ) : isPdf ? (
+                        rasterThumb ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={rasterThumb}
+                            alt={file.name}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : pdfDocUrl ? (
+                          <div className="relative h-full aspect-[8.5/11] max-w-full bg-white flex items-center justify-center overflow-hidden">
+                            <iframe
+                              src={`${pdfDocUrl}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                              className="w-full h-full pointer-events-none border-0 bg-white"
+                              tabIndex={-1}
+                              scrolling="no"
+                              title={file.name}
+                            />
+                            <div className="absolute inset-0 bg-transparent" />
+                          </div>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">
+                            PDF
+                          </div>
+                        )
+                      ) : (file.type === 'photo' || Boolean(rasterThumb)) ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={file.isLocal ? file.url : (rasterThumb || file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
+                          alt={file.name}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : file.type === 'video' ? (
+                        <video
+                          src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">
+                          {file.name.split('.').pop() || 'FILE'}
+                        </div>
+                      )}
                     </div>
-                  ) : file.type === 'photo' ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={file.isLocal ? file.url : (file.thumbnail_url || file.variant_urls?.thumb || file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
-                      alt={file.name}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : file.type === 'video' ? (
-                    <video
-                      src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">
-                      {file.name.split('.').pop() || 'FILE'}
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 <div className="flex flex-col gap-y-2 flex-grow min-w-0">
                   <p className="text-[#424242] text-[15px] font-semibold truncate leading-tight">{file.name}</p>

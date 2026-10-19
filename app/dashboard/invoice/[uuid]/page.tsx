@@ -1,23 +1,25 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { GetInvoice, MarkPaid, UpdateInvoice } from '../invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Download, Loader2, Edit2, Save, X, CreditCard, RotateCcw } from 'lucide-react'
+import { Download, Loader2, Edit2, Save, X, CreditCard, RotateCcw, Trash2 } from 'lucide-react'
 import DownloadInvoicePdf from '../components/DownloadInvoicePdf'
 import InvoiceDocument from '../components/InvoiceDocument'
 import InvoicePdfDocument from '../components/InvoicePdfDocument'
 import RefundModal from '../components/RefundModal'
 import RefundReceiptModal from '../components/RefundReceiptModal'
+import DeleteInvoiceModal from '../components/DeleteInvoiceModal'
 import ConfirmationDialog from '@/components/ConfirmationDialog'
 
 const STORAGE_KEY_PAYMENT = 'confirmation_dialog_payment_show_again';
 
 const InvoicePreviewPage = () => {
     const { uuid } = useParams()
+    const router = useRouter()
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string)?.toLowerCase() || 'admin'
@@ -30,6 +32,7 @@ const InvoicePreviewPage = () => {
     const [editData, setEditData] = useState<any>(null)
     const [saving, setSaving] = useState(false)
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [showAgain, setShowAgain] = useState(true)
     const [selectedRefundPayment, setSelectedRefundPayment] = useState<any>(null)
@@ -400,6 +403,18 @@ const InvoicePreviewPage = () => {
                                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />} Refund
                                 </Button>
                             )}
+                            {role === 'admin' &&
+                                !['paid', 'partially_paid', 'partial_paid'].includes((invoice.status || '').toLowerCase()) &&
+                                parseFloat(invoice.paid_amount || '0') <= 0 && (
+                                <Button
+                                    variant="outline"
+                                    className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200 h-[35px] md:h-[44px] px-6 rounded-[6px] font-semibold text-xs md:text-sm"
+                                    onClick={() => setIsDeleteModalOpen(true)}
+                                    disabled={saving}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
+                                </Button>
+                            )}
                             {canEdit && (
                                 <Button
                                     variant="outline"
@@ -531,6 +546,15 @@ const InvoicePreviewPage = () => {
                 onClose={() => setIsReceiptOpen(false)}
                 payment={selectedRefundPayment}
                 invoice={invoice}
+            />
+
+            <DeleteInvoiceModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                invoice={invoice}
+                onSuccess={() => {
+                    router.push('/dashboard/invoice');
+                }}
             />
 
             <ConfirmationDialog

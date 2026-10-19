@@ -8,6 +8,7 @@ import {
   File,
   Calendar,
   Clock,
+  CheckCircle,
   FolderOpen,
   ExternalLink,
 } from "lucide-react";
@@ -156,6 +157,19 @@ export default function QuickViewCard(props: QuickViewCardProps) {
         (notifData.description || "").toLowerCase().includes("approval") ||
         (notifData.Subject || "").toLowerCase().includes("approval"))
   );
+  const isServiceCompletedNotification = Boolean(
+    notifData &&
+      (notifData.type === "service_completed" ||
+        (notifData.type || "").toLowerCase().includes("service_completed") ||
+        (notifData.Subject || "").toLowerCase().includes("service completed"))
+  );
+  const isMediaUploadedNotification = Boolean(
+    notifData &&
+      (notifData.type === "media_uploaded" ||
+        (notifData.type || "").toLowerCase().includes("media_uploaded") ||
+        (notifData.type || "").toLowerCase().includes("media ready") ||
+        (notifData.Subject || "").toLowerCase().includes("media"))
+  );
   const notifOrderUuid =
     (notifData?.meta_data as any)?.order_uuid ||
     (notifData?.order as any)?.uuid ||
@@ -181,6 +195,7 @@ export default function QuickViewCard(props: QuickViewCardProps) {
   const [unapprovedServiceSet, setUnapprovedServiceSet] = useState<Set<string>>(new Set());
   const [resolvedListingId, setResolvedListingId] = useState<string | null>(initialListingId ? String(initialListingId) : null);
   const [loadedOrderServices, setLoadedOrderServices] = useState<any[]>([]);
+  const [loadedOrder, setLoadedOrder] = useState<any | null>(null);
   // Starts true for approval notifications so the link is blocked until service detection finishes
   const [isResolvingService, setIsResolvingService] = useState<boolean>(
     type === "notification" && isApprovalNotification && !!notifOrderUuid
@@ -192,6 +207,7 @@ export default function QuickViewCard(props: QuickViewCardProps) {
       setDetectedApprovalServiceName(null);
       setUnapprovedServiceSet(new Set());
       setLoadedOrderServices([]);
+      setLoadedOrder(null);
       setIsResolvingService(false);
       return;
     }
@@ -216,6 +232,9 @@ export default function QuickViewCard(props: QuickViewCardProps) {
       const servicesRes = servicesResult.status === "fulfilled" ? servicesResult.value : null;
 
       const orderData = orderRes?.data || notifData?.order || null;
+      if (orderData) {
+        setLoadedOrder(orderData);
+      }
       const catalogServices: any[] = Array.isArray(servicesRes?.data) ? servicesRes.data : [];
       const orderServices: any[] = orderData?.services || orderData?.order_services || (notifData?.order as any)?.services || [];
 
@@ -376,11 +395,18 @@ export default function QuickViewCard(props: QuickViewCardProps) {
     };
   }, [type, notifOrderUuid, notifData, isApprovalNotification]);
 
+  const effectiveOrder = loadedOrder || notifData?.order || null;
   const effectiveListingId = resolvedListingId || initialListingId;
   const targetServiceUuid =
     (notifData?.meta_data as any)?.service_uuid ||
     (notifData?.meta_data as any)?.serviceId ||
+    (notifData?.meta_data as any)?.service_id ||
     detectedApprovalServiceUuid;
+
+  const notifServiceName =
+    (notifData?.meta_data as any)?.service_name ||
+    detectedApprovalServiceName ||
+    null;
 
   const notifFileManagerUrl = notifOrderUuid
     ? `/dashboard/file-manager/${notifOrderUuid}?${new URLSearchParams({
@@ -520,10 +546,24 @@ export default function QuickViewCard(props: QuickViewCardProps) {
             <div className="text-[#4290E9] font-[400] text-[15px]">
               {type === "notification" && (
                 <div className="flex flex-col gap-1.5">
-                  <div className={`text-[22px] font-[500] leading-tight ${isApprovalNotification ? "text-amber-900 bg-amber-50 border border-amber-300 p-2.5 rounded-md" : "text-[#666666]"}`}>
+                  <div className={`text-[22px] font-[500] leading-tight ${
+                    isApprovalNotification
+                      ? "text-amber-900 bg-amber-50 border border-amber-300 p-2.5 rounded-md"
+                      : isServiceCompletedNotification
+                      ? "text-emerald-900 bg-emerald-50 border border-emerald-300 p-2.5 rounded-md"
+                      : isMediaUploadedNotification
+                      ? "text-blue-900 bg-blue-50 border border-blue-300 p-2.5 rounded-md"
+                      : "text-[#666666]"
+                  }`}>
                     <div className="flex items-center gap-2">
                       {isApprovalNotification && (
                         <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse shrink-0" />
+                      )}
+                      {isServiceCompletedNotification && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+                      )}
+                      {isMediaUploadedNotification && (
+                        <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
                       )}
                       <span>
                         {data?.type
@@ -535,6 +575,18 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                       <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
                         <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                         Approval Pending
+                      </span>
+                    )}
+                    {isServiceCompletedNotification && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                        Service Completed
+                      </span>
+                    )}
+                    {isMediaUploadedNotification && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                        <FolderOpen className="w-3 h-3 text-blue-600 shrink-0" />
+                        Media Ready
                       </span>
                     )}
                   </div>
@@ -562,8 +614,11 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                     <>
                       Contact:{" "}
                       <span className="text-[#4290E9]">
-                        {data?.order?.agent?.first_name}{" "}
-                        {data?.order?.agent?.last_name}{" "}
+                        {effectiveOrder?.agent
+                          ? `${effectiveOrder.agent.first_name || ""} ${effectiveOrder.agent.last_name || ""}`.trim()
+                          : (data.meta_data as any)?.agent_name ||
+                            data.created_by_name ||
+                            "Support Team"}
                       </span>
                     </>
                   )}
@@ -681,6 +736,80 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                 ) : null}
               </div>
             )}
+            {type === "notification" && isServiceCompletedNotification && notifOrderUuid && (
+              <div className="bg-emerald-50 border-2 border-emerald-400 rounded-lg p-3.5 space-y-2.5 shadow-sm mb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 uppercase tracking-wide">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Service Completed</span>
+                  </div>
+                  {notifOrderId && (
+                    <span className="text-xs font-semibold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
+                      Order #{notifOrderId}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[13px] text-emerald-900 leading-snug">
+                  {data.description || "A service has been marked as completed."}
+                </p>
+                {notifServiceName && (
+                  <div className="text-xs font-medium text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded border border-emerald-200">
+                    Service: <span className="font-bold text-emerald-900">{notifServiceName}</span>
+                  </div>
+                )}
+                {notifFileManagerUrl && (
+                  <Link
+                    href={notifFileManagerUrl}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 text-[13px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-md transition-all shadow cursor-pointer text-center"
+                  >
+                    <FolderOpen className="w-4 h-4 shrink-0" />
+                    <span>
+                      {notifServiceName
+                        ? `Open ${notifServiceName} in File Manager`
+                        : "Open in File Manager"}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-0.5" />
+                  </Link>
+                )}
+              </div>
+            )}
+            {type === "notification" && isMediaUploadedNotification && notifOrderUuid && (
+              <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-3.5 space-y-2.5 shadow-sm mb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 uppercase tracking-wide">
+                    <FolderOpen className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Media Ready</span>
+                  </div>
+                  {notifOrderId && (
+                    <span className="text-xs font-semibold text-blue-800 bg-blue-200/70 px-2 py-0.5 rounded">
+                      Order #{notifOrderId}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[13px] text-blue-900 leading-snug">
+                  {data.description || "New media files have been uploaded and are ready."}
+                </p>
+                {notifServiceName && (
+                  <div className="text-xs font-medium text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded border border-blue-200">
+                    Service: <span className="font-bold text-blue-900">{notifServiceName}</span>
+                  </div>
+                )}
+                {notifFileManagerUrl && (
+                  <Link
+                    href={notifFileManagerUrl}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 text-[13px] font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-md transition-all shadow cursor-pointer text-center"
+                  >
+                    <FolderOpen className="w-4 h-4 shrink-0" />
+                    <span>
+                      {notifServiceName
+                        ? `View ${notifServiceName} in File Manager`
+                        : "View in File Manager"}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-0.5" />
+                  </Link>
+                )}
+              </div>
+            )}
             {type === "notification" && (notifOrderUuid || notifOrderId) && (
               <div className="flex items-center space-x-[18px] ">
                 <File className="w-[24px] text-[#666666]" strokeWidth={1} />
@@ -721,13 +850,23 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                   />
                   {type === "notification" ? (() => {
                     const notifAddress =
-                      (data as NotificationData).source === "AgentPayment" ||
+                      (data as NotificationData).meta_data?.property_address ||
+                      effectiveOrder?.property_address ||
+                      (data as NotificationData)?.order?.property_address ||
+                      ((data as NotificationData).source === "AgentPayment" ||
                       (data as NotificationData).source === "VendorPayment"
-                        ? (data as NotificationData).meta_data?.property_address ||
-                          "Payment Transaction"
-                        : (data as NotificationData)?.order?.property_address;
+                        ? "Payment Transaction"
+                        : null);
+                    const notifLocation =
+                      (data as NotificationData).meta_data?.property_location ||
+                      effectiveOrder?.property_location ||
+                      (data as NotificationData)?.order?.property_location ||
+                      "";
+                    const fullAddressDisplay = notifAddress
+                      ? `${notifAddress}${notifLocation && !notifAddress.includes(notifLocation) ? `, ${notifLocation}` : ""}`
+                      : null;
                     const mapsUrl = notifAddress && notifAddress !== "Payment Transaction"
-                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(notifAddress)}`
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressDisplay || notifAddress)}`
                       : null;
                     return mapsUrl ? (
                       <a
@@ -736,11 +875,11 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                         rel="noopener noreferrer"
                         className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] cursor-pointer`}
                       >
-                        {notifAddress}
+                        {fullAddressDisplay}
                       </a>
                     ) : (
                       <p className={`text-[15px] font-[400] ${userType}-text leading-[25px]`}>
-                        {notifAddress}
+                        {fullAddressDisplay || notifAddress || "-"}
                       </p>
                     );
                   })() : type === "listing" ? (() => {
@@ -1261,7 +1400,12 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                       </div>
                     )}
                   </div>
-                ) : (data as NotificationData).source?.toLowerCase() === "order" || Boolean((data as NotificationData).order) ? (
+                ) : (data as NotificationData).source?.toLowerCase() === "order" ||
+                  Boolean((data as NotificationData).order) ||
+                  Boolean(effectiveOrder) ||
+                  (data as NotificationData).source === "OrderSlot" ||
+                  (data as NotificationData).source === "OrderService" ||
+                  Boolean((data as NotificationData).meta_data?.order_id || (data as NotificationData).meta_data?.order_uuid) ? (
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     <div className="flex flex-col gap-[4px] mb-2">
                       <span className="text-[15px] font-[400] text-[#666666]">
@@ -1275,41 +1419,105 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                             new Date(data.updated_at),
                             "MMM dd, yyyy h:mm a",
                           )
-                          : "N/A"}
+                          : data.created_at
+                            ? format(
+                              new Date(data.created_at),
+                              "MMM dd, yyyy h:mm a",
+                            )
+                            : "N/A"}
                       </span>
                     </div>
 
-                    <div className="bg-white p-3 border rounded-md mb-2">
-                      <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-2">
-                        Agent Details
-                      </div>
-                      <div className="grid grid-cols-1 gap-y-1">
-                        {data.order?.agent?.company_name && (
-                          <div className="text-[15px] font-[400] text-[#666666]">
-                            <span className="font-bold">Company:</span>{" "}
-                            {data.order.agent.company_name}
-                          </div>
-                        )}
-                        <div className="flex items-center space-x-[12px]">
-                          <Mail className="w-[18px] text-[#666666]" strokeWidth={1} />
-                          <span className={`text-[15px] font-[400] ${userType}-text`}>
-                            {data.order?.agent?.email || "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-[12px]">
-                          <Smartphone className="w-[18px] text-[#666666]" strokeWidth={1} />
-                          <span className="text-[15px] font-[400] text-[#666666]">
-                            {data.order?.agent?.primary_phone || "N/A"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const notif = data as NotificationData;
+                      const isSlotBooking =
+                        notif.source === "OrderSlot" ||
+                        Boolean(notif.type?.toLowerCase().includes("slot")) ||
+                        Boolean(notif.type?.toLowerCase().includes("appointment")) ||
+                        Boolean(notif.meta_data?.slot_uuid);
+                      const bookedOrOrderedLabel = isSlotBooking ? "Booked by" : "Ordered by";
+                      const agentFullName = effectiveOrder?.agent
+                        ? `${effectiveOrder.agent.first_name || ""} ${effectiveOrder.agent.last_name || ""}`.trim()
+                        : (data.meta_data as any)?.agent_name || null;
+                      const creatorName = data.created_by_name || null;
 
-                    {data.order?.created_at && (
+                      return (
+                        <div className="bg-white p-3 border rounded-md mb-2">
+                          <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                            Agent Details
+                          </div>
+                          <div className="grid grid-cols-1 gap-y-1">
+                            {(effectiveOrder?.agent?.company_name || (data.meta_data as any)?.agent_company) && (
+                              <div className="text-[15px] font-[400] text-[#666666]">
+                                <span className="font-bold">Company:</span>{" "}
+                                {effectiveOrder?.agent?.company_name || (data.meta_data as any)?.agent_company}
+                              </div>
+                            )}
+                            {agentFullName && creatorName && agentFullName.toLowerCase() !== creatorName.toLowerCase() ? (
+                              <>
+                                <div className="text-[15px] font-[400] text-[#666666]">
+                                  <span className="font-bold">Agent:</span> {agentFullName}
+                                </div>
+                                <div className="text-[15px] font-[400] text-[#666666]">
+                                  <span className="font-bold">{bookedOrOrderedLabel}:</span> {creatorName}
+                                </div>
+                              </>
+                            ) : (
+                              (agentFullName || creatorName) && (
+                                <div className="text-[15px] font-[400] text-[#666666]">
+                                  <span className="font-bold">{bookedOrOrderedLabel}:</span>{" "}
+                                  {agentFullName || creatorName}
+                                </div>
+                              )
+                            )}
+                            {(effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email) && (
+                              <div className="flex items-center space-x-[12px]">
+                                <Mail className="w-[18px] text-[#666666]" strokeWidth={1} />
+                                <a
+                                  href={`mailto:${effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email}`}
+                                  className={`text-[15px] font-[400] ${userType}-text hover:underline`}
+                                >
+                                  {effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email}
+                                </a>
+                              </div>
+                            )}
+                            {(effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone) && (
+                              <div className="flex items-center space-x-[12px]">
+                                <Smartphone className="w-[18px] text-[#666666]" strokeWidth={1} />
+                                <a
+                                  href={`tel:${effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone}`}
+                                  className="text-[15px] font-[400] text-[#666666] hover:underline"
+                                >
+                                  {effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone}
+                                </a>
+                              </div>
+                            )}
+                            {effectiveOrder?.agent?.secondary_phone && (
+                              <div className="flex items-center space-x-[12px]">
+                                <Phone className="w-[18px] text-[#666666]" strokeWidth={1} />
+                                <a
+                                  href={`tel:${effectiveOrder.agent.secondary_phone}`}
+                                  className="text-[15px] font-[400] text-[#666666] hover:underline"
+                                >
+                                  {effectiveOrder.agent.secondary_phone}
+                                </a>
+                              </div>
+                            )}
+                            {!agentFullName && !creatorName && (
+                              <div className="text-[14px] text-[#8E8E8E] italic">
+                                Agent details not available
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {(effectiveOrder?.created_at || data.order?.created_at) && (
                       <div className="bg-white p-3 border rounded-md mb-2">
                         <div className="text-[15px] font-[400] text-[#666666]">
                           <span className="font-bold">Order Created:</span>{" "}
-                          {format(new Date(data.order.created_at), "MMM dd, yyyy h:mm a")}
+                          {format(new Date(effectiveOrder?.created_at || data.order!.created_at), "MMM dd, yyyy h:mm a")}
                         </div>
                       </div>
                     )}
@@ -1344,15 +1552,15 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                       </div>
                     )}
 
-                    {((data.order?.services && data.order.services.length > 0) || loadedOrderServices.length > 0) && (
+                    {((effectiveOrder?.services && effectiveOrder.services.length > 0) || (data.order?.services && data.order.services.length > 0) || loadedOrderServices.length > 0) ? (
                       <div className="bg-white p-3 border rounded-md">
                         <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-3">
                           Services & Slots
                         </div>
                         <div className="space-y-4">
-                          {((data.order?.services && data.order.services.length > 0) ? data.order.services : loadedOrderServices).map((service, idx) => {
-                            const currentserviceSlot = (data.order?.slots || [])?.find(
-                              (slot) => slot.service_id == service.service_id,
+                          {((effectiveOrder?.services && effectiveOrder.services.length > 0) ? effectiveOrder.services : ((data.order?.services && data.order.services.length > 0) ? data.order.services : loadedOrderServices)).map((service: any, idx: number) => {
+                            const currentserviceSlot = (effectiveOrder?.slots || data.order?.slots || [])?.find(
+                              (slot: any) => slot.service_id == service.service_id,
                             );
                             const targetServiceId = (service as any).service?.uuid || (service as any).uuid || service.service_id;
                             const isThisServiceUnapproved =
@@ -1379,7 +1587,9 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                                       </span>
                                     )}
                                   </div>
-                                  <span className="font-semibold">${Number(service.amount).toFixed(2)}</span>
+                                  {service.amount != null && (
+                                    <span className="font-semibold">${Number(service.amount).toFixed(2)}</span>
+                                  )}
                                 </div>
                                 {service.option?.title && (
                                   <div className="text-[13px] text-[#8E8E8E] mb-1">
@@ -1401,19 +1611,25 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                                 )}
                                 {currentserviceSlot ? (
                                   <div className="text-[14px] text-[#666666] mt-2 pl-2 border-l-2 border-[#E4E4E4]">
-                                    <div>
-                                      <span className="font-medium">Vendor:</span> {currentserviceSlot.vendor?.first_name} {currentserviceSlot.vendor?.last_name}
-                                    </div>
-                                    <div>
-                                      <span className="font-medium">Date:</span> {currentserviceSlot.date}
-                                    </div>
-                                    <div>
-                                      <span className="font-medium">Time:</span>{" "}
-                                      {formatTimeRange(
-                                        currentserviceSlot.start_time ?? "",
-                                        currentserviceSlot.end_time ?? "",
-                                      )}
-                                    </div>
+                                    {currentserviceSlot.vendor && (
+                                      <div>
+                                        <span className="font-medium">Vendor:</span> {currentserviceSlot.vendor.first_name} {currentserviceSlot.vendor.last_name}
+                                      </div>
+                                    )}
+                                    {currentserviceSlot.date && (
+                                      <div>
+                                        <span className="font-medium">Date:</span> {currentserviceSlot.date}
+                                      </div>
+                                    )}
+                                    {(currentserviceSlot.start_time || currentserviceSlot.end_time) && (
+                                      <div>
+                                        <span className="font-medium">Time:</span>{" "}
+                                        {formatTimeRange(
+                                          currentserviceSlot.start_time ?? "",
+                                          currentserviceSlot.end_time ?? "",
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="text-[13px] text-[#8E8E8E] italic mt-1 pl-2">
@@ -1425,89 +1641,106 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                           })}
                         </div>
                       </div>
+                    ) : (data.meta_data?.service_name || data.meta_data?.date) ? (
+                      <div className="bg-white p-3 border rounded-md">
+                        <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                          Scheduled Service
+                        </div>
+                        <div className="space-y-2">
+                          {data.meta_data?.service_name && (
+                            <div className="text-[15px] font-[500] text-[#666666]">
+                              {data.meta_data.service_name}
+                            </div>
+                          )}
+                          {data.meta_data?.date && (
+                            <div className="text-[14px] text-[#666666]">
+                              <span className="font-medium">Date:</span> {data.meta_data.date}
+                            </div>
+                          )}
+                          {(data.meta_data?.start_time || data.meta_data?.end_time) && (
+                            <div className="text-[14px] text-[#666666]">
+                              <span className="font-medium">Time:</span>{" "}
+                              {formatTimeRange(
+                                data.meta_data.start_time ?? "",
+                                data.meta_data.end_time ?? "",
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {(effectiveOrder?.amount != null || (data.meta_data as any)?.amount != null || (effectiveOrder?.services && effectiveOrder.services.length > 0)) && (
+                      <div className="bg-white p-3 border rounded-md">
+                        <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-1">
+                          Total Price
+                        </div>
+                        <p className="text-[15px] font-[400] text-[#666666]">
+                          Price:{" "}
+                          <span className={`${userType}-text font-semibold`}>
+                            ${Number(effectiveOrder?.amount ?? (data.meta_data as any)?.amount ?? (effectiveOrder?.services || []).reduce((t: number, s: any) => t + Number(s.amount || 0), 0)).toFixed(2)}
+                          </span>
+                        </p>
+                      </div>
                     )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-[12px]">
-                    <div className="flex items-center space-x-[18px]">
-                      <Mail
-                        className="w-[24px] text-[#666666]"
-                        strokeWidth={1}
-                      />
-                      <span
-                        className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}
-                      >
-                        {data?.order?.agent?.email}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-[18px]">
-                      <Smartphone
-                        className="w-[24px] text-[#666666]"
-                        strokeWidth={1}
-                      />
-                      <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">
-                        {data?.order?.agent?.primary_phone}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-[18px]">
-                      <Phone
-                        className="w-[24px] text-[#666666]"
-                        strokeWidth={1}
-                      />
-                      <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">
-                        {data?.order?.agent?.secondary_phone}
-                      </span>
-                    </div>
-                    {data?.order?.services?.map((service, idx) => {
-                      const currentserviceSlot = data?.order.slots.find(
-                        (slot) => slot.service_id == service.service_id,
-                      );
-
-                      return (
-                        <div key={idx}>
-                          <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
-                            {service.service.name}
-                          </div>
-                          <p className="text-[15px] font-[400] text-[#666666]">
-                            Vender:{" "}
-                            <span className={`${userType}-text`}>
-                              {currentserviceSlot?.vendor.first_name}{" "}
-                              {currentserviceSlot?.vendor.last_name}
-                            </span>
-                          </p>
-                          <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#6666666]">
-                            Appointment:{" "}
-                            <span>
-                              {currentserviceSlot?.date}
-                              <br />
-                              {formatTimeRange(
-                                currentserviceSlot?.start_time ?? "",
-                                currentserviceSlot?.end_time ?? "",
-                              )}
-                            </span>
-                          </p>
-                          <p className="text-[15px] font-[400] text-[#666666]">
-                            Price: <span>${service.amount}</span>
-                          </p>
+                    {(effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email) && (
+                      <div className="flex items-center space-x-[18px]">
+                        <Mail
+                          className="w-[24px] text-[#666666]"
+                          strokeWidth={1}
+                        />
+                        <a
+                          href={`mailto:${effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email}`}
+                          className={`text-[15px] font-[400] ${userType}-text leading-[32px] hover:underline`}
+                        >
+                          {effectiveOrder?.agent?.email || (data.meta_data as any)?.agent_email}
+                        </a>
+                      </div>
+                    )}
+                    {(effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone) && (
+                      <div className="flex items-center space-x-[18px]">
+                        <Smartphone
+                          className="w-[24px] text-[#666666]"
+                          strokeWidth={1}
+                        />
+                        <a
+                          href={`tel:${effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone}`}
+                          className="text-[15px] font-[400] text-[#666666] leading-[32px] hover:underline"
+                        >
+                          {effectiveOrder?.agent?.primary_phone || (data.meta_data as any)?.agent_phone}
+                        </a>
+                      </div>
+                    )}
+                    {effectiveOrder?.agent?.secondary_phone && (
+                      <div className="flex items-center space-x-[18px]">
+                        <Phone
+                          className="w-[24px] text-[#666666]"
+                          strokeWidth={1}
+                        />
+                        <a
+                          href={`tel:${effectiveOrder.agent.secondary_phone}`}
+                          className="text-[15px] font-[400] text-[#666666] leading-[32px] hover:underline"
+                        >
+                          {effectiveOrder.agent.secondary_phone}
+                        </a>
+                      </div>
+                    )}
+                    {(effectiveOrder?.amount != null || (data.meta_data as any)?.amount != null) && (
+                      <div>
+                        <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
+                          Total
                         </div>
-                      );
-                    })}
-                    <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
-                      Total
-                    </div>
-                    <p className="text-[15px] font-[400] text-[#666666]">
-                      Price:{" "}
-                      <span className={`${userType}-text`}>
-                        $
-                        {data?.order?.services
-                          ?.reduce(
-                            (total: number, service: any) =>
-                              total + Number(service.amount || 0),
-                            0,
-                          )
-                          .toFixed(2)}
-                      </span>
-                    </p>
+                        <p className="text-[15px] font-[400] text-[#666666]">
+                          Price:{" "}
+                          <span className={`${userType}-text font-semibold`}>
+                            ${Number(effectiveOrder?.amount ?? (data.meta_data as any)?.amount).toFixed(2)}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

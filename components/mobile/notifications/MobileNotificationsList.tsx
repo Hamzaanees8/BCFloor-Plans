@@ -27,11 +27,20 @@ export default function MobileNotificationsList({
     organization?.name || organization?.from_name || "Support Team";
   
   const getNotificationAddress = (notification: NotificationData) => {
+    const address =
+      notification.meta_data?.property_address ||
+      notification.order?.property_address ||
+      "";
+    const location =
+      notification.meta_data?.property_location ||
+      notification.order?.property_location ||
+      "";
+    if (address) {
+      return `${address}${location && !address.includes(location) ? ` ${location}` : ""}`;
+    }
     return notification.source === 'AgentPayment' || notification.source === 'VendorPayment'
-      ? notification.meta_data?.property_address || 'Payment Details'
-      : notification.order?.property_address
-        ? `${notification.order.property_address} ${notification.order.property_location || ''}`
-        : '-';
+      ? `${notification.meta_data?.property_address || "Payment Details"}`
+      : '-';
   };
 
   const getFormattedDate = (notification: NotificationData) => {
@@ -118,16 +127,48 @@ export default function MobileNotificationsList({
                     {!notification.is_read && (
                       <span className={`w-2 h-2 rounded-full shrink-0 ${userType}-bg`} />
                     )}
-                    {(notification.type === 'admin_approval_required' ||
-                      (notification.type || '').toLowerCase().includes('approval') ||
-                      (notification.Subject || '').toLowerCase().includes('approval')) ? (
-                      <span className="text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
-                        {displayType}
-                      </span>
-                    ) : (
-                      <span>{displayType}</span>
-                    )}
+                    {(() => {
+                      const typeStr = (notification.type || '').toLowerCase();
+                      const subjectStr = (notification.Subject || '').toLowerCase();
+                      if (
+                        notification.type === 'admin_approval_required' ||
+                        typeStr.includes('approval') ||
+                        subjectStr.includes('approval')
+                      ) {
+                        return (
+                          <span className="text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse shrink-0" />
+                            {displayType}
+                          </span>
+                        );
+                      }
+                      if (
+                        notification.type === 'service_completed' ||
+                        typeStr.includes('service_completed') ||
+                        subjectStr.includes('service completed')
+                      ) {
+                        return (
+                          <span className="text-emerald-900 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                            {displayType}
+                          </span>
+                        );
+                      }
+                      if (
+                        notification.type === 'media_uploaded' ||
+                        typeStr.includes('media_uploaded') ||
+                        typeStr.includes('media ready') ||
+                        subjectStr.includes('media')
+                      ) {
+                        return (
+                          <span className="text-blue-900 bg-blue-100/90 border border-blue-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                            {displayType}
+                          </span>
+                        );
+                      }
+                      return <span>{displayType}</span>;
+                    })()}
                   </h4>
 
                   {addressText && addressText !== '-' && (

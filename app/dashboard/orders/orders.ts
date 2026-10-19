@@ -1207,3 +1207,23 @@ export async function CancelService(orderUuid: string, serviceUuid: string, toke
 
   return data;
 }
+
+export async function RemoveOrderService(orderUuid: string, serviceUuid: string, token: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}/services/${serviceUuid}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to remove service");
+  }
+
+  return data;
+}

@@ -166,30 +166,43 @@ function FileTab2({
     return d;
   };
 
-  const brandedLinkObj = links.find(
-    (l) => l.type === "branded" && l.service_id === currentService?.uuid,
-  );
+  const isLinkMatch = (l: any) => {
+    if (!currentService) return false;
+    return (
+      l.service_id === currentService.uuid ||
+      (currentService.id && String(l.service_id) === String(currentService.id)) ||
+      (l.service?.uuid && l.service.uuid === currentService.uuid) ||
+      (l.service?.id && String(l.service.id) === String(currentService.id)) ||
+      (!l.service_id && !l.service)
+    );
+  };
+
+  const brandedLinkObj =
+    links.find((l) => l.type === "branded" && isLinkMatch(l)) ||
+    (filesData?.links && filesData.links.find((l) => l.type === "branded" && isLinkMatch(l))) ||
+    links.find((l) => l.type === "branded") ||
+    (filesData?.links && filesData.links.find((l) => l.type === "branded"));
   const brandedLink = brandedLinkObj?.link || "";
   const brandedExpiry = brandedLinkObj?.expiry_date || "";
 
-  const unbrandedLinkObj = links.find(
-    (l) => l.type === "unbranded" && l.service_id === currentService?.uuid,
-  );
+  const unbrandedLinkObj =
+    links.find((l) => l.type === "unbranded" && isLinkMatch(l)) ||
+    (filesData?.links && filesData.links.find((l) => l.type === "unbranded" && isLinkMatch(l))) ||
+    links.find((l) => l.type === "unbranded") ||
+    (filesData?.links && filesData.links.find((l) => l.type === "unbranded"));
   const unbrandedLink = unbrandedLinkObj?.link || "";
   const unbrandedExpiry = unbrandedLinkObj?.expiry_date || "";
 
   // API data lookups (for sync)
   const brandedApiLinkObj = filesData?.links.find(
-    (link) =>
-      link.type === "branded" && link.service?.uuid === currentService?.uuid,
+    (link) => link.type === "branded" && isLinkMatch(link),
   );
   const brandedApiLink = brandedApiLinkObj?.link;
   const brandedApiExpiry = brandedApiLinkObj?.expiry_date;
   const brandedApiUuid = brandedApiLinkObj?.uuid;
 
   const unbrandedApiLinkObj = filesData?.links.find(
-    (link) =>
-      link.type === "unbranded" && link.service?.uuid === currentService?.uuid,
+    (link) => link.type === "unbranded" && isLinkMatch(link),
   );
   const unbrandedApiLink = unbrandedApiLinkObj?.link;
   const unbrandedApiExpiry = unbrandedApiLinkObj?.expiry_date;
@@ -198,13 +211,22 @@ function FileTab2({
   const bookingToUse =
     currentBookedService ||
     orderData?.services.find(
-      (service) => service.service.uuid === currentService?.uuid,
+      (service) =>
+        service.service.uuid === currentService?.uuid ||
+        (currentService?.id && String(service.service_id) === String(currentService.id)),
     );
 
+  const hasExplicitRevoke =
+    (bookingToUse as any)?.media_access === false ||
+    (bookingToUse?.service as any)?.media_access === false;
+
   const isPaid =
-    orderData?.release_media_before_payment ||
-    bookingToUse?.payment_status === "PAID" ||
-    orderData?.payment_status === "PAID";
+    !hasExplicitRevoke &&
+    (orderData?.release_media_before_payment ||
+      bookingToUse?.payment_status === "PAID" ||
+      orderData?.payment_status === "PAID" ||
+      (bookingToUse as any)?.media_access === true ||
+      (bookingToUse?.service as any)?.media_access === true);
   const canAgentView = userType !== "agent" || isPaid;
 
   const maskLink = (link: string) => {

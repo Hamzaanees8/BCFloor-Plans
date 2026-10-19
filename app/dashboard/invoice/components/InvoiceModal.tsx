@@ -7,12 +7,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Printer, Download, Loader2, Edit2, Save, X, RotateCcw, CreditCard, Check, RefreshCw, Calendar } from 'lucide-react'
+import { Printer, Download, Loader2, Edit2, Save, X, RotateCcw, CreditCard, Check, RefreshCw, Calendar, Trash2 } from 'lucide-react'
 import DownloadInvoicePdf from './DownloadInvoicePdf'
 import InvoiceDocument from './InvoiceDocument'
 import InvoicePdfDocument from './InvoicePdfDocument'
 import { UpdateInvoice } from '../invoice_api'
 import RefundModal from './RefundModal'
+import DeleteInvoiceModal from './DeleteInvoiceModal'
 import { toast } from 'sonner'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
@@ -40,6 +41,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     const [updatingPlan, setUpdatingPlan] = useState(false)
     const [selectedPlanId, setSelectedPlanId] = useState<string>("6_months")
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string) || 'admin'
@@ -457,6 +459,18 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                                 <Edit2 className="h-4 w-4 mr-2" /> Edit
                                             </Button>
                                         )}
+                                        {role === 'admin' &&
+                                            !['paid', 'void', 'refunded', 'partially_paid', 'partial_paid'].includes((invoice.status || '').toLowerCase()) &&
+                                            parseFloat(invoice.paid_amount || '0') <= 0 && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setIsDeleteModalOpen(true)}
+                                                className="text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-1 font-semibold"
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-1 text-red-500" /> Delete
+                                            </Button>
+                                        )}
                                         <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-2">
                                             <Download className="h-4 w-4" /> Download PDF
                                         </Button>
@@ -547,6 +561,17 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         fetchInvoice()
                     }}
                 />
+
+                {isDeleteModalOpen && invoice && (
+                    <DeleteInvoiceModal
+                        isOpen={isDeleteModalOpen}
+                        onClose={() => setIsDeleteModalOpen(false)}
+                        invoice={invoice}
+                        onSuccess={() => {
+                            onClose();
+                        }}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     )

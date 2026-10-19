@@ -40,6 +40,7 @@ export function SortableItem({
     isReordered,
     isUnchanged,
     isReorderMode,
+    isAlwaysSort,
     onToggleSelect,
     renderItem,
 }: {
@@ -50,6 +51,7 @@ export function SortableItem({
     isReordered?: boolean;
     isUnchanged?: boolean;
     isReorderMode?: boolean;
+    isAlwaysSort?: boolean;
     onToggleSelect?: (id: string) => void;
     renderItem: (item: FileItem, isDragging?: boolean) => React.ReactNode;
 }) {
@@ -62,32 +64,32 @@ export function SortableItem({
         isDragging,
     } = useSortable({ id, disabled });
 
+    const isManualReorder = Boolean(isReorderMode && !isAlwaysSort);
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 50 : 1,
-        cursor: disabled ? 'default' : isDragging ? 'grabbing' : 'grab',
+        cursor: disabled ? 'default' : isDragging ? 'grabbing' : isManualReorder ? 'grab' : 'default',
     };
 
     const handlePointerDown = (e: React.PointerEvent) => {
-        if (isReorderMode && (e.ctrlKey || e.metaKey)) {
+        if ((isReorderMode || isAlwaysSort) && (e.ctrlKey || e.metaKey)) {
             // Prevent text selection or browser default gestures on Ctrl-click
             e.stopPropagation();
         }
     };
 
     const handleClickCapture = (e: React.MouseEvent) => {
-        if (isReorderMode) {
+        if ((isReorderMode || isAlwaysSort) && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             e.stopPropagation();
-            if (e.ctrlKey || e.metaKey) {
-                onToggleSelect?.(id);
-            }
+            onToggleSelect?.(id);
         }
     };
 
     let borderStyle = '';
-    if (isReorderMode) {
+    if (isManualReorder) {
         if (isSelected) {
             borderStyle = 'border-2 border-blue-500 ring-2 ring-blue-400/50 bg-blue-50/20';
         } else if (isReordered) {
@@ -109,7 +111,7 @@ export function SortableItem({
                 isDragging ? 'opacity-50 scale-105 shadow-xl ring-2 ring-blue-500' : disabled ? '' : 'hover:shadow-md'
             } ${borderStyle}`}
         >
-            {isReorderMode && (
+            {isManualReorder && (
                 <>
                     {isSelected && (
                         <span className="absolute top-1.5 left-1.5 z-20 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
@@ -134,7 +136,15 @@ export function SortableItem({
 }
 
 export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, disabled = false }: SortableGridProps) {
-    const { imagesPerRow: contextImagesPerRow, isSaving } = useFileManagerContext();
+    const { imagesPerRow: contextImagesPerRow, isSaving, tourSettings, tourDefaultSettings } = useFileManagerContext();
+
+    const isAlwaysSort = Boolean(
+        tourSettings?.always_enable_sorting ??
+        tourDefaultSettings?.always_enable_sorting
+    );
+    const isReorderMode = mode === 'reorder';
+    const isManualReorder = isReorderMode && !isAlwaysSort;
+    const isDragEnabled = isReorderMode || isAlwaysSort;
 
     const imagesPerRow = columns ?? contextImagesPerRow;
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -142,11 +152,9 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
     const [initialOrderMap, setInitialOrderMap] = useState<Map<string, number> | null>(null);
     const prevIsSavingRef = React.useRef(isSaving);
 
-    const isReorderMode = mode === 'reorder';
-
-    // Capture initial order map when reorder mode is activated, reset when exited or when items list populates
+    // Capture initial order map when manual reorder mode is activated, reset when exited or when items list populates
     useEffect(() => {
-        if (isReorderMode) {
+        if (isManualReorder) {
             setInitialOrderMap((prev) => {
                 if (!prev || prev.size === 0 || (items.length > 0 && prev.size !== items.length)) {
                     if (items.length > 0) {
@@ -164,7 +172,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
             setInitialOrderMap(null);
             setSelectedIds(new Set());
         }
-    }, [isReorderMode, items]);
+    }, [isManualReorder, items]);
 
     // When save completes, reset initial baseline map to the new saved items order so Reordered badges are cleared
     useEffect(() => {
@@ -282,7 +290,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
         >
-            {isReorderMode && (
+            {isManualReorder && (
                 <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 px-3 text-xs text-amber-900 font-medium mb-3 select-none">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span>💡 Hold <kbd className="px-1.5 py-0.5 bg-white border border-amber-300 rounded text-[11px] font-semibold">Ctrl</kbd> or <kbd className="px-1.5 py-0.5 bg-white border border-amber-300 rounded text-[11px] font-semibold">⌘</kbd> + click to multi-select items, then drag to reorder them as a group.</span>
@@ -329,11 +337,12 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
                                     key={item.clientId}
                                     id={item.clientId}
                                     item={item}
-                                    disabled={!isReorderMode || disabled}
+                                    disabled={!isDragEnabled || disabled}
                                     isSelected={isSelected}
                                     isReordered={isReordered}
                                     isUnchanged={isUnchanged}
                                     isReorderMode={isReorderMode}
+                                    isAlwaysSort={isAlwaysSort}
                                     onToggleSelect={handleToggleSelect}
                                     renderItem={renderItem}
                                 />

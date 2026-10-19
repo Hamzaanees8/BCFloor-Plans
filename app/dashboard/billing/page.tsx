@@ -41,11 +41,14 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  Edit2,
   ExternalLink,
   FileText,
   Loader2,
   Plus,
   RotateCcw,
+  Save,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,10 +60,12 @@ import { isUserCoAgent } from "@/lib/permissions";
 import MobileBillingDetail from "@/components/mobile/admin/MobileBillingDetail";
 import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
+import DeleteInvoiceModal from "../invoice/components/DeleteInvoiceModal";
 import {
   GetInvoicesByOrder,
   PayInvoiceWithStripe,
   MarkPaid,
+  UpdateInvoice,
 } from "../invoice/invoice_api";
 import InvoiceDocument from "../invoice/components/InvoiceDocument";
 import { GetFilesData } from "../file-manager/file-manager";
@@ -116,6 +121,14 @@ const Page = () => {
   const [billings, setBillings] = useState<BillingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { isSuperAdmin } = useUser();
+  const isAdmin =
+    role === "admin" ||
+    userType === "admin" ||
+    isSuperAdmin ||
+    (typeof window !== "undefined" &&
+      ["admin", "superadmin", "super_admin"].includes(
+        localStorage.getItem("userType") || "",
+      ));
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [orgFilter, setOrgFilter] = useState<string>("all");
 
@@ -139,13 +152,19 @@ const Page = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [addressFilter, setAddressFilter] = useState<string>("");
-  const [sortField, setSortField] = useState<"order_id" | "created_at">("order_id");
+  const [sortField, setSortField] = useState<"order_id" | "created_at">(
+    "order_id",
+  );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [deleteInvoiceModal, setDeleteInvoiceModal] = useState<{
+    open: boolean;
+    invoice: any;
+  }>({ open: false, invoice: null });
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [refundDefaultAmount, setRefundDefaultAmount] = useState<
     number | undefined
@@ -166,6 +185,11 @@ const Page = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [isEditingInvoice, setIsEditingInvoice] = useState(false);
+  const [editingInvoiceData, setEditingInvoiceData] = useState<any | null>(
+    null,
+  );
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
   const [selectedBilling, setSelectedBilling] = useState<BillingItem | null>(
     null,
   );
@@ -347,13 +371,302 @@ const Page = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setServiceInvoicePopup(null);
+        setViewingInvoice(null);
+        setIsEditingInvoice(false);
+        setEditingInvoiceData(null);
       }
     };
-    if (serviceInvoicePopup) {
+    if (serviceInvoicePopup || viewingInvoice) {
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [serviceInvoicePopup]);
+  }, [serviceInvoicePopup, viewingInvoice]);
+
+  const updateInvoiceItem = (index: number, field: string, value: any) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice || serviceInvoicePopup?.invoice;
+      const newItems = [...(current?.items || [])];
+      newItems[index] = { ...newItems[index], [field]: value };
+
+      if (field === "quantity" || field === "unit_price") {
+        const qty = parseFloat(newItems[index].quantity || "0");
+        const price = parseFloat(newItems[index].unit_price || "0");
+        newItems[index].amount = (qty * price).toFixed(2);
+      }
+
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0,
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const addInvoiceItem = () => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice || serviceInvoicePopup?.invoice;
+      const newItems = [
+        ...(current?.items || []),
+        {
+          description: "",
+          quantity: 1,
+          unit_price: 0,
+          amount: 0,
+          gst_enabled: true,
+          pst_enabled: false,
+        },
+      ];
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0,
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const removeInvoiceItem = (index: number) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice || serviceInvoicePopup?.invoice;
+      const newItems = (current?.items || []).filter(
+        (_: any, i: number) => i !== index,
+      );
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0,
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const updateInvoiceTaxRate = (val: string) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice || serviceInvoicePopup?.invoice;
+      const subtotal = parseFloat(current?.subtotal || "0");
+      const taxRate = parseFloat(val || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        tax_rate: val,
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const handleSaveInvoice = async () => {
+    const currentInvoice = viewingInvoice || serviceInvoicePopup?.invoice;
+    const targetUuid = currentInvoice?.uuid;
+    if (!editingInvoiceData || !targetUuid) return;
+    setIsSavingInvoice(true);
+    try {
+      const payload = {
+        notes: editingInvoiceData.notes,
+        tax_rate: editingInvoiceData.tax_rate,
+        tax_rate_override: editingInvoiceData.tax_rate
+          ? parseFloat(editingInvoiceData.tax_rate)
+          : undefined,
+        items: (editingInvoiceData.items || []).map((item: any) => ({
+          uuid: item.uuid || undefined,
+          description: item.description,
+          quantity: parseFloat(item.quantity) || 1,
+          unit_price: parseFloat(item.unit_price) || 0,
+          gst_enabled:
+            item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true,
+          pst_enabled:
+            item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false,
+          order_service_id:
+            item.order_service_id ||
+            item.order_service?.id ||
+            item.orderService?.id ||
+            null,
+          order_service_uuid:
+            item.order_service_uuid ||
+            item.order_service?.uuid ||
+            item.orderService?.uuid ||
+            null,
+        })),
+      };
+
+      await UpdateInvoice(targetUuid, payload);
+      toast.success("Invoice updated successfully!");
+      setIsEditingInvoice(false);
+      setEditingInvoiceData(null);
+
+      const targetOrderUuid =
+        currentInvoice.order_uuid ||
+        currentInvoice.order?.uuid ||
+        selectedOrderUuid ||
+        selectedBilling?.order_uuid ||
+        serviceInvoicePopup?.billing?.order_uuid;
+
+      if (targetOrderUuid) {
+        const res = await GetInvoicesByOrder(targetOrderUuid);
+        const updatedList = Array.isArray(res.data) ? res.data : [];
+        setInvoices(updatedList);
+        const updated = updatedList.find(
+          (i: any) => i.uuid === targetUuid || i.id === currentInvoice.id,
+        );
+        if (updated) {
+          if (viewingInvoice) setViewingInvoice(updated);
+          if (serviceInvoicePopup)
+            setServiceInvoicePopup((prev) =>
+              prev ? { ...prev, invoice: updated } : null,
+            );
+        }
+        await fetchOrderInvoices(targetOrderUuid);
+      }
+      await loadBillings();
+    } catch (error: any) {
+      console.error("Error updating invoice:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update invoice",
+      );
+    } finally {
+      setIsSavingInvoice(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showInvoicesModal && !invoicesLoading && invoices.length > 0) {
+      const isCoAgentUser =
+        userType === "agent" && isUserCoAgent(currentUser, userType);
+      let isMatterportService = false;
+      if (selectedServiceId && selectedBilling?.services) {
+        const targetSvc = selectedBilling.services.find(
+          (s: any) =>
+            s.uuid === selectedServiceId ||
+            s.order_service_uuid === selectedServiceId ||
+            s.service_id?.toString() === selectedServiceId,
+        );
+        const name = (targetSvc?.service_name || "").toLowerCase();
+        if (
+          name.includes("matterport") ||
+          name.includes("3d tour") ||
+          name.includes("3d floor") ||
+          name.includes("virtual tour")
+        ) {
+          isMatterportService = true;
+        }
+      }
+
+      let list = selectedServiceId
+        ? invoices.filter((inv) => {
+            const isLateFee =
+              inv.notes?.toLowerCase().includes("late fee") ||
+              inv.notes?.toLowerCase().includes("late_fee") ||
+              inv.type === "late_fee" ||
+              inv.is_late_fee;
+            if (isLateFee) return false;
+            const hasServiceItem = inv.items?.some((i: any) => {
+              const sUuid =
+                i.order_service?.uuid ||
+                i.orderService?.uuid ||
+                i.order_service_uuid;
+              const sId =
+                i.order_service_id || i.order_service?.id || i.orderService?.id;
+              const svcId =
+                i.order_service?.service_id ||
+                i.order_service?.service?.id ||
+                i.orderService?.service_id ||
+                i.orderService?.service?.id ||
+                i.service_id;
+              return (
+                sUuid === selectedServiceId ||
+                sId?.toString() === selectedServiceId ||
+                (svcId != null && svcId.toString() === selectedServiceId)
+              );
+            });
+            if (hasServiceItem) return true;
+            if (isMatterportService && isRenewalInvoice(inv)) return true;
+            return false;
+          })
+        : invoices.filter(
+            (inv) =>
+              Boolean(inv.split_details) ||
+              inv.agent_type === "co-agent" ||
+              inv.agent_type === "primary" ||
+              inv.notes?.toLowerCase().includes("consolidated") ||
+              inv.notes?.toLowerCase().includes("late fee") ||
+              inv.notes?.toLowerCase().includes("late_fee") ||
+              inv.type === "late_fee" ||
+              inv.is_late_fee ||
+              isRenewalInvoice(inv),
+          );
+
+      if (
+        selectedServiceId &&
+        list.some(
+          (inv) =>
+            !inv.notes?.toLowerCase().includes("consolidated") ||
+            inv.items?.length === 1,
+        )
+      ) {
+        list = list.filter(
+          (inv) =>
+            !inv.notes?.toLowerCase().includes("consolidated") ||
+            inv.items?.length === 1,
+        );
+      }
+
+      if (isCoAgentUser) {
+        list = list.filter((inv) => {
+          const isOwner =
+            currentUser?.uuid &&
+            (inv.agent?.uuid === currentUser.uuid ||
+              inv.agent_uuid === currentUser.uuid ||
+              inv.agent?.email === currentUser.email);
+          return isOwner || inv.agent_type === "co-agent";
+        });
+      }
+
+      const activeList = list.filter((inv) => !isVoidOrCancelled(inv.status));
+      const candidates = activeList.length > 0 ? activeList : list;
+
+      if (candidates.length === 1) {
+        setShowInvoicesModal(false);
+        setViewingInvoice(candidates[0]);
+      }
+    }
+  }, [
+    showInvoicesModal,
+    invoicesLoading,
+    invoices,
+    selectedServiceId,
+    selectedBilling,
+    userType,
+    currentUser,
+  ]);
 
   const handlePayInvoice = async (
     invoice: any,
@@ -462,34 +775,39 @@ const Page = () => {
       const activeServiceInvoices = matchingServiceInvoices.filter(
         (inv: any) => !isVoidOrCancelled(inv.status),
       );
-      const isSplitService =
-        (matchingServiceInvoices.length > 1 ||
-          matchingServiceInvoices.some(
-            (inv: any) =>
-              Boolean(inv.split_details) || inv.agent_type === "co-agent",
-          )) &&
-        !isCoAgent;
+      // const isSplitService =
+      //   (matchingServiceInvoices.length > 1 ||
+      //     matchingServiceInvoices.some(
+      //       (inv: any) =>
+      //         Boolean(inv.split_details) || inv.agent_type === "co-agent",
+      //     )) &&
+      //   !isCoAgent;
 
       if (action === "view") {
         if (userType !== "agent") {
           // ADMIN view:
-          if (serviceId && (matchingServiceInvoices.length > 1 || isSplitService)) {
-            setActionLoading(null);
-            setInvoices(invoicesList);
-            setSelectedBilling(billing);
-            setSelectedOrderUuid(billing.order_uuid);
-            setSelectedServiceId(serviceId);
-            setShowInvoicesModal(true);
-            setInvoicesLoading(false);
-            return;
+          if (serviceId) {
+            const activeMatchingInvoices = matchingServiceInvoices.filter(
+              (inv: any) => !isVoidOrCancelled(inv.status),
+            );
+            if (activeMatchingInvoices.length > 1) {
+              setActionLoading(null);
+              setInvoices(invoicesList);
+              setSelectedBilling(billing);
+              setSelectedOrderUuid(billing.order_uuid);
+              setSelectedServiceId(serviceId);
+              setShowInvoicesModal(true);
+              setInvoicesLoading(false);
+              return;
+            }
           }
 
           if (!serviceId) {
-            // For Admin clicking the main order Invoice button, show all order invoices in modal if there are multiple invoices
+            // For Admin clicking the main order Invoice button, only show multiple invoices modal if there are actually multiple active invoices
             const activeOrderInvoices = invoicesList.filter(
               (inv: any) => !isVoidOrCancelled(inv.status),
             );
-            if (activeOrderInvoices.length > 1 || invoicesList.length > 1) {
+            if (activeOrderInvoices.length > 1) {
               setActionLoading(null);
               setInvoices(invoicesList);
               setSelectedBilling(billing);
@@ -502,7 +820,12 @@ const Page = () => {
           }
         }
 
-        if (targetInvoice) {
+        const finalTargetInvoice =
+          targetInvoice ||
+          invoicesList.find((inv: any) => !isVoidOrCancelled(inv.status)) ||
+          invoicesList[0];
+
+        if (finalTargetInvoice) {
           setActionLoading(null);
           const matchedService = serviceId
             ? billing.services?.find(
@@ -515,16 +838,16 @@ const Page = () => {
 
           const previewInvoice = serviceId
             ? prepareServiceInvoicePreview(
-                targetInvoice,
+                finalTargetInvoice,
                 serviceId,
                 serviceNumericId,
                 matchedService?.service_name,
-              ) || targetInvoice
+              ) || finalTargetInvoice
             : prepareOrderInvoicePreview(
                 invoicesList,
-                targetInvoice,
+                finalTargetInvoice,
                 billing,
-              ) || targetInvoice;
+              ) || finalTargetInvoice;
           setServiceInvoicePopup({
             invoice: previewInvoice,
             billing,
@@ -1037,9 +1360,11 @@ const Page = () => {
         }
         if (
           isPrimaryOwner &&
-          (inv.agent_type === "primary" || (!inv.split_details && inv.agent_type !== "co-agent")) &&
+          (inv.agent_type === "primary" ||
+            (!inv.split_details && inv.agent_type !== "co-agent")) &&
           ((userEmail && inv.agent?.email?.toLowerCase() === userEmail) ||
-            (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
+            (userUuid &&
+              (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)))
         ) {
           const pct = Number(inv.split_percentage || inv.percentage || 0);
           if (pct > 0 && pct < 100) {
@@ -1071,7 +1396,10 @@ const Page = () => {
 
       if (isPrimaryOwner && coList.length > 0) {
         const totalCoSplit = coList.reduce((sum: number, ca: any) => {
-          return sum + Number(ca?.split || ca?.split_percentage || ca?.percentage || 0);
+          return (
+            sum +
+            Number(ca?.split || ca?.split_percentage || ca?.percentage || 0)
+          );
         }, 0);
         if (totalCoSplit > 0 && totalCoSplit < 100) {
           return {
@@ -1546,30 +1874,38 @@ const Page = () => {
                     (inv) =>
                       inv.notes?.toLowerCase().includes("consolidated") ||
                       (!inv.notes?.toLowerCase().includes("service invoice") &&
-                        (inv.agent_type === "primary" || !inv.split_details || inv.agent_type !== "co-agent")),
+                        (inv.agent_type === "primary" ||
+                          !inv.split_details ||
+                          inv.agent_type !== "co-agent")),
                   ) ||
-                  orderInvoices.find((inv) => !inv.notes?.toLowerCase().includes("service invoice")) ||
+                  orderInvoices.find(
+                    (inv) =>
+                      !inv.notes?.toLowerCase().includes("service invoice"),
+                  ) ||
                   orderInvoices.find((inv) => inv.agent_type === "primary") ||
                   orderInvoices[0];
                 const taxRate = parseFloat(
-                  primaryInvoice?.tax_rate || (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
+                  primaryInvoice?.tax_rate ||
+                    (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
                 );
                 const subtotalVal =
-                  primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
+                  primaryInvoice &&
+                  parseFloat(primaryInvoice.subtotal || "0") > 0
                     ? parseFloat(primaryInvoice.subtotal)
                     : billing.total_amount;
                 const taxAmount =
-                  primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
+                  primaryInvoice &&
+                  parseFloat(primaryInvoice.tax_amount || "0") > 0
                     ? parseFloat(primaryInvoice.tax_amount)
-                    : (billing.tax_amount != null
-                        ? billing.tax_amount
-                        : subtotalVal * (taxRate / 100));
+                    : billing.tax_amount != null
+                      ? billing.tax_amount
+                      : subtotalVal * (taxRate / 100);
                 const rowGrandTotal =
                   primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
                     ? parseFloat(primaryInvoice.total)
-                    : (billing.grand_total != null
-                        ? billing.grand_total
-                        : subtotalVal + taxAmount);
+                    : billing.grand_total != null
+                      ? billing.grand_total
+                      : subtotalVal + taxAmount;
                 const rowRemaining =
                   billing.status === "paid"
                     ? 0
@@ -1719,13 +2055,21 @@ const Page = () => {
                         const primaryInvoice =
                           orderInvoices.find(
                             (inv) =>
-                              inv.notes?.toLowerCase().includes("consolidated") ||
-                              (!inv.notes?.toLowerCase().includes("service invoice") &&
-                                (inv.agent_type === "primary" || (inv.agent && !inv.split_details))),
+                              inv.notes
+                                ?.toLowerCase()
+                                .includes("consolidated") ||
+                              (!inv.notes
+                                ?.toLowerCase()
+                                .includes("service invoice") &&
+                                (inv.agent_type === "primary" ||
+                                  (inv.agent && !inv.split_details))),
                           ) ||
                           targetOrderInvoice ||
                           orderInvoices.find(
-                            (inv) => !inv.notes?.toLowerCase().includes("service invoice"),
+                            (inv) =>
+                              !inv.notes
+                                ?.toLowerCase()
+                                .includes("service invoice"),
                           ) ||
                           orderInvoices[0];
 
@@ -1771,24 +2115,30 @@ const Page = () => {
                         );
 
                         const taxRate = parseFloat(
-                          primaryInvoice?.tax_rate || (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
+                          primaryInvoice?.tax_rate ||
+                            (billing.tax_rate != null
+                              ? String(billing.tax_rate)
+                              : "0"),
                         );
                         const subtotalVal =
-                          primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
+                          primaryInvoice &&
+                          parseFloat(primaryInvoice.subtotal || "0") > 0
                             ? parseFloat(primaryInvoice.subtotal)
                             : billing.total_amount;
                         const taxAmount =
-                          primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
+                          primaryInvoice &&
+                          parseFloat(primaryInvoice.tax_amount || "0") > 0
                             ? parseFloat(primaryInvoice.tax_amount)
-                            : (billing.tax_amount != null
-                                ? billing.tax_amount
-                                : subtotalVal * (taxRate / 100));
+                            : billing.tax_amount != null
+                              ? billing.tax_amount
+                              : subtotalVal * (taxRate / 100);
                         const grandTotalVal =
-                          primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
+                          primaryInvoice &&
+                          parseFloat(primaryInvoice.total || "0") > 0
                             ? parseFloat(primaryInvoice.total)
-                            : (billing.grand_total != null
-                                ? billing.grand_total
-                                : subtotalVal + taxAmount);
+                            : billing.grand_total != null
+                              ? billing.grand_total
+                              : subtotalVal + taxAmount;
                         const totalRefunded = billing.total_refunded || 0;
                         const effectiveGrandTotal = Math.max(
                           0,
@@ -2191,41 +2541,92 @@ const Page = () => {
                                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
                                           <div className="flex gap-6">
                                             {(() => {
-                                              const packageDiscountItem = primaryInvoice?.items?.find((i: any) =>
-                                                i.description?.toLowerCase().includes("package discount")
-                                              );
+                                              const packageDiscountItem =
+                                                primaryInvoice?.items?.find(
+                                                  (i: any) =>
+                                                    i.description
+                                                      ?.toLowerCase()
+                                                      .includes(
+                                                        "package discount",
+                                                      ),
+                                                );
 
                                               // Sum all package discount items across all invoices for this order
-                                              const allOrderDiscountItemsSum = orderInvoices
-                                                .flatMap((inv: any) => inv.items || [])
-                                                .filter((i: any) => i.description?.toLowerCase().includes("package discount"))
-                                                .reduce((sum: number, i: any) => sum + Math.abs(parseFloat(i.amount || "0")), 0);
+                                              const allOrderDiscountItemsSum =
+                                                orderInvoices
+                                                  .flatMap(
+                                                    (inv: any) =>
+                                                      inv.items || [],
+                                                  )
+                                                  .filter((i: any) =>
+                                                    i.description
+                                                      ?.toLowerCase()
+                                                      .includes(
+                                                        "package discount",
+                                                      ),
+                                                  )
+                                                  .reduce(
+                                                    (sum: number, i: any) =>
+                                                      sum +
+                                                      Math.abs(
+                                                        parseFloat(
+                                                          i.amount || "0",
+                                                        ),
+                                                      ),
+                                                    0,
+                                                  );
 
                                               // If primary invoice has the package discount line (consolidated invoice), use it.
                                               // Otherwise, if multiple service invoices exist, use their combined discount sum.
-                                              let packageDiscountVal = packageDiscountItem
-                                                ? Math.abs(parseFloat(packageDiscountItem.amount || "0"))
-                                                : allOrderDiscountItemsSum;
+                                              let packageDiscountVal =
+                                                packageDiscountItem
+                                                  ? Math.abs(
+                                                      parseFloat(
+                                                        packageDiscountItem.amount ||
+                                                          "0",
+                                                      ),
+                                                    )
+                                                  : allOrderDiscountItemsSum;
 
                                               // Fallback to billing.package percentage if no discount line items
-                                              if (packageDiscountVal === 0 && billing.package) {
+                                              if (
+                                                packageDiscountVal === 0 &&
+                                                billing.package
+                                              ) {
                                                 const discPercent = parseFloat(
                                                   billing.package.discount ??
-                                                    billing.package.package_discount ??
-                                                    "0"
+                                                    billing.package
+                                                      .package_discount ??
+                                                    "0",
                                                 );
                                                 const discType = (
-                                                  billing.package.discount_type ??
-                                                    billing.package.package_discount_type ??
-                                                    "percentage"
+                                                  billing.package
+                                                    .discount_type ??
+                                                  billing.package
+                                                    .package_discount_type ??
+                                                  "percentage"
                                                 ).toLowerCase();
-                                                if (discPercent > 0 && discType === "percentage") {
-                                                  const originalSubtotal = subtotalVal / (1 - discPercent / 100);
-                                                  packageDiscountVal = Math.round((originalSubtotal - subtotalVal) * 100) / 100;
+                                                if (
+                                                  discPercent > 0 &&
+                                                  discType === "percentage"
+                                                ) {
+                                                  const originalSubtotal =
+                                                    subtotalVal /
+                                                    (1 - discPercent / 100);
+                                                  packageDiscountVal =
+                                                    Math.round(
+                                                      (originalSubtotal -
+                                                        subtotalVal) *
+                                                        100,
+                                                    ) / 100;
                                                 }
                                               }
 
-                                              const packageName = billing.package?.name || (billing.package as any)?.package_name || null;
+                                              const packageName =
+                                                billing.package?.name ||
+                                                (billing.package as any)
+                                                  ?.package_name ||
+                                                null;
 
                                               if (packageDiscountVal > 0) {
                                                 return (
@@ -2236,24 +2637,37 @@ const Page = () => {
                                                       </span>
                                                       <span className="font-semibold text-gray-500 line-through">
                                                         {(
-                                                          (subtotalVal + packageDiscountVal) * splitMultiplier
-                                                        ).toLocaleString("en-US", {
-                                                          style: "currency",
-                                                          currency: "USD",
-                                                        })}
+                                                          (subtotalVal +
+                                                            packageDiscountVal) *
+                                                          splitMultiplier
+                                                        ).toLocaleString(
+                                                          "en-US",
+                                                          {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                          },
+                                                        )}
                                                       </span>
                                                     </div>
                                                     <div>
                                                       <span className="text-gray-500 block text-xs">
-                                                        Discount {packageName ? `(${packageName})` : ""}
+                                                        Discount{" "}
+                                                        {packageName
+                                                          ? `(${packageName})`
+                                                          : ""}
                                                       </span>
                                                       <span className="font-semibold text-emerald-600">
-                                                        -{(
-                                                          packageDiscountVal * splitMultiplier
-                                                        ).toLocaleString("en-US", {
-                                                          style: "currency",
-                                                          currency: "USD",
-                                                        })}
+                                                        -
+                                                        {(
+                                                          packageDiscountVal *
+                                                          splitMultiplier
+                                                        ).toLocaleString(
+                                                          "en-US",
+                                                          {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                          },
+                                                        )}
                                                       </span>
                                                     </div>
                                                   </>
@@ -3004,86 +3418,91 @@ const Page = () => {
                                                   )}
                                                 </div>
                                               </div>
-                                                <div className="text-sm text-gray-600 space-y-0.5">
-                                                  {(() => {
-                                                    const pricing =
-                                                      getServiceActualInvoicePricing({
+                                              <div className="text-sm text-gray-600 space-y-0.5">
+                                                {(() => {
+                                                  const pricing =
+                                                    getServiceActualInvoicePricing(
+                                                      {
                                                         invoices: orderInvoices,
                                                         service,
                                                         splitMultiplier,
                                                         isCoAgentUser,
                                                         userType,
                                                         currentUser,
-                                                        fallbackTaxRate: taxRate,
-                                                      });
-
-                                                    const serviceBasePrice =
-                                                      pricing.basePrice;
-                                                    const serviceTaxAmount =
-                                                      pricing.taxAmount;
-                                                    const serviceTotalPrice =
-                                                      pricing.totalPrice;
-                                                    const effectiveTaxRate =
-                                                      pricing.appliedTaxRate;
-
-                                                    return (
-                                                      <>
-                                                        <p>
-                                                          Base Price:{" "}
-                                                          <span className="font-medium text-gray-800">
-                                                            {serviceBasePrice.toLocaleString(
-                                                              "en-US",
-                                                              {
-                                                                style: "currency",
-                                                                currency: "USD",
-                                                              },
-                                                            )}
-                                                          </span>
-                                                          {isCoAgentShared && (
-                                                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                                                              {
-                                                                splitInfo?.splitPercentage
-                                                              }
-                                                              % share
-                                                            </span>
-                                                          )}
-                                                        </p>
-                                                        {effectiveTaxRate > 0 ? (
-                                                          <>
-                                                            <p className="text-xs text-gray-500">
-                                                              GST ({effectiveTaxRate}%):{" "}
-                                                              <span className="font-medium">
-                                                                {serviceTaxAmount.toLocaleString(
-                                                                  "en-US",
-                                                                  {
-                                                                    style:
-                                                                      "currency",
-                                                                    currency:
-                                                                      "USD",
-                                                                  },
-                                                                )}
-                                                              </span>
-                                                            </p>
-                                                            <p className="text-[13px] font-semibold text-gray-700">
-                                                              Total Price:{" "}
-                                                              <span className="text-[#6BAE41]">
-                                                                {serviceTotalPrice.toLocaleString(
-                                                                  "en-US",
-                                                                  {
-                                                                    style:
-                                                                      "currency",
-                                                                    currency:
-                                                                      "USD",
-                                                                  },
-                                                                )}
-                                                              </span>
-                                                            </p>
-                                                          </>
-                                                        ) : null}
-                                                      </>
+                                                        fallbackTaxRate:
+                                                          taxRate,
+                                                      },
                                                     );
-                                                  })()}
-                                                </div>
+
+                                                  const serviceBasePrice =
+                                                    pricing.basePrice;
+                                                  const serviceTaxAmount =
+                                                    pricing.taxAmount;
+                                                  const serviceTotalPrice =
+                                                    pricing.totalPrice;
+                                                  const effectiveTaxRate =
+                                                    pricing.appliedTaxRate;
+
+                                                  return (
+                                                    <>
+                                                      <p>
+                                                        Base Price:{" "}
+                                                        <span className="font-medium text-gray-800">
+                                                          {serviceBasePrice.toLocaleString(
+                                                            "en-US",
+                                                            {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            },
+                                                          )}
+                                                        </span>
+                                                        {isCoAgentShared && (
+                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                                            {
+                                                              splitInfo?.splitPercentage
+                                                            }
+                                                            % share
+                                                          </span>
+                                                        )}
+                                                      </p>
+                                                      {effectiveTaxRate > 0 ? (
+                                                        <>
+                                                          <p className="text-xs text-gray-500">
+                                                            GST (
+                                                            {effectiveTaxRate}
+                                                            %):{" "}
+                                                            <span className="font-medium">
+                                                              {serviceTaxAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
+                                                          <p className="text-[13px] font-semibold text-gray-700">
+                                                            Total Price:{" "}
+                                                            <span className="text-[#6BAE41]">
+                                                              {serviceTotalPrice.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
+                                                        </>
+                                                      ) : null}
+                                                    </>
+                                                  );
+                                                })()}
+                                              </div>
 
                                               {(() => {
                                                 const serviceSlot =
@@ -3259,6 +3678,27 @@ const Page = () => {
         payment={selectedRefundPayment}
         invoice={selectedReceiptInvoice}
       />
+
+      {deleteInvoiceModal.open && deleteInvoiceModal.invoice && (
+        <DeleteInvoiceModal
+          isOpen={deleteInvoiceModal.open}
+          onClose={() => setDeleteInvoiceModal({ open: false, invoice: null })}
+          invoice={deleteInvoiceModal.invoice}
+          onSuccess={async () => {
+            setViewingInvoice(null);
+            setServiceInvoicePopup(null);
+            setShowInvoicesModal(false);
+            await loadBillings();
+            const targetOrderUuid =
+              deleteInvoiceModal.invoice?.order?.uuid ||
+              deleteInvoiceModal.invoice?.order_uuid ||
+              selectedOrderUuid;
+            if (targetOrderUuid) {
+              fetchOrderInvoices(targetOrderUuid);
+            }
+          }}
+        />
+      )}
 
       {/* Multiple Invoices Modal for Split Invoices */}
       <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
@@ -3535,12 +3975,60 @@ const Page = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => {
+                                  setShowInvoicesModal(false);
                                   setViewingInvoice(invoice);
                                 }}
                                 className="h-[30px] text-xs px-3 font-normal border border-[#BBBBBB] hover:bg-gray-50 text-[#666666] rounded-[6px] transition-colors"
                               >
                                 View Invoice
                               </Button>
+
+                              {isAdmin &&
+                                !["paid", "void", "refunded"].includes(
+                                  (invoice.status || "").toLowerCase(),
+                                ) && (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setShowInvoicesModal(false);
+                                      setViewingInvoice(invoice);
+                                      setEditingInvoiceData(
+                                        JSON.parse(JSON.stringify(invoice)),
+                                      );
+                                      setIsEditingInvoice(true);
+                                    }}
+                                    className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-[6px] transition-colors flex items-center gap-1.5"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                    Edit Invoice
+                                  </Button>
+                                )}
+
+                              {isAdmin &&
+                                ![
+                                  "paid",
+                                  "void",
+                                  "refunded",
+                                  "partially_paid",
+                                  "partial_paid",
+                                ].includes(
+                                  (invoice.status || "").toLowerCase(),
+                                ) &&
+                                parseFloat(invoice.paid_amount || "0") <= 0 && (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setDeleteInvoiceModal({
+                                        open: true,
+                                        invoice,
+                                      });
+                                    }}
+                                    className="h-[30px] text-xs px-3 font-medium border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-[6px] transition-colors flex items-center gap-1.5"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete Invoice
+                                  </Button>
+                                )}
 
                               {status !== "PAID" &&
                                 status !== "VOID" &&
@@ -3797,7 +4285,11 @@ const Page = () => {
       {viewingInvoice && (
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 sm:p-6 md:p-8"
-          onClick={() => setViewingInvoice(null)}
+          onClick={() => {
+            setViewingInvoice(null);
+            setIsEditingInvoice(false);
+            setEditingInvoiceData(null);
+          }}
         >
           <div
             className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-2xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
@@ -3810,7 +4302,8 @@ const Page = () => {
                     className="text-base sm:text-xl font-bold"
                     style={{ color: roleSettings.pageTabColor }}
                   >
-                    Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
+                    Invoice #
+                    {viewingInvoice.invoice_number || viewingInvoice.id}
                   </h2>
                   {isRenewalInvoice(viewingInvoice) ? (
                     <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
@@ -3823,14 +4316,86 @@ const Page = () => {
                   )}
                 </div>
                 <button
-                  onClick={() => setViewingInvoice(null)}
+                  onClick={() => {
+                    setViewingInvoice(null);
+                    setIsEditingInvoice(false);
+                    setEditingInvoiceData(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"
                 >
                   ✕
                 </button>
               </div>
-              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                {viewingInvoice.status?.toUpperCase() !== "PAID" &&
+              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto flex-wrap">
+                {isAdmin &&
+                  !["paid", "void", "refunded"].includes(
+                    (viewingInvoice.status || "").toLowerCase(),
+                  ) && (
+                    <div className="flex items-center gap-2">
+                      {isEditingInvoice ? (
+                        <>
+                          <Button
+                            disabled={isSavingInvoice}
+                            onClick={handleSaveInvoice}
+                            className="px-4 h-[30px] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {isSavingInvoice ? "Saving..." : "Save Changes"}
+                          </Button>
+                          <Button
+                            disabled={isSavingInvoice}
+                            onClick={() => {
+                              setIsEditingInvoice(false);
+                              setEditingInvoiceData(null);
+                            }}
+                            variant="outline"
+                            className="px-4 h-[30px] text-xs font-semibold rounded-[6px] shadow-sm transition-all bg-white hover:bg-gray-50 border-gray-300"
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => {
+                              setIsEditingInvoice(true);
+                              setEditingInvoiceData(
+                                JSON.parse(JSON.stringify(viewingInvoice)),
+                              );
+                            }}
+                            className="px-4 h-[30px] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit Invoice
+                          </Button>
+                          {parseFloat(viewingInvoice.paid_amount || "0") <= 0 &&
+                            ![
+                              "paid",
+                              "partially_paid",
+                              "partial_paid",
+                            ].includes(
+                              (viewingInvoice.status || "").toLowerCase(),
+                            ) && (
+                              <Button
+                                onClick={() => {
+                                  setDeleteInvoiceModal({
+                                    open: true,
+                                    invoice: viewingInvoice,
+                                  });
+                                }}
+                                className="px-4 h-[30px] text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete Invoice
+                              </Button>
+                            )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                {!isEditingInvoice &&
+                  viewingInvoice.status?.toUpperCase() !== "PAID" &&
                   !isRefunded(viewingInvoice.status) &&
                   selectedBilling && (
                     <div className="flex gap-2 w-full sm:w-auto justify-end">
@@ -3938,7 +4503,11 @@ const Page = () => {
                     </div>
                   )}
                 <button
-                  onClick={() => setViewingInvoice(null)}
+                  onClick={() => {
+                    setViewingInvoice(null);
+                    setIsEditingInvoice(false);
+                    setEditingInvoiceData(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700 p-2 hidden sm:block"
                 >
                   ✕
@@ -3948,13 +4517,13 @@ const Page = () => {
             <div className="overflow-y-auto p-4 flex-1">
               <InvoiceDocument
                 invoice={viewingInvoice}
-                editData={viewingInvoice}
-                isEditing={false}
-                updateItem={() => {}}
-                addItem={() => {}}
-                removeItem={() => {}}
-                updateTaxRate={() => {}}
-                setEditData={() => {}}
+                editData={editingInvoiceData || viewingInvoice}
+                isEditing={isEditingInvoice}
+                updateItem={updateInvoiceItem}
+                addItem={addInvoiceItem}
+                removeItem={removeInvoiceItem}
+                updateTaxRate={updateInvoiceTaxRate}
+                setEditData={setEditingInvoiceData}
                 roleSettings={roleSettings}
               />
             </div>
@@ -4052,7 +4621,11 @@ const Page = () => {
       {serviceInvoicePopup && (
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 sm:p-6 md:p-8"
-          onClick={() => setServiceInvoicePopup(null)}
+          onClick={() => {
+            setServiceInvoicePopup(null);
+            setIsEditingInvoice(false);
+            setEditingInvoiceData(null);
+          }}
         >
           <div
             className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
@@ -4080,198 +4653,287 @@ const Page = () => {
                   )}
                 </div>
                 <button
-                  onClick={() => setServiceInvoicePopup(null)}
+                  onClick={() => {
+                    setServiceInvoicePopup(null);
+                    setIsEditingInvoice(false);
+                    setEditingInvoiceData(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700 p-2 sm:hidden"
                 >
                   ✕
                 </button>
               </div>
-              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                {![
-                  "PAID",
-                  "VOID",
-                  "CANCELLED",
-                  "CANCELED",
-                  "REFUNDED",
-                  "PARTIALLY_REFUNDED",
-                ].includes(
-                  serviceInvoicePopup.invoice.status?.toUpperCase() || "",
-                ) && (
-                  <div className="flex gap-2 w-full sm:w-auto justify-end">
-                    {(() => {
-                      const mediaSet =
-                        rowServiceMedia[serviceInvoicePopup.billing.order_uuid];
-                      let targetServices = serviceInvoicePopup.billing.services;
-
-                      if (serviceInvoicePopup.serviceId) {
-                        const matchedSvc =
-                          serviceInvoicePopup.billing.services.find(
-                            (s) =>
-                              s.order_service_uuid ===
-                                serviceInvoicePopup.serviceId ||
-                              s.uuid === serviceInvoicePopup.serviceId,
-                          );
-                        if (matchedSvc) targetServices = [matchedSvc];
-                      } else if (
-                        serviceInvoicePopup.invoice?.items &&
-                        serviceInvoicePopup.invoice.items.length > 0
-                      ) {
-                        const itemSvcIds = new Set<string | number>();
-                        serviceInvoicePopup.invoice.items.forEach(
-                          (item: any) => {
-                            const sId =
-                              item.order_service?.service_id ||
-                              item.order_service?.service?.id ||
-                              item.orderService?.service_id ||
-                              item.orderService?.service?.id ||
-                              item.service_id;
-                            if (sId != null) {
-                              itemSvcIds.add(sId);
-                              itemSvcIds.add(String(sId));
-                            }
-                          },
-                        );
-                        if (itemSvcIds.size > 0) {
-                          const matched =
-                            serviceInvoicePopup.billing.services.filter(
-                              (s) =>
-                                itemSvcIds.has(s.service_id) ||
-                                itemSvcIds.has(String(s.service_id)),
-                            );
-                          if (matched.length > 0) targetServices = matched;
-                        }
-                      }
-
-                      const missingServices = targetServices.filter(
-                        (svc) =>
-                          !mediaSet?.has(svc.service_id) &&
-                          !mediaSet?.has(String(svc.service_id)),
-                      );
-
-                      const hasAnyMissingMedia =
-                        userType === "agent" &&
-                        mediaSet !== undefined &&
-                        missingServices.length > 0;
-
-                      if (hasAnyMissingMedia) {
-                        const targetService =
-                          targetServices.length === 1
-                            ? targetServices[0]
-                            : null;
-                        return (
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-block cursor-not-allowed w-full sm:w-auto">
-                                  <Button
-                                    disabled
-                                    className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white opacity-50 cursor-not-allowed rounded-[6px] w-full sm:w-auto"
-                                    style={{
-                                      backgroundColor:
-                                        roleSettings.pageTabColor,
-                                    }}
-                                  >
-                                    Pay Now
-                                  </Button>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="left"
-                                align="center"
-                                className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
-                              >
-                                <span className="font-semibold block mb-1 text-amber-400">
-                                  ⚠ Payment Unavailable
-                                </span>
-                                {targetService ||
-                                missingServices.length === 1 ? (
-                                  <span>
-                                    Media for{" "}
-                                    {targetService?.service_name ||
-                                      missingServices[0]?.service_name}{" "}
-                                    has not been uploaded by the vendor yet.
-                                    Payment will be available once the media is
-                                    added.
-                                  </span>
-                                ) : (
-                                  <div>
-                                    <span className="block mb-1">
-                                      Media has not yet been uploaded for the
-                                      following services:
-                                    </span>
-                                    <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
-                                      {missingServices.map((s) => (
-                                        <li key={s.service_id}>
-                                          {s.service_name}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                    <span className="block mt-1">
-                                      Payment will be available once the
-                                      required media has been added.
-                                    </span>
-                                  </div>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        );
-                      }
-                      return (
-                        <Button
-                          onClick={async () => {
-                            try {
-                              setActionLoading({
-                                id:
-                                  serviceInvoicePopup.serviceId ||
-                                  serviceInvoicePopup.billing.order_id,
-                                action: "pay",
-                              });
-                              await handlePayInvoice(
-                                serviceInvoicePopup.invoice,
-                                serviceInvoicePopup.billing,
-                                undefined,
-                                serviceInvoicePopup.serviceId,
+              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto flex-wrap">
+                {isAdmin &&
+                  !["paid", "void", "refunded"].includes(
+                    (serviceInvoicePopup.invoice.status || "").toLowerCase(),
+                  ) && (
+                    <div className="flex items-center gap-2">
+                      {isEditingInvoice ? (
+                        <>
+                          <Button
+                            disabled={isSavingInvoice}
+                            onClick={handleSaveInvoice}
+                            className="px-4 h-[30px] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {isSavingInvoice ? "Saving..." : "Save Changes"}
+                          </Button>
+                          <Button
+                            disabled={isSavingInvoice}
+                            onClick={() => {
+                              setIsEditingInvoice(false);
+                              setEditingInvoiceData(null);
+                            }}
+                            variant="outline"
+                            className="px-4 h-[30px] text-xs font-semibold rounded-[6px] shadow-sm transition-all bg-white hover:bg-gray-50 border-gray-300"
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => {
+                              setIsEditingInvoice(true);
+                              setEditingInvoiceData(
+                                JSON.parse(
+                                  JSON.stringify(serviceInvoicePopup.invoice),
+                                ),
                               );
-                            } finally {
-                              setActionLoading(null);
-                            }
+                            }}
+                            className="px-4 h-[30px] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit Invoice
+                          </Button>
+                          {parseFloat(
+                            serviceInvoicePopup.invoice.paid_amount || "0",
+                          ) <= 0 &&
+                            ![
+                              "paid",
+                              "partially_paid",
+                              "partial_paid",
+                            ].includes(
+                              (
+                                serviceInvoicePopup.invoice.status || ""
+                              ).toLowerCase(),
+                            ) && (
+                              <Button
+                                onClick={() => {
+                                  setDeleteInvoiceModal({
+                                    open: true,
+                                    invoice: serviceInvoicePopup.invoice,
+                                  });
+                                }}
+                                className="px-4 h-[30px] text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[6px] border-none shadow-sm transition-all flex items-center gap-1.5"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete Invoice
+                              </Button>
+                            )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                {!isEditingInvoice &&
+                  ![
+                    "PAID",
+                    "VOID",
+                    "CANCELLED",
+                    "CANCELED",
+                    "REFUNDED",
+                    "PARTIALLY_REFUNDED",
+                  ].includes(
+                    serviceInvoicePopup.invoice.status?.toUpperCase() || "",
+                  ) && (
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
+                      {(() => {
+                        const mediaSet =
+                          rowServiceMedia[
+                            serviceInvoicePopup.billing.order_uuid
+                          ];
+                        let targetServices =
+                          serviceInvoicePopup.billing.services;
+
+                        if (serviceInvoicePopup.serviceId) {
+                          const matchedSvc =
+                            serviceInvoicePopup.billing.services.find(
+                              (s) =>
+                                s.order_service_uuid ===
+                                  serviceInvoicePopup.serviceId ||
+                                s.uuid === serviceInvoicePopup.serviceId,
+                            );
+                          if (matchedSvc) targetServices = [matchedSvc];
+                        } else if (
+                          serviceInvoicePopup.invoice?.items &&
+                          serviceInvoicePopup.invoice.items.length > 0
+                        ) {
+                          const itemSvcIds = new Set<string | number>();
+                          serviceInvoicePopup.invoice.items.forEach(
+                            (item: any) => {
+                              const sId =
+                                item.order_service?.service_id ||
+                                item.order_service?.service?.id ||
+                                item.orderService?.service_id ||
+                                item.orderService?.service?.id ||
+                                item.service_id;
+                              if (sId != null) {
+                                itemSvcIds.add(sId);
+                                itemSvcIds.add(String(sId));
+                              }
+                            },
+                          );
+                          if (itemSvcIds.size > 0) {
+                            const matched =
+                              serviceInvoicePopup.billing.services.filter(
+                                (s) =>
+                                  itemSvcIds.has(s.service_id) ||
+                                  itemSvcIds.has(String(s.service_id)),
+                              );
+                            if (matched.length > 0) targetServices = matched;
+                          }
+                        }
+
+                        const missingServices = targetServices.filter(
+                          (svc) =>
+                            !mediaSet?.has(svc.service_id) &&
+                            !mediaSet?.has(String(svc.service_id)),
+                        );
+
+                        const hasAnyMissingMedia =
+                          userType === "agent" &&
+                          mediaSet !== undefined &&
+                          missingServices.length > 0;
+
+                        if (hasAnyMissingMedia) {
+                          const targetService =
+                            targetServices.length === 1
+                              ? targetServices[0]
+                              : null;
+                          return (
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block cursor-not-allowed w-full sm:w-auto">
+                                    <Button
+                                      disabled
+                                      className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white opacity-50 cursor-not-allowed rounded-[6px] w-full sm:w-auto"
+                                      style={{
+                                        backgroundColor:
+                                          roleSettings.pageTabColor,
+                                      }}
+                                    >
+                                      Pay Now
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="left"
+                                  align="center"
+                                  className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                >
+                                  <span className="font-semibold block mb-1 text-amber-400">
+                                    ⚠ Payment Unavailable
+                                  </span>
+                                  {targetService ||
+                                  missingServices.length === 1 ? (
+                                    <span>
+                                      Media for{" "}
+                                      {targetService?.service_name ||
+                                        missingServices[0]?.service_name}{" "}
+                                      has not been uploaded by the vendor yet.
+                                      Payment will be available once the media
+                                      is added.
+                                    </span>
+                                  ) : (
+                                    <div>
+                                      <span className="block mb-1">
+                                        Media has not yet been uploaded for the
+                                        following services:
+                                      </span>
+                                      <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                        {missingServices.map((s) => (
+                                          <li key={s.service_id}>
+                                            {s.service_name}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                      <span className="block mt-1">
+                                        Payment will be available once the
+                                        required media has been added.
+                                      </span>
+                                    </div>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        }
+                        return (
+                          <Button
+                            onClick={async () => {
+                              try {
+                                setActionLoading({
+                                  id:
+                                    serviceInvoicePopup.serviceId ||
+                                    serviceInvoicePopup.billing.order_id,
+                                  action: "pay",
+                                });
+                                await handlePayInvoice(
+                                  serviceInvoicePopup.invoice,
+                                  serviceInvoicePopup.billing,
+                                  undefined,
+                                  serviceInvoicePopup.serviceId,
+                                );
+                              } finally {
+                                setActionLoading(null);
+                              }
+                            }}
+                            disabled={actionLoading !== null}
+                            className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
+                            style={{
+                              backgroundColor: roleSettings.pageTabColor,
+                            }}
+                          >
+                            {actionLoading?.id ===
+                              (serviceInvoicePopup.serviceId ||
+                                serviceInvoicePopup.billing.order_id) &&
+                            actionLoading?.action === "pay" ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                Processing...
+                              </>
+                            ) : (
+                              "Pay Now"
+                            )}
+                          </Button>
+                        );
+                      })()}
+
+                      {role === "admin" && (
+                        <Button
+                          onClick={() => {
+                            setServiceInvoicePopup(null);
+                            handleOpenManualPayment(
+                              serviceInvoicePopup.invoice,
+                            );
                           }}
                           disabled={actionLoading !== null}
-                          className="px-4 sm:px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98] w-full sm:w-auto"
-                          style={{ backgroundColor: roleSettings.pageTabColor }}
+                          className="px-4 sm:px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98] w-full sm:w-auto shrink-0"
                         >
-                          {actionLoading?.id ===
-                            (serviceInvoicePopup.serviceId ||
-                              serviceInvoicePopup.billing.order_id) &&
-                          actionLoading?.action === "pay" ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                              Processing...
-                            </>
-                          ) : (
-                            "Pay Now"
-                          )}
+                          Mark Paid
                         </Button>
-                      );
-                    })()}
-
-                    {role === "admin" && (
-                      <Button
-                        onClick={() => {
-                          setServiceInvoicePopup(null);
-                          handleOpenManualPayment(serviceInvoicePopup.invoice);
-                        }}
-                        disabled={actionLoading !== null}
-                        className="px-4 sm:px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98] w-full sm:w-auto shrink-0"
-                      >
-                        Mark Paid
-                      </Button>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
                 <button
-                  onClick={() => setServiceInvoicePopup(null)}
+                  onClick={() => {
+                    setServiceInvoicePopup(null);
+                    setIsEditingInvoice(false);
+                    setEditingInvoiceData(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700 p-2 hidden sm:block"
                 >
                   ✕
@@ -4281,13 +4943,13 @@ const Page = () => {
             <div className="overflow-y-auto p-4 flex-1">
               <InvoiceDocument
                 invoice={serviceInvoicePopup.invoice}
-                editData={serviceInvoicePopup.invoice}
-                isEditing={false}
-                updateItem={() => {}}
-                addItem={() => {}}
-                removeItem={() => {}}
-                updateTaxRate={() => {}}
-                setEditData={() => {}}
+                editData={editingInvoiceData || serviceInvoicePopup.invoice}
+                isEditing={isEditingInvoice}
+                updateItem={updateInvoiceItem}
+                addItem={addInvoiceItem}
+                removeItem={removeInvoiceItem}
+                updateTaxRate={updateInvoiceTaxRate}
+                setEditData={setEditingInvoiceData}
                 roleSettings={roleSettings}
               />
             </div>

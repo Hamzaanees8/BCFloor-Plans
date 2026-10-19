@@ -15,13 +15,33 @@ import { MatterportAd, MatterportStatus, MatterportRenewalAction } from "../../m
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
     const { links, setLinks, filesData, tourSettings } = useFileManagerContext();
-    const isUnpaidAgent = userType === 'agent' && !orderData?.release_media_before_payment && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s?.service?.name?.toLowerCase().includes('matterport') || s?.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID');
+    const matterportService = orderData?.services?.find(s => {
+        const sName = s?.service?.name?.toLowerCase() || "";
+        const cName = (s?.service as any)?.category?.name?.toLowerCase() || "";
+        return (
+            sName.includes('matterport') ||
+            sName.includes('3d tour') ||
+            sName.includes('3d floor') ||
+            sName.includes('virtual tour') ||
+            cName.includes('matterport')
+        );
+    });
+    const hasExplicitRevoke = (matterportService as any)?.media_access === false || (matterportService?.service as any)?.media_access === false;
+    const isUnpaidAgent = userType === 'agent' && (
+        hasExplicitRevoke ||
+        (!orderData?.release_media_before_payment && !(
+            orderData?.payment_status === 'PAID' ||
+            matterportService?.payment_status === 'PAID' ||
+            (matterportService as any)?.media_access === true ||
+            (matterportService?.service as any)?.media_access === true
+        ))
+    );
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
     const [renewModalOpen, setRenewModalOpen] = useState(false);
 
     useEffect(() => {
-        if (filesData?.links && links.length === 0) {
+        if (filesData?.links && filesData.links.length > 0) {
             const apiLinks = filesData.links
                 .filter(l => !l.is_hidden && (l.link || l.uuid))
                 .map(l => ({
@@ -41,8 +61,23 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                     uniqueLinks.push(l);
                 }
             }
-            if (uniqueLinks.length > 0) {
-                setLinks(uniqueLinks);
+            if (links.length === 0) {
+                if (uniqueLinks.length > 0) {
+                    setLinks(uniqueLinks);
+                }
+            } else {
+                setLinks(prev => {
+                    let changed = false;
+                    const next = prev.map(item => {
+                        const match = uniqueLinks.find(al => (item.uuid && al.uuid === item.uuid) || al.type === item.type);
+                        if (match && !item.link && match.link) {
+                            changed = true;
+                            return { ...item, link: match.link, expiry_date: match.expiry_date || item.expiry_date, uuid: match.uuid || item.uuid };
+                        }
+                        return item;
+                    });
+                    return changed ? next : prev;
+                });
             }
         }
     }, [filesData?.links, links.length, setLinks]);
@@ -55,13 +90,43 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             return false;
         }
     };
-    const brandedLinks = links.filter(l => l.type === 'branded');
-    const unbrandedLinks = links.filter(l => l.type === 'unbranded');
 
-    const handleLinkChange = (index: number, value: string) => {
+    const displayLinks = useMemo(() => {
+        if (links.length > 0 && links.some(l => l.link)) {
+            return links;
+        }
+        if (filesData?.links && filesData.links.length > 0) {
+            return filesData.links
+                .filter(l => !l.is_hidden)
+                .map(l => ({
+                    uuid: l.uuid,
+                    type: l.type as "branded" | "unbranded",
+                    service_id: typeof l.service_id === 'string' ? l.service_id : (l.service?.uuid || String(l.service_id)),
+                    link: l.link || "",
+                    expiry_date: l.expiry_date
+                }));
+        }
+        return links;
+    }, [links, filesData?.links]);
+
+    const brandedLinks = displayLinks.filter(l => l.type === 'branded');
+    const unbrandedLinks = displayLinks.filter(l => l.type === 'unbranded');
+
+    const handleLinkChange = (targetLink: any, value: string) => {
         setLinks(prev => {
             const updated = [...prev];
-            const currentExpiry = updated[index].expiry_date;
+            let targetIdx = updated.findIndex(l => (targetLink.uuid && l.uuid === targetLink.uuid) || l.type === targetLink.type);
+            if (targetIdx === -1) {
+                updated.push({
+                    uuid: targetLink.uuid,
+                    type: targetLink.type,
+                    service_id: targetLink.service_id,
+                    link: value,
+                    expiry_date: targetLink.expiry_date
+                });
+                targetIdx = updated.length - 1;
+            }
+            const currentExpiry = updated[targetIdx].expiry_date;
             
             let newExpiry = currentExpiry;
             if (!currentExpiry && value) {
@@ -71,7 +136,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                 }
             }
             
-            updated[index] = { ...updated[index], link: value, expiry_date: newExpiry };
+            updated[targetIdx] = { ...updated[targetIdx], link: value, expiry_date: newExpiry };
             return updated;
         });
     };
@@ -79,7 +144,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const hasLinks = (brandedLinks && brandedLinks.length > 0) || (unbrandedLinks && unbrandedLinks.length > 0);
 
     // Calculate expiration stats
-    const primaryLink = links.find(l => l.expiry_date) || (filesData?.links && filesData.links[0]);
+    const primaryLink = displayLinks.find(l => l.expiry_date) || (filesData?.links && filesData.links[0]);
     const expiryDateStr = primaryLink?.expiry_date;
 
     const { isExpired, isExpiringSoon, daysRemaining, formattedExpiry } = useMemo(() => {
@@ -247,7 +312,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                         key={`branded-${idx}`}
                                         className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
                                         value={link.link}
-                                        onChange={e => handleLinkChange(links.indexOf(link), e.target.value)}
+                                        onChange={e => handleLinkChange(link, e.target.value)}
                                     />
                                 ))}
                             </div>
@@ -275,7 +340,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                         key={`unbranded-${idx}`}
                                         className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
                                         value={link.link}
-                                        onChange={e => handleLinkChange(links.indexOf(link), e.target.value)}
+                                        onChange={e => handleLinkChange(link, e.target.value)}
                                     />
                                 ))}
                             </div>

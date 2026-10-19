@@ -746,7 +746,6 @@ const InvoiceDocument = ({
                                 </span>
                                 <Input
                                   type="number"
-                                  min="0"
                                   step="0.01"
                                   value={item.unit_price}
                                   onChange={(e) =>
@@ -843,7 +842,6 @@ const InvoiceDocument = ({
                         <td className="hidden md:table-cell py-3 md:py-4 text-center">
                           <Input
                             type="number"
-                            min="0"
                             step="0.01"
                             value={item.unit_price}
                             onChange={(e) =>
@@ -877,7 +875,9 @@ const InvoiceDocument = ({
                         <td className="hidden md:table-cell py-3 md:py-4 text-right font-medium text-gray-900 px-2 md:px-4 text-xs md:text-sm">
                           <div className="flex items-center justify-end gap-2">
                             <span className="font-bold">
-                              ${Number(item.quantity * item.unit_price || 0).toFixed(2)}
+                              {Number(item.quantity * item.unit_price || 0) < 0
+                                ? `-$${Math.abs(Number(item.quantity * item.unit_price || 0)).toFixed(2)}`
+                                : `$${Number(item.quantity * item.unit_price || 0).toFixed(2)}`}
                             </span>
                             <Button
                               variant="ghost"

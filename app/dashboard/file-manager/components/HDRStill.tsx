@@ -134,10 +134,12 @@ function FileTab1({
     tourDefaultSettings,
     isSaving,
   } = useFileManagerContext();
+  const [downloadingFiles, setDownloadingFiles] = useState<Record<string, boolean>>({});
   const isAlwaysSort = Boolean(
     tourSettings?.always_enable_sorting ??
       tourDefaultSettings?.always_enable_sorting,
   );
+  const isReorderActive = fileManagerMode === "reorder" && !isAlwaysSort;
   // Letterbox Correction (global tour setting): ON → object-contain (original ratio + black bars), OFF → object-cover (fill card)
   const letterboxClass = tourDefaultSettings?.letterbox_correction
     ? "object-contain"
@@ -554,6 +556,7 @@ function FileTab1({
 
   const handledownloadFile = useCallback(
     async (fileUuid: string, fileName: string) => {
+      setDownloadingFiles((prev) => ({ ...prev, [fileUuid]: true }));
       try {
         const token = localStorage.getItem("token") ?? "";
         const response = await DownloadFile(token, fileUuid);
@@ -568,9 +571,15 @@ function FileTab1({
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Download error:", err);
-        toast.error("Download failed. Please try again.");
+        toast.error(err?.message || "Download failed. Please try again.");
+      } finally {
+        setDownloadingFiles((prev) => {
+          const next = { ...prev };
+          delete next[fileUuid];
+          return next;
+        });
       }
     },
     [],
@@ -688,7 +697,9 @@ function FileTab1({
                     effectiveUserType === "agent" &&
                     !orderData?.release_media_before_payment &&
                     bookingToUse?.payment_status !== "PAID" &&
-                    orderData?.payment_status !== "PAID"
+                    orderData?.payment_status !== "PAID" &&
+                    (bookingToUse as any)?.media_access !== true &&
+                    (bookingToUse?.service as any)?.media_access !== true
                   }
                   className={`absolute inset-0 w-full h-full ${letterboxClass} cursor-pointer transition-all duration-300 ${file.is_deleted ? "blur-[2px] opacity-40 grayscale" : ""} ${file.is_hidden ? "grayscale opacity-60" : ""}`}
                   draggable={false}
@@ -729,6 +740,7 @@ function FileTab1({
                       Deleted
                     </p>
                     <Button
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedFiles((prev) =>
@@ -756,7 +768,8 @@ function FileTab1({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
-                          className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === "reorder" ? "hidden" : "block"}`}
+                          className={`cursor-pointer absolute top-2 left-2 z-10 ${isReorderActive ? "hidden" : "block"}`}
+                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             const fileKey = `${file.file.name}-${file.file.size}`;
@@ -796,7 +809,8 @@ function FileTab1({
                   )}
                 {effectiveUserType === "admin" && (
                   <div
-                    className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === "reorder" ? "hidden" : "flex"} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                    className={`absolute bottom-2 left-2 z-10 ${isReorderActive ? "hidden" : "flex"} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFiles((prev) =>
@@ -887,7 +901,9 @@ function FileTab1({
                   ) : effectiveUserType === "agent" &&
                     !orderData?.release_media_before_payment &&
                     bookingToUse?.payment_status !== "PAID" &&
-                    orderData?.payment_status !== "PAID" ? (
+                    orderData?.payment_status !== "PAID" &&
+                    (bookingToUse as any)?.media_access !== true &&
+                    (bookingToUse?.service as any)?.media_access !== true ? (
                     <PdfPlaceholder
                       className="w-full h-full object-contain cursor-pointer"
                       isRestricted={true}
@@ -1026,7 +1042,8 @@ function FileTab1({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
-                          className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${fileManagerMode === "reorder" ? "hidden" : "block"}`}
+                          className={`cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition ${isReorderActive ? "hidden" : "block"}`}
+                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setFilesToHide((prev) => {
@@ -1082,7 +1099,8 @@ function FileTab1({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
-                          className={`cursor-pointer absolute top-2 left-2 z-10 ${fileManagerMode === "reorder" ? "hidden" : "block"}`}
+                          className={`cursor-pointer absolute top-2 left-2 z-10 ${isReorderActive ? "hidden" : "block"}`}
+                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setFilesData((prev) => {
@@ -1151,7 +1169,8 @@ function FileTab1({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
-                        className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === "reorder" ? "hidden" : "flex"} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
+                        className={`absolute bottom-2 left-2 z-10 ${isReorderActive ? "hidden" : "flex"} items-center bg-white/90 p-1.5 rounded-[4px] cursor-pointer shadow-sm border border-gray-200`}
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (file.is_admin_approved) {
@@ -1230,7 +1249,8 @@ function FileTab1({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
-                        className={`absolute bottom-2 left-2 z-10 ${fileManagerMode === "reorder" ? "hidden" : "flex"} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                        className={`absolute bottom-2 left-2 z-10 ${isReorderActive ? "hidden" : "flex"} items-center bg-white/80 p-1 rounded cursor-pointer`}
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (
@@ -1424,6 +1444,7 @@ function FileTab1({
             </div>
             {isLocal ? (
               <div
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedFiles((prev) =>
@@ -1463,6 +1484,7 @@ function FileTab1({
                 {effectiveUserType === "admin" && (
                   <>
                     <div
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleToggleComplimentary(
@@ -1499,6 +1521,7 @@ function FileTab1({
                     </div>
                     <button
                       type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteUploadedFile(file.uuid);
@@ -1524,32 +1547,61 @@ function FileTab1({
                     bookingToUse?.payment_status === "PAID" ||
                     orderData?.payment_status === "PAID" ||
                     file.is_complimentary)) ? (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handledownloadFile(file.uuid, file.name);
-                    }}
-                    className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded p-0.5"
-                    style={{
-                      width: imagesPerRow >= 6 ? "16px" : "22px",
-                      height: imagesPerRow >= 6 ? "16px" : "22px",
-                    }}
-                    title="Download Media"
-                  >
-                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        disabled={!!downloadingFiles[file.uuid]}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!downloadingFiles[file.uuid]) {
+                            handledownloadFile(file.uuid, file.name);
+                          }
+                        }}
+                        className={`flex shrink-0 items-center justify-center rounded p-0.5 transition-all duration-200 ${
+                          downloadingFiles[file.uuid]
+                            ? "cursor-wait bg-[#6BAE41]/10"
+                            : "cursor-pointer hover:bg-[#6BAE41]/15 hover:scale-110 active:scale-95"
+                        }`}
+                        style={{
+                          width: imagesPerRow >= 6 ? "18px" : "24px",
+                          height: imagesPerRow >= 6 ? "18px" : "24px",
+                        }}
+                        aria-label={downloadingFiles[file.uuid] ? "Downloading media..." : "Download Media"}
+                      >
+                        {downloadingFiles[file.uuid] ? (
+                          <Loader2 className="animate-spin text-[#6BAE41] w-full h-full" />
+                        ) : (
+                          <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs font-medium">
+                        {downloadingFiles[file.uuid] ? "Downloading..." : "Download Media"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : effectiveUserType === "agent" &&
                   !file.is_agent_approved ? null : (
-                  <span
-                    title="service not paid yet"
-                    className="flex shrink-0 cursor-not-allowed opacity-50 p-0.5"
-                    style={{
-                      width: imagesPerRow >= 6 ? "16px" : "22px",
-                      height: imagesPerRow >= 6 ? "16px" : "22px",
-                    }}
-                  >
-                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="flex shrink-0 items-center justify-center cursor-not-allowed opacity-50 p-0.5"
+                        style={{
+                          width: imagesPerRow >= 6 ? "18px" : "24px",
+                          height: imagesPerRow >= 6 ? "18px" : "24px",
+                        }}
+                        aria-label="Service not paid yet"
+                      >
+                        <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs font-medium">Service not paid yet</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             )}
@@ -1584,6 +1636,7 @@ function FileTab1({
       isBulkDeselecting,
       bulkDeselectedIds,
       handledownloadFile,
+      downloadingFiles,
       handleDeleteUploadedFile,
       handleToggleComplimentary,
     ],
@@ -2074,7 +2127,9 @@ function FileTab1({
                     !(
                       orderData?.release_media_before_payment ||
                       bookingToUse?.payment_status === "PAID" ||
-                      orderData?.payment_status === "PAID"
+                      orderData?.payment_status === "PAID" ||
+                      (bookingToUse as any)?.media_access === true ||
+                      (bookingToUse?.service as any)?.media_access === true
                     )
                       ? "service not paid yet"
                       : ""
@@ -2083,14 +2138,16 @@ function FileTab1({
                     !(
                       orderData?.release_media_before_payment ||
                       bookingToUse?.payment_status === "PAID" ||
-                      orderData?.payment_status === "PAID"
+                      orderData?.payment_status === "PAID" ||
+                      (bookingToUse as any)?.media_access === true ||
+                      (bookingToUse?.service as any)?.media_access === true
                     )
                   }
                   className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg flex justify-center items-center transition-all duration-300 ${
                     isScrolled
                       ? "h-[24px] w-[70px] text-[10px]"
                       : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
-                  } px-1 md:px-4 ${!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  } px-1 md:px-4 ${!(orderData?.release_media_before_payment || bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID" || (bookingToUse as any)?.media_access === true || (bookingToUse?.service as any)?.media_access === true) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                 >
                   Download
                 </Button>
@@ -2678,9 +2735,14 @@ function FileTab1({
               : null
           }
           isPaid={
-            orderData?.release_media_before_payment ||
-            bookingToUse?.payment_status === "PAID" ||
-            orderData?.payment_status === "PAID"
+            Boolean(
+              orderData?.release_media_before_payment ||
+              bookingToUse?.payment_status === "PAID" ||
+              orderData?.payment_status === "PAID" ||
+              (bookingToUse as any)?.media_access === true ||
+              (bookingToUse?.service as any)?.media_access === true ||
+              (editingFile && !("file" in editingFile) && ((editingFile as Files).is_complimentary || (editingFile as Files).is_paid))
+            )
           }
           isAgentApproved={
             editingFile && !("file" in editingFile)

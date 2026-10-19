@@ -67,7 +67,9 @@ type Props = {
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
 };
-const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => void }> = ({
+const Service: React.FC<
+  Props & { onSave?: (overrideChangedFiles?: Files[]) => void }
+> = ({
   orderData,
   setOrderData,
   currentService,
@@ -103,7 +105,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
   } = useFileManagerContext();
   const isAlwaysSort = Boolean(
     tourSettings?.always_enable_sorting ??
-      tourDefaultSettings?.always_enable_sorting,
+    tourDefaultSettings?.always_enable_sorting,
   );
   const [replacingFile, setReplacingFile] = useState<File | null>(null);
   const [openPreview, setOpenPreview] = useState(false);
@@ -183,6 +185,9 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
     }
   };
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadingFiles, setDownloadingFiles] = useState<
+    Record<string, boolean>
+  >({});
   const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(
     null,
   );
@@ -422,7 +427,10 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
         !orderData?.release_media_before_payment &&
         !(
           bookingToUse?.payment_status === "PAID" ||
-          orderData?.payment_status === "PAID"
+          orderData?.payment_status === "PAID" ||
+          (bookingToUse as any)?.media_access === true ||
+          (bookingToUse?.service as any)?.media_access === true ||
+          ("is_paid" in file && (file as any).is_paid)
         ) &&
         !("is_complimentary" in file && file.is_complimentary)
       ) {
@@ -434,8 +442,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
       setImagePopupOpen(true);
     },
     [
-      bookingToUse?.payment_status,
-      bookingToUse?.uuid,
+      bookingToUse,
       currentService?.name,
       onOpenInvoice,
       orderData?.payment_status,
@@ -446,6 +453,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
 
   const handledownloadFile = useCallback(
     async (fileUuid: string, fileName: string) => {
+      setDownloadingFiles((prev) => ({ ...prev, [fileUuid]: true }));
       try {
         const token = localStorage.getItem("token") ?? "";
 
@@ -464,9 +472,15 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Download error:", err);
-        toast.error("Download failed. Please try again.");
+        toast.error(err?.message || "Download failed. Please try again.");
+      } finally {
+        setDownloadingFiles((prev) => {
+          const next = { ...prev };
+          delete next[fileUuid];
+          return next;
+        });
       }
     },
     [],
@@ -688,6 +702,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                         <TooltipTrigger asChild>
                           <span
                             className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();
                               setFilesToHide((prev) => {
@@ -720,6 +735,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                         Deleted
                       </p>
                       <Button
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           setFloorFiles((prev) =>
@@ -741,6 +757,9 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                 !orderData?.release_media_before_payment &&
                 bookingToUse?.payment_status !== "PAID" &&
                 orderData?.payment_status !== "PAID" &&
+                (bookingToUse as any)?.media_access !== true &&
+                (bookingToUse?.service as any)?.media_access !== true &&
+                !("is_paid" in file && (file as any).is_paid) &&
                 !file.is_complimentary ? (
                 isPdf ? (
                   <PdfPlaceholder
@@ -795,6 +814,9 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                 !orderData?.release_media_before_payment &&
                 bookingToUse?.payment_status !== "PAID" &&
                 orderData?.payment_status !== "PAID" &&
+                (bookingToUse as any)?.media_access !== true &&
+                (bookingToUse?.service as any)?.media_access !== true &&
+                !("is_paid" in file && (file as any).is_paid) &&
                 !file.is_complimentary ? (
                   <PdfPlaceholder
                     className="w-full h-full object-contain cursor-pointer"
@@ -932,6 +954,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                         <TooltipTrigger asChild>
                           <span
                             className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();
                               setFilesToHide((prev) => {
@@ -968,6 +991,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                   <TooltipTrigger asChild>
                     <div
                       className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/90 p-1.5 rounded-[4px] shadow-sm border border-gray-200"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (isLocal) {
@@ -1094,39 +1118,74 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                   orderData,
                   userType,
                 }) ? (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handledownloadFile(file.uuid, file.name);
-                  }}
-                  className="flex shrink-0 cursor-pointer"
-                  style={{
-                    width: imagesPerRow >= 6 ? "16px" : "24px",
-                    height: imagesPerRow >= 6 ? "16px" : "24px",
-                  }}
-                >
-                  <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={!!downloadingFiles[file.uuid]}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!downloadingFiles[file.uuid]) {
+                          handledownloadFile(file.uuid, file.name);
+                        }
+                      }}
+                      className={`flex shrink-0 items-center justify-center rounded p-0.5 transition-all duration-200 ${
+                        downloadingFiles[file.uuid]
+                          ? "cursor-wait bg-[#6BAE41]/10"
+                          : "cursor-pointer hover:bg-[#6BAE41]/15 hover:scale-110 active:scale-95"
+                      }`}
+                      style={{
+                        width: imagesPerRow >= 6 ? "18px" : "24px",
+                        height: imagesPerRow >= 6 ? "18px" : "24px",
+                      }}
+                      aria-label={
+                        downloadingFiles[file.uuid]
+                          ? "Downloading file..."
+                          : "Download File"
+                      }
+                    >
+                      {downloadingFiles[file.uuid] ? (
+                        <Loader2 className="animate-spin text-[#6BAE41] w-full h-full" />
+                      ) : (
+                        <DownloadIcon
+                          width="100%"
+                          height="100%"
+                          fill="#6BAE41"
+                        />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs font-medium">
+                      {downloadingFiles[file.uuid]
+                        ? "Downloading..."
+                        : "Download File"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               ) : (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span
-                      className="flex shrink-0 cursor-not-allowed opacity-50"
+                      className="flex shrink-0 items-center justify-center cursor-not-allowed opacity-50 p-0.5"
                       style={{
-                        width: imagesPerRow >= 6 ? "16px" : "24px",
-                        height: imagesPerRow >= 6 ? "16px" : "24px",
+                        width: imagesPerRow >= 6 ? "18px" : "24px",
+                        height: imagesPerRow >= 6 ? "18px" : "24px",
                       }}
                     >
                       <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {getDownloadBlockReason({
-                      file: file as Files,
-                      currentService,
-                      orderData,
-                      userType,
-                    }) || "Download not available"}
+                  <TooltipContent side="top">
+                    <p className="text-xs font-medium">
+                      {getDownloadBlockReason({
+                        file: file as Files,
+                        currentService,
+                        orderData,
+                        userType,
+                      }) || "Download not available"}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -1135,6 +1194,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
         </div>
       );
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       API_URL,
       approvalSelectedUuids,
@@ -1144,6 +1204,7 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
       filesToHide,
       handleImageClick,
       handledownloadFile,
+      downloadingFiles,
       imagesPerRow,
       isHidingMode,
       onOpenInvoice,
@@ -1289,8 +1350,11 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                   title={
                     userType === "agent" &&
                     !(
+                      orderData?.release_media_before_payment ||
                       bookingToUse?.payment_status === "PAID" ||
-                      orderData?.payment_status === "PAID"
+                      orderData?.payment_status === "PAID" ||
+                      (bookingToUse as any)?.media_access === true ||
+                      (bookingToUse?.service as any)?.media_access === true
                     )
                       ? "service not paid yet"
                       : ""
@@ -1298,8 +1362,11 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                   disabled={
                     userType === "agent" &&
                     !(
+                      orderData?.release_media_before_payment ||
                       bookingToUse?.payment_status === "PAID" ||
-                      orderData?.payment_status === "PAID"
+                      orderData?.payment_status === "PAID" ||
+                      (bookingToUse as any)?.media_access === true ||
+                      (bookingToUse?.service as any)?.media_access === true
                     )
                   }
                   className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
@@ -1309,8 +1376,11 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                   } px-1 md:px-4 ${
                     userType === "agent" &&
                     !(
+                      orderData?.release_media_before_payment ||
                       bookingToUse?.payment_status === "PAID" ||
-                      orderData?.payment_status === "PAID"
+                      orderData?.payment_status === "PAID" ||
+                      (bookingToUse as any)?.media_access === true ||
+                      (bookingToUse?.service as any)?.media_access === true
                     )
                       ? "opacity-50 cursor-not-allowed"
                       : "cursor-pointer"
@@ -1645,9 +1715,14 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                 );
               } else if (item.status === "uploaded" && filesData) {
                 // For existing files, update FilesData and mark as changed
-                const fileObj = filesData.files.find((f) => f.uuid === item.serverId);
+                const fileObj = filesData.files.find(
+                  (f) => f.uuid === item.serverId,
+                );
                 if (fileObj && fileObj.sort_order !== newSortOrder) {
-                  newlyChangedFiles.push({ ...fileObj, sort_order: newSortOrder });
+                  newlyChangedFiles.push({
+                    ...fileObj,
+                    sort_order: newSortOrder,
+                  });
                 }
               }
             });
@@ -1749,10 +1824,17 @@ const Service: React.FC<Props & { onSave?: (overrideChangedFiles?: Files[]) => v
                 "2D Floor Plan"
             : ""
         }
-        isPaid={
+        isPaid={Boolean(
+          orderData?.release_media_before_payment ||
           bookingToUse?.payment_status === "PAID" ||
-          orderData?.payment_status === "PAID"
-        }
+          orderData?.payment_status === "PAID" ||
+          (bookingToUse as any)?.media_access === true ||
+          (bookingToUse?.service as any)?.media_access === true ||
+          (editingFile &&
+            !("file" in editingFile) &&
+            ((editingFile as Files).is_complimentary ||
+              (editingFile as Files).is_paid)),
+        )}
         isAgentApproved={
           editingFile && !("file" in editingFile)
             ? (editingFile as Files).is_agent_approved

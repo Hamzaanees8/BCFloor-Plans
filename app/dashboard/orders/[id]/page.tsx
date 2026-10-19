@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Copy, File, Loader2, RotateCcw } from "lucide-react";
+import { Copy, File, Loader2, RotateCcw, Edit2, Save, X, Trash2 } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 //import Link from 'next/link';
 import {
@@ -43,6 +43,8 @@ import VendorOrderEdit from "../components/VendorOrderEdit";
 import AddServiceDialog from "../components/AddServiceDialog";
 import CancelOrderDialog, { CancelPreviewData } from "../components/CancelOrderDialog";
 import OrderNotesDialog from "../components/OrderNotesDialog";
+import RemoveServiceModal from "../components/RemoveServiceModal";
+import DeleteInvoiceModal from "../../invoice/components/DeleteInvoiceModal";
 import { Agent } from "@/lib/types";
 import { GetAgents } from "../../calendar/calendar";
 import { toast } from "sonner";
@@ -54,7 +56,7 @@ import Link from "next/link";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 // import OrderDetailView from "../../calendar/components/OrderDetailView";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
+import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import RefundModal from "../../invoice/components/RefundModal";
 import ReleaseMediaConfirmDialog from "../components/ReleaseMediaConfirmDialog";
@@ -201,6 +203,8 @@ function Page() {
   const [isCancelServiceLoading, setIsCancelServiceLoading] = useState(false);
   const [cancelServicePreviewData, setCancelServicePreviewData] = useState<CancelPreviewData | null>(null);
   const [cancelTargetService, setCancelTargetService] = useState<{uuid: string, name: string} | null>(null);
+  const [removeServiceModal, setRemoveServiceModal] = useState<{ open: boolean; service: any }>({ open: false, service: null });
+  const [deleteInvoiceModal, setDeleteInvoiceModal] = useState<{ open: boolean; invoice: any }>({ open: false, invoice: null });
 
   const [origin, setOrigin] = useState("");
 
@@ -214,6 +218,9 @@ function Page() {
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "primary" | "co-agent">("all");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isEditingInvoice, setIsEditingInvoice] = useState(false);
+  const [editingInvoiceData, setEditingInvoiceData] = useState<any | null>(null);
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
 
   const refreshOrders = async () => {
     const token = localStorage.getItem("token");
@@ -365,6 +372,142 @@ function Page() {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData?.uuid, userType]);
+
+  const updateInvoiceItem = (index: number, field: string, value: any) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice;
+      const newItems = [...(current?.items || [])];
+      newItems[index] = { ...newItems[index], [field]: value };
+
+      if (field === "quantity" || field === "unit_price") {
+        const qty = parseFloat(newItems[index].quantity || "0");
+        const price = parseFloat(newItems[index].unit_price || "0");
+        newItems[index].amount = (qty * price).toFixed(2);
+      }
+
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const addInvoiceItem = () => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice;
+      const newItems = [
+        ...(current?.items || []),
+        {
+          description: "",
+          quantity: 1,
+          unit_price: 0,
+          amount: 0,
+          gst_enabled: true,
+          pst_enabled: false,
+        },
+      ];
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const removeInvoiceItem = (index: number) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice;
+      const newItems = (current?.items || []).filter(
+        (_: any, i: number) => i !== index
+      );
+      const subtotal = newItems.reduce(
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
+        0
+      );
+      const taxRate = parseFloat(current?.tax_rate || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const updateInvoiceTaxRate = (val: string) => {
+    setEditingInvoiceData((prev: any) => {
+      const current = prev || viewingInvoice;
+      const subtotal = parseFloat(current?.subtotal || "0");
+      const taxRate = parseFloat(val || "0");
+      const taxAmount = subtotal * (taxRate / 100);
+      const total = subtotal + taxAmount;
+      return {
+        ...current,
+        tax_rate: val,
+        tax_amount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+      };
+    });
+  };
+
+  const handleSaveInvoice = async () => {
+    if (!editingInvoiceData || !viewingInvoice?.uuid) return;
+    setIsSavingInvoice(true);
+    try {
+      const payload = {
+        notes: editingInvoiceData.notes,
+        tax_rate: editingInvoiceData.tax_rate,
+        tax_rate_override: editingInvoiceData.tax_rate ? parseFloat(editingInvoiceData.tax_rate) : undefined,
+        items: (editingInvoiceData.items || []).map((item: any) => ({
+          uuid: item.uuid || undefined,
+          description: item.description,
+          quantity: parseFloat(item.quantity) || 1,
+          unit_price: parseFloat(item.unit_price) || 0,
+          gst_enabled: item.gst_enabled !== undefined ? Boolean(item.gst_enabled) : true,
+          pst_enabled: item.pst_enabled !== undefined ? Boolean(item.pst_enabled) : false,
+          order_service_id: item.order_service_id || item.order_service?.id || item.orderService?.id || null,
+          order_service_uuid: item.order_service_uuid || item.order_service?.uuid || item.orderService?.uuid || null,
+        })),
+      };
+
+      await UpdateInvoice(viewingInvoice.uuid, payload);
+      toast.success("Invoice updated successfully!");
+      setIsEditingInvoice(false);
+      setEditingInvoiceData(null);
+
+      // Refresh invoices and order data
+      fetchInvoices();
+      await refreshOrders();
+    } catch (error: any) {
+      console.error("Error updating invoice:", error);
+      toast.error(error?.response?.data?.message || error?.message || "Failed to update invoice");
+    } finally {
+      setIsSavingInvoice(false);
+    }
+  };
 
   const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
     if (!orderData) return;
@@ -1496,9 +1639,6 @@ function Page() {
                       const isPaid =
                         service.payment_status?.toUpperCase() === "PAID";
                       const originalPrice = getOriginalPrice(service);
-                      const discountedPrice = getDiscountedPrice(service);
-                      const hasDiscount =
-                        discountedPrice > 0 && discountedPrice < originalPrice;
                       return (
                         <p
                           key={service.id}
@@ -1522,21 +1662,19 @@ function Page() {
                                 Cancel Service
                               </button>
                             )}
+                            {userType === "admin" && !isPaid && orderData?.order_status !== "Cancelled" && (
+                              <button
+                                onClick={() => setRemoveServiceModal({ open: true, service })}
+                                className="transition-opacity ml-1.5 text-[10px] text-red-600 hover:text-white bg-red-100 hover:bg-red-600 px-2 py-0.5 rounded border border-red-300 font-semibold flex-shrink-0"
+                                title="Directly remove this unpaid service and delete its invoice"
+                              >
+                                Remove Service
+                              </button>
+                            )}
                           </span>
                           {userType !== "vendor" && (
                             <span className="col-span-1">
-                              {hasDiscount ? (
-                                <span className="flex items-center gap-1.5">
-                                  <span className="line-through text-gray-400 text-xs">
-                                    ${originalPrice.toFixed(2)}
-                                  </span>
-                                  <span className="font-semibold text-gray-800">
-                                    ${discountedPrice.toFixed(2)}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span>${originalPrice.toFixed(2)}</span>
-                              )}
+                              <span>${originalPrice.toFixed(2)}</span>
                             </span>
                           )}
                         </p>
@@ -1544,17 +1682,25 @@ function Page() {
                     })}
                   </div>
                   {userType !== "vendor" && (() => {
-                    const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
+                    const primaryInvoice = invoices.find((inv) =>
+                      (inv.notes?.toLowerCase().includes("consolidated") || inv.notes?.toLowerCase().includes("add-on service invoice")) &&
+                      (inv.agent_type === "primary" || (!inv.split_details && inv.agent_type !== "co-agent"))
+                    ) || invoices.find((inv) =>
+                      inv.notes?.toLowerCase().includes("consolidated") || inv.notes?.toLowerCase().includes("add-on service invoice")
+                    ) || invoices.find((inv) =>
+                      !inv.notes?.toLowerCase().includes("service invoice") &&
+                      (inv.agent_type === "primary" || (inv.agent && !inv.split_details))
+                    ) || invoices[0];
                     const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
 
-                    // Calculate subtotal from services
+                    // Calculate subtotal from services (actual catalog / booking prices)
                     const subtotal =
                       orderData?.services?.reduce(
                         (sum, s) => sum + getOriginalPrice(s),
                         0,
                       ) || 0;
 
-                    // Calculate total discount from orderData.totals array
+                    // Calculate total discount from orderData.totals array or applied package
                     const totalDiscount =
                       orderData?.totals?.reduce((total, item) => {
                         if (item.amount && parseFloat(item.amount) < 0) {
@@ -1569,12 +1715,14 @@ function Page() {
                         ? ((totalDiscount / subtotal) * 100).toFixed(2)
                         : "0.00";
 
-                    const gstAmount = primaryInvoice
-                      ? parseFloat(primaryInvoice.tax_amount || "0")
-                      : (subtotal - totalDiscount) * (taxRate / 100);
+                    const netSubtotal = Math.max(0, subtotal - totalDiscount);
 
-                    // Grand total is the final amount from the order
-                    const grandTotal = parseFloat(orderData?.amount || "0") + gstAmount;
+                    const gstAmount = primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
+                      ? parseFloat(primaryInvoice.tax_amount)
+                      : netSubtotal * (taxRate / 100);
+
+                    // Grand total is net subtotal + tax
+                    const grandTotal = netSubtotal + gstAmount;
 
                     // Get paid amount and refunded amount from order data
                     const paidAmount =
@@ -1925,6 +2073,8 @@ function Page() {
                               variant="outline"
                               onClick={() => {
                                 setViewingInvoice(invoice);
+                                setIsEditingInvoice(false);
+                                setEditingInvoiceData(null);
                               }}
                               className="h-[32px] text-[12px] px-3 font-semibold hover:opacity-80 border"
                               style={{
@@ -1934,6 +2084,24 @@ function Page() {
                             >
                               View Document
                             </Button>
+                            {userType === "admin" &&
+                              !['paid', 'void', 'refunded'].includes((invoice.status || '').toLowerCase()) && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setViewingInvoice(invoice);
+                                    setEditingInvoiceData(JSON.parse(JSON.stringify(invoice)));
+                                    setIsEditingInvoice(true);
+                                  }}
+                                  className="h-[32px] text-[12px] px-3 font-semibold hover:opacity-80 border flex items-center"
+                                  style={{
+                                    borderColor: roleSettings.pageTabColor,
+                                    color: roleSettings.pageTabColor,
+                                  }}
+                                >
+                                  <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Edit
+                                </Button>
+                              )}
                             {status !== "PAID" && status !== "VOID" && (
                               currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
                                 <Button
@@ -1998,7 +2166,16 @@ function Page() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!viewingInvoice} onOpenChange={(open) => !open && setViewingInvoice(null)}>
+      <Dialog
+        open={!!viewingInvoice}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingInvoice(null);
+            setIsEditingInvoice(false);
+            setEditingInvoiceData(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col rounded-[8px] p-0 font-alexandria overflow-hidden">
           {viewingInvoice && (
             <>
@@ -2015,6 +2192,54 @@ function Page() {
 
                   <div className={`flex w-full md:w-auto md:ml-auto md:items-center gap-2 mt-4 md:mt-0 md:pr-4 ${userType === 'admin' ? 'flex-row' : 'flex-col md:flex-row items-start'}`}>
                     {userType === "admin" &&
+                      !['paid', 'void', 'refunded'].includes((viewingInvoice.status || '').toLowerCase()) && (
+                        isEditingInvoice ? (
+                          <div className="flex gap-2 w-full md:w-auto flex-1">
+                            <Button
+                              onClick={handleSaveInvoice}
+                              disabled={isSavingInvoice}
+                              className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all`}
+                              style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                              {isSavingInvoice ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="mr-2 h-4 w-4" /> Save Changes
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setIsEditingInvoice(false);
+                                setEditingInvoiceData(null);
+                              }}
+                              disabled={isSavingInvoice}
+                              variant="outline"
+                              className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold rounded-[6px] w-full md:w-auto shadow-sm transition-all bg-white hover:bg-gray-50"
+                            >
+                              <X className="mr-2 h-4 w-4" /> Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              setIsEditingInvoice(true);
+                              setEditingInvoiceData(
+                                JSON.parse(JSON.stringify(viewingInvoice))
+                              );
+                            }}
+                            className={`flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none w-full md:w-auto shadow-sm transition-all flex items-center`}
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                          >
+                            <Edit2 className="mr-2 h-4 w-4" /> Edit Invoice
+                          </Button>
+                        )
+                      )}
+
+                    {!isEditingInvoice && userType === "admin" &&
                       ['paid', 'partially_refunded', 'partial_refunded'].includes((viewingInvoice.status || '').toLowerCase()) &&
                       (parseFloat(viewingInvoice.paid_amount || viewingInvoice.total || 0) - parseFloat(viewingInvoice.refunded_amount || 0)) > 0 && (
                         <Button
@@ -2025,7 +2250,18 @@ function Page() {
                           <RotateCcw className="mr-2 h-4 w-4" /> Refund
                         </Button>
                       )}
-                    {userType !== "vendor" &&
+                    {!isEditingInvoice && userType === "admin" &&
+                      !['paid', 'partially_paid', 'partial_paid'].includes((viewingInvoice.status || '').toLowerCase()) &&
+                      parseFloat(viewingInvoice.paid_amount || '0') <= 0 && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setDeleteInvoiceModal({ open: true, invoice: viewingInvoice })}
+                          className="flex-1 h-[40px] md:h-[36px] px-2 md:px-6 text-[12px] md:text-[14px] font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-[6px] shadow-sm transition-all"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
+                        </Button>
+                      )}
+                    {!isEditingInvoice && userType !== "vendor" &&
                       viewingInvoice.status?.toUpperCase() !== "PAID" &&
                       viewingInvoice.status?.toUpperCase() !== "VOID" &&
                       viewingInvoice.status?.toUpperCase() !== "REFUNDED" &&
@@ -2078,25 +2314,61 @@ function Page() {
                 <div className="flex flex-col items-center">
                   <InvoiceDocument
                     invoice={viewingInvoice}
-                    editData={viewingInvoice}
-                    isEditing={false}
-                    updateItem={() => { }}
-                    addItem={() => { }}
-                    removeItem={() => { }}
-                    updateTaxRate={() => { }}
-                    setEditData={() => { }}
+                    editData={editingInvoiceData || viewingInvoice}
+                    isEditing={isEditingInvoice}
+                    updateItem={updateInvoiceItem}
+                    addItem={addInvoiceItem}
+                    removeItem={removeInvoiceItem}
+                    updateTaxRate={updateInvoiceTaxRate}
+                    setEditData={setEditingInvoiceData}
                     roleSettings={roleSettings}
                   />
                 </div>
               </div>
               <DialogFooter className="border-t p-4 shrink-0 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                {isEditingInvoice ? (
+                  <div className="flex gap-2 w-full sm:w-auto ml-auto">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingInvoice(false);
+                        setEditingInvoiceData(null);
+                      }}
+                      disabled={isSavingInvoice}
+                      className="px-6 h-10 w-full sm:w-auto"
+                    >
+                      <X className="mr-2 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveInvoice}
+                      disabled={isSavingInvoice}
+                      className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
+                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
+                      {isSavingInvoice ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" /> Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
                   <Button 
-                      onClick={() => setViewingInvoice(null)}
+                      onClick={() => {
+                        setViewingInvoice(null);
+                        setIsEditingInvoice(false);
+                        setEditingInvoiceData(null);
+                      }}
                       className="text-white hover:brightness-110 transition-all px-8 h-10 w-full sm:w-auto"
                       style={{ backgroundColor: roleSettings.pageTabColor }}
                   >
                       Close
                   </Button>
+                )}
               </DialogFooter>
             </>
           )}
@@ -2120,6 +2392,34 @@ function Page() {
         isLoading={isReleaseMediaLoading}
         onConfirm={() => executeReleaseMedia(true)}
       />
+
+      {removeServiceModal.open && removeServiceModal.service && orderData?.uuid && (
+        <RemoveServiceModal
+          isOpen={removeServiceModal.open}
+          onClose={() => setRemoveServiceModal({ open: false, service: null })}
+          orderUuid={orderData.uuid}
+          serviceUuid={removeServiceModal.service.uuid}
+          serviceName={removeServiceModal.service.service?.name || removeServiceModal.service.optionName || "Service"}
+          servicePrice={getDiscountedPrice(removeServiceModal.service) || getOriginalPrice(removeServiceModal.service)}
+          onSuccess={() => {
+            fetchInvoices();
+            refreshOrders();
+          }}
+        />
+      )}
+
+      {deleteInvoiceModal.open && deleteInvoiceModal.invoice && (
+        <DeleteInvoiceModal
+          isOpen={deleteInvoiceModal.open}
+          onClose={() => setDeleteInvoiceModal({ open: false, invoice: null })}
+          invoice={deleteInvoiceModal.invoice}
+          onSuccess={() => {
+            setViewingInvoice(null);
+            fetchInvoices();
+            refreshOrders();
+          }}
+        />
+      )}
     </div>
   );
 }

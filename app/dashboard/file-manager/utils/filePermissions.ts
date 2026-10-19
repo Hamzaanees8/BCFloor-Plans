@@ -133,11 +133,6 @@ export const isPaymentAuthorizationValid = ({
     return true;
   }
 
-  // File must be marked as paid or complimentary
-  if (!file.is_paid && !file.is_complimentary) {
-    return false;
-  }
-
   // Find the matching service for this file
   const matchedService = currentService || (file.service && orderData?.services?.find(
     (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
@@ -154,6 +149,11 @@ export const isPaymentAuthorizationValid = ({
 
   // Rule 2: false -> always locked
   if (mediaAccess === false) {
+    return false;
+  }
+
+  // File must be marked as paid or complimentary
+  if (!file.is_paid && !file.is_complimentary) {
     return false;
   }
 
@@ -192,10 +192,6 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
       return '';
     }
 
-    if (!file.is_paid && !file.is_complimentary) {
-      return 'File is not available for download';
-    }
-
     const matchedService = currentService || (file.service && orderData?.services?.find(
       (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
     ));
@@ -204,22 +200,28 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
       ? matchedService.media_access
       : (matchedService?.service as any)?.media_access;
 
+    if (mediaAccess === true) {
+      return '';
+    }
+
     if (mediaAccess === false) {
       return 'Media access has been revoked';
     }
 
-    if (mediaAccess !== true) {
-      const isServicePaid =
-        currentService?.payment_status === 'PAID' ||
-        (file.service && orderData?.services?.some(
-          (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
-        ));
+    if (!file.is_paid && !file.is_complimentary) {
+      return 'File is not available for download';
+    }
 
-      const isOrderPaid = orderData?.payment_status === 'PAID';
+    const isServicePaid =
+      currentService?.payment_status === 'PAID' ||
+      (file.service && orderData?.services?.some(
+        (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
+      ));
 
-      if (!isServicePaid && !isOrderPaid) {
-        return 'Service payment required';
-      }
+    const isOrderPaid = orderData?.payment_status === 'PAID';
+
+    if (!isServicePaid && !isOrderPaid) {
+      return 'Service payment required';
     }
   }
 

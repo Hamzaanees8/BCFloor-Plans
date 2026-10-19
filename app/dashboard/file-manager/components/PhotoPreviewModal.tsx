@@ -169,8 +169,15 @@ const PhotoPreviewModal: React.FC<Props> = ({
         }
     };
 
-    const isRestrictedPdf = isPdf && userType === 'agent' && !isPaid;
-    const isRestrictedVideo = type === 'video' && userType === 'agent' && !isPaid;
+    const isEffectivePaid = Boolean(
+        isPaid ||
+        (typeof file === 'object' && file !== null && (
+            (file as any).is_paid ||
+            (file as any).is_complimentary
+        ))
+    );
+    const isRestrictedPdf = isPdf && userType === 'agent' && !isEffectivePaid;
+    const isRestrictedVideo = type === 'video' && userType === 'agent' && !isEffectivePaid;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>

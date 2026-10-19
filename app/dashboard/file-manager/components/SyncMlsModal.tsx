@@ -89,8 +89,28 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
            catName.includes('360') || catName.includes('panorama') || catName.includes('pano');
   };
 
+  const isFloorPlan = (f: any) => {
+    if (!f) return false;
+    const name = (f.name || '').toLowerCase();
+    const serviceName = (f.service?.name || '').toLowerCase();
+    const catName = (f.service?.category?.name || '').toLowerCase();
+    const type = (f.type || '').toLowerCase();
+    const path = (f.file_path || '').toLowerCase();
+    return (
+      serviceName.includes('floor') ||
+      catName.includes('floor') ||
+      type === 'floor_plan' ||
+      type === 'floorplan' ||
+      type === 'pdf' ||
+      type === 'application/pdf' ||
+      path.endsWith('.pdf') ||
+      name.includes('floor plan') ||
+      name.includes('floorplan')
+    );
+  };
+
   const validApiFiles = useMemo(() => {
-    return apiFiles.filter(f => f.variant_urls && Object.keys(f.variant_urls).length > 0 && !isPano(f));
+    return apiFiles.filter(f => f.variant_urls && Object.keys(f.variant_urls).length > 0 && !isPano(f) && !isFloorPlan(f));
   }, [apiFiles]);
 
   // Initialization
@@ -106,8 +126,8 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
       setSelectedFiles([]);
 
-      // Initialize fileItems - only non-panoramic photos
-      const photoApiFiles = validApiFiles.filter(f => f.type === 'photo' && !isPano(f));
+      // Initialize fileItems - only non-panoramic photos and never floor plans
+      const photoApiFiles = validApiFiles.filter(f => f.type === 'photo' && !isPano(f) && !isFloorPlan(f));
 
       const sortedPhotos = [...photoApiFiles].sort((a, b) => {
         const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
