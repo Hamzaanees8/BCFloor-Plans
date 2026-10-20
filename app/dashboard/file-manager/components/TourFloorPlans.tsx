@@ -13,11 +13,6 @@ import { DeleteSnapshot, GetFilesData } from "../file-manager";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface TourFloorPlansProps {
   type?: string;
@@ -26,6 +21,7 @@ interface TourFloorPlansProps {
 
 function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   const { userType } = useAppContext();
+  const isVendor = userType === "vendor";
   const { startUpload } = useGlobalFileUpload();
   const [isMobile, setIsMobile] = React.useState(false);
   React.useEffect(() => {
@@ -237,7 +233,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
 
   const handleImageDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
-    if (type === "confirm" || !imgRef.current || !selectedImageId) return;
+    if (type === "confirm" || isVendor || !imgRef.current || !selectedImageId) return;
 
     const img = imgRef.current;
     const imgRect = img.getBoundingClientRect();
@@ -502,6 +498,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (isVendor) return;
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile || !selectedImageId) return;
 
@@ -780,6 +777,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   };
 
   const handlePhotoClick = async (file: any) => {
+    if (isVendor) return;
     // Only handle replacement if a snapshot is currently selected for editing
     if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) return;
 
@@ -813,6 +811,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleSnapshotImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (isVendor) return;
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile) return;
 
@@ -1382,64 +1381,45 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   }
 
   return (
-    <div className="relative">
-      {userType === "vendor" && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className="absolute inset-0 z-10 cursor-default"
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={(e) => e.preventDefault()}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            You don&apos;t have permission to change this setting
-          </TooltipContent>
-        </Tooltip>
-      )}
+    <div className="relative font-alexandria">
       <div
-        className={
-          userType === "vendor" ? "pointer-events-none select-none" : ""
-        }
+        className={`w-full h-auto bg-gray-100 py-6 ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}
       >
-        <div
-          className={`w-full h-auto font-alexandria bg-gray-100 py-6  ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}
-        >
-          {type !== "confirm" && (
-            <div className="mb-6 mr-6 bg-[#E3F2FD] border-l-4 border-[#1E88E5] text-[#1565C0] p-4 rounded-r-lg shadow-sm flex items-start gap-3">
-              <svg
-                className="w-5 h-5 mt-0.5 text-[#1E88E5] shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <span className="font-semibold block text-[15px] mb-0.5">
-                  Quick Guide: How to Attach Snapshots
-                </span>
-                <p className="text-[13.5px] leading-relaxed">
-                  Drag and drop any photo from the <strong>Photos</strong>{" "}
-                  gallery below onto the desired position on the floor plan
-                  image to attach it as a snapshot. Alternatively, you can{" "}
-                  <strong>double-click or tap</strong> anywhere on the floor
-                  plan to select a photo directly.
-                </p>
-              </div>
-            </div>
-          )}
-          <div
-            className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}
-          >
-            <div
-              className={`relative w-full md:w-[70%] border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" ? "m-auto" : ""}`}
+        {type !== "confirm" && !isVendor && (
+          <div className="mb-6 mr-6 bg-[#E3F2FD] border-l-4 border-[#1E88E5] text-[#1565C0] p-4 rounded-r-lg shadow-sm flex items-start gap-3">
+            <svg
+              className="w-5 h-5 mt-0.5 text-[#1E88E5] shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
             >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div>
+              <span className="font-semibold block text-[15px] mb-0.5">
+                Quick Guide: How to Attach Snapshots
+              </span>
+              <p className="text-[13.5px] leading-relaxed">
+                Drag and drop any photo from the <strong>Photos</strong>{" "}
+                gallery below onto the desired position on the floor plan
+                image to attach it as a snapshot. Alternatively, you can{" "}
+                <strong>double-click or tap</strong> anywhere on the floor
+                plan to select a photo directly.
+              </p>
+            </div>
+          </div>
+        )}
+        <div
+          className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" || isVendor ? "bg-white" : ""} `}
+        >
+          <div
+            className={`relative w-full ${type === "confirm" || isVendor ? "md:w-full" : "md:w-[70%]"} border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" || isVendor ? "m-auto" : ""}`}
+          >
               {selectedFile &&
               "uuid" in selectedFile &&
               selectedFile.is_processing ? (
@@ -1524,8 +1504,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                       height={1200}
                       draggable={false}
                       ref={imgRef as any}
-                      className="block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain cursor-pointer select-none"
-                      onDoubleClick={handleImageDoubleClick}
+                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${isVendor ? "cursor-default" : "cursor-pointer"}`}
+                      onDoubleClick={isVendor ? undefined : handleImageDoubleClick}
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1545,8 +1525,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           : ""
                       }
                       alt="Selected Floor"
-                      className="block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain cursor-pointer select-none"
-                      onDoubleClick={handleImageDoubleClick}
+                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${isVendor ? "cursor-default" : "cursor-pointer"}`}
+                      onDoubleClick={isVendor ? undefined : handleImageDoubleClick}
                     />
                   )}
                   {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
@@ -1575,7 +1555,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                       <div
                         key={idx}
                         className={`absolute select-none z-10 ${
-                          type === "confirm"
+                          type === "confirm" || isVendor
                             ? "cursor-pointer hover:scale-110 transition-all duration-150"
                             : isDraggingThis
                               ? "cursor-grabbing scale-125 z-30 transition-none drop-shadow-[0_0_12px_rgba(66,144,233,1)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
@@ -1606,7 +1586,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (justDraggedRef.current) return;
-                          if (type === "confirm") {
+                          if (type === "confirm" || isVendor) {
                             openFullscreenSnapshot(marker, idx);
                             return;
                           }
@@ -1648,7 +1628,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           }
                         }}
                         onMouseEnter={() => {
-                          if (type !== "confirm") return;
+                          if (type !== "confirm" && !isVendor) return;
                           if (hoverTimeoutRef.current) {
                             clearTimeout(hoverTimeoutRef.current);
                           }
@@ -1670,7 +1650,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           }
                         }}
                         onMouseLeave={() => {
-                          if (type !== "confirm") return;
+                          if (type !== "confirm" && !isVendor) return;
                           hoverTimeoutRef.current = setTimeout(() => {
                             setPreviewMarker(null);
                           }, 300);
@@ -1683,7 +1663,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     );
                   })}
 
-                  {previewMarker && type === "confirm" && (
+                  {previewMarker && (type === "confirm" || isVendor) && (
                     <div
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1766,7 +1746,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
               )}
             </div>
 
-            {type !== "confirm" && (
+            {type !== "confirm" && !isVendor && (
               <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
                 <div className="flex items-center justify-between mb-[20px]">
                   <p className="text-[24px]">SnapShot</p>
@@ -1878,7 +1858,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           </div>
           <div className="w-full h-auto my-[20px] px-4 md:px-0">
             <div
-              className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" ? "w-full" : "w-full md:w-[70%]"}`}
+              className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" || isVendor ? "w-full" : "w-full md:w-[70%]"}`}
             >
               {filteredFloorFiles?.map((file, idx) => {
                 const isFilePDF = isPDF(file);
@@ -2050,7 +2030,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             </div>
           </div>
 
-          {type !== "confirm" && (
+          {type !== "confirm" && !isVendor && (
             <div className="mt-8">
               <p className="text-[#666666] text-[24px] px-3">Photos</p>
 
@@ -2260,7 +2240,6 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             </div>
           )}
         </div>
-      </div>
       {/* Fullscreen Snapshot Lightbox Modal */}
       {fullscreenSnapshot && isMounted && createPortal(
         <div

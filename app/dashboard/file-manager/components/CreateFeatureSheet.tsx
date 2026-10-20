@@ -1267,6 +1267,19 @@ const CreateFeatureSheet = forwardRef<
       }
       const state = featureSheetService.parsePayloadToState(sheetData);
 
+      const rawOther =
+        (sheetData.content?.otherDetails as Record<string, any>) || {};
+      const restoredDeletedDetail =
+        rawOther._deletedDetailFields ||
+        rawOther.deletedDetailFields ||
+        state.deletedDetailFields ||
+        [];
+      const restoredDeletedStandard =
+        rawOther._deletedStandardFieldIds ||
+        rawOther.deletedStandardFieldIds ||
+        state.deletedStandardFieldIds ||
+        [];
+
       updateFormData({
         ...state,
         siteInfluences: (state.siteInfluences as string) || "",
@@ -1277,8 +1290,8 @@ const CreateFeatureSheet = forwardRef<
         imagePositions: state.imagePositions || {},
         imageRotations: state.imageRotations || {},
         fieldPositions: (state as any).fieldPositions || {},
-        deletedDetailFields: (state as any).deletedDetailFields || [],
-        deletedStandardFieldIds: (state as any).deletedStandardFieldIds || [],
+        deletedDetailFields: restoredDeletedDetail,
+        deletedStandardFieldIds: restoredDeletedStandard,
       });
 
       setTimeout(() => {

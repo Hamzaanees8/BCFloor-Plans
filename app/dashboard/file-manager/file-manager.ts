@@ -2417,9 +2417,21 @@ export class FeatureSheetService {
       otherDetails: Object.fromEntries(
         Object.entries((content.otherDetails as Record<string, any>) || {}).map(([k, v]) => [
           k,
-          getString(v),
+          typeof v === "object" && v !== null && !("value" in v) ? v : getString(v),
         ])
       ),
+      deletedDetailFields:
+        (content.otherDetails as any)?._deletedDetailFields ||
+        (content.otherDetails as any)?.deletedDetailFields ||
+        (content as any)?._deletedDetailFields ||
+        (content as any)?.deletedDetailFields ||
+        [],
+      deletedStandardFieldIds:
+        (content.otherDetails as any)?._deletedStandardFieldIds ||
+        (content.otherDetails as any)?.deletedStandardFieldIds ||
+        (content as any)?._deletedStandardFieldIds ||
+        (content as any)?.deletedStandardFieldIds ||
+        [],
 
       // Mapped for BcfpStandard2 state
       title: getString(content.offeredAtPrice),

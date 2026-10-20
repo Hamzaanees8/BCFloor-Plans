@@ -679,6 +679,10 @@ const TourConfirm = ({
   const tourUuid = filesData?.uuid;
 
   const handlePostTour = async () => {
+    if (userType === "vendor") {
+      toast.error("Vendors do not have permission to publish or unpublish tours.");
+      return;
+    }
     const token = localStorage.getItem("token");
 
     if (!tourUuid || !token) {
@@ -786,28 +790,24 @@ const TourConfirm = ({
               </div>
             </div>
 
-            <div className="relative inline-flex flex-wrap items-center gap-3 mt-2">
-              {userType === "vendor" && (
+            <div className="inline-flex flex-wrap items-center gap-3 mt-2">
+              {userType === "vendor" ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div
-                      className="absolute inset-0 z-10 cursor-default"
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={(e) => e.preventDefault()}
-                    />
+                    <span tabIndex={0} className="inline-block cursor-not-allowed">
+                      <Button
+                        disabled
+                        className="w-[185px] opacity-60 cursor-not-allowed bg-gray-400 text-white hover:bg-gray-400"
+                      >
+                        {isPublished ? "Tour Published" : "Publish Tour"}
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    You don&apos;t have permission to perform this action
+                    Vendors do not have permission to publish or unpublish tours
                   </TooltipContent>
                 </Tooltip>
-              )}
-              <div
-                className={
-                  userType === "vendor"
-                    ? "pointer-events-none select-none flex flex-wrap gap-3"
-                    : "flex flex-wrap gap-3"
-                }
-              >
+              ) : (
                 <Button
                   onClick={handlePostTour}
                   disabled={isPublishing}
@@ -819,13 +819,13 @@ const TourConfirm = ({
                       ? "Unpublish Tour"
                       : "Publish Tour"}
                 </Button>
-                <Button
-                  onClick={() => setOpen(true)}
-                  className={`w-[100px] ${userType === "vendor" ? "vendor-bg" : `${userType}-bg`} hover:bg-blue-600`}
-                >
-                  Stats
-                </Button>
-              </div>
+              )}
+              <Button
+                onClick={() => setOpen(true)}
+                className={`w-[100px] ${userType === "vendor" ? "vendor-bg" : `${userType}-bg`} hover:bg-blue-600`}
+              >
+                Stats
+              </Button>
             </div>
           </div>
         </div>

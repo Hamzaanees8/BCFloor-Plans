@@ -7,13 +7,13 @@ import { CheckIcon, AlertTriangle, AlertCircle, ShieldCheck, Calendar } from 'lu
 import { addDays, format } from 'date-fns';
 import { useAppContext } from "@/app/context/AppContext";
 import { Order } from '../../orders/page';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import MatterportRenewModal from "@/components/MatterportRenewModal";
 import { MatterportAd, MatterportStatus, MatterportRenewalAction } from "../../matterport/matterport";
 
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
+    const isVendor = userType?.toLowerCase() === "vendor";
     const { links, setLinks, filesData, tourSettings } = useFileManagerContext();
     const matterportService = orderData?.services?.find(s => {
         const sName = s?.service?.name?.toLowerCase() || "";
@@ -113,6 +113,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const unbrandedLinks = displayLinks.filter(l => l.type === 'unbranded');
 
     const handleLinkChange = (targetLink: any, value: string) => {
+        if (isVendor) return;
         setLinks(prev => {
             const updated = [...prev];
             let targetIdx = updated.findIndex(l => (targetLink.uuid && l.uuid === targetLink.uuid) || l.type === targetLink.type);
@@ -214,14 +215,16 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                     </p>
                                 </div>
                             </div>
-                            <Button
-                                type="button"
-                                onClick={() => setRenewModalOpen(true)}
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 h-9 rounded-lg shadow-sm flex items-center gap-1.5 shrink-0"
-                            >
-                                <ShieldCheck className="w-4 h-4" />
-                                Renew Hosting Now
-                            </Button>
+                            {!isVendor && (
+                                <Button
+                                    type="button"
+                                    onClick={() => setRenewModalOpen(true)}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 h-9 rounded-lg shadow-sm flex items-center gap-1.5 shrink-0"
+                                >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Renew Hosting Now
+                                </Button>
+                            )}
                         </div>
                     ) : isExpiringSoon ? (
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -243,14 +246,16 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                     </p>
                                 </div>
                             </div>
-                            <Button
-                                type="button"
-                                onClick={() => setRenewModalOpen(true)}
-                                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 h-9 rounded-lg shadow-sm flex items-center gap-1.5 shrink-0"
-                            >
-                                <ShieldCheck className="w-4 h-4" />
-                                Renew 3D Tour Hosting
-                            </Button>
+                            {!isVendor && (
+                                <Button
+                                    type="button"
+                                    onClick={() => setRenewModalOpen(true)}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 h-9 rounded-lg shadow-sm flex items-center gap-1.5 shrink-0"
+                                >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Renew 3D Tour Hosting
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -262,14 +267,16 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                                     Matterport 3D Tour Hosting is <strong>Active</strong> until <strong>{formattedExpiry}</strong> ({daysRemaining} days remaining).
                                 </div>
                             </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setRenewModalOpen(true)}
-                                className="border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold px-3 py-1 h-8 rounded-lg shrink-0"
-                            >
-                                Extend Hosting
-                            </Button>
+                            {!isVendor && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setRenewModalOpen(true)}
+                                    className="border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold px-3 py-1 h-8 rounded-lg shrink-0"
+                                >
+                                    Extend Hosting
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -288,77 +295,76 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
             )}
             <div className={!hasLinks ? 'hidden' : ''} style={{ display: !hasLinks ? 'none' : undefined }}>
             {!isUnpaidAgent && (
-            <div className="relative">
-                {userType === 'vendor' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
-                        </TooltipTrigger>
-                        <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
-                    </Tooltip>
-                )}
-                <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
-            <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
-                {/* Branded */}
-                <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
-                    {brandedLinks.length > 0 && (
-                        <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
-                            <div className="flex flex-col gap-y-4 w-full">
-                                <Label className="text-[16px] text-[#424242]">
-                                    3D Tour Link - Branded
-                                </Label>
-                                {brandedLinks.map((link, idx) => (
-                                    <Input
-                                        key={`branded-${idx}`}
-                                        className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
-                                        value={link.link}
-                                        onChange={e => handleLinkChange(link, e.target.value)}
-                                    />
-                                ))}
-                            </div>
-                            <div
-                                onClick={() => setIsBrandedChecked(prev => !prev)}
-                                className={`w-8 h-8 border-2 rounded-[6px] mb-1.5 flex items-center justify-center cursor-pointer transition-colors
-                ${isBrandedChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'bg-white border-[#7D7D7D]'}`}
-                            >
-                                {isBrandedChecked && <CheckIcon className='text-[#FFFFFF] w-4 h-4' />}
+                <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
+                    {isVendor && (
+                        <div className="w-full max-w-[474px] px-4 md:px-0">
+                            <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-lg text-xs text-blue-900 font-medium">
+                                View only mode: Vendors cannot modify 3D tour links or settings.
                             </div>
                         </div>
                     )}
-                </div>
-
-                {/* Unbranded */}
-                <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
-                    {unbrandedLinks.length > 0 && (
-                        <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
-                            <div className="flex flex-col gap-y-4 w-full">
-                                <Label className="text-[16px] text-[#424242]">
-                                    3D Tour Link - Unbranded
-                                </Label>
-                                {unbrandedLinks.map((link, idx) => (
-                                    <Input
-                                        key={`unbranded-${idx}`}
-                                        className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
-                                        value={link.link}
-                                        onChange={e => handleLinkChange(link, e.target.value)}
-                                    />
-                                ))}
+                    {/* Branded */}
+                    <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
+                        {brandedLinks.length > 0 && (
+                            <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
+                                <div className="flex flex-col gap-y-4 w-full">
+                                    <Label className="text-[16px] text-[#424242]">
+                                        3D Tour Link - Branded
+                                    </Label>
+                                    {brandedLinks.map((link, idx) => (
+                                        <Input
+                                            key={`branded-${idx}`}
+                                            readOnly={isVendor}
+                                            className={`w-full h-[42px] text-[#666666] border border-[#8E8E8E] ${isVendor ? "bg-gray-100/70 select-text cursor-default" : ""}`}
+                                            value={link.link}
+                                            onChange={e => handleLinkChange(link, e.target.value)}
+                                        />
+                                    ))}
+                                </div>
+                                <div
+                                    onClick={() => !isVendor && setIsBrandedChecked(prev => !prev)}
+                                    className={`w-8 h-8 border-2 rounded-[6px] mb-1.5 flex items-center justify-center transition-colors
+                    ${isVendor ? 'cursor-default opacity-75' : 'cursor-pointer'}
+                    ${isBrandedChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'bg-white border-[#7D7D7D]'}`}
+                                >
+                                    {isBrandedChecked && <CheckIcon className='text-[#FFFFFF] w-4 h-4' />}
+                                </div>
                             </div>
+                        )}
+                    </div>
 
-                            {/* Unbranded Checkbox */}
-                            <div
-                                onClick={() => setIsUnbrandedChecked(prev => !prev)}
-                                className={`w-8 h-8 border border-[#6BAE41] rounded-[6px] mb-1.5 flex items-center justify-center cursor-pointer transition-colors
-                ${isUnbrandedChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'bg-white border-[#7D7D7D]'}`}
-                            >
-                                {isUnbrandedChecked && <CheckIcon className='text-[#FFFFFF] w-4 h-4' />}
+                    {/* Unbranded */}
+                    <div className='flex items-end gap-x-2 md:gap-x-5 w-full max-w-[474px] px-4 md:px-0'>
+                        {unbrandedLinks.length > 0 && (
+                            <div className='flex items-end gap-x-2 md:gap-x-5 w-full'>
+                                <div className="flex flex-col gap-y-4 w-full">
+                                    <Label className="text-[16px] text-[#424242]">
+                                        3D Tour Link - Unbranded
+                                    </Label>
+                                    {unbrandedLinks.map((link, idx) => (
+                                        <Input
+                                            key={`unbranded-${idx}`}
+                                            readOnly={isVendor}
+                                            className={`w-full h-[42px] text-[#666666] border border-[#8E8E8E] ${isVendor ? "bg-gray-100/70 select-text cursor-default" : ""}`}
+                                            value={link.link}
+                                            onChange={e => handleLinkChange(link, e.target.value)}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Unbranded Checkbox */}
+                                <div
+                                    onClick={() => !isVendor && setIsUnbrandedChecked(prev => !prev)}
+                                    className={`w-8 h-8 border rounded-[6px] mb-1.5 flex items-center justify-center transition-colors
+                    ${isVendor ? 'cursor-default opacity-75 border-gray-400' : 'cursor-pointer border-[#6BAE41]'}
+                    ${isUnbrandedChecked ? 'bg-[#6BAE41] border-[#6BAE41]' : 'bg-white border-[#7D7D7D]'}`}
+                                >
+                                    {isUnbrandedChecked && <CheckIcon className='text-[#FFFFFF] w-4 h-4' />}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            </div>
-            </div>
-            </div>
             )}
             <div className='w-full'>
                 <Accordion type="single" collapsible className="w-full">

@@ -172,15 +172,36 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return finalPrice;
     }, [getOriginalPrice, appliedCodeDiscount, appliedQuantityDiscounts]);
 
-    const calculatePackageDiscount = React.useCallback((rawTotal: number) => {
-        if (!activePackage || !activePackage.discount) return 0;
+    const isServiceInActivePackage = React.useCallback((s: SelectedService) => {
+        if (!activePackage || !activePackage.services?.length) return false;
+        const sUuid = s.uuid || (s as any).service_uuid;
+        const sId = s.id ? String(s.id) : null;
+        return activePackage.services.some(pkgS => {
+            const pUuid = pkgS.uuid ? String(pkgS.uuid) : null;
+            const pId = pkgS.id ? String(pkgS.id) : null;
+            return (sUuid && pUuid && sUuid === pUuid) || (sId && pId && sId === pId);
+        });
+    }, [activePackage]);
+
+    const calculatePackageDiscount = React.useCallback(() => {
+        if (!activePackage || !activePackage.discount || !selectedServices?.length) return 0;
         const discountVal = Number(activePackage.discount) || 0;
         if (discountVal <= 0) return 0;
+
+        const eligibleTotal = selectedServices.reduce((sum, s) => {
+            if (isServiceInActivePackage(s)) {
+                return sum + getOriginalPrice(s);
+            }
+            return sum;
+        }, 0);
+
+        if (eligibleTotal <= 0) return 0;
+
         if (activePackage.discount_type === 'dollar') {
-            return Math.min(rawTotal, discountVal);
+            return Math.min(eligibleTotal, discountVal);
         }
-        return Math.max(0, rawTotal * (discountVal / 100));
-    }, [activePackage]);
+        return Math.max(0, eligibleTotal * (discountVal / 100));
+    }, [activePackage, selectedServices, isServiceInActivePackage, getOriginalPrice]);
 
     const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
     const propertyCountry = tempPropertyData?.country || currentListing?.country || "CA";
@@ -200,16 +221,30 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
         const timer = setTimeout(async () => {
             try {
-                const totalOrig = selectedServices.reduce((sum, s) => sum + getOriginalPrice(s), 0);
+                const eligibleOrig = selectedServices.reduce((sum, s) => {
+                    if (isServiceInActivePackage(s)) {
+                        return sum + getOriginalPrice(s);
+                    }
+                    return sum;
+                }, 0);
+
                 let pkgDisc = 0;
-                if (activePackage && (activePackage.discount || 0) > 0) {
-                    pkgDisc = (totalOrig * (activePackage.discount || 0)) / 100;
+                if (activePackage && (activePackage.discount || 0) > 0 && eligibleOrig > 0) {
+                    if (activePackage.discount_type === 'dollar') {
+                        pkgDisc = Math.min(eligibleOrig, Number(activePackage.discount) || 0);
+                    } else {
+                        pkgDisc = (eligibleOrig * (Number(activePackage.discount) || 0)) / 100;
+                    }
                 }
-                const pkgRatio = totalOrig > 0 ? (pkgDisc / totalOrig) : 0;
+                const pkgRatio = eligibleOrig > 0 ? (pkgDisc / eligibleOrig) : 0;
 
                 const items = selectedServices.map((sel) => {
                     const discountedPrice = calculateServicePriceAfterDiscounts(sel);
-                    const effAmount = Math.max(0, discountedPrice - (getOriginalPrice(sel) * pkgRatio));
+                    const isPkgService = isServiceInActivePackage(sel);
+                    const effAmount = isPkgService 
+                        ? Math.max(0, discountedPrice - (getOriginalPrice(sel) * pkgRatio))
+                        : Math.max(0, discountedPrice);
+
                     return {
                         amount: Number(effAmount.toFixed(2)),
                         is_taxable: true,
@@ -249,6 +284,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         orgSlug,
         getOriginalPrice,
         calculateServicePriceAfterDiscounts,
+        isServiceInActivePackage,
     ]);
 
     useEffect(() => {
@@ -324,18 +360,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return;
         }
 
-        const rawTotal = selectedServices.reduce((sum, sel) => {
-            if (sel.payment_status?.toUpperCase() === 'PAID') {
-                return sum + getOriginalPrice(sel);
-            }
-            return sum + getOriginalPrice(sel);
-        }, 0);
-
         const subtotalWithServiceDiscounts = selectedServices.reduce((sum, sel) => {
             return sum + calculateServicePriceAfterDiscounts(sel);
         }, 0);
 
-        const packageDiscount = calculatePackageDiscount(rawTotal);
+        const packageDiscount = calculatePackageDiscount();
 
         const orderTotal = Math.max(0, subtotalWithServiceDiscounts - packageDiscount);
 
@@ -487,8 +516,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 split_invoice: isSplitInvoice ? 1 : 0,
                 ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
                 co_agents: coAgents,
-                notes: agentNotes.map(note => ({
+                notes: agentNotes.filter(note => note.note && note.note.trim()).map(note => ({
                     ...note,
+                    note: note.note.trim(),
                     date: new Date(note.date).toISOString().split("T")[0],
                 })),
                 services: selectedServices
@@ -1167,14 +1197,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 <p className='font-normal text-[14px] text-green-600'>
                                                     - ${(
                                                         (() => {
-                                                            const unpaidTotal = selectedServices.reduce((sum, s) => {
+                                                            const unpaidEligibleTotal = selectedServices.reduce((sum, s) => {
                                                                 if (s.payment_status?.toUpperCase() === 'PAID') return sum;
+                                                                if (!isServiceInActivePackage(s)) return sum;
                                                                 return sum + getOriginalPrice(s);
                                                             }, 0);
                                                             if (activePackage.discount_type === 'dollar') {
-                                                                return Math.min(unpaidTotal, Number(activePackage.discount) || 0);
+                                                                return Math.min(unpaidEligibleTotal, Number(activePackage.discount) || 0);
                                                             }
-                                                            return (unpaidTotal * (Number(activePackage.discount) || 0)) / 100;
+                                                            return (unpaidEligibleTotal * (Number(activePackage.discount) || 0)) / 100;
                                                         })()
                                                     ).toFixed(2)}
                                                 </p>
@@ -1211,16 +1242,17 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 return sum;
                                             }, 0);
 
-                                            // Calculate package discount for ALL services
+                                            // Calculate package discount for eligible package services
                                             let packageDiscount = 0;
                                             if (activePackage && (activePackage.discount || 0) > 0) {
-                                                const rawShopTotal = selectedServices.reduce((sum, s) => {
+                                                const rawEligibleTotal = selectedServices.reduce((sum, s) => {
+                                                    if (!isServiceInActivePackage(s)) return sum;
                                                     return sum + getOriginalPrice(s);
                                                 }, 0);
                                                 if (activePackage.discount_type === 'dollar') {
-                                                    packageDiscount = Math.min(rawShopTotal, Number(activePackage.discount) || 0);
+                                                    packageDiscount = Math.min(rawEligibleTotal, Number(activePackage.discount) || 0);
                                                 } else {
-                                                    packageDiscount = (rawShopTotal * (Number(activePackage.discount) || 0)) / 100;
+                                                    packageDiscount = (rawEligibleTotal * (Number(activePackage.discount) || 0)) / 100;
                                                 }
                                             }
 
@@ -1254,9 +1286,13 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                         discountAmount = originalPrice * discountPercent / 100;
                                                     }
 
-                                                    // Add package discount proportionally
-                                                    if (activePackage && packageDiscount > 0) {
-                                                        const serviceRatio = originalPrice / totalOriginalPrice;
+                                                    // Add package discount proportionally ONLY for services in package
+                                                    if (activePackage && packageDiscount > 0 && isServiceInActivePackage(curr)) {
+                                                        const rawEligibleTotal = selectedServices.reduce((sum, s) => {
+                                                            if (!isServiceInActivePackage(s)) return sum;
+                                                            return sum + getOriginalPrice(s);
+                                                        }, 0);
+                                                        const serviceRatio = rawEligibleTotal > 0 ? (originalPrice / rawEligibleTotal) : 0;
                                                         discountAmount += (packageDiscount * serviceRatio);
                                                     }
 

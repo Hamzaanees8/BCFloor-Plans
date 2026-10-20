@@ -44,6 +44,7 @@ import { GetFilesData } from "../file-manager";
 
 function TourPicture({ orderData }: { orderData: Order | null }) {
   const { userType } = useAppContext();
+  const isVendor = userType === "vendor";
   const {
     selectedFiles,
     setSelectedFiles,
@@ -161,7 +162,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         }
       }
       const isAlways = Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting);
-      if (isAlways) {
+      if (isAlways && !isVendor) {
         setIsReorderMode(true);
       }
     }
@@ -541,22 +542,13 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
 
         {/* ── Arrange Photos ─────────────────────────────────────────────── */}
+        {/* ── Arrange Photos ─────────────────────────────────────────────── */}
         <AccordionItem value="item-1">
-          <div className="relative">
-            {userType === 'vendor' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
-                </TooltipTrigger>
-                <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
-              </Tooltip>
-            )}
-            <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
           <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
             <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
               Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
             </AccordionTrigger>
-            {globalSortedPhotos.length > 0 && (
+            {globalSortedPhotos.length > 0 && !isVendor && (
               <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting) ? (
                   <div className="flex items-center gap-2">
@@ -628,12 +620,13 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span
-                                  className="cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"
+                                  className={`absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] ${isVendor ? "cursor-default" : "cursor-pointer"}`}
                                   style={{
                                     clipPath: "polygon(100% 0, 0 0, 100% 100%)",
                                     backgroundColor: file.upload ? "#6BAE41" : "#E06D5E",
                                   }}
                                   onClick={() => {
+                                    if (isVendor) return;
                                     setSelectedFiles((prev) =>
                                       prev.flatMap((f) => {
                                         if (f.file === file.file && f.service_id === file.service_id) {
@@ -648,7 +641,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent side="left" align="start" className="mt-2 mr-2">
-                                {file.upload ? "Hide from agent" : "Make visible to agent"}
+                                {isVendor ? "Visibility setting" : file.upload ? "Hide from agent" : "Make visible to agent"}
                               </TooltipContent>
                             </Tooltip>
                           </div>
@@ -671,33 +664,29 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       renderItem={renderPhotoCard}
                       columns={imagesPerRow}
                       disabled={isSaving}
+                      readOnly={isVendor}
                     />
                   )}
                 </div>
               )}
             </div>
           </AccordionContent>
-          </div>
-          </div>
         </AccordionItem>
 
         {/* ── Slideshow Settings ─────────────────────────────────────────── */}
         <AccordionItem value="item-2">
-          <div className="relative">
-            {userType === 'vendor' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="absolute inset-0 z-10 cursor-default" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
-                </TooltipTrigger>
-                <TooltipContent>You don&apos;t have permission to change this setting</TooltipContent>
-              </Tooltip>
-            )}
-            <div className={userType === 'vendor' ? 'pointer-events-none select-none' : ''}>
           <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
             Slideshow Video Settings
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
-            <div className="w-full flex flex-col items-center">
+            {isVendor && (
+              <div className="pt-4 flex justify-center">
+                <div className="w-full md:w-[410px] bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3.5 py-2 rounded-lg flex items-center gap-2">
+                  <span>View only: Vendors cannot modify slideshow video settings.</span>
+                </div>
+              </div>
+            )}
+            <div className={`w-full flex flex-col items-center ${isVendor ? "pointer-events-none select-none opacity-80" : ""}`}>
               <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                 <div className="grid grid-cols-2 gap-[16px]">
                   <div className="col-span-2">
@@ -947,8 +936,6 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
               </div>
             </div>
           </AccordionContent>
-          </div>
-          </div>
         </AccordionItem>
 
         {/* ── Preview Section (Dynamically reflects Home Hero Media selection) ────────────────── */}

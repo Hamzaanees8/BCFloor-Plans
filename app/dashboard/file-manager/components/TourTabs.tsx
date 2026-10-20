@@ -186,21 +186,26 @@ export default function TourTabs({
     s?.service?.name?.toLowerCase().includes("floor plan"),
   );
 
+  const isVendor = userType?.toLowerCase() === "vendor";
+
   const visibleTabs = useMemo(() => {
-    const tabs = ["Settings"];
+    const tabs: string[] = [];
+    if (!isVendor) {
+      tabs.push("Settings");
+    }
     if (hasPhotos) tabs.push("Photos");
     if (hasMatterport) tabs.push("Matterport");
     if (hasVideos) tabs.push("Videos");
     if (hasFloorPlans) tabs.push("Floor plans");
     tabs.push("Confirm");
     return tabs;
-  }, [hasPhotos, hasMatterport, hasVideos, hasFloorPlans]);
+  }, [isVendor, hasPhotos, hasMatterport, hasVideos, hasFloorPlans]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
-      setActiveTab("Settings");
+      setActiveTab(visibleTabs[0] || (isVendor ? "Photos" : "Settings"));
     }
-  }, [visibleTabs, activeTab]);
+  }, [visibleTabs, activeTab, isVendor]);
 
   return (
     <div className="w-full font-alexandria">
@@ -249,16 +254,18 @@ export default function TourTabs({
 
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">
-        <div
-          style={{ display: activeTab === "Settings" ? undefined : "none" }}
-          className="p-4"
-        >
-          <TourSettings
-            orderData={orderData}
-            setOrderData={setOrderData}
-            onRefresh={onRefresh}
-          />
-        </div>
+        {!isVendor && visibleTabs.includes("Settings") && (
+          <div
+            style={{ display: activeTab === "Settings" ? undefined : "none" }}
+            className="p-4"
+          >
+            <TourSettings
+              orderData={orderData}
+              setOrderData={setOrderData}
+              onRefresh={onRefresh}
+            />
+          </div>
+        )}
         {visibleTabs.includes("Photos") && (
           <div
             style={{ display: activeTab === "Photos" ? undefined : "none" }}

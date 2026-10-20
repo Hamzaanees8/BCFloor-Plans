@@ -30,6 +30,7 @@ interface SortableGridProps {
     renderItem: (item: FileItem, isDragging?: boolean) => React.ReactNode;
     columns?: number;
     disabled?: boolean;
+    readOnly?: boolean;
 }
 
 export function SortableItem({
@@ -135,16 +136,16 @@ export function SortableItem({
     );
 }
 
-export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, disabled = false }: SortableGridProps) {
+export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, disabled = false, readOnly = false }: SortableGridProps) {
     const { imagesPerRow: contextImagesPerRow, isSaving, tourSettings, tourDefaultSettings } = useFileManagerContext();
 
-    const isAlwaysSort = Boolean(
+    const isAlwaysSort = !readOnly && Boolean(
         tourSettings?.always_enable_sorting ??
         tourDefaultSettings?.always_enable_sorting
     );
-    const isReorderMode = mode === 'reorder';
+    const isReorderMode = !readOnly && mode === 'reorder';
     const isManualReorder = isReorderMode && !isAlwaysSort;
-    const isDragEnabled = isReorderMode || isAlwaysSort;
+    const isDragEnabled = !readOnly && (isReorderMode || isAlwaysSort);
 
     const imagesPerRow = columns ?? contextImagesPerRow;
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -207,7 +208,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
     );
 
     const handleToggleSelect = (id: string) => {
-        if (disabled) return;
+        if (disabled || readOnly) return;
         setSelectedIds((prev) => {
             const next = new Set(prev);
             if (next.has(id)) {
@@ -220,12 +221,12 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
     };
 
     const handleDragStart = (event: DragStartEvent) => {
-        if (disabled) return;
+        if (disabled || readOnly) return;
         setActiveId(event.active.id as string);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
-        if (disabled) return;
+        if (disabled || readOnly) return;
         const { active, over } = event;
         setActiveId(null);
 
@@ -337,7 +338,7 @@ export function SortableGrid({ items, onOrderChange, mode, renderItem, columns, 
                                     key={item.clientId}
                                     id={item.clientId}
                                     item={item}
-                                    disabled={!isDragEnabled || disabled}
+                                    disabled={!isDragEnabled || disabled || readOnly}
                                     isSelected={isSelected}
                                     isReordered={isReordered}
                                     isUnchanged={isUnchanged}

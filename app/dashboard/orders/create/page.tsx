@@ -303,12 +303,12 @@ const OrderForm = () => {
                 if (typeof currentUser.notes === "string") {
                     try {
                         const parsed = JSON.parse(currentUser.notes);
-                        return Array.isArray(parsed) ? parsed : [];
+                        return Array.isArray(parsed) ? parsed.filter((n: any) => n?.note && String(n.note).trim()) : [];
                     } catch {
                         return [];
                     }
                 }
-                return Array.isArray(currentUser.notes) ? currentUser.notes : [];
+                return Array.isArray(currentUser.notes) ? currentUser.notes.filter((n: any) => n?.note && String(n.note).trim()) : [];
             });
             setCoAgents(() => {
                 if (typeof currentUser.co_agents === "string") {

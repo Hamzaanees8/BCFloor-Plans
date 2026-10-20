@@ -528,6 +528,8 @@ export const initialFormData: FormData = {
   detailFields: undefined,
   leftDetailFields: undefined,
   rightDetailFields: undefined,
+  deletedDetailFields: [],
+  deletedStandardFieldIds: [],
 };
 
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {

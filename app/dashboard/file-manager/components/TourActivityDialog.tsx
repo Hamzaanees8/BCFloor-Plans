@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 
 import { fetchTourStats, TourStats } from "@/app/tour/tour";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface TourActivityDialogProps {
     open: boolean;
@@ -29,6 +30,8 @@ export default function TourActivityDialog({
     tourUuid,
     propertyAddress
 }: TourActivityDialogProps) {
+    const { userType } = useAppContext();
+    const isVendor = userType?.toLowerCase() === "vendor";
     const [stats, setStats] = React.useState<TourStats | null>(null);
     const [activeTab, setActiveTab] = React.useState<"report" | "settings">("report");
     const [emailStats, setEmailStats] = React.useState("yes");
@@ -61,6 +64,12 @@ export default function TourActivityDialog({
     const referrerStats = stats?.charts?.referrers || [];
     const imageStats = stats?.media?.media_stats || [];
 
+    React.useEffect(() => {
+        if (isVendor && activeTab !== "report") {
+            setActiveTab("report");
+        }
+    }, [isVendor, activeTab]);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-none !w-[95vw] md:!w-[80vw] lg:!w-[60vw] p-0 overflow-y-auto h-[90vh] rounded-xl shadow-2xl font-alexandria">
@@ -71,7 +80,7 @@ export default function TourActivityDialog({
                 </DialogHeader>
 
                 <div className="flex gap-3 px-6 mb-4">
-                    {(["report", "settings"] as const).map((tab) => (
+                    {(isVendor ? (["report"] as const) : (["report", "settings"] as const)).map((tab) => (
                         <Button
                             key={tab}
                             variant={activeTab === tab ? "default" : "secondary"}
@@ -86,7 +95,6 @@ export default function TourActivityDialog({
                             {tab === "report" ? "Tour Activity Report" : "Settings"}
                         </Button>
                     ))}
-
                 </div>
 
                 {activeTab === "report" &&
@@ -347,12 +355,22 @@ export default function TourActivityDialog({
                 }
 
                 <div className="flex flex-col md:flex-row justify-end gap-3 my-10 px-6 md:px-10 text-[20px] font-[600]">
+                    <Button
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                        variant="outline"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-100 h-[40px] text-sm"
+                    >
+                        Close
+                    </Button>
                     <Button className="bg-[#4290E9] text-white text-sm h-[40px]">
                         View Tour
                     </Button>
-                    <Button variant="outline" className="border-[#4290E9] h-[40px] text-[#4290E9] hover:bg-[#4290E9] hover:text-white">
-                        Save & Exit
-                    </Button>
+                    {!isVendor && (
+                        <Button variant="outline" className="border-[#4290E9] h-[40px] text-[#4290E9] hover:bg-[#4290E9] hover:text-white">
+                            Save & Exit
+                        </Button>
+                    )}
                 </div>
 
             </DialogContent>

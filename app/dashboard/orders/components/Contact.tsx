@@ -472,15 +472,15 @@ const Contact = () => {
     useEffect(() => {
         if (selectedAgent && selectedAgent.uuid !== lastPopulatedAgentId) {
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
-            if (selectedAgent.notes) {
+            if (selectedAgent.notes && typeof selectedAgent.notes === 'string' && selectedAgent.notes.trim()) {
                 setAgentNotes(prev => {
-                    const noteExists = prev.some(n => n.note === selectedAgent.notes);
+                    const noteExists = prev.some(n => n.note && n.note.trim() === selectedAgent.notes.trim());
                     if (!noteExists) {
                         return [
                             ...prev,
                             {
-                                note: selectedAgent.notes,
-                                name: `${selectedAgent.first_name} ${selectedAgent.last_name}`,
+                                note: selectedAgent.notes.trim(),
+                                name: `${selectedAgent.first_name || ''} ${selectedAgent.last_name || ''}`.trim() || 'Agent',
                                 date: new Date(),
                                 internal: "false" // Or based on requirements
                             }
@@ -568,31 +568,58 @@ const Contact = () => {
 
     const handleSaveNotes = (type: 'appointment' | 'internal') => {
         if (type === 'appointment') {
-            if (tempAppointmentNote.trim()) {
-                setAgentNotes(prev => [
-                    ...prev,
-                    {
-                        note: tempAppointmentNote.trim(),
-                        name: userName,
-                        date: new Date(),
-                        internal: "false"
-                    }
-                ]);
-                setTempAppointmentNote('');
+            if (!tempAppointmentNote.trim()) {
+                toast.error("Note content cannot be empty.");
+                return;
             }
+            setAgentNotes(prev => [
+                ...prev,
+                {
+                    note: tempAppointmentNote.trim(),
+                    name: userName,
+                    date: new Date(),
+                    internal: "false"
+                }
+            ]);
+            setTempAppointmentNote('');
+            appointmentNoteRef.current = '';
+            toast.success("Appointment note added.");
         } else {
-            if (tempInternalNote.trim()) {
-                setAgentNotes(prev => [
-                    ...prev,
-                    {
-                        note: tempInternalNote.trim(),
-                        name: userName,
-                        date: new Date(),
-                        internal: "true"
-                    }
-                ]);
-                setTempInternalNote('');
+            if (!tempInternalNote.trim()) {
+                toast.error("Note content cannot be empty.");
+                return;
             }
+            setAgentNotes(prev => [
+                ...prev,
+                {
+                    note: tempInternalNote.trim(),
+                    name: userName,
+                    date: new Date(),
+                    internal: "true"
+                }
+            ]);
+            setTempInternalNote('');
+            internalNoteRef.current = '';
+            toast.success("Internal note added.");
+        }
+    };
+
+    const handleDeleteNote = (targetNote: any) => {
+        setAgentNotes(prev => prev.filter(note => note !== targetNote));
+        if (editingNote === targetNote) {
+            setEditingNote(null);
+            setEditNoteText('');
+        }
+        toast.success("Note deleted.");
+    };
+
+    const handleDiscardTempNote = (type: 'appointment' | 'internal') => {
+        if (type === 'appointment') {
+            setTempAppointmentNote('');
+            appointmentNoteRef.current = '';
+        } else {
+            setTempInternalNote('');
+            internalNoteRef.current = '';
         }
     };
 
@@ -928,24 +955,34 @@ const Contact = () => {
                                             )}
                                             <div className="relative">
                                                 <div className="w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4]">
-                                                    {agentNotes.filter(n => n.internal === "false" || !n.internal).length === 0 ? (
+                                                    {agentNotes.filter(n => (n.internal === "false" || !n.internal) && n.note && n.note.trim()).length === 0 ? (
                                                         <p className="text-sm text-gray-500 italic mb-2">No appointment notes yet.</p>
                                                     ) : (
-                                                        agentNotes.filter(n => n.internal === "false" || !n.internal).map((n, i) => (
+                                                        agentNotes.filter(n => (n.internal === "false" || !n.internal) && n.note && n.note.trim()).map((n, i) => (
                                                             <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
                                                                 <div className="flex justify-between items-center mb-1">
                                                                     <div className="font-bold text-xs text-gray-500 select-none">
                                                                         {n.name} ({formatTimestamp(n.date)}):
                                                                     </div>
                                                                     {editingNote !== n && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleEditNote(n)}
-                                                                            className="p-1 hover:bg-gray-200 rounded"
-                                                                            title="Edit Note"
-                                                                        >
-                                                                            <Edit2Icon className="w-3.5 h-3.5 text-blue-500" />
-                                                                        </button>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleEditNote(n)}
+                                                                                className="p-1 hover:bg-gray-200 rounded text-blue-500 transition-colors"
+                                                                                title="Edit Note"
+                                                                            >
+                                                                                <Edit2Icon className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDeleteNote(n)}
+                                                                                className="p-1 hover:bg-gray-200 rounded text-red-500 transition-colors"
+                                                                                title="Delete Note"
+                                                                            >
+                                                                                <Trash className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                                 {editingNote === n ? (
@@ -994,7 +1031,21 @@ const Contact = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex justify-end mt-2">
+                                            <div className="flex justify-end items-center gap-2 mt-2">
+                                                {tempAppointmentNote.trim().length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        className="text-xs font-semibold text-gray-500 hover:text-red-500 uppercase flex items-center gap-1 transition-colors px-2 py-1 rounded"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            handleDiscardTempNote('appointment');
+                                                        }}
+                                                        title="Remove unsaved note"
+                                                    >
+                                                        <Trash className="w-3.5 h-3.5" />
+                                                        <span>Remove</span>
+                                                    </button>
+                                                )}
                                                 <button
                                                     className="font-bold text-[12px] uppercase"
                                                     style={{ color: roleSettings.pageTabColor }}
@@ -1019,24 +1070,34 @@ const Contact = () => {
                                                 </p>
                                                 <div className="relative">
                                                     <div className="w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4]">
-                                                        {agentNotes.filter(n => n.internal === "true").length === 0 ? (
+                                                        {agentNotes.filter(n => n.internal === "true" && n.note && n.note.trim()).length === 0 ? (
                                                             <p className="text-sm text-gray-500 italic mb-2">No internal notes yet.</p>
                                                         ) : (
-                                                            agentNotes.filter(n => n.internal === "true").map((n, i) => (
+                                                            agentNotes.filter(n => n.internal === "true" && n.note && n.note.trim()).map((n, i) => (
                                                                 <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
                                                                     <div className="flex justify-between items-center mb-1">
                                                                         <div className="font-bold text-xs text-gray-500 select-none">
                                                                             {n.name} ({formatTimestamp(n.date)}):
                                                                         </div>
                                                                         {editingNote !== n && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleEditNote(n)}
-                                                                                className="p-1 hover:bg-gray-200 rounded"
-                                                                                title="Edit Note"
-                                                                            >
-                                                                                <Edit2Icon className="w-3.5 h-3.5 text-blue-500" />
-                                                                            </button>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleEditNote(n)}
+                                                                                    className="p-1 hover:bg-gray-200 rounded text-blue-500 transition-colors"
+                                                                                    title="Edit Note"
+                                                                                >
+                                                                                    <Edit2Icon className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleDeleteNote(n)}
+                                                                                    className="p-1 hover:bg-gray-200 rounded text-red-500 transition-colors"
+                                                                                    title="Delete Note"
+                                                                                >
+                                                                                    <Trash className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                            </div>
                                                                         )}
                                                                     </div>
                                                                     {editingNote === n ? (
@@ -1085,7 +1146,21 @@ const Contact = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex justify-end mt-2">
+                                                <div className="flex justify-end items-center gap-2 mt-2">
+                                                    {tempInternalNote.trim().length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="text-xs font-semibold text-gray-500 hover:text-red-500 uppercase flex items-center gap-1 transition-colors px-2 py-1 rounded"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                handleDiscardTempNote('internal');
+                                                            }}
+                                                            title="Remove unsaved note"
+                                                        >
+                                                            <Trash className="w-3.5 h-3.5" />
+                                                            <span>Remove</span>
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className="font-bold text-[12px] uppercase"
                                                         style={{ color: roleSettings.pageTabColor }}

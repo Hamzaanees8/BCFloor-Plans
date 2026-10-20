@@ -296,6 +296,8 @@ export interface FeatureSheetState {
     fieldStyles?: Record<string, any>;
     fieldPositions?: Record<string, { x: number; y: number }>;
     detailFields?: DetailField[];
+    deletedDetailFields?: any[];
+    deletedStandardFieldIds?: string[];
 }
 
 

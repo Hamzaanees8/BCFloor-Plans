@@ -491,6 +491,21 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
         if (formData.amenities) setAmenities(formData.amenities);
         if (formData.view) setView(formData.view);
+        if (formData.byLawLabel) setByLawLabel(formData.byLawLabel);
+        if (formData.maintFeesLabel) setMaintFeesLabel(formData.maintFeesLabel);
+        if (formData.maintFeesIncludeLabel)
+          setMaintFeesIncludeLabel(formData.maintFeesIncludeLabel);
+        if (formData.featuresIncludedLabel)
+          setFeaturesIncludedLabel(formData.featuresIncludedLabel);
+        if (formData.siteInfluencesLabel)
+          setSiteInfluencesLabel(formData.siteInfluencesLabel);
+        if (formData.amenitiesLabel) setAmenitiesLabel(formData.amenitiesLabel);
+        if (formData.viewLabel) setViewLabel(formData.viewLabel);
+        if (formData.contactLabel) setContactLabel(formData.contactLabel);
+        if (formData.bedroomLabel) setBedroomLabel(formData.bedroomLabel);
+        if (formData.bathroomLabel) setBathroomLabel(formData.bathroomLabel);
+        if (formData.sqftLabel) setSqftLabel(formData.sqftLabel);
+        if (formData.builtYearLabel) setBuiltYearLabel(formData.builtYearLabel);
         if (formData.headline) setHeadline(formData.headline);
         if (formData.description) setDescription(formData.description);
         if (formData.fullName) setFullName(formData.fullName);
@@ -500,6 +515,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (formData.number) setNumber(formData.number);
         if (formData.addressCode) setAddressCode(formData.addressCode);
         if (formData.roadName) setRoadName(formData.roadName);
+        if (formData.roadLabelBefore)
+          setRoadLabelBefore(formData.roadLabelBefore);
+        if (formData.roadLabelAfter) setRoadLabelAfter(formData.roadLabelAfter);
         if (formData.cityLine) setCityLine(formData.cityLine);
         if (formData.bedroom) setBedroom(formData.bedroom);
         if (formData.bathroom) setBathroom(formData.bathroom);
@@ -546,6 +564,42 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
 
+    // Keep local deleted fields in sync when formData changes from external load
+    useEffect(() => {
+      if (
+        formData?.deletedStandardFieldIds &&
+        Array.isArray(formData.deletedStandardFieldIds)
+      ) {
+        setDeletedStandardFieldIds((prev) => {
+          if (
+            prev.length === formData.deletedStandardFieldIds!.length &&
+            prev.every(
+              (id, idx) => id === formData.deletedStandardFieldIds![idx],
+            )
+          ) {
+            return prev;
+          }
+          return formData.deletedStandardFieldIds!;
+        });
+      }
+      if (
+        formData?.deletedDetailFields &&
+        Array.isArray(formData.deletedDetailFields)
+      ) {
+        setDeletedDetailFields((prev) => {
+          if (
+            prev.length === formData.deletedDetailFields!.length &&
+            prev.every(
+              (f, idx) => f.id === formData.deletedDetailFields![idx]?.id,
+            )
+          ) {
+            return prev;
+          }
+          return formData.deletedDetailFields!;
+        });
+      }
+    }, [formData?.deletedStandardFieldIds, formData?.deletedDetailFields]);
+
     useEffect(() => {
       updateFormData({
         deletedStandardFieldIds,
@@ -557,6 +611,18 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         siteInfluences,
         amenities,
         view,
+        byLawLabel,
+        maintFeesLabel,
+        maintFeesIncludeLabel,
+        featuresIncludedLabel,
+        siteInfluencesLabel,
+        amenitiesLabel,
+        viewLabel,
+        contactLabel,
+        bedroomLabel,
+        bathroomLabel,
+        sqftLabel,
+        builtYearLabel,
         headline,
         description,
         fullName,
@@ -566,6 +632,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         number,
         addressCode,
         roadName,
+        roadLabelBefore,
+        roadLabelAfter,
         cityLine,
         bedroom,
         bathroom,
@@ -588,6 +656,18 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       siteInfluences,
       amenities,
       view,
+      byLawLabel,
+      maintFeesLabel,
+      maintFeesIncludeLabel,
+      featuresIncludedLabel,
+      siteInfluencesLabel,
+      amenitiesLabel,
+      viewLabel,
+      contactLabel,
+      bedroomLabel,
+      bathroomLabel,
+      sqftLabel,
+      builtYearLabel,
       headline,
       description,
       fullName,
@@ -597,6 +677,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       number,
       addressCode,
       roadName,
+      roadLabelBefore,
+      roadLabelAfter,
       cityLine,
       bedroom,
       bathroom,
@@ -678,16 +760,32 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             headline,
             amenities,
             view,
+            byLawLabel,
+            maintFeesLabel,
+            maintFeesIncludeLabel,
+            featuresIncludedLabel,
+            siteInfluencesLabel,
+            amenitiesLabel,
+            viewLabel,
+            contactLabel,
+            bedroomLabel,
+            bathroomLabel,
+            sqftLabel,
+            builtYearLabel,
             bedroom,
             bathroom,
             sqft,
             builtYear,
             number,
             addressCode,
+            roadLabelBefore,
+            roadLabelAfter,
             cityLine,
             fieldPositions,
             _deletedDetailFields: deletedDetailFields,
             _deletedStandardFieldIds: deletedStandardFieldIds,
+            deletedDetailFields,
+            deletedStandardFieldIds,
           },
           images,
           imageScales: scale,
@@ -726,29 +824,66 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         const rawOtherDetails =
           (payload.content?.otherDetails as Record<string, any>) || {};
 
-        if (
+        const restoredDeletedDetail = (
           rawOtherDetails._deletedDetailFields &&
           Array.isArray(rawOtherDetails._deletedDetailFields)
-        ) {
-          setDeletedDetailFields(
-            rawOtherDetails._deletedDetailFields as DeletedDetailFieldItem[],
-          );
-        }
+            ? rawOtherDetails._deletedDetailFields
+            : rawOtherDetails.deletedDetailFields &&
+              Array.isArray(rawOtherDetails.deletedDetailFields)
+            ? rawOtherDetails.deletedDetailFields
+            : (state as any).deletedDetailFields &&
+              Array.isArray((state as any).deletedDetailFields)
+            ? (state as any).deletedDetailFields
+            : []
+        ) as DeletedDetailFieldItem[];
 
-        if (
+        const restoredDeletedStandard = (
           rawOtherDetails._deletedStandardFieldIds &&
           Array.isArray(rawOtherDetails._deletedStandardFieldIds)
-        ) {
-          setDeletedStandardFieldIds(
-            rawOtherDetails._deletedStandardFieldIds as string[],
-          );
-        }
+            ? rawOtherDetails._deletedStandardFieldIds
+            : rawOtherDetails.deletedStandardFieldIds &&
+              Array.isArray(rawOtherDetails.deletedStandardFieldIds)
+            ? rawOtherDetails.deletedStandardFieldIds
+            : (state as any).deletedStandardFieldIds &&
+              Array.isArray((state as any).deletedStandardFieldIds)
+            ? (state as any).deletedStandardFieldIds
+            : []
+        ) as string[];
+
+        setDeletedDetailFields(restoredDeletedDetail);
+        setDeletedStandardFieldIds(restoredDeletedStandard);
+
+        updateFormData({
+          deletedStandardFieldIds: restoredDeletedStandard,
+          deletedDetailFields: restoredDeletedDetail,
+        });
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
           if (details.headline) setHeadline(details.headline as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
+          if (details.byLawLabel) setByLawLabel(details.byLawLabel as string);
+          if (details.maintFeesLabel)
+            setMaintFeesLabel(details.maintFeesLabel as string);
+          if (details.maintFeesIncludeLabel)
+            setMaintFeesIncludeLabel(details.maintFeesIncludeLabel as string);
+          if (details.featuresIncludedLabel)
+            setFeaturesIncludedLabel(details.featuresIncludedLabel as string);
+          if (details.siteInfluencesLabel)
+            setSiteInfluencesLabel(details.siteInfluencesLabel as string);
+          if (details.amenitiesLabel)
+            setAmenitiesLabel(details.amenitiesLabel as string);
+          if (details.viewLabel) setViewLabel(details.viewLabel as string);
+          if (details.contactLabel)
+            setContactLabel(details.contactLabel as string);
+          if (details.bedroomLabel)
+            setBedroomLabel(details.bedroomLabel as string);
+          if (details.bathroomLabel)
+            setBathroomLabel(details.bathroomLabel as string);
+          if (details.sqftLabel) setSqftLabel(details.sqftLabel as string);
+          if (details.builtYearLabel)
+            setBuiltYearLabel(details.builtYearLabel as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
           if (details.bathroom) setBathroom(details.bathroom as string);
           if (details.sqft) setSqft(details.sqft as string);
@@ -756,6 +891,10 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           if (details.number) setNumber(details.number as string);
           if (details.addressCode)
             setAddressCode(details.addressCode as string);
+          if (details.roadLabelBefore)
+            setRoadLabelBefore(details.roadLabelBefore as string);
+          if (details.roadLabelAfter)
+            setRoadLabelAfter(details.roadLabelAfter as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
         }
 
@@ -1320,26 +1459,28 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           </DraggableBox>
                         )}
 
-                        {!isFieldDeleted("roadName") && (
-                          <DraggableBox
-                            id="roadName"
-                            position={fieldPositions.roadName}
-                            onPositionChange={updateFieldPosition}
-                            label="Street / Road"
-                            zoom={0.85}
-                            disabled={lockedSections.headerAddress}
-                            onDelete={() =>
-                              removeStandardField(
-                                "roadName",
-                                "Street / Road",
-                                roadName,
-                                "Header Address",
-                                fieldStyles.roadName,
-                              )
-                            }
-                            deleteTitle="Remove Street / Road"
-                          >
-                            <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full">
+                        <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center gap-1.5 whitespace-nowrap w-full">
+                          {!isFieldDeleted("roadLabelBefore") && (
+                            <DraggableBox
+                              id="roadLabelBefore"
+                              position={fieldPositions.roadLabelBefore}
+                              onPositionChange={updateFieldPosition}
+                              label="Number Label"
+                              zoom={0.85}
+                              disabled={lockedSections.headerAddress}
+                              containerClassName="w-auto inline-flex items-center shrink-0"
+                              className="w-auto inline-flex items-center"
+                              onDelete={() =>
+                                removeStandardField(
+                                  "roadLabelBefore",
+                                  "Number Label",
+                                  roadLabelBefore,
+                                  "Header Address",
+                                  fieldStyles.roadLabelBefore,
+                                )
+                              }
+                              deleteTitle="Remove Number Label"
+                            >
                               <StyledInput
                                 value={roadLabelBefore}
                                 onChange={(e) =>
@@ -1353,6 +1494,30 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 placeholder="Number"
                                 wrapperClassName="w-auto"
                               />
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("roadName") && (
+                            <DraggableBox
+                              id="roadName"
+                              position={fieldPositions.roadName}
+                              onPositionChange={updateFieldPosition}
+                              label="Street Number"
+                              zoom={0.85}
+                              disabled={lockedSections.headerAddress}
+                              containerClassName="w-auto inline-flex items-center shrink-0"
+                              className="w-auto inline-flex items-center"
+                              onDelete={() =>
+                                removeStandardField(
+                                  "roadName",
+                                  "Street Number",
+                                  roadName,
+                                  "Header Address",
+                                  fieldStyles.roadName,
+                                )
+                              }
+                              deleteTitle="Remove Street Number"
+                            >
                               <StyledInput
                                 value={roadName}
                                 onChange={(e) => setRoadName(e.target.value)}
@@ -1360,9 +1525,34 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 onChangeStyle={(style) =>
                                   updateFieldStyle("roadName", style)
                                 }
-                                className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                                className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                                 placeholder="0"
+                                wrapperClassName="w-auto"
                               />
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("roadLabelAfter") && (
+                            <DraggableBox
+                              id="roadLabelAfter"
+                              position={fieldPositions.roadLabelAfter}
+                              onPositionChange={updateFieldPosition}
+                              label="Road Label"
+                              zoom={0.85}
+                              disabled={lockedSections.headerAddress}
+                              containerClassName="w-auto inline-flex items-center shrink-0"
+                              className="w-auto inline-flex items-center"
+                              onDelete={() =>
+                                removeStandardField(
+                                  "roadLabelAfter",
+                                  "Road Label",
+                                  roadLabelAfter,
+                                  "Header Address",
+                                  fieldStyles.roadLabelAfter,
+                                )
+                              }
+                              deleteTitle="Remove Road Label"
+                            >
                               <StyledInput
                                 value={roadLabelAfter}
                                 onChange={(e) =>
@@ -1376,9 +1566,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 placeholder="Road"
                                 wrapperClassName="w-auto"
                               />
-                            </div>
-                          </DraggableBox>
-                        )}
+                            </DraggableBox>
+                          )}
+                        </div>
 
                         <hr className="border-t-2 border-dotted border-white w-full" />
 
@@ -2969,26 +3159,28 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                         </DraggableBox>
                       )}
 
-                      {!isFieldDeleted("roadNamePage2") && (
-                        <DraggableBox
-                          id="roadNamePage2"
-                          position={fieldPositions.roadNamePage2}
-                          onPositionChange={updateFieldPosition}
-                          label="Street / Road"
-                          zoom={0.85}
-                          disabled={lockedSections.headerAddressPage2}
-                          onDelete={() =>
-                            removeStandardField(
-                              "roadNamePage2",
-                              "Street / Road",
-                              roadName,
-                              "Header Address (Page 2)",
-                              fieldStyles.roadName,
-                            )
-                          }
-                          deleteTitle="Remove Street / Road"
-                        >
-                          <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center whitespace-nowrap w-full mb-3">
+                      <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center gap-1.5 whitespace-nowrap w-full mb-3">
+                        {!isFieldDeleted("roadLabelBeforePage2") && (
+                          <DraggableBox
+                            id="roadLabelBeforePage2"
+                            position={fieldPositions.roadLabelBeforePage2}
+                            onPositionChange={updateFieldPosition}
+                            label="Number Label"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddressPage2}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center"
+                            onDelete={() =>
+                              removeStandardField(
+                                "roadLabelBeforePage2",
+                                "Number Label",
+                                roadLabelBefore,
+                                "Header Address (Page 2)",
+                                fieldStyles.roadLabelBefore,
+                              )
+                            }
+                            deleteTitle="Remove Number Label"
+                          >
                             <StyledInput
                               value={roadLabelBefore}
                               onChange={(e) =>
@@ -3002,6 +3194,30 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               placeholder="Number"
                               wrapperClassName="w-auto"
                             />
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("roadNamePage2") && (
+                          <DraggableBox
+                            id="roadNamePage2"
+                            position={fieldPositions.roadNamePage2}
+                            onPositionChange={updateFieldPosition}
+                            label="Street Number"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddressPage2}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center"
+                            onDelete={() =>
+                              removeStandardField(
+                                "roadNamePage2",
+                                "Street Number",
+                                roadName,
+                                "Header Address (Page 2)",
+                                fieldStyles.roadName,
+                              )
+                            }
+                            deleteTitle="Remove Street Number"
+                          >
                             <StyledInput
                               value={roadName}
                               onChange={(e) => setRoadName(e.target.value)}
@@ -3009,9 +3225,34 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               onChangeStyle={(style) =>
                                 updateFieldStyle("roadName", style)
                               }
-                              className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center flex-1 min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                              className="font-light text-[13px] h-[16px] leading-[13px] p-0 mx-1 mt-[2px] bg-transparent text-[#ffffff] text-center min-w-[20px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                               placeholder="0"
+                              wrapperClassName="w-auto"
                             />
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("roadLabelAfterPage2") && (
+                          <DraggableBox
+                            id="roadLabelAfterPage2"
+                            position={fieldPositions.roadLabelAfterPage2}
+                            onPositionChange={updateFieldPosition}
+                            label="Road Label"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddressPage2}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center"
+                            onDelete={() =>
+                              removeStandardField(
+                                "roadLabelAfterPage2",
+                                "Road Label",
+                                roadLabelAfter,
+                                "Header Address (Page 2)",
+                                fieldStyles.roadLabelAfter,
+                              )
+                            }
+                            deleteTitle="Remove Road Label"
+                          >
                             <StyledInput
                               value={roadLabelAfter}
                               onChange={(e) =>
@@ -3025,9 +3266,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               placeholder="Road"
                               wrapperClassName="w-auto"
                             />
-                          </div>
-                        </DraggableBox>
-                      )}
+                          </DraggableBox>
+                        )}
+                      </div>
 
                       <hr className="border-t-2 border-dotted border-white w-full" />
 

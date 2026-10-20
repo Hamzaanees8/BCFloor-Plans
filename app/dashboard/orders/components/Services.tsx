@@ -269,13 +269,14 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
             const pkgCount = createCountMap(pkgServiceIds);
 
-            const hasExactServices = Object.keys(pkgCount).every((uuid) => {
-                return selectedCount[uuid] === pkgCount[uuid];
-            }) && Object.keys(selectedCount).every((uuid) => pkgCount[uuid] === selectedCount[uuid]);
+            const hasAllPackageServices = Object.keys(pkgCount).every((uuid) => {
+                return (selectedCount[uuid] || 0) >= pkgCount[uuid];
+            });
 
-            if (hasExactServices) {
-                foundPackage = pkg;
-                break;
+            if (hasAllPackageServices) {
+                if (!foundPackage || (Number(pkg.discount) || 0) > (Number(foundPackage.discount) || 0)) {
+                    foundPackage = pkg;
+                }
             }
         }
 
@@ -405,10 +406,22 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         return total + (Number(service.price) || 0);
     }, 0);
 
+    const eligiblePackagePrice = displayedServices?.reduce((total, service) => {
+        if (service.payment_status?.toUpperCase() === 'PAID') return total;
+        const sUuid = service.uuid || service.service_uuid;
+        const sId = service.id;
+        const isEligible = (sUuid && packageServiceUuids.has(String(sUuid))) ||
+                           (sId && packageServiceUuids.has(String(sId)));
+        if (isEligible) {
+            return total + (Number(service.price) || 0);
+        }
+        return total;
+    }, 0) || 0;
+
     const discount = activePackage
         ? (activePackage.discount_type === 'dollar'
-            ? Math.min(rawTotalPrice, Number(activePackage.discount) || 0)
-            : rawTotalPrice * ((Number(activePackage.discount) || 0) / 100))
+            ? Math.min(eligiblePackagePrice, Number(activePackage.discount) || 0)
+            : eligiblePackagePrice * ((Number(activePackage.discount) || 0) / 100))
         : 0;
 
     const totalPrice = Math.max(0, rawTotalPrice - discount);
