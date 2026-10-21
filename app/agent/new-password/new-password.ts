@@ -1,9 +1,12 @@
 
-type LoginPayload = {
+export type NewPasswordPayload = {
     email: string;
-    password: string
-    password_confirmation: string
-    token: string
+    password: string;
+    password_confirmation: string;
+    token: string;
+    role?: string;
+    organization_slug?: string;
+    organization_id?: number;
 };
 
 type LoginResponse = {
@@ -16,7 +19,7 @@ type LoginResponse = {
 };
 
 
-export async function newPassword(payload: LoginPayload): Promise<LoginResponse> {
+export async function newPassword(payload: NewPasswordPayload): Promise<LoginResponse> {
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

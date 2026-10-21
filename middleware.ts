@@ -6,6 +6,7 @@ import { getConfiguredDefaultPortalType, isTourDomain, isLocalhostDomain, isDefa
 const AUTH_ROUTES = [
   '/login',
   '/login-user',
+  '/signup',
   '/forget-password',
   '/login-first-time',
   '/new-password',
@@ -36,6 +37,44 @@ function getDefaultOrLocalhostPortalType(hostname: string): string {
   }
 
   return 'admin';
+}
+
+const RESERVED_FIRST_SEGMENTS = new Set([
+  'admin',
+  'agent',
+  'vendor',
+  'dashboard',
+  'tour',
+  'tours',
+  'whitelabel',
+  'api',
+  'about',
+  'book-now',
+  'login',
+  'login-user',
+  'login-first-time',
+  'forget-password',
+  'new-password',
+  'password-success',
+  'set-password',
+]);
+
+const ORG_SLUG_ACTIONS = new Set([
+  'login',
+  'signup',
+  'forget-password',
+  'new-password',
+  'password-success',
+]);
+
+function isOrgSlugAuthRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+  const first = segments[0].toLowerCase();
+  if (RESERVED_FIRST_SEGMENTS.has(first)) return false;
+  if (segments.length === 1) return true; // e.g. /{org-slug}
+  if (segments.length === 2 && ORG_SLUG_ACTIONS.has(segments[1].toLowerCase())) return true; // e.g. /{org-slug}/login
+  return false;
 }
 
 // Core routing logic — same for all domains, driven only by portal_type
@@ -72,6 +111,13 @@ function buildResponse(
     return NextResponse.redirect(new URL(`/tours${search}`, request.url));
   }
   // ─────────────────────────────────────────────────────────────────────────
+
+  // Organization-slug agent auth routes (e.g. /{org-slug}, /{org-slug}/login, /{org-slug}/signup, etc.)
+  if (isOrgSlugAuthRoute(pathname)) {
+    return NextResponse.rewrite(
+      new URL(`/agent${pathname}${search}`, request.url)
+    );
+  }
 
   if (portalType === 'agent') {
     // Block vendor-specific pages
@@ -116,8 +162,24 @@ function buildResponse(
   }
 
   // admin (default)
-  // Block portal-specific pages
-  if (pathname.startsWith('/agent') || pathname.startsWith('/vendor')) {
+  // Allow agent org-slug routes or auth routes if accessed directly with /agent prefix
+  if (pathname.startsWith('/agent/')) {
+    const afterAgent = pathname.replace(/^\/agent/, '');
+    if (
+      isOrgSlugAuthRoute(afterAgent) ||
+      AUTH_ROUTES.some((r) => afterAgent === r || afterAgent.startsWith(r + '/'))
+    ) {
+      return NextResponse.next();
+    }
+    return NextResponse.rewrite(new URL('/404', request.url));
+  }
+  if (pathname.startsWith('/vendor/')) {
+    const afterVendor = pathname.replace(/^\/vendor/, '');
+    if (
+      AUTH_ROUTES.some((r) => afterVendor === r || afterVendor.startsWith(r + '/'))
+    ) {
+      return NextResponse.next();
+    }
     return NextResponse.rewrite(new URL('/404', request.url));
   }
   // Allow shared public routes: /tour and /tours are served as-is

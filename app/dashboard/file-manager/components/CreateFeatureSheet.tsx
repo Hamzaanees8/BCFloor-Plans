@@ -286,6 +286,7 @@ const CreateFeatureSheet = forwardRef<
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef1 = useRef<HTMLDivElement | null>(null);
+  const lastLoadedSheetKeyRef = useRef<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [realtorPreview, setRealtorPreview] = useState<string | null>(null);
   const realtorInputRef = useRef<HTMLInputElement | null>(null);
@@ -929,6 +930,8 @@ const CreateFeatureSheet = forwardRef<
           activeStandardRef.current.importFromPayload(result);
         }
 
+        lastLoadedSheetKeyRef.current = `${selectedTemplate}_${result.uuid}`;
+
         toast.success("Feature sheet saved successfully!");
         return result;
       } else {
@@ -1240,13 +1243,24 @@ const CreateFeatureSheet = forwardRef<
 
   // Load data into formData when selectedTemplate or selectedSheetUuid changes
   useEffect(() => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate) {
+      lastLoadedSheetKeyRef.current = null;
+      return;
+    }
+
+    const currentKey = `${selectedTemplate}_${selectedSheetUuid || "new"}`;
 
     const sheetData = selectedSheetUuid
       ? featureSheets.find((s) => s.uuid === selectedSheetUuid)
       : featureSheets.find((s) => s.template_key === selectedTemplate);
 
     if (sheetData) {
+      // Prevent repeated re-imports if this sheet is already loaded into the active editor
+      if (lastLoadedSheetKeyRef.current === currentKey) {
+        return;
+      }
+      lastLoadedSheetKeyRef.current = currentKey;
+
       console.log("Loading data for template:", selectedTemplate, sheetData);
       if (sheetData.type === "pdf") {
         const resolvedUrl =
@@ -1303,6 +1317,11 @@ const CreateFeatureSheet = forwardRef<
       // Saved sheet UUID is set, but featureSheets list hasn't updated in state closure yet — DO NOT WIPE FORM DATA!
       return;
     } else {
+      if (lastLoadedSheetKeyRef.current === currentKey) {
+        return;
+      }
+      lastLoadedSheetKeyRef.current = currentKey;
+
       // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData with dual branding if co-agents exist
       const primaryAgentName = `${orderData?.agent?.first_name || ""} ${orderData?.agent?.last_name || ""}`.trim();
       const rawCo = (orderData as any)?.co_agents || (orderData as any)?.property?.co_agents || (orderData as any)?.coagents;

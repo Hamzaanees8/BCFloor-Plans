@@ -161,7 +161,7 @@ export default function OrgAgentSignupPage() {
       });
 
       toast.success('Account created successfully! Please log in.');
-      router.push('/login-user');
+      router.push(`/${slug}/login`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -206,7 +206,7 @@ export default function OrgAgentSignupPage() {
             We could not find an active organization with the slug &quot;{slug}&quot;. Please verify the URL.
           </p>
           <Link
-            href="/login-user"
+            href="/login"
             className="mt-2 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#6BAE41] rounded-md hover:opacity-90 transition-opacity"
           >
             Go to Login
@@ -365,7 +365,7 @@ export default function OrgAgentSignupPage() {
         <div className="flex justify-center items-center gap-1.5 text-[14px]">
           <span className="text-[#666]">Already have an account?</span>
           <Link
-            href="/login-user"
+            href={`/${slug}/login`}
             style={{ color: primaryColor }}
             className="font-[600] hover:underline"
           >

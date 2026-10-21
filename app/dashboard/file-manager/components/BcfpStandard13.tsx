@@ -564,42 +564,6 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
 
-    // Keep local deleted fields in sync when formData changes from external load
-    useEffect(() => {
-      if (
-        formData?.deletedStandardFieldIds &&
-        Array.isArray(formData.deletedStandardFieldIds)
-      ) {
-        setDeletedStandardFieldIds((prev) => {
-          if (
-            prev.length === formData.deletedStandardFieldIds!.length &&
-            prev.every(
-              (id, idx) => id === formData.deletedStandardFieldIds![idx],
-            )
-          ) {
-            return prev;
-          }
-          return formData.deletedStandardFieldIds!;
-        });
-      }
-      if (
-        formData?.deletedDetailFields &&
-        Array.isArray(formData.deletedDetailFields)
-      ) {
-        setDeletedDetailFields((prev) => {
-          if (
-            prev.length === formData.deletedDetailFields!.length &&
-            prev.every(
-              (f, idx) => f.id === formData.deletedDetailFields![idx]?.id,
-            )
-          ) {
-            return prev;
-          }
-          return formData.deletedDetailFields!;
-        });
-      }
-    }, [formData?.deletedStandardFieldIds, formData?.deletedDetailFields]);
-
     useEffect(() => {
       updateFormData({
         deletedStandardFieldIds,

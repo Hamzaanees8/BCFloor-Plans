@@ -175,21 +175,21 @@ export function DualModeFileManager({
                 {singleAccordionTitle ? (
                     <Accordion type="multiple" defaultValue={["all"]} className="w-full">
                         <AccordionItem value="all" className="overflow-hidden shadow-sm">
-                            <AccordionTrigger
-                                className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                            <div
+                                className="flex items-center justify-between pr-4"
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                             >
-                                <div className="flex items-center flex-1 justify-between pr-4">
-                                    <div className="flex items-center gap-2">
-                                        <span>{singleAccordionTitle} ({items.length})</span>
-                                        {saveButton}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
-                                        {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                    </div>
+                                <AccordionTrigger
+                                    className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current flex-1`}
+                                >
+                                    <span>{singleAccordionTitle} ({items.length})</span>
+                                </AccordionTrigger>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {saveButton}
+                                    {savedFilesAction && <div className="hidden md:block">{savedFilesAction}</div>}
+                                    {modeToggleButton && <div className="hidden md:block">{modeToggleButton}</div>}
                                 </div>
-                            </AccordionTrigger>
+                            </div>
                             <AccordionContent className="p-0 border-t border-[#BBBBBB]">
                                 <div className="flex md:hidden items-center justify-end gap-2 p-4 pb-0 w-full">
                                     {modeToggleButton && <div>{modeToggleButton}</div>}
@@ -247,15 +247,19 @@ export function DualModeFileManager({
                                     )}
 
                                     <AccordionItem value="saved" className="overflow-hidden shadow-sm">
-                                        <AccordionTrigger
-                                            className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        <div
+                                            className="flex items-center justify-between pr-4"
                                             style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                         >
-                                            <div className="flex items-center flex-1 justify-between pr-4">
+                                            <AccordionTrigger
+                                                className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current flex-1`}
+                                            >
                                                 <span>Unselected Files ({agentUnselectedItems.length})</span>
-                                                <div className="hidden md:block" onClick={e => e.stopPropagation()}>{unselectedAction}</div>
-                                            </div>
-                                        </AccordionTrigger>
+                                            </AccordionTrigger>
+                                            {unselectedAction && (
+                                                <div className="hidden md:block shrink-0">{unselectedAction}</div>
+                                            )}
+                                        </div>
                                         <AccordionContent className="p-4 border-t border-[#BBBBBB]">
                                             {unselectedSubHeader}
                                             {agentUnselectedItems.length === 0 ? (
@@ -295,21 +299,21 @@ export function DualModeFileManager({
                             <div className="flex-1 flex flex-col gap-4 w-full">
                                 <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
                                     <AccordionItem value="selected" className="overflow-hidden shadow-sm">
-                                        <AccordionTrigger
-                                            className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] min-h-[44px] md:min-h-[52px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        <div
+                                            className="flex flex-wrap items-center justify-between gap-2 pr-2 md:pr-4"
                                             style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                         >
-                                            <div className="flex flex-wrap items-center flex-1 justify-between gap-2 pr-2 md:pr-4">
-                                                <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-                                                    <span>Selected files ({selectedItems.length})</span>
-                                                    {saveButton}
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-wrap justify-end">
-                                                    {selectedAction && <div className="hidden md:flex items-center gap-2" onClick={e => e.stopPropagation()}>{selectedAction}</div>}
-                                                    {modeToggleButton && <div className="hidden md:flex items-center" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                                </div>
+                                            <AccordionTrigger
+                                                className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] min-h-[44px] md:min-h-[52px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current flex-1`}
+                                            >
+                                                <span>Selected files ({selectedItems.length})</span>
+                                            </AccordionTrigger>
+                                            <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+                                                {saveButton}
+                                                {selectedAction && <div className="hidden md:flex items-center gap-2">{selectedAction}</div>}
+                                                {modeToggleButton && <div className="hidden md:flex items-center">{modeToggleButton}</div>}
                                             </div>
-                                        </AccordionTrigger>
+                                        </div>
                                         <AccordionContent className="p-4 border-t border-[#BBBBBB]">
                                             <div className="flex md:hidden items-center justify-end gap-2 mb-4 w-full">
                                                 {modeToggleButton && <div>{modeToggleButton}</div>}
@@ -365,18 +369,20 @@ export function DualModeFileManager({
                             )}
 
                             <AccordionItem value="saved" className="overflow-hidden shadow-sm">
-                                <AccordionTrigger
-                                    className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                <div
+                                    className="flex items-center justify-between pr-4"
                                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                 >
-                                    <div className="flex items-center flex-1 justify-between pr-4">
+                                    <AccordionTrigger
+                                        className={`px-[12px] md:px-[16px] py-[8px] md:py-[10px] h-[40px] md:h-[50px] ${userType}-text text-[12px] md:text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current flex-1`}
+                                    >
                                         <span>Saved Files ({savedItems.length})</span>
-                                        <div className="flex items-center gap-2">
-                                            {savedFilesAction && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{savedFilesAction}</div>}
-                                            {modeToggleButton && <div className="hidden md:block" onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                        </div>
+                                    </AccordionTrigger>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {savedFilesAction && <div className="hidden md:block">{savedFilesAction}</div>}
+                                        {modeToggleButton && <div className="hidden md:block">{modeToggleButton}</div>}
                                     </div>
-                                </AccordionTrigger>
+                                </div>
                                 <AccordionContent className="p-4 border-t border-[#BBBBBB]">
                                     <div className="flex md:hidden items-center justify-end gap-2 mb-4 w-full">
                                         {modeToggleButton && <div>{modeToggleButton}</div>}

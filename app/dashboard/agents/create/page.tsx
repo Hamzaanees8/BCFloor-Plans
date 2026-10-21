@@ -2911,8 +2911,7 @@ const AgentForm = () => {
                                             const partialOrders =
                                               property.orders.filter(
                                                 (order) =>
-                                                  order.payment_status ===
-                                                  "PARTIALLY_PAID",
+                                                  (order.payment_status === "PARTIALLY_PAID" || order.payment_status === "PARTIAL"),
                                               ).length;
 
                                             return (
@@ -3119,8 +3118,7 @@ const AgentForm = () => {
                                                       order.payment_status ===
                                                       "PAID"
                                                         ? "bg-[#6BAE41]"
-                                                        : order.payment_status ===
-                                                            "PARTIALLY_PAID"
+                                                        : (order.payment_status === "PARTIALLY_PAID" || order.payment_status === "PARTIAL")
                                                           ? "bg-[#4290E9]"
                                                           : "bg-[#E06D5E]"
                                                     }`}
@@ -3128,8 +3126,7 @@ const AgentForm = () => {
                                                     {order.payment_status ===
                                                     "PAID"
                                                       ? "PAID"
-                                                      : order.payment_status ===
-                                                          "PARTIALLY_PAID"
+                                                      : (order.payment_status === "PARTIALLY_PAID" || order.payment_status === "PARTIAL")
                                                         ? "PARTIAL"
                                                         : "UNPAID"}
                                                   </div>

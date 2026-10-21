@@ -1,6 +1,9 @@
 
-type LoginPayload = {
+export type ForgetPasswordPayload = {
     email: string;
+    role?: string;
+    organization_slug?: string;
+    organization_id?: number;
 };
 
 type LoginResponse = {
@@ -13,7 +16,7 @@ type LoginResponse = {
 };
 
 
-export async function forgetPassword(payload: LoginPayload): Promise<LoginResponse> {
+export async function forgetPassword(payload: ForgetPasswordPayload): Promise<LoginResponse> {
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

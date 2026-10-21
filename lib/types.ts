@@ -346,7 +346,7 @@ export interface ListingOrder {
     | "Completed"
     | "Cancelled"
     | "On Hold";
-    payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID";
+    payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID" | "PARTIAL";
     property_address: string;
     property_location: string;
     vendor_address: string;
