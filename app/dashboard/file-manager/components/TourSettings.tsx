@@ -105,7 +105,8 @@ const TourSettings = ({
           .replace(/-+$/, ""); // Trim - from end of text
       };
 
-      const tourUrl = `${getTourDomainUrl(organization)}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+      const activeOrg = organization || (orderData as any)?.organization;
+      const tourUrl = `${getTourDomainUrl(activeOrg)}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
 
       setPropertyWebsite(orderData?.property?.property_website || tourUrl);
       setMlsProperty(orderData?.property?.mls_property ?? "");

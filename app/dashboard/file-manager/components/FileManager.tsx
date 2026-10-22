@@ -57,7 +57,11 @@ import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-s
 import { Loader2, X, Edit2, Save, Trash2 } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
-import { isVoidOrCancelled, isRenewalInvoice } from "../../billing/billing";
+import { isVoidOrCancelled } from "../../billing/billing";
+import {
+  isRenewalInvoice,
+  isInvoiceLinkedToService,
+} from "../../invoice/invoice_utils";
 import DeleteInvoiceModal from "../../invoice/components/DeleteInvoiceModal";
 
 type OrerServices = NonNullable<Order>["services"][0];
@@ -2569,9 +2573,13 @@ const FileManager = () => {
                                   <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
                                     Hosting Renewal
                                   </span>
-                                ) : (
+                                ) : isInvoiceLinkedToService(invoice) ? (
                                   <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
                                     Service Invoice
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                                    Orphan Invoice
                                   </span>
                                 )}
                                 {invoice.agent_type && (
@@ -2788,9 +2796,13 @@ const FileManager = () => {
                           <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
                             Hosting Renewal Invoice
                           </span>
-                        ) : (
+                        ) : isInvoiceLinkedToService(viewingInvoice) ? (
                           <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
                             Service Order Invoice
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                            Orphan Invoice
                           </span>
                         )}
                       </div>

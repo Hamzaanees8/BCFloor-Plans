@@ -10,19 +10,35 @@ export function GlobalDownloadProgressOverlay() {
     const { jobs, closeJob, triggerBrowserDownload } = useGlobalDownload();
     const { userType } = useAppContext();
 
-    const { sortedJobs, activeJobsCount, averageProgress } = useMemo(() => {
+    const { sortedJobs, activeJobsCount, averageProgress, isAnyZipping } = useMemo(() => {
         if (jobs.length === 0) {
-            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0 };
+            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0, isAnyZipping: false };
         }
 
-        // Calculate average progress of ALL jobs
-        const totalProgress = jobs.reduce((sum, job) => sum + job.progress, 0);
-        const averageProgress = Math.round(totalProgress / jobs.length);
+        // Active jobs: not completed and no error
+        const activeJobs = jobs.filter(j => j.status !== 'completed' && !j.error && j.status !== 'failed');
+        const activeJobsCount = activeJobs.length;
+        const isAnyZipping = activeJobs.some(
+            j => j.status === 'zipping' || (j.progress >= 100 && j.completedFiles.length === 0)
+        );
 
-        // Sort: Active (incomplete/non-error) first, newest first. Then completed/errored, newest first.
+        // Calculate average progress of ALL jobs
+        // While a job is active/zipping, cap its progress at 99% so the overall bar does not show 100% prematurely
+        const totalProgress = jobs.reduce((sum, job) => {
+            if (job.status === 'completed') return sum + 100;
+            if (job.status === 'zipping' || (job.progress >= 100 && job.completedFiles.length === 0)) {
+                return sum + 99;
+            }
+            return sum + (job.progress || 0);
+        }, 0);
+        const averageProgress = activeJobsCount > 0 
+            ? Math.min(99, Math.round(totalProgress / jobs.length))
+            : Math.round(totalProgress / jobs.length);
+
+        // Sort: Active first, newest first. Then completed/errored, newest first.
         const sortedJobs = [...jobs].sort((a, b) => {
-            const aIsActive = a.progress < 100 && !a.error;
-            const bIsActive = b.progress < 100 && !b.error;
+            const aIsActive = a.status !== 'completed' && !a.error && a.status !== 'failed';
+            const bIsActive = b.status !== 'completed' && !b.error && b.status !== 'failed';
 
             if (aIsActive && !bIsActive) return -1;
             if (!aIsActive && bIsActive) return 1;
@@ -32,14 +48,12 @@ export function GlobalDownloadProgressOverlay() {
             return indexB - indexA; // Newest first
         });
 
-        const activeJobsCount = jobs.filter(j => j.progress < 100 && !j.error).length;
-
-        return { sortedJobs, activeJobsCount, averageProgress };
+        return { sortedJobs, activeJobsCount, averageProgress, isAnyZipping };
     }, [jobs]);
 
     const closeAllFinished = () => {
         jobs.forEach(job => {
-            if (job.progress === 100 || job.error) {
+            if (job.status === 'completed' || job.error || job.status === 'failed') {
                 closeJob(job.id);
             }
         });
@@ -50,7 +64,7 @@ export function GlobalDownloadProgressOverlay() {
     }
 
     return (
-        <div className="fixed bottom-24 right-6 z-[200] w-[400px] max-w-[calc(100vw-3rem)] pointer-events-none flex flex-col gap-4 items-end animate-in fade-in slide-in-from-bottom-5">
+        <div className="fixed bottom-24 right-6 z-[200] w-[420px] max-w-[calc(100vw-3rem)] pointer-events-none flex flex-col gap-4 items-end animate-in fade-in slide-in-from-bottom-5">
             <div className="w-full bg-white rounded-xl shadow-2xl border border-gray-200 pointer-events-auto flex flex-col max-h-[60vh] overflow-hidden">
                 <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col gap-2 shrink-0">
                     <div className="flex items-center justify-between">
@@ -60,7 +74,7 @@ export function GlobalDownloadProgressOverlay() {
                             </h2>
                             {activeJobsCount > 0 ? (
                                 <span className={`text-[10px] font-semibold ${userType}-text animate-pulse uppercase tracking-wider`}>
-                                    Processing ZIP...
+                                    {isAnyZipping ? 'Zipping files...' : 'Processing files...'}
                                 </span>
                             ) : (
                                 <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">
@@ -71,7 +85,7 @@ export function GlobalDownloadProgressOverlay() {
                         <div className="flex items-center gap-3">
                             {activeJobsCount > 0 && (
                                 <span className={`text-xs font-bold ${userType}-text tabular-nums`}>
-                                    {averageProgress}%
+                                    {isAnyZipping ? 'Zipping...' : `${averageProgress}%`}
                                 </span>
                             )}
                             <button
@@ -84,11 +98,18 @@ export function GlobalDownloadProgressOverlay() {
                         </div>
                     </div>
                     {activeJobsCount > 0 && (
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-300 ease-out ${averageProgress === 100 ? 'bg-green-500' : `${userType}-bg`}`}
-                                style={{ width: `${averageProgress}%` }}
-                            />
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden relative">
+                            {isAnyZipping ? (
+                                <div className="relative w-full h-full overflow-hidden">
+                                    <div className={`absolute inset-0 ${userType}-bg opacity-40`} />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-shimmer-wave" />
+                                </div>
+                            ) : (
+                                <div
+                                    className={`h-full transition-all duration-300 ease-out ${userType}-bg`}
+                                    style={{ width: `${averageProgress}%` }}
+                                />
+                            )}
                         </div>
                     )}
                 </div>
@@ -119,12 +140,20 @@ function DownloadJobItem({
     onClose: () => void;
     onDownload: (url: string) => void;
 }) {
-    const { progress, error, statusText, completedFiles } = job;
-    const isComplete = progress === 100 && !error;
-    const isError = !!error;
+    const { progress, error, statusText, completedFiles, status } = job;
+    const isError = Boolean(error || status === 'failed');
+    const isComplete = !isError && (status === 'completed' || (completedFiles.length > 0 && progress === 100));
+    const isZipping = !isError && !isComplete && (status === 'zipping' || (progress >= 100 && completedFiles.length === 0));
+    const isProcessing = !isError && !isComplete && !isZipping;
 
     return (
-        <div className={`flex flex-col border ${isComplete ? 'border-green-100 bg-green-50/30' : 'border-gray-100 bg-white'} rounded-lg p-3 shadow-sm relative transition-colors`}>
+        <div className={`flex flex-col border ${
+            isComplete 
+                ? 'border-green-100 bg-green-50/30' 
+                : isZipping 
+                    ? 'border-amber-100/80 bg-amber-50/20' 
+                    : 'border-gray-100 bg-white'
+        } rounded-lg p-3 shadow-sm relative transition-colors`}>
             <div className="flex items-center justify-between mb-2 shrink-0 gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                     {isComplete && <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />}
@@ -147,29 +176,92 @@ function DownloadJobItem({
                 )}
             </div>
 
-            {!isError && (!isComplete || completedFiles.length === 0) && (
-                <div className="mb-1 shrink-0">
-                    <div className="flex items-center justify-between text-[10px] mb-1">
-                        <span className="text-orange-600 font-medium whitespace-nowrap">Do not close window.</span>
-                        <span className={`font-semibold ${isComplete ? 'text-green-600' : `${userType}-text`}`}>
-                            {progress}%
-                        </span>
+            {/* 1. Processing files state (with info message and percentage loader) */}
+            {isProcessing && (
+                <div className="mb-1 shrink-0 space-y-2">
+                    <div className="bg-gray-50 border border-gray-100 rounded-md p-2 text-[11px] text-gray-600 leading-snug">
+                        <p className="font-semibold text-gray-800 text-[11px] mb-0.5">
+                            Preparing your files...
+                        </p>
+                        <p className="text-[10.5px] text-gray-500">
+                            This may take a few moments depending on file size and quantity.
+                        </p>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-300 ease-out ${isComplete ? 'bg-green-500' : `${userType}-bg`}`}
-                            style={{ width: `${progress}%` }}
-                        />
+
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-orange-600 font-medium whitespace-nowrap">Do not close window.</span>
+                            <span className={`font-semibold ${userType}-text tabular-nums`}>
+                                {progress}%
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-300 ease-out ${userType}-bg`}
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
                     </div>
                 </div>
             )}
 
+            {/* 2. Zipping files state (with info message and animated color skeleton loader) */}
+            {isZipping && (
+                <div className="mb-1 shrink-0 space-y-2">
+                    <div className="bg-amber-50/70 border border-amber-200/60 rounded-md p-2 text-[11px] text-amber-900 leading-snug">
+                        <p className="font-semibold text-amber-800 text-[11px] flex items-center gap-1.5 mb-0.5">
+                            <span className="relative flex h-2 w-2">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${userType}-bg opacity-75`} />
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${userType}-bg`} />
+                            </span>
+                            Zipping files in progress...
+                        </p>
+                        <p className="text-[10.5px] text-gray-600">
+                            Files processed successfully. Compressing and creating your ZIP archive now. This may take a moment.
+                        </p>
+                    </div>
+
+                    {/* Color Skeleton Loader - Shows fluid movement without percentage */}
+                    <div className="space-y-2 bg-gray-50/80 border border-gray-100 rounded-lg p-2.5">
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-orange-600 font-medium whitespace-nowrap">Do not close window.</span>
+                            <span className={`font-semibold ${userType}-text text-[10.5px] uppercase tracking-wider animate-pulse flex items-center gap-1`}>
+                                <span className="inline-block w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="inline-block w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <span className="inline-block w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
+                                Zipping...
+                            </span>
+                        </div>
+
+                        {/* Animated colored skeleton bar */}
+                        <div className="relative w-full h-2 rounded-full overflow-hidden bg-gray-200">
+                            <div className={`absolute inset-0 ${userType}-bg opacity-30`} />
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-shimmer-wave" />
+                        </div>
+
+                        {/* Skeleton lines movement */}
+                        <div className="space-y-1.5 pt-0.5">
+                            <div className="relative h-2 w-4/5 rounded bg-gray-200 overflow-hidden">
+                                <div className={`absolute inset-0 ${userType}-bg opacity-20`} />
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer-wave" />
+                            </div>
+                            <div className="relative h-2 w-3/5 rounded bg-gray-200 overflow-hidden">
+                                <div className={`absolute inset-0 ${userType}-bg opacity-15`} />
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer-wave" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 3. Error state */}
             {isError && (
-                <div className="mt-1 text-[11px] text-red-600 font-medium break-words shrink-0">
-                    {error}
+                <div className="mt-1 text-[11px] text-red-600 font-medium break-words shrink-0 bg-red-50 p-2 rounded border border-red-100">
+                    {error || 'Download job failed. Please try again.'}
                 </div>
             )}
 
+            {/* 4. Complete state (Ready for download) */}
             {isComplete && completedFiles.length > 0 && (
                 <div className="mt-2 space-y-2">
                     <p className="text-[11px] text-gray-500 leading-relaxed bg-white/70 p-2 rounded border border-gray-100">
@@ -195,3 +287,4 @@ function DownloadJobItem({
         </div>
     );
 }
+

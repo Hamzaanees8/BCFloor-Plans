@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Upload, ImageIcon, X } from "lucide-react";
+import { useFieldPanel, closeFeatureSheetSidebars } from "./FieldPanelContext";
 
 interface ImageSourceModalProps {
   onClose: () => void;
@@ -11,11 +12,14 @@ const ImageSourceModal: React.FC<ImageSourceModalProps> = ({
   onClose,
   onSelectSource,
 }) => {
+  const fieldPanel = useFieldPanel();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    fieldPanel?.closeAllSidebars?.();
+    closeFeatureSheetSidebars();
+  }, [fieldPanel]);
 
   const modalContent = (
     <div 

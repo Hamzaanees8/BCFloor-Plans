@@ -14,11 +14,20 @@ interface OrganizationBranding {
   white_label_styles?: any;
 }
 
+export interface OrganizationDomainItem {
+  id?: number;
+  organization_id?: number;
+  domain: string;
+  portal_type: "admin" | "agent" | "vendor" | "tours";
+}
+
 interface OrganizationData {
   org_id: number;
   uuid: string;
   slug: string;
   name?: string;
+  domain?: string | null;
+  domains?: OrganizationDomainItem[];
   portal_type: "admin" | "agent" | "vendor" | "tours";
   is_whitelabel: boolean;
   from_name: string;

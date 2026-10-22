@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { TextStyle } from "../types/featureSheetTypes";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useFieldPanel, CLOSE_SIDEBARS_EVENT } from "./FieldPanelContext";
 
 export interface DeletedDetailFieldItem {
   id: string;
@@ -44,6 +45,7 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
   className = "",
   userType = "admin",
 }) => {
+  const fieldPanel = useFieldPanel();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -51,6 +53,18 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Listen for global close sidebars event broadcast (e.g. image modal opened)
+  useEffect(() => {
+    const handleCloseEvent = () => {
+      if (onToggle) onToggle(false);
+      setInternalIsOpen(false);
+    };
+    window.addEventListener(CLOSE_SIDEBARS_EVENT, handleCloseEvent);
+    return () => {
+      window.removeEventListener(CLOSE_SIDEBARS_EVENT, handleCloseEvent);
+    };
+  }, [onToggle]);
 
   // Dynamically offset from dashboard app-sidebar if present
   let sidebarLeftOffset = 0;
@@ -63,17 +77,32 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
     sidebarLeftOffset = 0;
   }
 
+  // Derive isOpen: prop override > FieldPanelContext > internal fallback
   const isOpen =
-    controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+    controlledIsOpen !== undefined
+      ? controlledIsOpen
+      : fieldPanel
+        ? fieldPanel.isDeletedFieldsOpen
+        : internalIsOpen;
 
   const handleOpen = () => {
-    if (onToggle) onToggle(true);
-    else setInternalIsOpen(true);
+    if (onToggle) {
+      onToggle(true);
+    } else if (fieldPanel) {
+      fieldPanel.openDeletedFieldsPanel();
+    } else {
+      setInternalIsOpen(true);
+    }
   };
 
   const handleClose = () => {
-    if (onToggle) onToggle(false);
-    else setInternalIsOpen(false);
+    if (onToggle) {
+      onToggle(false);
+    } else if (fieldPanel) {
+      fieldPanel.closeDeletedFieldsPanel();
+    } else {
+      setInternalIsOpen(false);
+    }
   };
 
   // Filter fields based on search query with full null-safety

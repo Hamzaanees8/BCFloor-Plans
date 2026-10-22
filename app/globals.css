@@ -623,6 +623,20 @@ textarea::placeholder {
   will-change: transform, opacity;
 }
 
+/* Skeleton Shimmer Wave */
+@keyframes shimmerWave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer-wave {
+  animation: shimmerWave 1.6s ease-in-out infinite;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

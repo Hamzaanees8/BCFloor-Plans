@@ -274,7 +274,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     } finally {
       setGlobalSaving(false);
     }
-  }, [photoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, heroType, heroVideoUuid, deletedSnapshotUuids, links]);
+  }, [photoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, heroType, heroVideoUuid, deletedSnapshotUuids, links, panAdjust]);
 
   const handleCancelReorder = useCallback(() => {
     const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');

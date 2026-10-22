@@ -10,6 +10,7 @@ export interface DownloadJobState {
     label?: string;
     isDownloading: boolean;
     progress: number;
+    status: 'pending' | 'processing' | 'zipping' | 'completed' | 'failed';
     error: string | null;
     statusText: string;
     completedFiles: { name: string; url: string }[];
@@ -65,8 +66,9 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                     label,
                     isDownloading: true,
                     progress: 0,
+                    status: 'processing',
                     error: null,
-                    statusText: label ? `${label}: Preparing ZIP...` : `Preparing ZIP...`,
+                    statusText: label ? `${label}: Preparing files...` : `Preparing files...`,
                     completedFiles: [],
                 }
             ]);
@@ -78,14 +80,14 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                 jobUuid = result.job_uuid;
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Failed to start download job';
-                updateJob(jobId, { error: msg, statusText: 'Download Failed', isDownloading: false });
+                updateJob(jobId, { error: msg, statusText: 'Download Failed', status: 'failed', isDownloading: false });
                 return false;
             }
 
             // Pseudo-progress animation while waiting for backend
             let pseudoProgress = 0;
             const pseudoTick = setInterval(() => {
-                pseudoProgress = Math.min(pseudoProgress + 2, 89);
+                pseudoProgress = Math.min(pseudoProgress + 2, 85);
                 updateJob(jobId, { progress: pseudoProgress });
             }, 400);
 
@@ -95,17 +97,11 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                         const poll = await PollDownloadJob(token, jobUuid);
                         const { status: job_status, percent: serverProgress, download_url, direct_download_links } = poll.data;
 
-                        if (typeof serverProgress === 'number') {
-                            clearInterval(pseudoTick);
-                            updateJob(jobId, { progress: serverProgress, statusText: label ? `${label}: Zipping files...` : `Zipping files...` });
-                        }
-
                         const terminal: DownloadJobStatus[] = ['completed', 'failed'];
 
                         if (terminal.includes(job_status)) {
                             clearInterval(pollInterval);
                             clearInterval(pseudoTick);
-                            updateJob(jobId, { progress: 100 });
 
                             if (job_status === 'completed') {
                                 const links: { name: string; url: string }[] = [];
@@ -123,6 +119,8 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                                 }
                                 
                                 updateJob(jobId, {
+                                    progress: 100,
+                                    status: 'completed',
                                     completedFiles: links,
                                     statusText: label ? `${label}: Ready` : 'Ready for Download',
                                     isDownloading: false,
@@ -136,11 +134,26 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                                 resolve(true);
                             } else {
                                 updateJob(jobId, {
-                                    error: poll.data.message || 'Download job failed. Please try again.',
+                                    progress: 0,
+                                    status: 'failed',
+                                    error: poll.data.message || (poll.data as any).error || 'Download job failed. Please try again.',
                                     statusText: 'Download Failed',
                                     isDownloading: false,
                                 });
                                 resolve(false);
+                            }
+                        } else {
+                            // Non-terminal state (pending / processing)
+                            if (typeof serverProgress === 'number') {
+                                clearInterval(pseudoTick);
+                                const isZipping = serverProgress >= 100 || (job_status === 'processing' && serverProgress >= 99);
+                                updateJob(jobId, {
+                                    progress: serverProgress,
+                                    status: isZipping ? 'zipping' : 'processing',
+                                    statusText: isZipping 
+                                        ? (label ? `${label}: Zipping files...` : 'Zipping files...')
+                                        : (label ? `${label}: Processing files...` : 'Processing files...'),
+                                });
                             }
                         }
                     } catch (err) {
@@ -150,6 +163,7 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                         updateJob(jobId, {
                             error: msg,
                             statusText: 'Download Failed',
+                            status: 'failed',
                             isDownloading: false,
                         });
                         resolve(false);

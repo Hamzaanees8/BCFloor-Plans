@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Check, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
@@ -9,6 +9,7 @@ import { useFileManagerContext } from '../FileManagerContext';
 import { PdfPlaceholder } from './OptimizedPreview';
 import { PanoramaBadge } from './PanoramaBadge';
 import { isPanoramaFile } from '../utils/panoramaUtils';
+import { useFieldPanel, closeFeatureSheetSidebars } from "./FieldPanelContext";
 
 interface FileManagerGalleryProps {
   onImageSelect: (imageUrl: string) => void;
@@ -23,6 +24,7 @@ export default function FileManagerGallery({
   isOpen: externalIsOpen,
   onClose: externalOnClose
 }: FileManagerGalleryProps) {
+  const fieldPanel = useFieldPanel();
   const [selected, setSelected] = useState<number | null>(null);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { filesData } = useFileManagerContext();
@@ -32,6 +34,15 @@ export default function FileManagerGallery({
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
   const setIsOpen = externalOnClose ? (open: boolean) => { if (!open) externalOnClose(); } : setInternalIsOpen;
+
+  // Close both Field Editor and Deleted Fields sidebars when image popup opens
+  const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen) {
+      fieldPanel?.closeAllSidebars?.();
+      closeFeatureSheetSidebars();
+    }
+  }, [isOpen, fieldPanel]);
 
   const handleImageSelect = (idx: number) => {
     setSelected(idx);
@@ -85,6 +96,10 @@ export default function FileManagerGallery({
   };
 
   const handleOpenChange = (open: boolean) => {
+    if (open) {
+      fieldPanel?.closeAllSidebars?.();
+      closeFeatureSheetSidebars();
+    }
     setIsOpen(open);
     if (!open) {
       setSelected(null);
@@ -120,7 +135,7 @@ export default function FileManagerGallery({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {externalIsOpen === undefined && (
-        <DialogTrigger asChild>
+        <DialogTrigger asChild onClick={() => { fieldPanel?.closeAllSidebars?.(); closeFeatureSheetSidebars(); }}>
           {trigger || <Button variant="default">Select Photo</Button>}
         </DialogTrigger>
       )}

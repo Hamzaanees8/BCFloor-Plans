@@ -17,6 +17,7 @@ import DeleteInvoiceModal from './DeleteInvoiceModal'
 import { toast } from 'sonner'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
+import { isRenewalInvoice, isInvoiceLinkedToService } from '../invoice_utils'
 
 type InvoiceModalProps = {
     uuid: string;
@@ -398,8 +399,23 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto font-alexandria">
                 <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 flex-wrap gap-2">
-                    <DialogTitle className="text-xl font-bold">
-                        {loading ? 'Loading Invoice...' : invoice ? `Invoice #${invoice.invoice_number || invoice.id}` : 'Invoice'}
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2 flex-wrap">
+                        <span>{loading ? 'Loading Invoice...' : invoice ? `Invoice #${invoice.invoice_number || invoice.id}` : 'Invoice'}</span>
+                        {invoice && !loading && (
+                            isRenewalInvoice(invoice) ? (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
+                                    Hosting Renewal
+                                </span>
+                            ) : isInvoiceLinkedToService(invoice) ? (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
+                                    Service Invoice
+                                </span>
+                            ) : (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                                    Orphan Invoice
+                                </span>
+                            )
+                        )}
                     </DialogTitle>
                     <div className="flex gap-2 pr-8 flex-wrap items-center">
                         {invoice && !loading && (

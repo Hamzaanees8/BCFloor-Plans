@@ -81,7 +81,11 @@ import InvoicePaymentDialog from "./invoicePaymentDialog";
 import UpgradeServicePopup from "./UpgradeServicePopup";
 import { GetServices } from "../../orders/orders";
 import { usePortalSettings } from "@/app/hooks/usePortalSettings";
-import { FieldPanelProvider, useFieldPanel } from "./FieldPanelContext";
+import {
+  FieldPanelProvider,
+  useFieldPanel,
+  closeFeatureSheetSidebars,
+} from "./FieldPanelContext";
 
 const formatPdfName = (
   name: string | undefined | null,
@@ -458,6 +462,13 @@ const CreateFeatureSheet = forwardRef<
   const [featureSheetsFullService, setFeatureSheetsFullService] = useState<
     any | null
   >(null);
+
+  // Close all feature sheet sidebars whenever any modal opens
+  useEffect(() => {
+    if (isPrintModalOpen || isPaymentModalOpen || isUpgradeModalOpen || confirmOpen || copyStyleOpen) {
+      closeFeatureSheetSidebars();
+    }
+  }, [isPrintModalOpen, isPaymentModalOpen, isUpgradeModalOpen, confirmOpen, copyStyleOpen]);
 
   const handleOpenUpgradeModal = async () => {
     try {
@@ -3175,6 +3186,19 @@ const CreateFeatureSheet = forwardRef<
                         onMouseMove={handlePanMouseMove}
                         onMouseUp={handlePanMouseUp}
                         onMouseLeave={handlePanMouseUp}
+                        onClickCapture={(e) => {
+                          const target = e.target as HTMLElement | null;
+                          if (!target) return;
+                          // If user clicks an image element, image edit button, or select image placeholder
+                          const isImageTarget =
+                            target.closest(
+                              'button[title*="image" i], button[title*="photo" i], [data-image-slot], .image-container, img'
+                            ) ||
+                            target.textContent?.trim()?.toLowerCase() === "select image";
+                          if (isImageTarget) {
+                            closeFeatureSheetSidebars();
+                          }
+                        }}
                         className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
                           isPanning
                             ? "cursor-grabbing select-none"

@@ -76,12 +76,14 @@ const DEFAULT_FONT_OPTIONS: { label: string; value: string; css: string }[] = [
 function Section({
   title,
   children,
+  className = "mb-4",
 }: {
   title: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="mb-4">
+    <div className={className}>
       <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
         {title}
       </p>
@@ -104,6 +106,19 @@ function PanelDropdown({
   onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   const current = options.find(
     (o) =>
       o.value === value ||
@@ -112,17 +127,17 @@ function PanelDropdown({
   );
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center justify-between px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 hover:bg-gray-100 transition-colors"
       >
-        <span className="truncate" style={current?.css ? { fontFamily: current.css } : undefined}>
+        <span className="truncate pr-1" style={current?.css ? { fontFamily: current.css } : undefined}>
           {current?.label ?? label}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-gray-500 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
@@ -290,7 +305,8 @@ export default function FieldSidePanel({
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
         style={{
-          width: 280,
+          width: 320,
+          maxWidth: "calc(100vw - 16px)",
           top: "var(--env-banner-height, 0px)",
           height: "calc(100% - var(--env-banner-height, 0px))",
         }}
@@ -306,7 +322,7 @@ export default function FieldSidePanel({
               <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider leading-none">
                 Field Editor
               </p>
-              <p className="text-[13px] font-bold text-white leading-tight truncate max-w-[170px]">
+              <p className="text-[13px] font-bold text-white leading-tight truncate max-w-[220px]">
                 {activeField?.fieldLabel ?? "No field selected"}
               </p>
             </div>
@@ -322,7 +338,7 @@ export default function FieldSidePanel({
         </div>
 
         {/* ── Body ─────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+        <div className="flex-1 overflow-y-auto px-4 py-3">
           {!activeField ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
               <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
@@ -333,9 +349,9 @@ export default function FieldSidePanel({
               </p>
             </div>
           ) : (
-            <>
+            <div className="min-h-full flex flex-col justify-between py-1 gap-2.5">
               {/* FONT FAMILY */}
-              <Section title="Font Family">
+              <Section title="Font Family" className="mb-0">
                 <PanelDropdown
                   label="Font Family"
                   options={fontOptions}
@@ -344,83 +360,129 @@ export default function FieldSidePanel({
                 />
               </Section>
 
-              {/* FONT WEIGHT */}
-              <Section title="Font Weight">
-                <PanelDropdown
-                  label="Weight"
-                  options={WEIGHT_OPTIONS}
-                  value={String(currentFontWeight)}
-                  onChange={(v) => emit({ fontWeight: v })}
-                />
-              </Section>
+              {/* FONT WEIGHT & FONT SIZE ROW */}
+              <div className="flex gap-2.5">
+                <Section title="Font Weight" className="flex-1 min-w-0 mb-0">
+                  <PanelDropdown
+                    label="Weight"
+                    options={WEIGHT_OPTIONS}
+                    value={String(currentFontWeight)}
+                    onChange={(v) => emit({ fontWeight: v })}
+                  />
+                </Section>
 
-              {/* FONT SIZE */}
-              <Section title="Font Size">
-                <PanelDropdown
-                  label="Size"
-                  options={FONT_SIZE_OPTIONS.map((s) => ({
-                    label: `${s}px`,
-                    value: `${s}px`,
-                  }))}
-                  value={currentFontSize}
-                  onChange={(v) => emit({ fontSize: v })}
-                />
-              </Section>
+                <Section title="Font Size" className="flex-1 min-w-0 mb-0">
+                  <PanelDropdown
+                    label="Size"
+                    options={FONT_SIZE_OPTIONS.map((s) => ({
+                      label: `${s}px`,
+                      value: `${s}px`,
+                    }))}
+                    value={currentFontSize}
+                    onChange={(v) => emit({ fontSize: v })}
+                  />
+                </Section>
+              </div>
 
-              {/* TEXT STYLE */}
-              <Section title="Text Style">
-                <div className="flex gap-1.5">
-                  <IconBtn
-                    title="Bold"
-                    active={
-                      currentFontWeight === "700" ||
-                      currentFontWeight === "800" ||
-                      currentFontWeight === "bold"
-                    }
-                    onClick={() =>
-                      emit({
-                        fontWeight:
-                          currentFontWeight === "700" ||
-                          currentFontWeight === "800" ||
-                          currentFontWeight === "bold"
-                            ? "400"
-                            : "700",
-                      })
-                    }
-                  >
-                    <Bold className="w-3.5 h-3.5" />
-                  </IconBtn>
-                  <IconBtn
-                    title="Italic"
-                    active={style.fontStyle === "italic"}
-                    onClick={() =>
-                      emit({
-                        fontStyle:
-                          style.fontStyle === "italic" ? "normal" : "italic",
-                      })
-                    }
-                  >
-                    <Italic className="w-3.5 h-3.5" />
-                  </IconBtn>
-                  <IconBtn
-                    title="Underline"
-                    active={style.textDecoration === "underline"}
-                    onClick={() =>
-                      emit({
-                        textDecoration:
-                          style.textDecoration === "underline"
-                            ? "none"
-                            : "underline",
-                      })
-                    }
-                  >
-                    <Underline className="w-3.5 h-3.5" />
-                  </IconBtn>
-                </div>
-              </Section>
+              {/* TEXT STYLE & VERTICAL ALIGN ROW */}
+              <div className="flex gap-2.5">
+                <Section title="Text Style" className="flex-1 min-w-0 mb-0">
+                  <div className="flex gap-1.5">
+                    <IconBtn
+                      title="Bold"
+                      active={
+                        currentFontWeight === "700" ||
+                        currentFontWeight === "800" ||
+                        currentFontWeight === "bold"
+                      }
+                      onClick={() =>
+                        emit({
+                          fontWeight:
+                            currentFontWeight === "700" ||
+                            currentFontWeight === "800" ||
+                            currentFontWeight === "bold"
+                              ? "400"
+                              : "700",
+                        })
+                      }
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                    </IconBtn>
+                    <IconBtn
+                      title="Italic"
+                      active={style.fontStyle === "italic"}
+                      onClick={() =>
+                        emit({
+                          fontStyle:
+                            style.fontStyle === "italic" ? "normal" : "italic",
+                        })
+                      }
+                    >
+                      <Italic className="w-3.5 h-3.5" />
+                    </IconBtn>
+                    <IconBtn
+                      title="Underline"
+                      active={style.textDecoration === "underline"}
+                      onClick={() =>
+                        emit({
+                          textDecoration:
+                            style.textDecoration === "underline"
+                              ? "none"
+                              : "underline",
+                        })
+                      }
+                    >
+                      <Underline className="w-3.5 h-3.5" />
+                    </IconBtn>
+                  </div>
+                </Section>
+
+                <Section title="Vertical Align" className="flex-1 min-w-0 mb-0">
+                  <div className="flex gap-1.5">
+                    {(
+                      [
+                        {
+                          val: "top",
+                          Icon: AlignVerticalJustifyStart,
+                          title: "Top",
+                        },
+                        {
+                          val: "center",
+                          Icon: AlignVerticalJustifyCenter,
+                          title: "Middle",
+                        },
+                        {
+                          val: "bottom",
+                          Icon: AlignVerticalJustifyEnd,
+                          title: "Bottom",
+                        },
+                      ] as const
+                    ).map(({ val, Icon, title }) => (
+                      <IconBtn
+                        key={val}
+                        title={title}
+                        active={currentVerticalAlign === val}
+                        onClick={() =>
+                          emit({
+                            verticalAlign: val,
+                            alignContent:
+                              val === "top"
+                                ? "start"
+                                : val === "bottom"
+                                  ? "end"
+                                  : "center",
+                          })
+                        }
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                      </IconBtn>
+                    ))}
+                  </div>
+                </Section>
+              </div>
 
               {/* TEXT ALIGN */}
-              <Section title="Text Align">
+              <Section title="Text Align" className="mb-0">
                 <div className="flex gap-1.5">
                   {(
                     [
@@ -442,52 +504,8 @@ export default function FieldSidePanel({
                 </div>
               </Section>
 
-              {/* VERTICAL ALIGN */}
-              <Section title="Vertical Align">
-                <div className="flex gap-1.5">
-                  {(
-                    [
-                      {
-                        val: "top",
-                        Icon: AlignVerticalJustifyStart,
-                        title: "Top",
-                      },
-                      {
-                        val: "center",
-                        Icon: AlignVerticalJustifyCenter,
-                        title: "Middle",
-                      },
-                      {
-                        val: "bottom",
-                        Icon: AlignVerticalJustifyEnd,
-                        title: "Bottom",
-                      },
-                    ] as const
-                  ).map(({ val, Icon, title }) => (
-                    <IconBtn
-                      key={val}
-                      title={title}
-                      active={currentVerticalAlign === val}
-                      onClick={() =>
-                        emit({
-                          verticalAlign: val,
-                          alignContent:
-                            val === "top"
-                              ? "start"
-                              : val === "bottom"
-                                ? "end"
-                                : "center",
-                        })
-                      }
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                    </IconBtn>
-                  ))}
-                </div>
-              </Section>
-
               {/* POSITION NUDGE */}
-              <Section title="Nudge Position (Hold to move continuous, Shift = ×10)">
+              <Section title="Nudge Position (Hold to move continuous, Shift = ×10)" className="mb-0">
                 <div className="flex flex-col items-center gap-1">
                   {/* Up */}
                   <button
@@ -542,7 +560,7 @@ export default function FieldSidePanel({
               </Section>
 
               {/* DELETE + RESET */}
-              <Section title="Field Actions">
+              <Section title="Field Actions" className="mb-0">
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -569,7 +587,7 @@ export default function FieldSidePanel({
                   </button>
                 </div>
               </Section>
-            </>
+            </div>
           )}
         </div>
 

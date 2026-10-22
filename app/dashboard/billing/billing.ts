@@ -174,32 +174,18 @@ export const isPartiallyRefunded = (status?: string) => {
   return s === "partially_refunded" || s === "partial_refunded";
 };
 
-export function isRenewalInvoice(inv: any): boolean {
-  if (!inv) return false;
-  if (inv.is_renewal === true || inv.invoice_type === "renewal") return true;
-  const notes = (inv.notes || "").toLowerCase();
-  if (
-    notes.includes("hosting renewal") ||
-    notes.includes("3d tour hosting renewal") ||
-    notes.includes("matterport renewal") ||
-    notes.includes("tour hosting renewal")
-  ) {
-    return true;
-  }
-  return (
-    Array.isArray(inv.items) &&
-    inv.items.some((i: any) => {
-      const desc = (i.description || "").toLowerCase();
-      return (
-        desc.includes("hosting renewal") ||
-        (desc.includes("renewal") &&
-          (desc.includes("matterport") ||
-            desc.includes("3d tour") ||
-            desc.includes("tour hosting")))
-      );
-    })
-  );
-}
+import {
+  isRenewalInvoice,
+  isInvoiceLinkedToService,
+  isOrphanInvoice,
+} from "../invoice/invoice_utils";
+
+export {
+  isRenewalInvoice,
+  isInvoiceLinkedToService,
+  isOrphanInvoice,
+};
+
 
 export function getBestTargetInvoice(
   invoicesList: any[],

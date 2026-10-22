@@ -12,6 +12,7 @@ const POLL_INTERVAL_MS = 2000;
 
 export interface UseDownloadJobReturn {
     isLoading: boolean;
+    isZipping: boolean;
     progress: number;
     error: string | null;
     jobFiles: { name: string; url: string }[]; // files ready for manual download
@@ -20,6 +21,7 @@ export interface UseDownloadJobReturn {
 
 export function useDownloadJob(): UseDownloadJobReturn {
     const [isLoading, setIsLoading] = useState(false);
+    const [isZipping, setIsZipping] = useState(false);
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [jobFiles, setJobFiles] = useState<{ name: string; url: string }[]>([]);
@@ -40,6 +42,7 @@ export function useDownloadJob(): UseDownloadJobReturn {
             const token = localStorage.getItem('token') ?? '';
 
             setIsLoading(true);
+            setIsZipping(false);
             setProgress(0);
             setError(null);
             setJobFiles([]);
@@ -53,12 +56,13 @@ export function useDownloadJob(): UseDownloadJobReturn {
                 const msg = err instanceof Error ? err.message : 'Failed to start download job';
                 setError(msg);
                 setIsLoading(false);
+                setIsZipping(false);
                 return false;
             }
 
             let pseudoProgress = 0;
             const pseudoTick = setInterval(() => {
-                pseudoProgress = Math.min(pseudoProgress + 2, 89);
+                pseudoProgress = Math.min(pseudoProgress + 2, 85);
                 setProgress(pseudoProgress);
             }, 400);
 
@@ -70,11 +74,6 @@ export function useDownloadJob(): UseDownloadJobReturn {
 
                         const { status, percent, download_url, direct_download_links } = job;
 
-                        if (typeof percent === 'number') {
-                            clearInterval(pseudoTick);
-                            setProgress(percent);
-                        }
-
                         const terminal: DownloadJobStatus[] = ['completed', 'failed'];
 
                         if (terminal.includes(status)) {
@@ -82,6 +81,7 @@ export function useDownloadJob(): UseDownloadJobReturn {
                             clearInterval(pseudoTick);
                             setProgress(100);
                             setIsLoading(false);
+                            setIsZipping(false);
 
                             if (status === 'completed') {
                                 const filesToDownload: { name: string; url: string }[] = [];
@@ -124,6 +124,13 @@ export function useDownloadJob(): UseDownloadJobReturn {
                                 setError('Download job failed.');
                                 resolve(false);
                             }
+                        } else {
+                            if (typeof percent === 'number') {
+                                clearInterval(pseudoTick);
+                                const isZip = percent >= 100 || (status === 'processing' && percent >= 99);
+                                setIsZipping(isZip);
+                                setProgress(percent);
+                            }
                         }
                     } catch (err) {
                         stopPolling();
@@ -132,6 +139,7 @@ export function useDownloadJob(): UseDownloadJobReturn {
                         const msg = err instanceof Error ? err.message : 'Polling error';
                         setError(msg);
                         setIsLoading(false);
+                        setIsZipping(false);
                         resolve(false);
                     }
                 }, POLL_INTERVAL_MS);
@@ -140,5 +148,5 @@ export function useDownloadJob(): UseDownloadJobReturn {
         [stopPolling],
     );
 
-    return { isLoading, progress, error, jobFiles, triggerDownload };
+    return { isLoading, isZipping, progress, error, jobFiles, triggerDownload };
 }

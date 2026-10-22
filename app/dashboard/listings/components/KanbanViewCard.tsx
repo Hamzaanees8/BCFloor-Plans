@@ -124,7 +124,8 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
       : `/dashboard/listings/create/${listingData.uuid}`;
 
     // We store the public tour URL
-    const tourDomainUrl = getTourDomainUrl(organization);
+    const activeOrg = organization || (listingData as any)?.organization || (latestOrder as any)?.organization;
+    const tourDomainUrl = getTourDomainUrl(activeOrg);
     (KanbanViewCard as any).publicTourUrl = isPublished ? `${tourDomainUrl}/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
   }
 

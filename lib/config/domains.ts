@@ -51,10 +51,23 @@ export function getTourDomainUrl(organization?: any): string {
   const isLocal = typeof window !== 'undefined' && window.location.protocol === 'http:' && isLocalhostDomain(window.location.hostname);
   const protocol = isLocal ? 'http://' : 'https://';
 
+  let org = organization;
+  if (!org && typeof window !== 'undefined') {
+    try {
+      const userInfoStr = localStorage.getItem('userInfo');
+      if (userInfoStr) {
+        const parsed = JSON.parse(userInfoStr);
+        org = parsed?.organization || parsed?.data?.organization || parsed?.user?.organization;
+      }
+    } catch {
+      // Ignore localStorage parse error
+    }
+  }
+
   // 1. Check if organization data exists and has whitelabel or domain mappings
-  if (organization) {
-    if (Array.isArray(organization.domains) && organization.domains.length > 0) {
-      const tourDomainEntry = organization.domains.find(
+  if (org) {
+    if (Array.isArray(org.domains) && org.domains.length > 0) {
+      const tourDomainEntry = org.domains.find(
         (d: any) => d.portal_type === 'tours' || d.portal_type === 'tour'
       );
       if (tourDomainEntry?.domain) {
@@ -65,15 +78,15 @@ export function getTourDomainUrl(organization?: any): string {
       }
     }
 
-    if (organization.is_whitelabel) {
-      if (organization.domain) {
-        const cleaned = cleanDomain(organization.domain);
+    if (org.is_whitelabel) {
+      if (org.domain) {
+        const cleaned = cleanDomain(org.domain);
         if (cleaned) {
           return `${protocol}tours.${cleaned}`;
         }
       }
-      if (organization.slug) {
-        return `${protocol}${organization.slug}.${getDefaultToursDomain()}`;
+      if (org.slug) {
+        return `${protocol}${org.slug}.${getDefaultToursDomain()}`;
       }
     }
   }

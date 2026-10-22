@@ -34,9 +34,12 @@ import {
   prepareOrderInvoicePreview,
   getServiceActualInvoicePricing,
   prepareServiceInvoicePreview,
-  isRenewalInvoice,
   formatOrderDate,
 } from "./billing";
+import {
+  isRenewalInvoice,
+  isInvoiceLinkedToService,
+} from "../invoice/invoice_utils";
 import {
   ChevronDown,
   ChevronUp,
@@ -3912,9 +3915,13 @@ const Page = () => {
                                 <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
                                   Hosting Renewal
                                 </span>
-                              ) : (
+                              ) : isInvoiceLinkedToService(invoice) ? (
                                 <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
                                   Service Invoice
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                                  Orphan Invoice
                                 </span>
                               )}
                               {invoice.agent_type && (
@@ -4309,9 +4316,13 @@ const Page = () => {
                     <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
                       Hosting Renewal
                     </span>
-                  ) : (
+                  ) : isInvoiceLinkedToService(viewingInvoice) ? (
                     <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
                       Service Invoice
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                      Orphan Invoice
                     </span>
                   )}
                 </div>
@@ -4646,9 +4657,13 @@ const Page = () => {
                     <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
                       Hosting Renewal
                     </span>
-                  ) : (
+                  ) : isInvoiceLinkedToService(serviceInvoicePopup.invoice) ? (
                     <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
                       Service Invoice
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
+                      Orphan Invoice
                     </span>
                   )}
                 </div>
