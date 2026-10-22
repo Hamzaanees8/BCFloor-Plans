@@ -8,48 +8,51 @@ interface UploadDropzoneProps {
     onDropFiles: (files: File[]) => void;
     children: React.ReactNode;
     disabled?: boolean;
+    userTypeOverride?: string;
 }
 
-export function UploadDropzone({ onDropFiles, children, disabled }: UploadDropzoneProps) {
+export function UploadDropzone({ onDropFiles, children, disabled, userTypeOverride }: UploadDropzoneProps) {
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
-    const { userType } = useAppContext();
+    const { userType: contextUserType } = useAppContext();
+    const userType = userTypeOverride || contextUserType;
+    const isUploadDisabled = Boolean(disabled || userType === 'agent');
 
     const handleDragEnter = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (disabled) return;
+        if (isUploadDisabled) return;
         dragCounter.current += 1;
         setIsDragging(true);
-    }, [disabled]);
+    }, [isUploadDisabled]);
 
     const handleDragLeave = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (disabled) return;
+        if (isUploadDisabled) return;
         dragCounter.current -= 1;
         if (dragCounter.current === 0) {
             setIsDragging(false);
         }
-    }, [disabled]);
+    }, [isUploadDisabled]);
 
     const handleDragOver = useCallback((e: DragEvent) => {
         e.preventDefault();
-        if (disabled) return;
-    }, [disabled]);
+        if (isUploadDisabled) return;
+    }, [isUploadDisabled]);
 
     const handleDrop = useCallback((e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
-        if (disabled) return;
-
         setIsDragging(false);
         dragCounter.current = 0;
+
+        if (isUploadDisabled) return;
 
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
         if (droppedFiles.length > 0) {
             onDropFiles(droppedFiles);
         }
-    }, [onDropFiles, disabled]);
+    }, [onDropFiles, isUploadDisabled]);
 
     useEffect(() => {
         window.addEventListener('dragenter', handleDragEnter);
@@ -67,7 +70,7 @@ export function UploadDropzone({ onDropFiles, children, disabled }: UploadDropzo
 
     return (
         <div className="relative w-full h-full min-h-[200px]">
-            {isDragging && !disabled && (
+            {isDragging && !isUploadDisabled && (
                 <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm pointer-events-none transition-all">
                     <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
                         <div className={`${userType}-bg p-6 rounded-full shadow-2xl`}>

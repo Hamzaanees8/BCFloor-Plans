@@ -97,6 +97,41 @@ export function GlobalDownloadProgressOverlay() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Main Info Message at top above the main loader */}
+                    {activeJobsCount > 0 && (
+                        <div className={`p-2.5 rounded-lg border text-[11px] leading-snug transition-colors ${
+                            isAnyZipping 
+                                ? 'bg-amber-50/80 border-amber-200/80 text-amber-900' 
+                                : 'bg-blue-50/70 border-blue-100 text-gray-700'
+                        }`}>
+                            {isAnyZipping ? (
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5 font-semibold text-amber-800 text-[11px]">
+                                        <span className="relative flex h-2 w-2 shrink-0">
+                                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${userType}-bg opacity-75`} />
+                                            <span className={`relative inline-flex rounded-full h-2 w-2 ${userType}-bg`} />
+                                        </span>
+                                        <span>Zipping files in progress...</span>
+                                    </div>
+                                    <p className="text-[10.5px] text-amber-900/80">
+                                        Files processed successfully. Compressing and creating your ZIP archive now. This may take a moment.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5 font-semibold text-gray-800 text-[11px]">
+                                        <Loader2 className={`w-3 h-3 animate-spin ${userType}-text shrink-0`} />
+                                        <span>Preparing your download...</span>
+                                    </div>
+                                    <p className="text-[10.5px] text-gray-500">
+                                        This may take a few moments depending on file size and quantity. Please do not close this window.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {activeJobsCount > 0 && (
                         <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden relative">
                             {isAnyZipping ? (
@@ -176,51 +211,27 @@ function DownloadJobItem({
                 )}
             </div>
 
-            {/* 1. Processing files state (with info message and percentage loader) */}
+            {/* 1. Processing files state (percentage loader) */}
             {isProcessing && (
-                <div className="mb-1 shrink-0 space-y-2">
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-2 text-[11px] text-gray-600 leading-snug">
-                        <p className="font-semibold text-gray-800 text-[11px] mb-0.5">
-                            Preparing your files...
-                        </p>
-                        <p className="text-[10.5px] text-gray-500">
-                            This may take a few moments depending on file size and quantity.
-                        </p>
+                <div className="mb-1 shrink-0 space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-orange-600 font-medium whitespace-nowrap">Do not close window.</span>
+                        <span className={`font-semibold ${userType}-text tabular-nums`}>
+                            {progress}%
+                        </span>
                     </div>
-
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-orange-600 font-medium whitespace-nowrap">Do not close window.</span>
-                            <span className={`font-semibold ${userType}-text tabular-nums`}>
-                                {progress}%
-                            </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-300 ease-out ${userType}-bg`}
-                                style={{ width: `${progress}%` }}
-                            />
-                        </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                        <div
+                            className={`h-full transition-all duration-300 ease-out ${userType}-bg`}
+                            style={{ width: `${progress}%` }}
+                        />
                     </div>
                 </div>
             )}
 
-            {/* 2. Zipping files state (with info message and animated color skeleton loader) */}
+            {/* 2. Zipping files state (animated color skeleton loader) */}
             {isZipping && (
-                <div className="mb-1 shrink-0 space-y-2">
-                    <div className="bg-amber-50/70 border border-amber-200/60 rounded-md p-2 text-[11px] text-amber-900 leading-snug">
-                        <p className="font-semibold text-amber-800 text-[11px] flex items-center gap-1.5 mb-0.5">
-                            <span className="relative flex h-2 w-2">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${userType}-bg opacity-75`} />
-                                <span className={`relative inline-flex rounded-full h-2 w-2 ${userType}-bg`} />
-                            </span>
-                            Zipping files in progress...
-                        </p>
-                        <p className="text-[10.5px] text-gray-600">
-                            Files processed successfully. Compressing and creating your ZIP archive now. This may take a moment.
-                        </p>
-                    </div>
-
+                <div className="mb-1 shrink-0">
                     {/* Color Skeleton Loader - Shows fluid movement without percentage */}
                     <div className="space-y-2 bg-gray-50/80 border border-gray-100 rounded-lg p-2.5">
                         <div className="flex items-center justify-between text-[10px]">

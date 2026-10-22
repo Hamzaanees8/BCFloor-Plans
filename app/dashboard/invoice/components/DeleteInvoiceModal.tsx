@@ -12,7 +12,7 @@ import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { DeleteInvoice } from '../invoice_api';
 import { toast } from 'sonner';
 
-import { isInvoiceLinkedToService } from '../invoice_utils';
+import { isInvoiceLinkedToService, isMainInvoice } from '../invoice_utils';
 
 type DeleteInvoiceModalProps = {
     isOpen: boolean;
@@ -27,7 +27,8 @@ export default function DeleteInvoiceModal({ isOpen, onClose, invoice, onSuccess
     if (!invoice) return null;
 
     const invoiceNumber = invoice.invoice_number || invoice.id;
-    const isLinkedToService = isInvoiceLinkedToService(invoice);
+    const isMain = isMainInvoice(invoice);
+    const isLinkedToService = !isMain && isInvoiceLinkedToService(invoice);
 
     const linkedItem = invoice?.items?.find((item: any) =>
         Boolean(item.order_service_id || item.order_service || item.orderService)
@@ -75,7 +76,23 @@ export default function DeleteInvoiceModal({ isOpen, onClose, invoice, onSuccess
                 </DialogHeader>
 
                 <div className="py-3 text-sm text-gray-700 space-y-3">
-                    {isLinkedToService ? (
+                    {isMain ? (
+                        <>
+                            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-2.5">
+                                <AlertTriangle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                                <div className="text-xs text-emerald-800">
+                                    <p className="font-semibold text-sm mb-0.5">Main Order Invoice</p>
+                                    This is the main consolidated invoice{orderId ? ` for Order #${orderId}` : ''}.
+                                </div>
+                            </div>
+                            <p>
+                                Are you sure you want to permanently delete main invoice <strong>#{invoiceNumber}</strong>?
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                This will remove the invoice and its line items. The order and its services will remain intact. This action cannot be undone.
+                            </p>
+                        </>
+                    ) : isLinkedToService ? (
                         <>
                             <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2.5">
                                 <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />

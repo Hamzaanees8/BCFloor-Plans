@@ -400,6 +400,7 @@ function FileTab2({
   };
 
   const handleFilesChange = (selectedFiles: File[]) => {
+    if (userType === "agent") return;
     if (selectedFiles.length === 0) return;
 
     const newFiles = selectedFiles.map((f) => ({
@@ -423,24 +424,26 @@ function FileTab2({
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
     handleFilesChange(droppedFiles);
-    // eslint-disable-next-line
-  }, []);
+  }, [userType]);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
+    if (userType === "agent") return;
     dragCounter.current += 1;
-  }, []);
+  }, [userType]);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
+    if (userType === "agent") return;
     dragCounter.current -= 1;
     if (dragCounter.current === 0) {
     }
-  }, []);
+  }, [userType]);
 
   const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
-  }, []);
+    if (userType === "agent") return;
+  }, [userType]);
 
   useEffect(() => {
     window.addEventListener("dragenter", handleDragEnter);

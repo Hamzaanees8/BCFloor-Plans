@@ -513,6 +513,10 @@ function FileTab1({
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
+    if (effectiveUserType === "agent" || userType === "agent") {
+      return;
+    }
+
     const validFiles = droppedFiles.filter(
       (file) => !file.type.startsWith("video/"),
     );
@@ -2675,7 +2679,7 @@ function FileTab1({
             items={fileItems}
             onItemsChange={handleFileItemsChange}
             onDropFiles={handleDropFiles}
-            onClickUpload={handleFileInputClick}
+            onClickUpload={effectiveUserType === "agent" ? undefined : handleFileInputClick}
             renderItem={renderFileItem}
             disabled={isSaving}
             userTypeOverride={effectiveUserType}

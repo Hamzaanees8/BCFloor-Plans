@@ -127,7 +127,7 @@ export function DualModeFileManager({
     );
 
     const renderUploadBox = () => {
-        if (!onClickUpload) return null;
+        if (!onClickUpload || userType === 'agent') return null;
         return (
             <div className="w-full flex justify-center mt-6 mb-4">
                 <div
@@ -139,6 +139,7 @@ export function DualModeFileManager({
                     onDrop={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (userType === 'agent') return;
                         const dropped = Array.from(e.dataTransfer?.files || []);
                         if (dropped.length > 0) {
                             onDropFiles(dropped);
@@ -169,7 +170,8 @@ export function DualModeFileManager({
         <UploadDropzone
             mode={mode}
             onDropFiles={onDropFiles}
-            disabled={disabled}
+            disabled={disabled || userType === 'agent'}
+            userTypeOverride={userType}
         >
             <div className="flex flex-col gap-4 w-full">
                 {singleAccordionTitle ? (
@@ -339,7 +341,6 @@ export function DualModeFileManager({
                                 </Accordion>
                             </div>
                         </div>
-                        {renderUploadBox()}
                     </div>
                 ) : (
                     // Admin/Vendor: Top-bottom (unsaved on top, saved below) stacked layout

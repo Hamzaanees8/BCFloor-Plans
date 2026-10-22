@@ -176,12 +176,14 @@ export const isPartiallyRefunded = (status?: string) => {
 
 import {
   isRenewalInvoice,
+  isMainInvoice,
   isInvoiceLinkedToService,
   isOrphanInvoice,
 } from "../invoice/invoice_utils";
 
 export {
   isRenewalInvoice,
+  isMainInvoice,
   isInvoiceLinkedToService,
   isOrphanInvoice,
 };

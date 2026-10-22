@@ -300,6 +300,10 @@ const Service: React.FC<
   };
 
   const handleFilesChange = (selectedFiles: File[]) => {
+    if (userType === "agent") {
+      return;
+    }
+
     const validFiles = selectedFiles.filter(
       (file) => !file.type.startsWith("video/"),
     );
@@ -1757,9 +1761,10 @@ const Service: React.FC<
             }
           }}
           onDropFiles={handleFilesChange}
-          onClickUpload={() => fileInputRef.current?.click()}
+          onClickUpload={userType === "agent" ? undefined : () => fileInputRef.current?.click()}
           renderItem={renderFileItem}
           disabled={isSaving}
+          userTypeOverride={userType}
           onSave={onSave}
           savedFilesAction={adminSavedFilesAction}
           singleAccordionTitle="all floor plans"

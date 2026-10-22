@@ -17,7 +17,7 @@ import DeleteInvoiceModal from './DeleteInvoiceModal'
 import { toast } from 'sonner'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
-import { isRenewalInvoice, isInvoiceLinkedToService } from '../invoice_utils'
+import { isRenewalInvoice, isMainInvoice, isInvoiceLinkedToService } from '../invoice_utils'
 
 type InvoiceModalProps = {
     uuid: string;
@@ -398,34 +398,40 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto font-alexandria">
-                <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 flex-wrap gap-2">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2 flex-wrap">
-                        <span>{loading ? 'Loading Invoice...' : invoice ? `Invoice #${invoice.invoice_number || invoice.id}` : 'Invoice'}</span>
-                        {invoice && !loading && (
-                            isRenewalInvoice(invoice) ? (
-                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200">
-                                    Hosting Renewal
-                                </span>
-                            ) : isInvoiceLinkedToService(invoice) ? (
-                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200">
-                                    Service Invoice
-                                </span>
-                            ) : (
-                                <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300">
-                                    Orphan Invoice
-                                </span>
-                            )
-                        )}
-                    </DialogTitle>
-                    <div className="flex gap-2 pr-8 flex-wrap items-center">
+                <DialogHeader className="flex flex-col gap-3 border-b pb-4">
+                    <div className="flex justify-between items-center w-full pr-8">
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2 flex-wrap">
+                            <span className="whitespace-nowrap">{loading ? 'Loading Invoice...' : invoice ? `Invoice #${invoice.invoice_number || invoice.id}` : 'Invoice'}</span>
+                            {invoice && !loading && (
+                                isRenewalInvoice(invoice) ? (
+                                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200 whitespace-nowrap">
+                                        Hosting Renewal
+                                    </span>
+                                ) : isMainInvoice(invoice) ? (
+                                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase border border-emerald-300 whitespace-nowrap">
+                                        Main Invoice
+                                    </span>
+                                ) : isInvoiceLinkedToService(invoice) ? (
+                                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200 whitespace-nowrap">
+                                        Service Invoice
+                                    </span>
+                                ) : (
+                                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300 whitespace-nowrap">
+                                        Orphan Invoice
+                                    </span>
+                                )
+                            )}
+                        </DialogTitle>
+                    </div>
+                    <div className="flex gap-2 flex-wrap items-center justify-end w-full">
                         {invoice && !loading && (
                             <>
                                 {isEditing ? (
                                     <>
-                                        <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={saving}>
+                                        <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={saving} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 shadow-sm">
                                             <X className="mr-2 h-4 w-4" /> Cancel
                                         </Button>
-                                        <Button size="sm" onClick={handleSave} disabled={saving} className="admin-bg text-white">
+                                        <Button size="sm" onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
                                             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save Changes
                                         </Button>
                                     </>
@@ -437,7 +443,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                                 size="sm"
                                                 onClick={handlePayNow}
                                                 disabled={paying || updatingPlan}
-                                                className="bg-[#4290E9] hover:bg-[#357ac8] text-white flex items-center gap-1.5 shadow-sm font-bold"
+                                                className="bg-[#4290E9] hover:bg-[#2b74c7] text-white flex items-center gap-1.5 shadow-sm font-bold"
                                             >
                                                 {paying || updatingPlan ? (
                                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -455,7 +461,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                                 variant="outline"
                                                 onClick={handleMarkPaid}
                                                 disabled={paying}
-                                                className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold flex items-center gap-1"
+                                                className="border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 font-semibold flex items-center gap-1 shadow-sm"
                                             >
                                                 <Check className="h-4 w-4" /> Mark Paid
                                             </Button>
@@ -464,14 +470,14 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                         {role === 'admin' &&
                                             ['paid', 'partially_refunded', 'partial_refunded'].includes((invoice.status || '').toLowerCase()) &&
                                             (parseFloat(invoice.paid_amount || invoice.total || 0) - parseFloat(invoice.refunded_amount || 0)) > 0 && (
-                                            <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="text-orange-600 hover:text-orange-700">
+                                            <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="border-orange-500 text-orange-600 hover:bg-orange-600 hover:text-white hover:border-orange-600 shadow-sm">
                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
                                             </Button>
                                         )}
                                         {role === 'admin' &&
                                             !['paid', 'refunded'].includes((invoice.status || '').toLowerCase()) &&
                                             (parseFloat(invoice.total || 0) === 0 || (invoice.status || '').toLowerCase() !== 'partially_refunded') && (
-                                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm">
                                                 <Edit2 className="h-4 w-4 mr-2" /> Edit
                                             </Button>
                                         )}
@@ -482,15 +488,15 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setIsDeleteModalOpen(true)}
-                                                className="text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-1 font-semibold"
+                                                className="text-red-600 border-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center gap-1 font-semibold shadow-sm"
                                             >
-                                                <Trash2 className="h-4 w-4 mr-1 text-red-500" /> Delete
+                                                <Trash2 className="h-4 w-4 mr-1" /> Delete
                                             </Button>
                                         )}
-                                        <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={handleDownload} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 flex items-center gap-2 shadow-sm">
                                             <Download className="h-4 w-4" /> Download PDF
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={handlePrint}>
+                                        <Button variant="outline" size="sm" onClick={handlePrint} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 shadow-sm">
                                             <Printer className="mr-2 h-4 w-4" /> Print
                                         </Button>
                                     </>

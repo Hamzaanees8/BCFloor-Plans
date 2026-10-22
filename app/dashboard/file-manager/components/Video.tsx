@@ -630,6 +630,10 @@ function Video({
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
+    if (userType === "agent") {
+      return;
+    }
+
     const videoFiles = droppedFiles.filter((file) =>
       file.type.startsWith("video/"),
     );
@@ -1808,9 +1812,10 @@ function Video({
             items={fileItems}
             onItemsChange={handleFileItemsChange}
             onDropFiles={handleDropFiles}
-            onClickUpload={handleFileInputClick}
+            onClickUpload={userType === "agent" ? undefined : handleFileInputClick}
             renderItem={renderFileItem}
             disabled={isSaving}
+            userTypeOverride={userType}
             onSave={onSave}
             savedFilesAction={adminSavedFilesAction}
             selectedAction={selectedAction}
