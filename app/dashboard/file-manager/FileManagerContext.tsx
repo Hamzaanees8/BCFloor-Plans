@@ -136,11 +136,14 @@ export type FilesData = {
   }[];
   snapshots: SnapShots[];
   slide_show: {
-    slide_delay: string;
+    slide_delay: string | number;
     transitions: string;
     background_audio: string;
-    auto_play: string;
-    video_overlay: string;
+    auto_play: boolean | string | number;
+    video_overlay: boolean | string | number;
+    hero_type?: "slideshow" | "single_photo" | "video";
+    hero_video_uuid?: string;
+    pan_adjust?: boolean | string | number;
   };
 };
 
@@ -306,6 +309,9 @@ type FileManagerContextType = {
 
   heroVideoUuid: string | undefined;
   setHeroVideoUuid: Dispatch<SetStateAction<string | undefined>>;
+
+  panAdjust: boolean;
+  setPanAdjust: Dispatch<SetStateAction<boolean>>;
 
   formData: FormData;
   setFormData: Dispatch<SetStateAction<FormData>>;
@@ -558,6 +564,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   >("none");
   const [heroType, setHeroType] = useState<"slideshow" | "single_photo" | "video">("slideshow");
   const [heroVideoUuid, setHeroVideoUuid] = useState<string | undefined>(undefined);
+  const [panAdjust, setPanAdjust] = useState<boolean>(true);
   const [filesData, setFilesData] = useState<FilesData | null>(null);
   const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>(
     [],
@@ -601,6 +608,32 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (filesData?.slide_show) {
+      const ss =
+        typeof filesData.slide_show === "string"
+          ? (() => {
+              try {
+                return JSON.parse(filesData.slide_show);
+              } catch {
+                return null;
+              }
+            })()
+          : filesData.slide_show;
+      if (ss?.hero_type) {
+        setHeroType(ss.hero_type);
+      }
+      if (ss?.hero_video_uuid !== undefined) {
+        setHeroVideoUuid(ss.hero_video_uuid);
+      }
+      if (ss?.pan_adjust !== undefined) {
+        const p = ss.pan_adjust;
+        setPanAdjust(p === true || p === "1" || p === 1 || p === "true");
+      }
+    }
+  }, [filesData?.slide_show]);
+
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isHidingMode, setIsHidingMode] = useState<boolean>(false);
   const [filesToHide, setFilesToHide] = useState<Set<string>>(new Set());
@@ -725,6 +758,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       setHeroType,
       heroVideoUuid,
       setHeroVideoUuid,
+      panAdjust,
+      setPanAdjust,
       formData,
       setFormData,
       updateFormData,
@@ -780,6 +815,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       selectedAudioTrack,
       heroType,
       heroVideoUuid,
+      panAdjust,
       formData,
       updateFormData,
       filesData,

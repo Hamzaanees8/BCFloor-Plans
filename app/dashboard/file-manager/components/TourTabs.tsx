@@ -50,6 +50,9 @@ export default function TourTabs({
     delay,
     transition,
     selectedAudioTrack,
+    heroType,
+    heroVideoUuid,
+    panAdjust,
     setIsSaving,
     isSaving,
   } = useFileManagerContext();
@@ -116,6 +119,9 @@ export default function TourTabs({
         changedFiles: [],
         isUpdate: true,
         successMessage: "Snapshots saved successfully.",
+        heroType,
+        heroVideoUuid,
+        panAdjust,
       });
 
       if (response) {

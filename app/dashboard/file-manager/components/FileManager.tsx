@@ -397,6 +397,12 @@ const FileManager = () => {
     setTourDefaultSettings,
     approvalSelectedUuids,
     setApprovalSelectedUuids,
+    heroType,
+    setHeroType,
+    heroVideoUuid,
+    setHeroVideoUuid,
+    panAdjust,
+    setPanAdjust,
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
@@ -1908,18 +1914,34 @@ const FileManager = () => {
           setFilesData(updatedTour);
           // Removed accidental setInterval call
 
-          setSelectedAudioTrack(
-            filesData.data[0].slide_show &&
-              (filesData.data[0].slide_show.background_audio || "none"),
-          );
-          setTransition(
-            filesData.data[0].slide_show &&
-              (filesData.data[0].slide_show.transitions || "fade-in"),
-          );
-          setDelay(
-            filesData.data[0].slide_show &&
-              (filesData.data[0].slide_show.slide_delay || 3000),
-          );
+          if (filesData.data[0].slide_show) {
+            const ss =
+              typeof filesData.data[0].slide_show === "string"
+                ? (() => {
+                    try {
+                      return JSON.parse(filesData.data[0].slide_show);
+                    } catch {
+                      return null;
+                    }
+                  })()
+                : filesData.data[0].slide_show;
+
+            if (ss) {
+              setSelectedAudioTrack(ss.background_audio || "none");
+              setTransition(ss.transitions || "fade-in");
+              setDelay(ss.slide_delay || 3000);
+              if (ss.hero_type) {
+                setHeroType(ss.hero_type);
+              }
+              if (ss.hero_video_uuid !== undefined) {
+                setHeroVideoUuid(ss.hero_video_uuid);
+              }
+              if (ss.pan_adjust !== undefined) {
+                const p = ss.pan_adjust;
+                setPanAdjust(p === true || p === "1" || p === 1 || p === "true");
+              }
+            }
+          }
         } else {
           // If no data found, set to an empty object to stop the loader in children
           setFilesData({ files: [], links: [], snapshots: [] } as any);
@@ -2041,6 +2063,9 @@ const FileManager = () => {
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles,
         isUpdate: !!filesData,
+        heroType,
+        heroVideoUuid,
+        panAdjust,
       });
 
       // If we're here, the upload was successful
@@ -2070,6 +2095,29 @@ const FileManager = () => {
             }
 
             setFilesData(updatedTour);
+
+            if (updatedTour.slide_show) {
+              const ss =
+                typeof updatedTour.slide_show === "string"
+                  ? (() => {
+                      try {
+                        return JSON.parse(updatedTour.slide_show);
+                      } catch {
+                        return null;
+                      }
+                    })()
+                  : updatedTour.slide_show;
+              if (ss?.hero_type) {
+                setHeroType(ss.hero_type);
+              }
+              if (ss?.hero_video_uuid !== undefined) {
+                setHeroVideoUuid(ss.hero_video_uuid);
+              }
+              if (ss?.pan_adjust !== undefined) {
+                const p = ss.pan_adjust;
+                setPanAdjust(p === true || p === "1" || p === 1 || p === "true");
+              }
+            }
           }
 
           // Clear local pending files
@@ -2102,6 +2150,9 @@ const FileManager = () => {
       delay,
       transition,
       selectedAudioTrack,
+      heroType,
+      heroVideoUuid,
+      panAdjust,
       setSelectedFiles,
       setFloorFiles,
       setSelectedVideoFiles,

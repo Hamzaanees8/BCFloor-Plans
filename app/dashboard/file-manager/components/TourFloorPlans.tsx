@@ -43,6 +43,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     delay,
     transition,
     selectedAudioTrack,
+    heroType,
+    heroVideoUuid,
+    panAdjust,
     setIsSaving,
     setFloorPlanSubtype,
   } = useFileManagerContext();
@@ -868,6 +871,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         changedFiles: [],
         isUpdate: true,
         successMessage: "Snapshots saved successfully.",
+        heroType,
+        heroVideoUuid,
+        panAdjust,
       });
 
       if (response) {
@@ -929,6 +935,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         isUpdate: true,
         showToast: options?.showToast ?? false,
         successMessage: options?.successToastMsg || "Snapshots saved successfully.",
+        heroType,
+        heroVideoUuid,
+        panAdjust,
       });
 
       if (response) {

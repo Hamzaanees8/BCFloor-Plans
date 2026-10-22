@@ -211,7 +211,10 @@ export async function UploadFilesData(
   delay: number,
   transition: string,
   selectedAudioTrack: string,
-  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void
+  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void,
+  heroType?: "slideshow" | "single_photo" | "video",
+  heroVideoUuid?: string,
+  panAdjust?: boolean
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const uploads: {
@@ -339,6 +342,15 @@ export async function UploadFilesData(
   formData.append("slide_show[background_audio]", selectedAudioTrack || "none");
   formData.append("slide_show[auto_play]", String(0));
   formData.append("slide_show[video_overlay]", String(0));
+  if (heroType) {
+    formData.append("slide_show[hero_type]", heroType);
+  }
+  if (heroVideoUuid) {
+    formData.append("slide_show[hero_video_uuid]", heroVideoUuid);
+  }
+  if (panAdjust !== undefined) {
+    formData.append("slide_show[pan_adjust]", panAdjust ? "1" : "0");
+  }
 
   const tourResponse = await fetch(`${API_URL}/tours`, {
     method: "POST",
@@ -471,7 +483,10 @@ export async function UpdateFilesData(
   transition: string,
   selectedAudioTrack: string,
   existingFiles?: Files[],
-  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void
+  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void,
+  heroType?: "slideshow" | "single_photo" | "video",
+  heroVideoUuid?: string,
+  panAdjust?: boolean
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -726,7 +741,10 @@ export async function UpdateFilesData(
   if (
     delay !== 3000 ||
     transition !== "none" ||
-    selectedAudioTrack !== "none"
+    selectedAudioTrack !== "none" ||
+    heroType !== undefined ||
+    heroVideoUuid !== undefined ||
+    panAdjust !== undefined
   ) {
     hasMetadataChanges = true;
   }
@@ -743,6 +761,15 @@ export async function UpdateFilesData(
   formData.append("slide_show[background_audio]", selectedAudioTrack || "none");
   formData.append("slide_show[auto_play]", String(0));
   formData.append("slide_show[video_overlay]", String(0));
+  if (heroType) {
+    formData.append("slide_show[hero_type]", heroType);
+  }
+  if (heroVideoUuid) {
+    formData.append("slide_show[hero_video_uuid]", heroVideoUuid);
+  }
+  if (panAdjust !== undefined) {
+    formData.append("slide_show[pan_adjust]", panAdjust ? "1" : "0");
+  }
   formData.append("_method", "PUT");
 
   const response = await fetch(`${API_URL}/tours/${tourUuid}`, {

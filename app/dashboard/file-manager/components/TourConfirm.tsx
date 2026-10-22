@@ -477,16 +477,35 @@ const TourConfirm = ({
     return files;
   }, [isPublicView, publicVideoFiles, filesData?.files, isMediaApprovedByAgent]);
 
+  const parsedSlideShow = React.useMemo(() => {
+    const raw =
+      (orderData?.tours?.[0]?.slide_show as any) ||
+      (filesData as any)?.slide_show;
+    if (typeof raw === "string") {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+    return raw || null;
+  }, [orderData?.tours, filesData]);
+
   const heroType =
     fileManagerContext?.heroType ||
-    (orderData?.tours?.[0]?.slide_show as any)?.hero_type ||
-    (filesData as any)?.slide_show?.hero_type ||
+    parsedSlideShow?.hero_type ||
     "slideshow";
 
   const heroVideoUuid =
     fileManagerContext?.heroVideoUuid ||
-    (orderData?.tours?.[0]?.slide_show as any)?.hero_video_uuid ||
-    (filesData as any)?.slide_show?.hero_video_uuid;
+    parsedSlideShow?.hero_video_uuid;
+
+  const panAdjust =
+    fileManagerContext?.panAdjust !== undefined
+      ? fileManagerContext.panAdjust
+      : parsedSlideShow?.pan_adjust !== undefined
+      ? (parsedSlideShow.pan_adjust === true || parsedSlideShow.pan_adjust === "1" || parsedSlideShow.pan_adjust === 1 || parsedSlideShow.pan_adjust === "true")
+      : true;
 
   const activeHeroVideoUrl = React.useMemo(() => {
     if (selectedVideoFiles.length > 0) {
@@ -497,7 +516,12 @@ const TourConfirm = ({
         ? currentVideoFiles.find((v: any) => v.uuid === heroVideoUuid || v.url === heroVideoUuid)
         : currentVideoFiles[0];
       const target = matched || currentVideoFiles[0];
-      return target.url || `${API_URL}/${target.file_path}`;
+      return (
+        target.variant_urls?.landing ||
+        target.variant_urls?.slider ||
+        target.url ||
+        (target.file_path ? `${API_URL}/${target.file_path}` : "")
+      );
     }
     return null;
   }, [selectedVideoFiles, currentVideoFiles, heroVideoUuid, API_URL]);
@@ -1073,13 +1097,16 @@ const TourConfirm = ({
                     (uploadedImages.length > 0 ||
                       (currentTourPhotos?.length ?? 0) > 0) ? (
                     (() => {
+                      const featuredPhoto =
+                        currentTourPhotos?.find((f: any) => f.is_featured) ||
+                        currentTourPhotos?.[0];
                       const coverSrc =
                         uploadedImages.length > 0
                           ? URL.createObjectURL(uploadedImages[0].file)
-                          : currentTourPhotos?.[0]?.variant_urls?.landing ||
-                            currentTourPhotos?.[0]?.variant_urls?.slider ||
-                            currentTourPhotos?.[0]?.url ||
-                            `${API_URL}/${currentTourPhotos?.[0]?.file_path}`;
+                          : featuredPhoto?.variant_urls?.landing ||
+                            featuredPhoto?.variant_urls?.slider ||
+                            featuredPhoto?.url ||
+                            (featuredPhoto?.file_path ? `${API_URL}/${featuredPhoto?.file_path}` : "");
 
                       return (
                         <div
@@ -1122,6 +1149,7 @@ const TourConfirm = ({
                         propSetIsPlaying={handleHomeSlideshowPlayChange}
                         propSetIsMuted={setIsAudioMuted}
                         watermarkUrl={actualWatermarkLogo}
+                        panAdjust={panAdjust}
                       />
                     </div>
                   ) : (

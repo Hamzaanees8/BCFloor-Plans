@@ -86,11 +86,14 @@ export type Order = {
         uuid: string;
         order_id: number;
         slide_show: {
-            slide_delay: string;
+            slide_delay: string | number;
             transitions: string;
             background_audio: string;
-            auto_play: string;
-            video_overlay: string;
+            auto_play: boolean | string | number;
+            video_overlay: boolean | string | number;
+            hero_type?: string;
+            hero_video_uuid?: string;
+            pan_adjust?: boolean | string | number;
         };
         created_at: string;
         updated_at: string;

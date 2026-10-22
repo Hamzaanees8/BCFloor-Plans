@@ -16,6 +16,9 @@ interface UploadParams {
     delay: number;
     transition: string;
     selectedAudioTrack: string;
+    heroType?: "slideshow" | "single_photo" | "video";
+    heroVideoUuid?: string;
+    panAdjust?: boolean;
     changedFiles?: Files[]; // Only for update
     isUpdate: boolean;
     showToast?: boolean;
@@ -55,6 +58,9 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
             delay,
             transition,
             selectedAudioTrack,
+            heroType,
+            heroVideoUuid,
+            panAdjust,
             changedFiles,
             isUpdate
         } = params;
@@ -100,7 +106,10 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
                     transition,
                     selectedAudioTrack || "none",
                     changedFiles,
-                    progressCallback
+                    progressCallback,
+                    heroType,
+                    heroVideoUuid,
+                    panAdjust
                 );
             } else if (orderUuid) {
                 response = await UploadFilesData(
@@ -112,7 +121,10 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
                     delay,
                     transition,
                     selectedAudioTrack || "none",
-                    progressCallback
+                    progressCallback,
+                    heroType,
+                    heroVideoUuid,
+                    panAdjust
                 );
             } else {
                 throw new Error("Missing orderUuid or filesDataUuid");

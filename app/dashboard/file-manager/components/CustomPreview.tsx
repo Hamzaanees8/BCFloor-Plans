@@ -22,6 +22,7 @@ interface CustomSlideshowProps {
   className?: string;
   bgClass?: string;
   objectFit?: "cover" | "contain";
+  panAdjust?: boolean;
 }
 
 const transitionClasses = [
@@ -60,6 +61,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   className = "h-[100vh]",
   bgClass = "bg-black",
   objectFit = "cover",
+  panAdjust = true,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
@@ -127,7 +129,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   };
 
   const getPanAnimation = (idx: number) => {
-    if (objectFit === "contain") return "";
+    if (!panAdjust || objectFit === "contain") return "";
 
     const imgRatio = imageRatios[idx];
     const containerRatio =

@@ -34,6 +34,9 @@ export async function UploadFilesData(
   delay: number,
   transition: string,
   selectedAudioTrack: string,
+  heroType?: "slideshow" | "single_photo" | "video",
+  heroVideoUuid?: string,
+  panAdjust?: boolean,
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = new FormData();
@@ -86,6 +89,15 @@ export async function UploadFilesData(
   formData.append("slide_show[background_audio]", selectedAudioTrack || "none");
   formData.append("slide_show[auto_play]", String(0));
   formData.append("slide_show[video_overlay]", String(0));
+  if (heroType) {
+    formData.append("slide_show[hero_type]", heroType);
+  }
+  if (heroVideoUuid) {
+    formData.append("slide_show[hero_video_uuid]", heroVideoUuid);
+  }
+  if (panAdjust !== undefined) {
+    formData.append("slide_show[pan_adjust]", panAdjust ? "1" : "0");
+  }
 
   const response = await fetch(`${API_URL}/tours`, {
     method: "POST",
@@ -114,6 +126,9 @@ export async function UpdateFilesData(
   delay: number,
   transition: string,
   selectedAudioTrack: string,
+  heroType?: "slideshow" | "single_photo" | "video",
+  heroVideoUuid?: string,
+  panAdjust?: boolean,
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = new FormData();
@@ -167,6 +182,15 @@ export async function UpdateFilesData(
   formData.append("slide_show[background_audio]", selectedAudioTrack || "none");
   formData.append("slide_show[auto_play]", String(0));
   formData.append("slide_show[video_overlay]", String(0));
+  if (heroType) {
+    formData.append("slide_show[hero_type]", heroType);
+  }
+  if (heroVideoUuid) {
+    formData.append("slide_show[hero_video_uuid]", heroVideoUuid);
+  }
+  if (panAdjust !== undefined) {
+    formData.append("slide_show[pan_adjust]", panAdjust ? "1" : "0");
+  }
   formData.append("_method", "PUT");
 
   const response = await fetch(`${API_URL}/tours/${tourUuid}`, {

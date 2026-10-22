@@ -46,6 +46,8 @@ function payloadToFormData(payload: UserPayload): FormData {
             } else if (typeof value === 'object') {
                 // serialize object values
                 formData.append(key, JSON.stringify(value));
+            } else if (typeof value === 'boolean') {
+                formData.append(key, value ? '1' : '0');
             } else {
                 formData.append(key, value);
             }

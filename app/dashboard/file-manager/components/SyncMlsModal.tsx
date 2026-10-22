@@ -50,7 +50,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   // FileItems for SortableGrid
   const [photoItems, setPhotoItems] = useState<FileItem[]>([]);
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const { filesData, setFilesData, deletedSnapshotUuids, links, delay, transition, selectedAudioTrack } = useFileManagerContext();
+  const { filesData, setFilesData, deletedSnapshotUuids, links, delay, transition, selectedAudioTrack, heroType, heroVideoUuid, panAdjust } = useFileManagerContext();
   const { startUpload } = useGlobalFileUpload();
   const [isGlobalSaving, setGlobalSaving] = useState(false);
 
@@ -262,7 +262,10 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
         selectedAudioTrack: selectedAudioTrack || "none",
         changedFiles: newlyChangedFiles,
         isUpdate: true,
-        successMessage: "Images sorted successfully."
+        successMessage: "Images sorted successfully.",
+        heroType,
+        heroVideoUuid,
+        panAdjust,
       });
       setIsReorderMode(false);
     } catch (error) {
@@ -271,7 +274,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     } finally {
       setGlobalSaving(false);
     }
-  }, [photoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, deletedSnapshotUuids, links]);
+  }, [photoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, heroType, heroVideoUuid, deletedSnapshotUuids, links]);
 
   const handleCancelReorder = useCallback(() => {
     const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');

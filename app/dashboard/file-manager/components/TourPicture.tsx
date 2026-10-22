@@ -69,6 +69,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     setHeroType,
     heroVideoUuid,
     setHeroVideoUuid,
+    panAdjust,
+    setPanAdjust,
   } = useFileManagerContext();
 
   const { startUpload } = useGlobalFileUpload();
@@ -328,7 +330,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
           selectedAudioTrack: selectedAudioTrack || "none",
           changedFiles: newlyChangedFiles,
           isUpdate: true,
-          successMessage: "Images sorted successfully."
+          successMessage: "Images sorted successfully.",
+          heroType,
+          heroVideoUuid,
+          panAdjust,
         });
 
         // Fetch fresh data to ensure context filesData is fully consistent
@@ -379,6 +384,9 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       links,
       tourSettings,
       tourDefaultSettings,
+      heroType,
+      heroVideoUuid,
+      panAdjust,
     ]
   );
 
@@ -823,6 +831,18 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   <Label className="text-[14px] text-[#424242]">Auto Play Audio</Label>
                 </div>
 
+                <div className="col-span-2 flex items-center gap-[16px]">
+                  <Switch
+                    checked={panAdjust}
+                    onCheckedChange={setPanAdjust}
+                    className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50]"
+                  />
+                  <div className="flex flex-col">
+                    <Label className="text-[14px] text-[#424242] font-medium">Pan Adjust (Ken Burns Animation)</Label>
+                    <span className="text-[12px] text-gray-500">Automatically pan tall or wide images smoothly to reveal the full picture</span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-[16px]">
                   <div className="col-span-2">
                     <label htmlFor="">Home Page Hero Media</label>
@@ -974,19 +994,24 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                 )
               ) : heroType === "single_photo" ? (
                 globalSortedPhotos.length > 0 ? (
-                  <div className="w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-lg border border-gray-200 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={
-                        globalSortedPhotos[0]?.variant_urls?.landing ||
-                        globalSortedPhotos[0]?.variant_urls?.slider ||
-                        globalSortedPhotos[0]?.url ||
-                        `${API_URL}/${globalSortedPhotos[0]?.file_path}`
-                      }
-                      alt="Cover Photo Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  (() => {
+                    const coverPhoto = globalSortedPhotos.find((f: any) => f.is_featured) || globalSortedPhotos[0];
+                    return (
+                      <div className="w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-lg border border-gray-200 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={
+                            coverPhoto?.variant_urls?.landing ||
+                            coverPhoto?.variant_urls?.slider ||
+                            coverPhoto?.url ||
+                            (coverPhoto?.file_path ? `${API_URL}/${coverPhoto?.file_path}` : "")
+                          }
+                          alt="Cover Photo Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 rounded-xl border border-dashed border-gray-300 text-gray-500">
                     <p className="font-semibold text-sm">No Cover Photo Available</p>
@@ -1007,6 +1032,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   propIsPlaying={autoPlay}
                   propSetIsPlaying={setAutoPlay}
                   className="w-full h-full"
+                  panAdjust={panAdjust}
                 />
               )}
             </div>

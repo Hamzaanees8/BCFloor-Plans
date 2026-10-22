@@ -554,7 +554,7 @@ const AdminForm = () => {
         last_name: lastName,
         email,
         secondary_email: secondaryEmail || undefined,
-        notification_email: notificationEmail,
+        notification_email: notificationEmail ? 1 : 0,
         primary_phone: primaryPhone || undefined,
         secondary_phone: secondaryPhone || undefined,
         company_name: companyName || undefined,
@@ -903,15 +903,19 @@ const AdminForm = () => {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-[10px]">
+                      <div className="col-span-2 flex items-center gap-[10px] py-1">
                         <Checkbox
+                          id="notification_email"
                           checked={notificationEmail}
                           onCheckedChange={(checked) => setNotificationEmail(checked === true)}
-                          className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
+                          className="h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
                         />
-                        <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
+                        <label
+                          htmlFor="notification_email"
+                          className="text-[16px] font-normal text-[#666666] cursor-pointer select-none"
+                        >
                           Notification Email
-                        </p>
+                        </label>
                       </div>
                       <div>
                         <label htmlFor="">Primary Phone</label>
