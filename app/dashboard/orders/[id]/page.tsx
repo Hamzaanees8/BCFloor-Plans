@@ -60,6 +60,7 @@ import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoice } from "../../i
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import RefundModal from "../../invoice/components/RefundModal";
 import ReleaseMediaConfirmDialog from "../components/ReleaseMediaConfirmDialog";
+import MediaReleaseNoticeModal from "../../file-manager/components/MediaReleaseNoticeModal";
 import { isUserCoAgent } from "@/lib/permissions";
 import { useOrganization } from "@/app/context/OrganizationContext";
 export interface VendorAddress {
@@ -192,6 +193,7 @@ function Page() {
   const [isChecked, setIsChecked] = useState(true);
   const [releaseMediaBeforePayment, setReleaseMediaBeforePayment] = useState(false);
   const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [showReleaseSuccessModal, setShowReleaseSuccessModal] = useState(false);
   const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -645,11 +647,18 @@ function Page() {
         prev ? { ...prev, release_media_before_payment: enable } : prev
       );
       setShowReleaseMediaConfirm(false);
-      toast.success(
-        enable
-          ? "Media released to agent before payment successfully"
-          : "Media release before payment revoked"
-      );
+      if (enable) {
+        setShowReleaseSuccessModal(true);
+        toast.success("Media Released to Agent", {
+          description:
+            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes 1–3 minutes).",
+          duration: 8000,
+        });
+      } else {
+        toast.info("Media Release Revoked", {
+          description: "Pre-payment media release has been revoked.",
+        });
+      }
     } catch (error) {
       console.error("Error updating media release status:", error);
       toast.error(
@@ -2385,13 +2394,24 @@ function Page() {
         }}
       />
 
-      <ReleaseMediaConfirmDialog
-        open={showReleaseMediaConfirm}
-        onOpenChange={setShowReleaseMediaConfirm}
-        orderData={orderData}
-        isLoading={isReleaseMediaLoading}
-        onConfirm={() => executeReleaseMedia(true)}
-      />
+      {userType === "admin" && (
+        <>
+          <ReleaseMediaConfirmDialog
+            open={showReleaseMediaConfirm}
+            onOpenChange={setShowReleaseMediaConfirm}
+            orderData={orderData}
+            isLoading={isReleaseMediaLoading}
+            onConfirm={() => executeReleaseMedia(true)}
+          />
+
+          <MediaReleaseNoticeModal
+            open={showReleaseSuccessModal}
+            onOpenChange={setShowReleaseSuccessModal}
+            orderId={orderData?.id}
+            onRefresh={refreshOrders}
+          />
+        </>
+      )}
 
       {removeServiceModal.open && removeServiceModal.service && orderData?.uuid && (
         <RemoveServiceModal

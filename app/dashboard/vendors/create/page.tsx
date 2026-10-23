@@ -1232,6 +1232,30 @@ const VendorForm = () => {
           router.push("/dashboard/vendors");
           toast.success("Vendors updated successfully");
         } else {
+          setAvatarFile(null);
+          setCompanyLogoFile(null);
+          setCompanyBannerFile(null);
+          if (result?.data?.avatar_url) {
+            setAvatarUrl(result.data.avatar_url);
+          }
+          if (result?.data?.avatar) {
+            setAvatarFileName(result.data.avatar);
+          }
+          if (typeof window !== "undefined") {
+            const userInfoStr = localStorage.getItem("userInfo");
+            if (userInfoStr && result?.data) {
+              try {
+                const parsed = JSON.parse(userInfoStr);
+                const updatedUserInfo = {
+                  ...parsed,
+                  ...result.data,
+                };
+                localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+              } catch (e) {
+                console.error("Failed to update userInfo in localStorage:", e);
+              }
+            }
+          }
           toast.success("Settings updated successfully");
         }
       } else {

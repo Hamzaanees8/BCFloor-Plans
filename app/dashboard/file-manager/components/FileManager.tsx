@@ -25,6 +25,7 @@ import BlockedMediaMessage from "./BlockedMediaMessage";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import ReleaseMediaConfirmDialog from "../../orders/components/ReleaseMediaConfirmDialog";
+import MediaReleaseNoticeModal from "./MediaReleaseNoticeModal";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
@@ -54,7 +55,7 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X, Edit2, Save, Trash2 } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw } from "lucide-react";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
 import { isVoidOrCancelled } from "../../billing/billing";
@@ -449,6 +450,9 @@ const FileManager = () => {
   };
 
   const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [showReleaseSuccessModal, setShowReleaseSuccessModal] = useState(false);
+  const [isReleaseBannerDismissed, setIsReleaseBannerDismissed] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
 
   const handleToggleReleaseMedia = async (enable: boolean) => {
@@ -474,11 +478,33 @@ const FileManager = () => {
         setOrderData({ ...orderData, release_media_before_payment: enable });
       }
       setShowReleaseMediaConfirm(false);
-      toast.success(
-        enable
-          ? "Media released to agent before payment successfully"
-          : "Media release before payment revoked",
-      );
+      if (enable) {
+        const currentId = orderId || orderData?.id;
+        const currentUuid = orderData?.uuid;
+        const wasDismissed =
+          (currentId &&
+            localStorage.getItem(
+              `media_release_banner_dismissed_${currentId}`,
+            ) === "true") ||
+          (currentUuid &&
+            localStorage.getItem(
+              `media_release_banner_dismissed_${currentUuid}`,
+            ) === "true");
+
+        if (!wasDismissed) {
+          setIsReleaseBannerDismissed(false);
+        }
+        setShowReleaseSuccessModal(true);
+        toast.success("Media Released to Agent", {
+          description:
+            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes 1–3 minutes).",
+          duration: 8000,
+        });
+      } else {
+        toast.info("Media Release Revoked", {
+          description: "Pre-payment media release has been revoked.",
+        });
+      }
     } catch (err: any) {
       console.error("Failed to update media release:", err);
       toast.error(err?.message || "Failed to update media release status");
@@ -517,6 +543,49 @@ const FileManager = () => {
   const listingId = searchParams.get("listingId");
   const isListing = listingId ? true : false;
 
+  // Persist media release banner dismissal per order
+  useEffect(() => {
+    const currentId = orderId || orderData?.id;
+    const currentUuid = orderData?.uuid;
+    if (!currentId && !currentUuid) return;
+    try {
+      const isDismissed =
+        (currentId &&
+          localStorage.getItem(
+            `media_release_banner_dismissed_${currentId}`,
+          ) === "true") ||
+        (currentUuid &&
+          localStorage.getItem(
+            `media_release_banner_dismissed_${currentUuid}`,
+          ) === "true");
+      setIsReleaseBannerDismissed(Boolean(isDismissed));
+    } catch (e) {
+      console.error("Error reading release banner dismiss status:", e);
+    }
+  }, [orderId, orderData?.id, orderData?.uuid]);
+
+  const handleDismissReleaseBanner = React.useCallback(() => {
+    setIsReleaseBannerDismissed(true);
+    const currentId = orderId || orderData?.id;
+    const currentUuid = orderData?.uuid;
+    try {
+      if (currentId) {
+        localStorage.setItem(
+          `media_release_banner_dismissed_${currentId}`,
+          "true",
+        );
+      }
+      if (currentUuid) {
+        localStorage.setItem(
+          `media_release_banner_dismissed_${currentUuid}`,
+          "true",
+        );
+      }
+    } catch (e) {
+      console.error("Error saving release banner dismiss status:", e);
+    }
+  }, [orderId, orderData?.id, orderData?.uuid]);
+
   const hasInitializedTab = useRef(false);
 
   useEffect(() => {
@@ -541,6 +610,71 @@ const FileManager = () => {
   const [modalTitle, setModalTitle] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+
+  const [isAgentPaymentBannerDismissed, setIsAgentPaymentBannerDismissed] =
+    useState(false);
+
+  const isOrderOrInvoicePaid = React.useMemo(() => {
+    if (orderData?.payment_status === "PAID") return true;
+    if (
+      Array.isArray(orderData?.services) &&
+      orderData.services.some(
+        (s: any) => (s?.payment_status || "").toUpperCase() === "PAID",
+      )
+    ) {
+      return true;
+    }
+    if (
+      Array.isArray(invoices) &&
+      invoices.some((inv: any) => (inv?.status || "").toUpperCase() === "PAID")
+    ) {
+      return true;
+    }
+    return false;
+  }, [orderData?.payment_status, orderData?.services, invoices]);
+
+  useEffect(() => {
+    if (userType !== "agent") return;
+    const currentId = orderId || orderData?.id;
+    const currentUuid = orderData?.uuid;
+    if (!currentId && !currentUuid) return;
+    try {
+      const isDismissed =
+        (currentId &&
+          localStorage.getItem(
+            `agent_media_payment_notice_dismissed_${currentId}`,
+          ) === "true") ||
+        (currentUuid &&
+          localStorage.getItem(
+            `agent_media_payment_notice_dismissed_${currentUuid}`,
+          ) === "true");
+      setIsAgentPaymentBannerDismissed(Boolean(isDismissed));
+    } catch (e) {
+      console.error("Error reading agent payment banner dismiss status:", e);
+    }
+  }, [orderId, orderData?.id, orderData?.uuid, userType]);
+
+  const handleDismissAgentPaymentBanner = React.useCallback(() => {
+    setIsAgentPaymentBannerDismissed(true);
+    const currentId = orderId || orderData?.id;
+    const currentUuid = orderData?.uuid;
+    try {
+      if (currentId) {
+        localStorage.setItem(
+          `agent_media_payment_notice_dismissed_${currentId}`,
+          "true",
+        );
+      }
+      if (currentUuid) {
+        localStorage.setItem(
+          `agent_media_payment_notice_dismissed_${currentUuid}`,
+          "true",
+        );
+      }
+    } catch (e) {
+      console.error("Error saving agent payment banner dismiss status:", e);
+    }
+  }, [orderId, orderData?.id, orderData?.uuid]);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
   const [deleteInvoiceModal, setDeleteInvoiceModal] = useState<{
     open: boolean;
@@ -667,6 +801,36 @@ const FileManager = () => {
     }
   }, [orderId, filterServicesForVendor, servicesData]);
 
+  const handleRefreshFiles = React.useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !orderData?.uuid) return;
+    setIsManualRefreshing(true);
+    try {
+      const filesRes = await GetFilesData(token, orderData.uuid, includeHidden);
+      if (filesRes?.data && filesRes.data.length > 0) {
+        const updatedTour = filesRes.data[0];
+        if (updatedTour.files) {
+          updatedTour.files = updatedTour.files.map((f: any) => ({
+            ...f,
+            is_processing:
+              f.status === "processing" ||
+              f.is_processing ||
+              (f.type === "photo" &&
+                (!f.variant_urls || Object.keys(f.variant_urls).length === 0)),
+          }));
+        }
+        setFilesData(updatedTour);
+      }
+      await fetchOrder();
+      toast.success("Media files refreshed successfully");
+    } catch (err: any) {
+      console.error("Failed to refresh files:", err);
+      toast.error("Failed to refresh files");
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [orderData?.uuid, includeHidden, setFilesData, fetchOrder]);
+
   // Keep vendor services in sync when servicesData catalog finishes loading or orderData updates
   useEffect(() => {
     const userType = localStorage.getItem("userType");
@@ -713,7 +877,25 @@ const FileManager = () => {
           );
         }
 
-        toast.success("Payment processed successfully! ");
+        const currentId = orderId || orderData?.id;
+        const currentUuid = orderData?.uuid;
+        try {
+          if (currentId)
+            localStorage.removeItem(
+              `agent_media_payment_notice_dismissed_${currentId}`,
+            );
+          if (currentUuid)
+            localStorage.removeItem(
+              `agent_media_payment_notice_dismissed_${currentUuid}`,
+            );
+        } catch {}
+        setIsAgentPaymentBannerDismissed(false);
+
+        toast.success("Payment Processed Successfully!", {
+          description:
+            "Your media is now unlocked. Background servers are removing watermarks (typically takes 1–3 minutes). Previews will update shortly.",
+          duration: 8000,
+        });
 
         // Re-fetch order and invoices to get updated payment_status
         await fetchOrder();
@@ -2648,6 +2830,34 @@ const FileManager = () => {
                               )}
                             </div>
 
+                            {status === "PAID" && (
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-blue-50/80 border border-blue-200 rounded-[6px] text-blue-900 text-[11.5px]">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span>
+                                    Invoice Paid — Background processing removes watermarks (takes 1–3 min).
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleRefreshFiles}
+                                  disabled={isManualRefreshing}
+                                  className="h-[26px] px-2 text-[11px] font-medium border-blue-300 bg-white hover:bg-blue-100 text-blue-900 flex items-center gap-1 shrink-0 self-end sm:self-auto shadow-xs"
+                                >
+                                  <RefreshCw
+                                    className={`w-3 h-3 ${isManualRefreshing ? "animate-spin" : ""}`}
+                                  />
+                                  <span>
+                                    {isManualRefreshing
+                                      ? "Refreshing..."
+                                      : "Refresh Media"}
+                                  </span>
+                                </Button>
+                              </div>
+                            )}
+
                             {/* Bottom Action Footer Row: All buttons on right */}
                             <div className="pt-2.5 border-t border-gray-200/60 flex items-center gap-2 flex-wrap justify-end">
                               <Button
@@ -3811,6 +4021,108 @@ const FileManager = () => {
             </div>
           )}
 
+          {/* Pre-Payment Release & Watermark Processing In-UI Banner */}
+          {userType === "admin" &&
+            orderData?.release_media_before_payment &&
+            !isReleaseBannerDismissed && (
+              <div className="mx-[25px] my-3 p-3.5 border border-emerald-300 bg-emerald-50/90 rounded-[8px] flex flex-col md:flex-row justify-between items-start md:items-center gap-3 font-alexandria shadow-sm text-emerald-900 transition-all">
+                <div className="flex items-start md:items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0 mt-0.5 md:mt-0">
+                    <Sparkles className="w-4 h-4 text-emerald-700" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-bold text-emerald-950">
+                        Media Released to Agent (Pre-Payment)
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 border border-emerald-300 uppercase tracking-wide">
+                        Watermark Removal in Progress
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
+                      Files are unlocked for the agent. Background processing is actively generating unwatermarked versions (takes 1–3 minutes). If images still show watermarks, click Refresh to load completed variants.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshFiles}
+                    disabled={isManualRefreshing}
+                    className="h-[30px] px-3 text-[12px] font-semibold border-emerald-400 bg-white hover:bg-emerald-100 text-emerald-900 flex items-center gap-1.5 shadow-xs"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`}
+                    />
+                    <span>
+                      {isManualRefreshing ? "Refreshing..." : "Refresh Media"}
+                    </span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={handleDismissReleaseBanner}
+                    title="Dismiss notice for this order"
+                    className="text-emerald-700 hover:text-emerald-950 p-1 rounded hover:bg-emerald-200/50 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+          {/* Agent Paid Media & Watermark Processing In-UI Banner */}
+          {userType === "agent" &&
+            isOrderOrInvoicePaid &&
+            !isAgentPaymentBannerDismissed && (
+              <div className="mx-[25px] my-3 p-3.5 border border-emerald-300 bg-emerald-50/90 rounded-[8px] flex flex-col md:flex-row justify-between items-start md:items-center gap-3 font-alexandria shadow-sm text-emerald-900 transition-all">
+                <div className="flex items-start md:items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0 mt-0.5 md:mt-0">
+                    <Sparkles className="w-4 h-4 text-emerald-700" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-bold text-emerald-950">
+                        Payment Received — Processing Watermark Removal
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 border border-emerald-300 uppercase tracking-wide">
+                        In Progress
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
+                      Thank you for your payment! Our background system is actively processing your media to remove watermarks and generate unwatermarked versions (takes 1–3 minutes). If images still show watermarks, click Refresh Media to load completed files.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshFiles}
+                    disabled={isManualRefreshing}
+                    className="h-[30px] px-3 text-[12px] font-semibold border-emerald-400 bg-white hover:bg-emerald-100 text-emerald-900 flex items-center gap-1.5 shadow-xs"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`}
+                    />
+                    <span>
+                      {isManualRefreshing ? "Refreshing..." : "Refresh Media"}
+                    </span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={handleDismissAgentPaymentBanner}
+                    title="Dismiss notice"
+                    className="text-emerald-700 hover:text-emerald-950 p-1 rounded hover:bg-emerald-200/50 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
           {/* Admin Approval Widget */}
           {userType === "admin" &&
             reviewFilesEnabled &&
@@ -4021,13 +4333,25 @@ const FileManager = () => {
         />
       )}
 
-      <ReleaseMediaConfirmDialog
-        open={showReleaseMediaConfirm}
-        onOpenChange={setShowReleaseMediaConfirm}
-        orderData={orderData}
-        isLoading={isReleaseMediaLoading}
-        onConfirm={() => executeReleaseMedia(true)}
-      />
+      {userType === "admin" && (
+        <>
+          <ReleaseMediaConfirmDialog
+            open={showReleaseMediaConfirm}
+            onOpenChange={setShowReleaseMediaConfirm}
+            orderData={orderData}
+            isLoading={isReleaseMediaLoading}
+            onConfirm={() => executeReleaseMedia(true)}
+          />
+
+          <MediaReleaseNoticeModal
+            open={showReleaseSuccessModal}
+            onOpenChange={setShowReleaseSuccessModal}
+            orderId={orderData?.id}
+            onRefresh={handleRefreshFiles}
+            isRefreshing={isManualRefreshing}
+          />
+        </>
+      )}
 
       {deleteInvoiceModal.open && deleteInvoiceModal.invoice && (
         <DeleteInvoiceModal

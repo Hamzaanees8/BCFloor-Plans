@@ -122,7 +122,13 @@ function payloadToFormData(payload: VendorPayload): FormData {
   Object.entries(payload).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
 
-    if (Array.isArray(value)) {
+    if (value instanceof File || (typeof Blob !== "undefined" && value instanceof Blob)) {
+      formData.append(key, value);
+    } else if (key === "avatar" || key === "company_logo" || key === "company_banner") {
+      // Backend expects these fields to be image files (UploadedFile).
+      // If they are not File/Blob instances (e.g. existing strings or urls), do not append.
+      return;
+    } else if (Array.isArray(value)) {
       if (key === "portfolio_images") {
         value.forEach((item, index) => {
           if (item instanceof File) {
@@ -248,11 +254,15 @@ function payloadToFormData(payload: VendorPayload): FormData {
             }
           );
         });
-      } else if (key === "coordinates") {
-        formData.append(key, JSON.stringify(value));
-      } else if (key === "sync_email") {
-        formData.append(key, String(value));
+      } else {
+        value.forEach((item, index) => {
+          formData.append(`${key}[${index}]`, String(item));
+        });
       }
+    } else if (key === "coordinates") {
+      formData.append(key, typeof value === "string" ? value : JSON.stringify(value));
+    } else if (key === "sync_email") {
+      formData.append(key, String(value));
     } else if (key === "work_hours") {
       Object.entries(value).forEach(([k, v]) => {
         if (Array.isArray(v) && k === "work_days") {
@@ -302,6 +312,8 @@ function payloadToFormData(payload: VendorPayload): FormData {
           formData.append(`${key}[${k}]`, finalValue);
         }
       });
+    } else if (typeof value === "boolean") {
+      formData.append(key, value ? "1" : "0");
     } else {
       formData.append(key, String(value));
     }
