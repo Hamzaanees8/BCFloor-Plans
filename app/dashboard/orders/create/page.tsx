@@ -1,7 +1,19 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, X } from 'lucide-react';
+import WarningIcon from '@/components/Icons';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { isPastBooking } from '@/lib/bookingUtils';
 import { GetOne } from '../orders';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -127,6 +139,44 @@ const OrderForm = () => {
     const { setIsDirty } = useUnsaved();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [notifyAgent, setNotifyAgent] = useState(true);
+    const [notifyVendor, setNotifyVendor] = useState(true);
+    const [notifyAdmin, setNotifyAdmin] = useState(true);
+    const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
+
+    const isOrderUpdate = Boolean(userId) || isEdit || Boolean(currentUser);
+
+    const handleOpenSubmitModal = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        if (role === 'agent') {
+            setNotifyVendor(true);
+            setNotifyAdmin(true);
+            setNotifyAgent(true);
+        } else {
+            setNotifyAgent(true);
+            setNotifyVendor(true);
+            setNotifyAdmin(false);
+        }
+        setShowConfirmation(true);
+    };
+
+    const handleConfirmSubmit = async () => {
+        setIsUpdatingOrder(true);
+        try {
+            const success = await confirmationRef.current?.handleSubmitOrder(undefined, {
+                notify_agent: role === 'agent' ? true : notifyAgent,
+                notify_vendor: notifyVendor,
+                notify_admin: role === 'agent' ? true : notifyAdmin,
+            });
+            if (success) {
+                setShowConfirmation(false);
+                setIsSubmitted(true);
+            }
+        } finally {
+            setIsUpdatingOrder(false);
+        }
+    };
 
     // Check token and listen to login events
     useEffect(() => {
@@ -625,15 +675,19 @@ const OrderForm = () => {
                         </Button>
                     ) : (
                         <Button
-                            disabled={isLoading || (isPast && role !== 'admin')}
+                            disabled={isLoading || isUpdatingOrder || (isPast && role !== 'admin')}
                             onClick={async (e) => {
-                                await confirmationRef.current?.handleSubmitOrder(e);
-                                setIsSubmitted(true);
+                                if (isOrderUpdate) {
+                                    handleOpenSubmitModal(e);
+                                } else {
+                                    await confirmationRef.current?.handleSubmitOrder(e);
+                                    setIsSubmitted(true);
+                                }
                             }}
                             className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                             style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                         >
-                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
+                            {(isLoading || isUpdatingOrder) ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
                         </Button>
                     )}
                 </div>
@@ -676,6 +730,99 @@ const OrderForm = () => {
                     </div>
                 )}
             </div>
+
+            <AlertDialog
+                open={showConfirmation}
+                onOpenChange={setShowConfirmation}
+            >
+                <AlertDialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle
+                            className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}
+                        >
+                            SAVE AND EXIT
+                            <AlertDialogCancel
+                                onClick={() => setShowConfirmation(false)}
+                                className="border-none !shadow-none p-0 h-auto bg-transparent hover:bg-transparent"
+                            >
+                                <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                            </AlertDialogCancel>
+                        </AlertDialogTitle>
+                    </AlertDialogHeader>
+
+                    <div className="flex items-start gap-3">
+                        <div className="w-fit">
+                            <WarningIcon width={48} />
+                        </div>
+                        <AlertDialogDescription className="text-[16px] font-[400] text-[#666666]">
+                            Are you sure you want to save and exit? This cannot be undone.
+                        </AlertDialogDescription>
+                    </div>
+
+                    <div className="mt-4 flex justify-start items-center gap-8 border-b-[1px] border-[#E4E4E4] pb-3">
+                        {role !== 'agent' && (
+                            <div className="flex items-center gap-2.5">
+                                <Checkbox
+                                    id="notifyAgent"
+                                    checked={notifyAgent}
+                                    onCheckedChange={(checked) => setNotifyAgent(Boolean(checked))}
+                                    className="w-5 h-5 rounded-[4px] cursor-pointer text-white data-[state=checked]:text-white border-[#BBBBBB]"
+                                    style={{
+                                        backgroundColor: notifyAgent ? roleSettings.pageTabColor : undefined,
+                                        borderColor: notifyAgent ? roleSettings.pageTabColor : '#BBBBBB',
+                                    }}
+                                />
+                                <label
+                                    htmlFor="notifyAgent"
+                                    className="text-[16px] font-[400] text-[#666666] cursor-pointer select-none"
+                                >
+                                    Inform Agent
+                                </label>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-2.5">
+                            <Checkbox
+                                id="notifyVendor"
+                                checked={notifyVendor}
+                                onCheckedChange={(checked) => setNotifyVendor(Boolean(checked))}
+                                className="w-5 h-5 rounded-[4px] cursor-pointer text-white data-[state=checked]:text-white border-[#BBBBBB]"
+                                style={{
+                                    backgroundColor: notifyVendor ? roleSettings.pageTabColor : undefined,
+                                    borderColor: notifyVendor ? roleSettings.pageTabColor : '#BBBBBB',
+                                }}
+                            />
+                            <label
+                                htmlFor="notifyVendor"
+                                className="text-[16px] font-[400] text-[#666666] cursor-pointer select-none"
+                            >
+                                Inform Vendor
+                            </label>
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-alexandria">
+                        <AlertDialogCancel
+                            onClick={() => setShowConfirmation(false)}
+                            disabled={isUpdatingOrder}
+                            className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text ${userType}-border text-[#0078D4] hover-${userType}-bg hover:opacity-95 ${userType}-button`}
+                        >
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isUpdatingOrder}
+                            className={`${userType}-border hover:opacity-95 text-white ${userType}-bg hover-${userType}-bg w-full md:w-[170px] h-[44px] font-[400] text-[20px] flex items-center justify-center gap-2`}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleConfirmSubmit();
+                            }}
+                        >
+                            {isUpdatingOrder && <Loader2 className="w-5 h-5 animate-spin" />}
+                            <span>OK</span>
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
         // </OrderProvider>
 

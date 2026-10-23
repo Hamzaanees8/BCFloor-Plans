@@ -9,6 +9,7 @@ import {
 import { X, Loader2 } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Order } from "../../orders/page";
 import AppointmentTab from "./AppointmentTab";
 import SquareFootage from "./SquareFootage";
@@ -120,8 +121,8 @@ export default function OrderDetailView({
   const [area, setArea] = useState<Area[]>([]);
   const [updateInvoice, setUpdateInvoice] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [agentChecked, setAgentChecked] = useState(false);
-  const [vendorChecked, setVendorChecked] = useState(false);
+  const [agentChecked, setAgentChecked] = useState(true);
+  const [vendorChecked, setVendorChecked] = useState(true);
   const [vendorSelected, setVendorSelected] = useState(false);
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -141,10 +142,12 @@ export default function OrderDetailView({
     setCalendarServices([]);
   };
   const handleOkClick = () => {
-    const both = agentChecked && vendorChecked;
+    const isAgent = userType === "agent";
+    const notifyAgentFinal = isAgent ? false : agentChecked;
+    const both = notifyAgentFinal && vendorChecked;
     setVendorSelected(vendorChecked);
 
-    if (both || agentChecked) {
+    if (both || notifyAgentFinal) {
       setShowAgentModal(true);
       setShowVendorModal(false);
       setShowNotification(true);
@@ -194,8 +197,8 @@ export default function OrderDetailView({
           setIsEdit(false);
           setActiveTab("appointment");
       }
-      setAgentChecked(false);
-      setVendorChecked(false);
+      setAgentChecked(true);
+      setVendorChecked(true);
       setVendorSelected(false);
       setShowAgentModal(false);
       setShowVendorModal(false);
@@ -669,51 +672,48 @@ export default function OrderDetailView({
 
           <div className="flex items-start gap-3">
             <div className="w-fit">
-              <WarningIcon width={48} fill="#DC9600" />
+              <WarningIcon width={48} />
             </div>
             <AlertDialogDescription className="text-[16px] font-[400] text-[#666666]">
               Are you sure you want to save and exit? This cannot be undone.
             </AlertDialogDescription>
           </div>
 
-          <div className="mt-4 flex justify-between items-center gap-2 border-b-[1px] border-[#E4E4E4] pb-2">
-            <div className="flex items-start gap-x-2.5">
-              <div className="">
-                <input
-                  type="checkbox"
+          <div className="mt-4 flex justify-start items-center gap-8 border-b-[1px] border-[#E4E4E4] pb-2">
+            {userType !== 'agent' && (
+              <div className="flex items-center gap-2.5">
+                <Checkbox
                   id="notifyAgent"
                   checked={agentChecked}
-                  onChange={() => setAgentChecked(!agentChecked)}
-                  className={`w-5 h-5 ${userType}-accent mt-1 cursor-pointer`}
+                  onCheckedChange={(checked) => setAgentChecked(Boolean(checked))}
+                  className={`w-5 h-5 rounded-[4px] cursor-pointer text-white data-[state=checked]:text-white ${userType}-border`}
+                  style={{
+                    backgroundColor: agentChecked ? `var(--${userType}-tab, #6BAE41)` : undefined,
+                  }}
                 />
-              </div>
-
-              <label
-                htmlFor="notifyAgent"
-                className="flex flex-col gap-y-2 cursor-pointer"
-              >
-                <p className="text-[16px] font-[400] text-[#666666]">
+                <label
+                  htmlFor="notifyAgent"
+                  className="text-[16px] font-[400] text-[#666666] cursor-pointer select-none"
+                >
                   Notify Agent of Changes
-                </p>
-              </label>
-            </div>
-            <div className="flex items-start gap-x-2.5">
-              <div className="">
-                <input
-                  type="checkbox"
-                  id="notifyVendor"
-                  checked={vendorChecked}
-                  onChange={() => setVendorChecked(!vendorChecked)}
-                  className={`w-5 h-5 ${userType}-accent mt-1 cursor-pointer`}
-                />
+                </label>
               </div>
+            )}
+            <div className="flex items-center gap-2.5">
+              <Checkbox
+                id="notifyVendor"
+                checked={vendorChecked}
+                onCheckedChange={(checked) => setVendorChecked(Boolean(checked))}
+                className={`w-5 h-5 rounded-[4px] cursor-pointer text-white data-[state=checked]:text-white ${userType}-border`}
+                style={{
+                  backgroundColor: vendorChecked ? `var(--${userType}-tab, #6BAE41)` : undefined,
+                }}
+              />
               <label
                 htmlFor="notifyVendor"
-                className="flex flex-col gap-y-2 cursor-pointer"
+                className="text-[16px] font-[400] text-[#666666] cursor-pointer select-none"
               >
-                <p className="text-[16px] font-[400] text-[#666666]">
-                  Notify Vendor of Changes
-                </p>
+                Notify Vendor of Changes
               </label>
             </div>
           </div>

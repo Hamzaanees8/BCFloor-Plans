@@ -68,7 +68,7 @@ export default function MediaReleaseNoticeModal({
               <span>Watermark Removal in Progress</span>
             </div>
             <p className="text-[12px] text-amber-800 leading-relaxed">
-              Background servers are reprocessing photos to remove watermarks. This typically takes <strong>1–3 minutes</strong>. Previews will update once completed.
+              Background servers are reprocessing photos to remove watermarks. This typically takes <strong>a couple of minutes</strong>. Previews will update once completed.
             </p>
           </div>
         </div>

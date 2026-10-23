@@ -45,8 +45,14 @@ export type Discount = {
         name?: string;
     }[];
 };
+export interface NotificationOptions {
+    notify_agent?: boolean;
+    notify_vendor?: boolean;
+    notify_admin?: boolean;
+}
+
 export type OrderConfirmationHandle = {
-    handleSubmitOrder: (e: React.MouseEvent<HTMLButtonElement>) => Promise<void>;
+    handleSubmitOrder: (e?: React.MouseEvent<HTMLButtonElement>, notificationOptions?: NotificationOptions) => Promise<boolean>;
 };
 const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const {
@@ -468,9 +474,14 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     };
 
 
-    const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault();
-        if (isLoading) return;
+    const handleSubmitOrder = async (
+        e?: React.MouseEvent<HTMLButtonElement>,
+        notificationOptions?: NotificationOptions
+    ): Promise<boolean> => {
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+        }
+        if (isLoading) return false;
 
         setIsLoading(true);
 
@@ -641,24 +652,30 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             };
 
             let response;
-
+ 
             if (userId) {
-                const updatedPayload = { ...payload, _method: 'PUT' };
+                const updatedPayload = {
+                    ...payload,
+                    _method: 'PUT',
+                    ...(notificationOptions?.notify_agent !== undefined && { notify_agent: notificationOptions.notify_agent ? 1 : 0 }),
+                    ...(notificationOptions?.notify_vendor !== undefined && { notify_vendor: notificationOptions.notify_vendor ? 1 : 0 }),
+                    ...(notificationOptions?.notify_admin !== undefined && { notify_admin: notificationOptions.notify_admin ? 1 : 0 }),
+                };
                 response = await Edit(userId, updatedPayload, token);
             } else {
                 response = await Create(payload, token, orgSlug);
             }
-
+ 
             if (!response?.success) throw new Error("Order failed");
-
-
-
+ 
             setCreatedOrderUuid(response.data.uuid);
             setIsSubmitted(true);
             setTempPropertyData(null);
+            return true;
         } catch (err) {
             console.error("Failed to submit order", err);
             setIsSubmitted(false);
+            return false;
         } finally {
             setIsLoading(false); // ✅ ALWAYS LAST
         }

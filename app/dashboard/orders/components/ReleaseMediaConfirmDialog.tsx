@@ -232,7 +232,7 @@ export default function ReleaseMediaConfirmDialog({
             <div className="text-[11.5px] leading-snug space-y-0.5">
               <p className="font-semibold text-blue-950">Watermark Removal Processing</p>
               <p className="text-blue-800">
-                Releasing media initiates background queue tasks to remove watermarks from all photos. This process takes 1–3 minutes to generate all unwatermarked variants.
+                Releasing media initiates background queue tasks to remove watermarks from all photos. This process takes a couple of minutes to generate all unwatermarked variants.
               </p>
             </div>
           </div>

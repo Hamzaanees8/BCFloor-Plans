@@ -60,6 +60,7 @@ import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoice } from "../../i
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import RefundModal from "../../invoice/components/RefundModal";
 import ReleaseMediaConfirmDialog from "../components/ReleaseMediaConfirmDialog";
+import RevokeMediaReleaseConfirmDialog from "../components/RevokeMediaReleaseConfirmDialog";
 import MediaReleaseNoticeModal from "../../file-manager/components/MediaReleaseNoticeModal";
 import { isUserCoAgent } from "@/lib/permissions";
 import { useOrganization } from "@/app/context/OrganizationContext";
@@ -193,6 +194,7 @@ function Page() {
   const [isChecked, setIsChecked] = useState(true);
   const [releaseMediaBeforePayment, setReleaseMediaBeforePayment] = useState(false);
   const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [showRevokeMediaConfirm, setShowRevokeMediaConfirm] = useState(false);
   const [showReleaseSuccessModal, setShowReleaseSuccessModal] = useState(false);
   const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -621,7 +623,7 @@ function Page() {
     if (checked) {
       setShowReleaseMediaConfirm(true);
     } else {
-      executeReleaseMedia(false);
+      setShowRevokeMediaConfirm(true);
     }
   };
 
@@ -647,11 +649,12 @@ function Page() {
         prev ? { ...prev, release_media_before_payment: enable } : prev
       );
       setShowReleaseMediaConfirm(false);
+      setShowRevokeMediaConfirm(false);
       if (enable) {
         setShowReleaseSuccessModal(true);
         toast.success("Media Released to Agent", {
           description:
-            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes 1–3 minutes).",
+            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes a couple of minutes).",
           duration: 8000,
         });
       } else {
@@ -2402,6 +2405,14 @@ function Page() {
             orderData={orderData}
             isLoading={isReleaseMediaLoading}
             onConfirm={() => executeReleaseMedia(true)}
+          />
+
+          <RevokeMediaReleaseConfirmDialog
+            open={showRevokeMediaConfirm}
+            onOpenChange={setShowRevokeMediaConfirm}
+            orderData={orderData}
+            isLoading={isReleaseMediaLoading}
+            onConfirm={() => executeReleaseMedia(false)}
           />
 
           <MediaReleaseNoticeModal

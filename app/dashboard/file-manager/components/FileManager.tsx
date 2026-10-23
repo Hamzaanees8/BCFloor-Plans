@@ -25,6 +25,7 @@ import BlockedMediaMessage from "./BlockedMediaMessage";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import ReleaseMediaConfirmDialog from "../../orders/components/ReleaseMediaConfirmDialog";
+import RevokeMediaReleaseConfirmDialog from "../../orders/components/RevokeMediaReleaseConfirmDialog";
 import MediaReleaseNoticeModal from "./MediaReleaseNoticeModal";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
@@ -450,6 +451,7 @@ const FileManager = () => {
   };
 
   const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
+  const [showRevokeMediaConfirm, setShowRevokeMediaConfirm] = useState(false);
   const [showReleaseSuccessModal, setShowReleaseSuccessModal] = useState(false);
   const [isReleaseBannerDismissed, setIsReleaseBannerDismissed] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
@@ -459,7 +461,7 @@ const FileManager = () => {
     if (enable) {
       setShowReleaseMediaConfirm(true);
     } else {
-      executeReleaseMedia(false);
+      setShowRevokeMediaConfirm(true);
     }
   };
 
@@ -478,6 +480,7 @@ const FileManager = () => {
         setOrderData({ ...orderData, release_media_before_payment: enable });
       }
       setShowReleaseMediaConfirm(false);
+      setShowRevokeMediaConfirm(false);
       if (enable) {
         const currentId = orderId || orderData?.id;
         const currentUuid = orderData?.uuid;
@@ -497,7 +500,7 @@ const FileManager = () => {
         setShowReleaseSuccessModal(true);
         toast.success("Media Released to Agent", {
           description:
-            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes 1–3 minutes).",
+            "Media access is unlocked. Background processing is generating unwatermarked images (typically takes a couple of minutes).",
           duration: 8000,
         });
       } else {
@@ -893,7 +896,7 @@ const FileManager = () => {
 
         toast.success("Payment Processed Successfully!", {
           description:
-            "Your media is now unlocked. Background servers are removing watermarks (typically takes 1–3 minutes). Previews will update shortly.",
+            "Your media is now unlocked. Background servers are removing watermarks (typically takes a couple of minutes). Previews will update shortly.",
           duration: 8000,
         });
 
@@ -2146,7 +2149,7 @@ const FileManager = () => {
   }, [orderData, includeHidden]);
 
   // ------------------------------------------------------------------
-  // SILENT BACKGROUND POLLING FOR PROCESSING MEDIA (EVERY 30 SECONDS)
+  // SILENT BACKGROUND POLLING FOR PROCESSING MEDIA & WATERMARK REMOVAL
   // ------------------------------------------------------------------
   const hasProcessingFiles = React.useMemo(() => {
     return filesData?.files?.some(
@@ -2158,8 +2161,34 @@ const FileManager = () => {
     );
   }, [filesData?.files]);
 
+  const isWatermarkRemovalActive = React.useMemo(() => {
+    if (
+      userType === "agent" &&
+      isOrderOrInvoicePaid &&
+      !isAgentPaymentBannerDismissed
+    ) {
+      return true;
+    }
+    if (
+      userType === "admin" &&
+      orderData?.release_media_before_payment &&
+      !isReleaseBannerDismissed
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    userType,
+    isOrderOrInvoicePaid,
+    isAgentPaymentBannerDismissed,
+    orderData?.release_media_before_payment,
+    isReleaseBannerDismissed,
+  ]);
+
+  const shouldPollMedia = hasProcessingFiles || isWatermarkRemovalActive;
+
   React.useEffect(() => {
-    if (!hasProcessingFiles || !orderData?.uuid) {
+    if (!shouldPollMedia || !orderData?.uuid) {
       return;
     }
 
@@ -2190,10 +2219,10 @@ const FileManager = () => {
           err,
         );
       }
-    }, 30000);
+    }, 25000);
 
     return () => clearInterval(intervalId);
-  }, [hasProcessingFiles, orderData?.uuid, includeHidden, setFilesData]);
+  }, [shouldPollMedia, orderData?.uuid, includeHidden, setFilesData]);
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
@@ -2835,7 +2864,7 @@ const FileManager = () => {
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                                   <span>
-                                    Invoice Paid — Background processing removes watermarks (takes 1–3 min).
+                                    Invoice Paid — Background processing removes watermarks (takes a couple of minutes).
                                   </span>
                                 </div>
                                 <Button
@@ -4040,7 +4069,7 @@ const FileManager = () => {
                       </span>
                     </div>
                     <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
-                      Files are unlocked for the agent. Background processing is actively generating unwatermarked versions (takes 1–3 minutes). If images still show watermarks, click Refresh to load completed variants.
+                      Files are unlocked for the agent. Background processing is actively generating unwatermarked versions (takes a couple of minutes). If images still show watermarks, click Refresh to load completed variants.
                     </p>
                   </div>
                 </div>
@@ -4091,7 +4120,7 @@ const FileManager = () => {
                       </span>
                     </div>
                     <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
-                      Thank you for your payment! Our background system is actively processing your media to remove watermarks and generate unwatermarked versions (takes 1–3 minutes). If images still show watermarks, click Refresh Media to load completed files.
+                      Thank you for your payment! Our background system is actively processing your media to remove watermarks and generate unwatermarked versions (takes a couple of minutes). If images still show watermarks, click Refresh Media to load completed files.
                     </p>
                   </div>
                 </div>
@@ -4341,6 +4370,14 @@ const FileManager = () => {
             orderData={orderData}
             isLoading={isReleaseMediaLoading}
             onConfirm={() => executeReleaseMedia(true)}
+          />
+
+          <RevokeMediaReleaseConfirmDialog
+            open={showRevokeMediaConfirm}
+            onOpenChange={setShowRevokeMediaConfirm}
+            orderData={orderData}
+            isLoading={isReleaseMediaLoading}
+            onConfirm={() => executeReleaseMedia(false)}
           />
 
           <MediaReleaseNoticeModal

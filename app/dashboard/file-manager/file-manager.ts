@@ -1212,11 +1212,15 @@ export async function ServiceCompletion(
   serviceUUid: string,
   seviceStatus: boolean,
   OrderUuid: string,
+  skipEmail: boolean = true,
 ) {
   const params = new URLSearchParams();
   params.append("order_uuid", OrderUuid);
   params.append("orderservice_uuid", serviceUUid);
   params.append("is_completed", `${seviceStatus ? 1 : 0}`);
+  if (skipEmail) {
+    params.append("skip_email", "1");
+  }
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

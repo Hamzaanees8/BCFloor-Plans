@@ -40,6 +40,9 @@ export interface OrderPayload {
     date: string;
   }[];
   is_add_service?: number;
+  notify_agent?: number | boolean;
+  notify_vendor?: number | boolean;
+  notify_admin?: number | boolean;
 }
 export interface EditOrderPayload {
   order_status?: "Processing" | "Completed" | "Cancelled" | string;
