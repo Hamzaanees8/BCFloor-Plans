@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Tag, Info } from 'lucide-react';
 import WarningIcon from '@/components/Icons';
 import {
     AlertDialog,
@@ -131,7 +131,20 @@ const OrderForm = () => {
         setLastPopulatedAgentId,
         resetOrderData,
         isBookNowMode,
+        agentDiscount,
+        activePackage,
     } = useOrderContext();
+
+    const isPackageHigher = React.useMemo(() => {
+        if (!activePackage || !agentDiscount) return false;
+        const pkgDisc = typeof activePackage.discount === 'number' ? activePackage.discount : parseFloat(String(activePackage.discount || '0')) || 0;
+        const agentDisc = typeof agentDiscount.amount === 'number' ? agentDiscount.amount : parseFloat(String(agentDiscount.amount || '0')) || 0;
+        if (pkgDisc <= 0) return false;
+        if (activePackage.discount_type !== 'dollar' && (agentDiscount.is_percentage === 1 || agentDiscount.is_percentage === true || agentDiscount.is_percentage === '1')) {
+            return pkgDisc >= agentDisc;
+        }
+        return pkgDisc > 0;
+    }, [activePackage, agentDiscount]);
     
     const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -640,8 +653,33 @@ const OrderForm = () => {
                 description="Please sign in or sign up for scheduling."
             />
             <div ref={headerRef} className={`w-full min-h-[80px] h-auto py-3 md:py-0 font-alexandria sticky ${isBookNowMode ? 'top-[104px]' : 'top-0'} z-50 flex flex-col md:flex-row justify-between gap-3 md:gap-0 px-[20px] items-center border-b`} style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
-                    {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
+                        {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
+                    {agentDiscount && Number(agentDiscount.amount) > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full shadow-2xs border ${
+                                isPackageHigher
+                                    ? 'bg-emerald-50 text-emerald-800/80 border-emerald-200'
+                                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            }`}>
+                                <Tag className="w-3 h-3 text-emerald-700" />
+                                {agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`} Agent Discount
+                                {Number(agentDiscount.minimum_spend || 0) > 0 && (
+                                    <span className="opacity-90 font-medium ml-0.5">
+                                        (Min. ${Number(agentDiscount.minimum_spend).toLocaleString()} Spend)
+                                    </span>
+                                )}
+                            </span>
+                            {isPackageHigher && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-900 border border-blue-200 rounded-full shadow-2xs">
+                                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    Package savings ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF) applied &mdash; higher discount
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <div className='flex gap-2'>
                     {active !== "property" && !isSubmitted && (
                         <Button

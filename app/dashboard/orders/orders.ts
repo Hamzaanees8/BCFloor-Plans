@@ -43,6 +43,7 @@ export interface OrderPayload {
   notify_agent?: number | boolean;
   notify_vendor?: number | boolean;
   notify_admin?: number | boolean;
+  agent_discount?: Record<string, any> | null;
 }
 export interface EditOrderPayload {
   order_status?: "Processing" | "Completed" | "Cancelled" | string;

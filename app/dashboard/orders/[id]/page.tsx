@@ -1758,12 +1758,29 @@ function Page() {
 
                         {/* Discount */}
                         {totalDiscount > 0 && (
-                          <p className="grid grid-cols-4 gap-[15px]">
-                            <span className="col-span-3">Discount</span>
-                            <span className="col-span-1">
-                              -${totalDiscount.toFixed(2)} ({discountPercent}%)
-                            </span>
-                          </p>
+                          <>
+                            <p className="grid grid-cols-4 gap-[15px]">
+                              <span className="col-span-3">Discount</span>
+                              <span className="col-span-1">
+                                -${totalDiscount.toFixed(2)} ({discountPercent}%)
+                              </span>
+                            </p>
+                            {(() => {
+                              const agentTotalItem = orderData?.totals?.find((t: any) => t.discount_type === 'agent');
+                              if (agentTotalItem && parseFloat(agentTotalItem.amount) < 0) {
+                                const agentMetaName = (orderData as any)?.meta?.agent_discount?.name || "VIP";
+                                return (
+                                  <p className="grid grid-cols-4 gap-[15px] text-emerald-600 text-[13px] pl-2">
+                                    <span className="col-span-3">↳ Agent Discount ({agentMetaName})</span>
+                                    <span className="col-span-1">
+                                      -${Math.abs(parseFloat(agentTotalItem.amount)).toFixed(2)}
+                                    </span>
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </>
                         )}
 
                         {/* GST/HST */}

@@ -175,7 +175,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       return found.min_price ? Math.max(calculated, found.min_price) : calculated;
     }
 
-    return found?.amount ?? null;
+    return found?.amount != null ? Number(found.amount) : null;
   }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage, currentCalcMode, calculatedCustomPrice]);
 
   const displayPrice = useMemo(() => {
@@ -565,15 +565,19 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 style={{ color: roleSettings.pageText }}
                 onClick={handleToggleService}
               >
-                <p>{title}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p>{title}</p>
+                </div>
                 {isDIYPrint && (
                   <p className="text-[11px] text-violet-500 font-medium mt-0.5">
                     {isDIYTabloid ? 'Tabloid (17"×11")' : 'Letter Flyer (8.5"×11")'} — design online, request print later
                   </p>
                 )}
               </div>
-              <div className={`text-[20px] font-[500]`} style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
-                ${selectedPrice !== null ? Number(selectedPrice + addOnsTotal).toFixed(2) : ''}
+              <div className="text-right">
+                <div className={`text-[20px] font-[500]`} style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
+                  ${selectedPrice !== null ? (Number(selectedPrice) + Number(addOnsTotal || 0)).toFixed(2) : ''}
+                </div>
               </div>
             </div>
           </div>

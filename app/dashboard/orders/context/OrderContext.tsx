@@ -1,7 +1,7 @@
 // app/orders/create/context/OrderContext.tsx
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { SelectedService } from '../components/Services';
 import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
@@ -136,6 +136,9 @@ type OrderContextType = {
     appliedQuantityDiscounts: Discount[];
     setAppliedQuantityDiscounts: (d: Discount[]) => void;
 
+    agentDiscount: any | null;
+    setAgentDiscount: Dispatch<SetStateAction<any | null>>;
+
     total: number;
     setTotal: (total: number) => void;
 
@@ -227,6 +230,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [discountCode, setDiscountCode] = useState('');
     const [appliedCodeDiscount, setAppliedCodeDiscount] = useState<Discount | null>(null);
     const [appliedQuantityDiscounts, setAppliedQuantityDiscounts] = useState<Discount[]>([]);
+    const [agentDiscount, setAgentDiscount] = useState<any | null>(null);
     const [OrderServices, setOrderServices] = useState<OrderService[]>([]);
     const [selectedCurrentListing, setSelectedCurrentListing] = useState<Listings | null>(null);
     const [total, setTotal] = useState(0);
@@ -253,6 +257,87 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [isBookNowMode, setIsBookNowMode] = useState(false);
     const [portalSettings, setPortalSettings] = useState<PortalSettingsPayload | null>(null);
 
+    // Auto-detect and sync agent discount when selected agent, agentsData, or selectedCurrentListing changes
+    useEffect(() => {
+        let currentDiscount: any = null;
+        let targetAgentId = selectedAgentId;
+
+        // If no selectedAgentId is set yet, check if the logged in user is an agent
+        let parsedUser: any = null;
+        if (typeof window !== 'undefined') {
+            try {
+                const storedUserType = (localStorage.getItem('userType') || '').toLowerCase();
+                const storedUserInfo = localStorage.getItem('userInfo');
+                if (storedUserInfo) {
+                    parsedUser = JSON.parse(storedUserInfo);
+                    const userRole = (storedUserType || parsedUser?.agent_type || parsedUser?.role?.name || '').toLowerCase();
+                    if (userRole.includes('agent')) {
+                        const loggedInUuid = parsedUser?.uuid || parsedUser?.data?.uuid || parsedUser?.user?.uuid || (parsedUser?.id ? String(parsedUser.id) : null);
+                        if (!targetAgentId && loggedInUuid) {
+                            targetAgentId = loggedInUuid;
+                            setSelectedAgentId(loggedInUuid);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error reading userInfo in OrderContext:", err);
+            }
+        }
+
+        if (targetAgentId) {
+            let foundAgent = agentsData.find(a => a.uuid === targetAgentId || String(a.id) === String(targetAgentId));
+            if (!foundAgent && selectedCurrentListing?.agent && (selectedCurrentListing.agent.uuid === targetAgentId || String(selectedCurrentListing.agent.id) === String(targetAgentId))) {
+                foundAgent = selectedCurrentListing.agent as Agent;
+            }
+            if (!foundAgent && parsedUser) {
+                const loggedInUuid = parsedUser?.uuid || parsedUser?.data?.uuid || parsedUser?.user?.uuid || (parsedUser?.id ? String(parsedUser.id) : null);
+                if (loggedInUuid === targetAgentId) {
+                    foundAgent = (parsedUser?.data || parsedUser?.user || parsedUser) as Agent;
+                }
+            }
+            if (foundAgent?.agent_discount) {
+                currentDiscount = foundAgent.agent_discount;
+            }
+        } else if (parsedUser) {
+            if (parsedUser?.agent_discount) {
+                currentDiscount = parsedUser.agent_discount;
+            } else if (parsedUser?.agent?.agent_discount) {
+                currentDiscount = parsedUser.agent.agent_discount;
+            }
+        }
+
+        if (currentDiscount) {
+            const rawActive = currentDiscount.is_active;
+            const isActive = rawActive === true || rawActive === 1 || rawActive === '1' || rawActive === undefined || rawActive === null;
+            let isExpired = false;
+            if (currentDiscount.expiry_date) {
+                const now = new Date();
+                const exp = new Date(currentDiscount.expiry_date);
+                exp.setHours(23, 59, 59, 999);
+                if (exp.getTime() < now.getTime()) {
+                    isExpired = true;
+                }
+            }
+            const amount = Number(currentDiscount.amount || 0);
+            if (isActive && !isExpired && amount > 0) {
+                const rawPct = currentDiscount.is_percentage;
+                const isPercentage = rawPct === true || rawPct === 1 || rawPct === '1' || rawPct === undefined;
+                setAgentDiscount({
+                    ...currentDiscount,
+                    is_active: true,
+                    is_percentage: isPercentage,
+                    amount: amount,
+                    minimum_spend: Number(currentDiscount.minimum_spend || 0),
+                    minimum_orders: Number(currentDiscount.minimum_orders || 0),
+                });
+            } else {
+                setAgentDiscount(null);
+            }
+        } else {
+            setAgentDiscount(null);
+        }
+    }, [selectedAgentId, agentsData, selectedCurrentListing]);
+
     const resetOrderData = useCallback(() => {
         setInitComplete(false);
         setSelectedAgentId(null);
@@ -268,6 +353,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setDiscountCode('');
         setAppliedCodeDiscount(null);
         setAppliedQuantityDiscounts([]);
+        setAgentDiscount(null);
         setOrderServices([]);
         setSelectedCurrentListing(null);
         setTotal(0);
@@ -298,6 +384,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setDiscountCode('');
         setAppliedCodeDiscount(null);
         setAppliedQuantityDiscounts([]);
+        setAgentDiscount(null);
         setOrderServices([]);
         setTotal(0);
         setIsSplitInvoice(false);
@@ -343,6 +430,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setAppliedCodeDiscount,
                 appliedQuantityDiscounts,
                 setAppliedQuantityDiscounts,
+                agentDiscount,
+                setAgentDiscount,
                 total,
                 setTotal,
                 isSplitInvoice,

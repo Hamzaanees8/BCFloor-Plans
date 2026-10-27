@@ -16,6 +16,7 @@ export type Admin = {
 };
 
 export type Agent = {
+    id?: number | string;
     uuid?: string;
     first_name: string;
     last_name: string;
@@ -35,6 +36,7 @@ export type Agent = {
     activity?: string;
     agent_type?: 'standard' | 'co_agent';
     parent_agent_id?: number | string | null;
+    agent_discount?: Record<string, any> | null;
     co_agents?: {
         name: string;
         email: string;

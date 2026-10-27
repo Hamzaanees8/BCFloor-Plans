@@ -50,6 +50,7 @@ import {
   X,
   Eye,
   Image as ImageIcon,
+  Tag,
 } from "lucide-react";
 import ImagePopup from "@/components/ImagePopup";
 import { api } from "@/lib/api";
@@ -3542,7 +3543,6 @@ const AgentForm = () => {
                 </AccordionContent>
               </AccordionItem>
 
-              {userType === "admin" && (
                 <AccordionItem value="payment" className="border-none">
                   <AccordionTrigger
                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9]" : "[&>svg]:text-[#6BAE41]"}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -3550,74 +3550,146 @@ const AgentForm = () => {
                       backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
                     }}
                   >
-                    PAYMENT
+                    {userType === "admin" ? "PAYMENT" : "DISCOUNTS & PROMOTIONS"}
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4">
                     <div className="w-full flex flex-col items-center">
-                      <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                        <div className="flex items-center justify-between">
-                          <p className="font-bold text-sm text-[#666666]">
-                            Discounts
-                          </p>
-                          {!agentDiscount && (
-                            <div
-                              className="flex items-center gap-x-[10px] cursor-pointer"
-                              onClick={() => setOpenDiscount(true)}
-                            >
-                              <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                                Add
+                      <div className="w-full md:w-[460px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                        {userType === "admin" ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-sm text-[#666666]">
+                                Discounts
                               </p>
-                              <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
-                            </div>
-                          )}
-                          <AgentDiscount
-                            open={openDiscount}
-                            setOpen={setOpenDiscount}
-                            addDiscount={addDiscount}
-                            isDetailed={true}
-                            initialData={agentDiscount}
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          {agentDiscount && (
-                            <div className="flex flex-col gap-y-3 mt-2">
-                              <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666] cursor-pointer">
+                              {!agentDiscount && (
                                 <div
+                                  className="flex items-center gap-x-[10px] cursor-pointer"
                                   onClick={() => setOpenDiscount(true)}
-                                  className="basis-[80%] flex items-center justify-between w-full gap-x-2.5"
                                 >
-                                  <div className="flex flex-col">
-                                    <p className="text-[#4290E9]">
-                                      {agentDiscount.name ||
-                                        agentDiscount.discount_code}
-                                    </p>
+                                  <p className="text-base font-semibold font-raleway text-[#6BAE41]">
+                                    Add
+                                  </p>
+                                  <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
+                                </div>
+                              )}
+                              <AgentDiscount
+                                open={openDiscount}
+                                setOpen={setOpenDiscount}
+                                addDiscount={addDiscount}
+                                isDetailed={true}
+                                initialData={agentDiscount}
+                              />
+                            </div>
+
+                            <div className="col-span-2">
+                              {agentDiscount && (
+                                <div className="flex flex-col gap-y-3 mt-2">
+                                  <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666] cursor-pointer">
+                                    <div
+                                      onClick={() => setOpenDiscount(true)}
+                                      className="basis-[80%] flex items-center justify-between w-full gap-x-2.5"
+                                    >
+                                      <div className="flex flex-col">
+                                        <p className="text-[#4290E9] font-medium">
+                                          {agentDiscount.name ||
+                                            agentDiscount.discount_code}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-xs px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                            {agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}
+                                          </span>
+                                          {Number(agentDiscount.minimum_spend || 0) > 0 && (
+                                            <span className="text-xs text-muted-foreground">
+                                              Min. Spend: ${Number(agentDiscount.minimum_spend).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {agentDiscount.expiry_date && (
+                                        <p className="text-[12px] font-[300] text-[#666666]">
+                                          Expires {agentDiscount.expiry_date}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
+                                      <X
+                                        onClick={() => removeDiscount()}
+                                        className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
+                                      />
+                                    </div>
                                   </div>
 
-                                  {agentDiscount.expiry_date && (
-                                    <p className="text-[12px] font-[300] text-[#666666]">
-                                      Expires {agentDiscount.expiry_date}
-                                    </p>
-                                  )}
+                                  <hr />
                                 </div>
-
-                                <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
-                                  <X
-                                    onClick={() => removeDiscount()}
-                                    className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
-                                  />
-                                </div>
-                              </div>
-
-                              <hr />
+                              )}
                             </div>
-                          )}
-                        </div>
+                          </>
+                        ) : (
+                          /* Agent view (read-only) */
+                          <div className="w-full flex flex-col gap-3">
+                            <p className="font-bold text-sm text-[#666666]">
+                              Your Assigned Discount
+                            </p>
+                            {agentDiscount && (agentDiscount.is_active === 1 || agentDiscount.is_active === undefined || (agentDiscount.amount && Number(agentDiscount.amount) > 0)) ? (
+                              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex flex-col gap-3 shadow-xs">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-md bg-emerald-100 text-emerald-700 shrink-0">
+                                      <Tag className="w-4 h-4" />
+                                    </div>
+                                    <span className="font-semibold text-emerald-950 text-base">
+                                      {agentDiscount.name || agentDiscount.discount_code || "Agent Discount"}
+                                    </span>
+                                  </div>
+                                  <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-600 text-white shadow-xs">
+                                    {agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-700 bg-white/70 p-3 rounded border border-emerald-100">
+                                  <div>
+                                    <span className="text-gray-500 block">Minimum Order Spend:</span>
+                                    <span className="font-semibold text-emerald-900">
+                                      {Number(agentDiscount.minimum_spend || 0) > 0 ? `$${Number(agentDiscount.minimum_spend).toLocaleString()}` : "No minimum spend"}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block">Valid Until:</span>
+                                    <span className="font-semibold text-emerald-900">
+                                      {agentDiscount.expiry_date || "Ongoing"}
+                                    </span>
+                                  </div>
+                                  {Number(agentDiscount.minimum_orders || 0) > 0 && (
+                                    <div>
+                                      <span className="text-gray-500 block">Minimum Orders:</span>
+                                      <span className="font-semibold text-emerald-900">
+                                        {agentDiscount.minimum_orders}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-gray-500 block">Status:</span>
+                                    <span className="font-semibold text-emerald-700">Active</span>
+                                  </div>
+                                </div>
+
+                                <p className="text-[11px] text-emerald-800 leading-tight">
+                                  This discount is automatically applied to your eligible bookings whenever your order meets the minimum spend requirement.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
+                                No active promotional discount is currently assigned to your account.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              )}
             </Accordion>
           </form>
         </div>

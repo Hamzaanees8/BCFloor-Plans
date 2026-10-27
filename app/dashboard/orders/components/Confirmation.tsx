@@ -68,6 +68,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         setAppliedCodeDiscount,
         appliedQuantityDiscounts,
         setAppliedQuantityDiscounts,
+        agentDiscount,
         total,
         setTotal,
         selectedSlots,
@@ -209,6 +210,28 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return Math.max(0, eligibleTotal * (discountVal / 100));
     }, [activePackage, selectedServices, isServiceInActivePackage, getOriginalPrice]);
 
+    const calculateAgentDiscount = React.useCallback((baseTotal: number) => {
+        if (!agentDiscount || !baseTotal || baseTotal <= 0) return 0;
+        const isActive = Boolean(agentDiscount.is_active ?? true);
+        if (!isActive) return 0;
+        if (agentDiscount.expiry_date) {
+            const now = new Date();
+            const exp = new Date(agentDiscount.expiry_date);
+            exp.setHours(23, 59, 59, 999);
+            if (exp.getTime() < now.getTime()) return 0;
+        }
+        if (agentDiscount.minimum_spend && baseTotal < Number(agentDiscount.minimum_spend)) {
+            return 0;
+        }
+        const amount = Number(agentDiscount.amount) || 0;
+        if (amount <= 0) return 0;
+        const isPct = agentDiscount.is_percentage === 1 || (agentDiscount.is_percentage as any) === true;
+        if (isPct) {
+            return Math.round(baseTotal * (amount / 100) * 100) / 100;
+        }
+        return Math.min(baseTotal, amount);
+    }, [agentDiscount]);
+
     const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
     const propertyCountry = tempPropertyData?.country || currentListing?.country || "CA";
 
@@ -227,6 +250,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
         const timer = setTimeout(async () => {
             try {
+                const totalOrig = selectedServices.reduce((sum, s) => sum + getOriginalPrice(s), 0);
                 const eligibleOrig = selectedServices.reduce((sum, s) => {
                     if (isServiceInActivePackage(s)) {
                         return sum + getOriginalPrice(s);
@@ -234,22 +258,41 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                     return sum;
                 }, 0);
 
-                let pkgDisc = 0;
+                let rawPkgDisc = 0;
                 if (activePackage && (activePackage.discount || 0) > 0 && eligibleOrig > 0) {
                     if (activePackage.discount_type === 'dollar') {
-                        pkgDisc = Math.min(eligibleOrig, Number(activePackage.discount) || 0);
+                        rawPkgDisc = Math.min(eligibleOrig, Number(activePackage.discount) || 0);
                     } else {
-                        pkgDisc = (eligibleOrig * (Number(activePackage.discount) || 0)) / 100;
+                        rawPkgDisc = (eligibleOrig * (Number(activePackage.discount) || 0)) / 100;
                     }
                 }
+
+                const subtotalAfterPromo = selectedServices.reduce((sum, s) => sum + calculateServicePriceAfterDiscounts(s), 0);
+                const rawAgentDisc = calculateAgentDiscount(subtotalAfterPromo);
+
+                let pkgDisc = 0;
+                let agentDiscVal = 0;
+                if (rawPkgDisc > 0 && rawAgentDisc > 0) {
+                    if (rawAgentDisc >= rawPkgDisc) {
+                        agentDiscVal = rawAgentDisc;
+                    } else {
+                        pkgDisc = rawPkgDisc;
+                    }
+                } else if (rawPkgDisc > 0) {
+                    pkgDisc = rawPkgDisc;
+                } else if (rawAgentDisc > 0) {
+                    agentDiscVal = rawAgentDisc;
+                }
+
                 const pkgRatio = eligibleOrig > 0 ? (pkgDisc / eligibleOrig) : 0;
+                const agentRatio = totalOrig > 0 ? (agentDiscVal / totalOrig) : 0;
 
                 const items = selectedServices.map((sel) => {
                     const discountedPrice = calculateServicePriceAfterDiscounts(sel);
                     const isPkgService = isServiceInActivePackage(sel);
-                    const effAmount = isPkgService 
-                        ? Math.max(0, discountedPrice - (getOriginalPrice(sel) * pkgRatio))
-                        : Math.max(0, discountedPrice);
+                    const pkgDeduction = isPkgService ? (getOriginalPrice(sel) * pkgRatio) : 0;
+                    const agentDeduction = getOriginalPrice(sel) * agentRatio;
+                    const effAmount = Math.max(0, discountedPrice - pkgDeduction - agentDeduction);
 
                     return {
                         amount: Number(effAmount.toFixed(2)),
@@ -290,6 +333,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         orgSlug,
         getOriginalPrice,
         calculateServicePriceAfterDiscounts,
+        calculateAgentDiscount,
         isServiceInActivePackage,
     ]);
 
@@ -370,12 +414,28 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return sum + calculateServicePriceAfterDiscounts(sel);
         }, 0);
 
-        const packageDiscount = calculatePackageDiscount();
+        const rawPackageDiscount = calculatePackageDiscount();
+        const rawAgentDisc = calculateAgentDiscount(subtotalWithServiceDiscounts);
 
-        const orderTotal = Math.max(0, subtotalWithServiceDiscounts - packageDiscount);
+        let finalPackageDiscount = 0;
+        let finalAgentDiscount = 0;
+
+        if (rawPackageDiscount > 0 && rawAgentDisc > 0) {
+            if (rawAgentDisc >= rawPackageDiscount) {
+                finalAgentDiscount = rawAgentDisc;
+            } else {
+                finalPackageDiscount = rawPackageDiscount;
+            }
+        } else if (rawPackageDiscount > 0) {
+            finalPackageDiscount = rawPackageDiscount;
+        } else if (rawAgentDisc > 0) {
+            finalAgentDiscount = rawAgentDisc;
+        }
+
+        const orderTotal = Math.max(0, subtotalWithServiceDiscounts - finalPackageDiscount - finalAgentDiscount);
 
         setTotal(Number(orderTotal.toFixed(2)));
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount]);
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, agentDiscount, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
 
     const handleApplyDiscount = () => {
         if (!discountCode?.trim()) {
@@ -527,6 +587,17 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 split_invoice: isSplitInvoice ? 1 : 0,
                 ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
                 co_agents: coAgents,
+                agent_discount: agentDiscount ? {
+                    uuid: agentDiscount.uuid,
+                    name: agentDiscount.name,
+                    amount: Number(agentDiscount.amount),
+                    is_percentage: agentDiscount.is_percentage === 1 || (agentDiscount.is_percentage as any) === true ? 1 : 0,
+                    expiry_date: agentDiscount.expiry_date || null,
+                    minimum_orders: agentDiscount.minimum_orders ? Number(agentDiscount.minimum_orders) : null,
+                    minimum_spend: agentDiscount.minimum_spend ? Number(agentDiscount.minimum_spend) : null,
+                    is_active: agentDiscount.is_active ? 1 : 0,
+                    description: agentDiscount.description || null,
+                } : undefined,
                 notes: agentNotes.filter(note => note.note && note.note.trim()).map(note => ({
                     ...note,
                     note: note.note.trim(),
@@ -1206,28 +1277,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                                 <div className='col-span-2'>
                                     <div className='flex flex-col gap-2'>
-                                        {activePackage && (activePackage.discount || 0) > 0 && (
-                                            <div className='flex items-center justify-between'>
-                                                <p className='font-normal text-[14px] text-green-600'>
-                                                    Package: {activePackage.name} ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`})
-                                                </p>
-                                                <p className='font-normal text-[14px] text-green-600'>
-                                                    - ${(
-                                                        (() => {
-                                                            const unpaidEligibleTotal = selectedServices.reduce((sum, s) => {
-                                                                if (s.payment_status?.toUpperCase() === 'PAID') return sum;
-                                                                if (!isServiceInActivePackage(s)) return sum;
-                                                                return sum + getOriginalPrice(s);
-                                                            }, 0);
-                                                            if (activePackage.discount_type === 'dollar') {
-                                                                return Math.min(unpaidEligibleTotal, Number(activePackage.discount) || 0);
-                                                            }
-                                                            return (unpaidEligibleTotal * (Number(activePackage.discount) || 0)) / 100;
-                                                        })()
-                                                    ).toFixed(2)}
-                                                </p>
-                                            </div>
-                                        )}
                                         {(() => {
                                             // Calculate original total for all services
                                             const totalOriginalPrice = selectedServices.reduce((sum, sel) => {
@@ -1273,8 +1322,27 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 }
                                             }
 
-                                            // Grand Total = Original total - All discounts
-                                            const grandTotal = totalOriginalPrice - (totalDiscountValue + packageDiscount);
+                                            // Option B: Pick Maximum / Best Single Discount between Package and Agent Discount
+                                            const rawPkgDisc = packageDiscount;
+                                            const baseBeforeAgent = Math.max(0, totalOriginalPrice - totalDiscountValue);
+                                            const rawAgentDisc = calculateAgentDiscount(baseBeforeAgent);
+
+                                            let effectivePkgDisc = 0;
+                                            let effectiveAgentDisc = 0;
+                                            if (rawPkgDisc > 0 && rawAgentDisc > 0) {
+                                                if (rawAgentDisc >= rawPkgDisc) {
+                                                    effectiveAgentDisc = rawAgentDisc;
+                                                } else {
+                                                    effectivePkgDisc = rawPkgDisc;
+                                                }
+                                            } else if (rawPkgDisc > 0) {
+                                                effectivePkgDisc = rawPkgDisc;
+                                            } else if (rawAgentDisc > 0) {
+                                                effectiveAgentDisc = rawAgentDisc;
+                                            }
+
+                                            const agentDiscountVal = effectiveAgentDisc;
+                                            const grandTotal = Math.max(0, baseBeforeAgent - effectivePkgDisc - effectiveAgentDisc);
 
                                             // Calculate paid amount (use discounted price for paid services if applicable)
                                             const paidAmount = selectedServices.reduce((acc, curr) => {
@@ -1303,14 +1371,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                         discountAmount = originalPrice * discountPercent / 100;
                                                     }
 
-                                                    // Add package discount proportionally ONLY for services in package
-                                                    if (activePackage && packageDiscount > 0 && isServiceInActivePackage(curr)) {
+                                                    // Add package discount proportionally ONLY for services in package if package discount won
+                                                    if (activePackage && effectivePkgDisc > 0 && isServiceInActivePackage(curr)) {
                                                         const rawEligibleTotal = selectedServices.reduce((sum, s) => {
                                                             if (!isServiceInActivePackage(s)) return sum;
                                                             return sum + getOriginalPrice(s);
                                                         }, 0);
                                                         const serviceRatio = rawEligibleTotal > 0 ? (originalPrice / rawEligibleTotal) : 0;
-                                                        discountAmount += (packageDiscount * serviceRatio);
+                                                        discountAmount += (effectivePkgDisc * serviceRatio);
+                                                    }
+
+                                                    // Add agent discount proportionally if agent discount won
+                                                    if (agentDiscountVal > 0) {
+                                                        const agentRatio = totalOriginalPrice > 0 ? (agentDiscountVal / totalOriginalPrice) : 0;
+                                                        discountAmount += (originalPrice * agentRatio);
                                                     }
 
                                                     return acc + (originalPrice - discountAmount);
@@ -1331,6 +1405,28 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                             ${grandTotal.toFixed(2)}
                                                         </p>
                                                     </div>
+
+                                                    {activePackage && (activePackage.discount || 0) > 0 && (
+                                                        <div className='flex items-center justify-between text-green-600'>
+                                                            <p className='font-normal text-[14px]'>
+                                                                Package Discount ({activePackage.name}) {effectivePkgDisc > 0 && rawAgentDisc > 0 ? '★ Best discount' : ''}
+                                                            </p>
+                                                            <p className='font-normal text-[14px]'>
+                                                                {effectivePkgDisc > 0 ? `-$${effectivePkgDisc.toFixed(2)}` : `Superseded by Agent Discount`}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {agentDiscount && (
+                                                        <div className='flex items-center justify-between text-emerald-600'>
+                                                            <p className='font-normal text-[14px]'>
+                                                                Agent Discount ({agentDiscount?.name || 'Special Discount'}) {effectiveAgentDisc > 0 && rawPkgDisc > 0 ? '★ Best discount' : ''}
+                                                            </p>
+                                                            <p className='font-normal text-[14px]'>
+                                                                {effectiveAgentDisc > 0 ? `-$${effectiveAgentDisc.toFixed(2)}` : rawPkgDisc > 0 ? `Superseded by Package Savings` : `Min. spend requirement not met`}
+                                                            </p>
+                                                        </div>
+                                                    )}
 
                                                     {/* Real-time Tax Preview Breakdown */}
                                                     <div className='border-t border-dashed my-1 pt-1 space-y-1'>

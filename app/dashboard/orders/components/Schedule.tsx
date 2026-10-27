@@ -643,7 +643,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     ? `Select Service Time (${idx + 1} of ${servicesToSchedule?.length})`
                                                     : `Select Service Vendor (${idx + 1} of ${servicesToSchedule?.length})`}
                                             </p>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
                                                 <p className="text-[16px] font-[700] max-w-[200px] truncate">{service.title}</p>
                                             </div>
                                             <p className="text-[12px]">
