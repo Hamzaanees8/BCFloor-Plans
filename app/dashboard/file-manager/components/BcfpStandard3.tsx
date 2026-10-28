@@ -1508,7 +1508,6 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
               style={{
                 width: "50%",
                 height: "100%",
-                left: "50%",
                 right: 0,
               }}
               onMouseEnter={() => setHoveredSlot("image4")}
@@ -1541,7 +1540,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                     </div>
 
                     {/* Zoom Controls */}
-                    <div className="absolute bottom-4 left-4 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                    <div className="absolute bottom-[10rem] left-4 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-40">
                       <button
                         type="button"
                         onClick={() => handleZoom("image4", "in")}
@@ -1666,55 +1665,43 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
               </svg>
 
               {/* Bottom Wave SVG - Full Bleed */}
-              <svg
-                width="100%"
-                height="319"
-                viewBox="0 0 634 319"
-                fill="none"
-                preserveAspectRatio="none"
-                className="absolute bottom-0 -right-1 left-0 w-full z-10 pointer-events-none"
-              >
-                <path
-                  d="M633.05 280.308L4.3773 293L0.0778809 -2.80029e-06C0.0778809 -2.80029e-06 43.2047 299.058 633.078 215.36L633.05 280.308Z"
-                  fill="#00B9F2"
-                />
-                <mask
-                  id="mask0_73_1690_std3"
-                  style={{ maskType: "luminance" }}
-                  maskUnits="userSpaceOnUse"
-                  x="0"
-                  y="6"
-                  width="634"
-                  height="313"
+              <div className="absolute bottom-0 -left-1 right-0 w-full h-[325px] z-20 pointer-events-none overflow-hidden">
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 634 319"
+                  fill="none"
+                  preserveAspectRatio="none"
+                  className="w-full h-full"
                 >
+                  {/* 1. Cyan accent ribbon */}
+                  <path
+                    d="M633.05 280.308L4.3773 293L0.0778809 0C0.0778809 0 43.2047 299.058 633.078 215.36L633.05 280.308Z"
+                    fill="#00B9F2"
+                  />
+                  {/* 2. Main dark blue gradient wave body (direct fill, no mask needed) */}
                   <path
                     d="M0 318.802H633.441V239.402C41.4401 313.502 0.802701 6.00183 0.802701 6.00183L0 318.802Z"
-                    fill="white"
-                  />
-                </mask>
-                <g mask="url(#mask0_73_1690_std3)">
-                  <path
-                    d="M633.441 -509.198H-630.832V318.802H633.441V-509.198Z"
                     fill="url(#paint0_linear_73_1690_std3)"
                   />
-                </g>
-                <defs>
-                  <linearGradient
-                    id="paint0_linear_73_1690_std3"
-                    x1="633.441"
-                    y1="308.014"
-                    x2="0.837279"
-                    y2="308.014"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#00B9F2" />
-                    <stop offset="0.391667" stopColor="#0097C9" />
-                    <stop offset="0.515476" stopColor="#028DBD" />
-                    <stop offset="0.892857" stopColor="#1B6C9B" />
-                    <stop offset="1" stopColor="#226392" />
-                  </linearGradient>
-                </defs>
-              </svg>
+                  <defs>
+                    <linearGradient
+                      id="paint0_linear_73_1690_std3"
+                      x1="1"
+                      y1="0"
+                      x2="0"
+                      y2="0"
+                      gradientUnits="objectBoundingBox"
+                    >
+                      <stop stopColor="#00B9F2" />
+                      <stop offset="0.391667" stopColor="#0097C9" />
+                      <stop offset="0.515476" stopColor="#028DBD" />
+                      <stop offset="0.892857" stopColor="#1B6C9B" />
+                      <stop offset="1" stopColor="#226392" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
 
             <SafeZoneWrapper
@@ -2634,7 +2621,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                   {/* Bottom Cover Price Section */}
                   <div
                     data-safezone-container="true"
-                    className={`relative w-[500px] z-20 pb-2 border-[3.5px] border-solid border-transparent rounded-lg transition-all duration-150 group/sec pointer-events-auto ${
+                    className={`relative w-[500px] z-30 pb-2 border-[3.5px] border-solid border-transparent rounded-lg transition-all duration-150 group/sec pointer-events-auto ${
                       lockedSections.price
                         ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
                         : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"

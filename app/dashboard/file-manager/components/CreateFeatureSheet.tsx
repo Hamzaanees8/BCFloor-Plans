@@ -2762,6 +2762,11 @@ const CreateFeatureSheet = forwardRef<
                     >
                       <span className="flex items-center gap-2">
                         Feature Sheet Preview
+                        {selectedTemplate && (
+                          <span className="normal-case text-[14px]">
+                            ({formatPdfName(selectedTemplate)})
+                          </span>
+                        )}
                       </span>
                     </AccordionTrigger>
                     {!isReadonly && (
