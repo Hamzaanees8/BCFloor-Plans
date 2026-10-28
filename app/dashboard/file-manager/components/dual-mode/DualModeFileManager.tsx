@@ -4,7 +4,7 @@ import { DualMode, FileItem } from './types';
 import { UploadDropzone } from './UploadDropzone';
 import { SortableGrid } from './SortableGrid';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Loader2, ArrowLeftRight, Check } from 'lucide-react';
+import { Plus, Loader2, ArrowLeftRight, Check, Sparkles, RefreshCw } from 'lucide-react';
 import { useFileManagerContext } from '../../FileManagerContext';
 import { Button } from '@/components/ui/button';
 
@@ -53,7 +53,7 @@ export function DualModeFileManager({
 }: DualModeFileManagerProps) {
     const { userType: contextUserType } = useAppContext();
     const userType = userTypeOverride || contextUserType;
-    const { selectionChangedUuids, isSaving, imagesPerRow: contextImagesPerRow } = useFileManagerContext();
+    const { selectionChangedUuids, isSaving, imagesPerRow: contextImagesPerRow, watermarkProcessing } = useFileManagerContext();
     const imagesPerRow = contextImagesPerRow;
     const [isMobile, setIsMobile] = React.useState(false);
 
@@ -125,6 +125,61 @@ export function DualModeFileManager({
             )}
         </Button>
     );
+
+    const renderWatermarkNotice = () => {
+        if (!watermarkProcessing || !watermarkProcessing.shouldShowInfo) return null;
+
+        const { percent = 0, completed = 0, total = 0, isRefreshing, onRefresh } = watermarkProcessing;
+
+        return (
+            <div className="w-full mb-4 p-3.5 border border-emerald-300 bg-emerald-50/95 rounded-[8px] flex flex-col gap-2.5 font-alexandria shadow-xs text-emerald-900 transition-all">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                        </div>
+                        <span className="text-[13px] font-bold text-emerald-950">
+                            {watermarkProcessing.title || "Watermark Removal in Progress"}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 border border-emerald-300 uppercase tracking-wide">
+                            {percent}% Completed
+                        </span>
+                    </div>
+
+                    {onRefresh && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRefresh();
+                            }}
+                            disabled={isRefreshing}
+                            className="h-[28px] px-2.5 text-[11px] font-semibold border-emerald-400 bg-white hover:bg-emerald-100 text-emerald-900 flex items-center gap-1.5 shadow-xs shrink-0 self-end sm:self-auto cursor-pointer"
+                        >
+                            <RefreshCw
+                                className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
+                            />
+                            <span>{isRefreshing ? "Refreshing..." : "Refresh Media"}</span>
+                        </Button>
+                    )}
+                </div>
+
+                <p className="text-[11.5px] text-emerald-800 leading-snug">
+                    {watermarkProcessing.description || `Background processing is generating unwatermarked versions (${completed} of ${total} photos ready). Skeletons indicate files currently processing.`}
+                </p>
+
+                {/* Progress Bar Loader (Point #5) */}
+                <div className="w-full bg-emerald-200/60 rounded-full h-2 overflow-hidden">
+                    <div
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+                    />
+                </div>
+            </div>
+        );
+    };
 
     const renderUploadBox = () => {
         if (!onClickUpload || userType === 'agent') return null;
@@ -198,6 +253,7 @@ export function DualModeFileManager({
                                     {savedFilesAction && <div>{savedFilesAction}</div>}
                                 </div>
                                 <div className={`p-4 min-h-[200px] transition-all duration-300 ${mode === 'upload' && !hideDashedBorder ? 'bg-[#F9F9F9] border-2 border-dashed border-[#BBBBBB] m-4 rounded-xl' : 'bg-transparent border-2 border-transparent m-4'}`}>
+                                    {renderWatermarkNotice()}
                                     {items.length === 0 ? (
                                         <div className="flex items-center justify-center p-8 text-gray-500">
                                             No files available
@@ -221,6 +277,7 @@ export function DualModeFileManager({
                 ) : userType === 'agent' ? (
                     // Agent: Left-right (selected | unselected) side-by-side layout
                     <div className="flex flex-col gap-4 w-full">
+                        {renderWatermarkNotice()}
                         <div className="flex flex-col md:flex-row gap-5 w-full">
                             {/* Left Column - Unselected */}
                             <div className="flex-1 flex flex-col gap-4 w-full">
@@ -389,6 +446,7 @@ export function DualModeFileManager({
                                         {modeToggleButton && <div>{modeToggleButton}</div>}
                                         {savedFilesAction && <div>{savedFilesAction}</div>}
                                     </div>
+                                    {renderWatermarkNotice()}
                                     {savedItems.length === 0 ? (
                                         <div className="flex items-center justify-center p-8 text-gray-500">
                                             No saved files

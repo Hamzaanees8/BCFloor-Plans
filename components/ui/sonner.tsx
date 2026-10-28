@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect } from "react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
 
   useEffect(() => {
     // Delays
@@ -125,20 +123,31 @@ const Toaster = ({ ...props }: ToasterProps) => {
           background-color: hsl(var(--muted, 240 4.8% 95.9%)) !important;
           color: hsl(var(--foreground, 240 10% 3.9%)) !important;
         }
+        /* Ensure toast title and description have crisp, readable contrast */
+        [data-sonner-toast] [data-title] {
+          color: #111827 !important;
+          font-weight: 600 !important;
+        }
+        [data-sonner-toast] [data-description] {
+          color: #4b5563 !important;
+          font-size: 12.5px !important;
+          line-height: 1.45 !important;
+          opacity: 1 !important;
+        }
       `}</style>
       <Sonner
-        theme={theme as ToasterProps["theme"]}
+        theme="light"
         className="toaster group"
         closeButton={true}
         toastOptions={{
           classNames: {
             toast:
-              "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-            description: "group-[.toast]:text-muted-foreground",
+              "group toast group-[.toaster]:bg-white group-[.toaster]:text-gray-900 group-[.toaster]:border-gray-200 group-[.toaster]:shadow-lg",
+            description: "group-[.toast]:text-gray-600 !text-gray-600",
             actionButton:
               "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
             cancelButton:
-              "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+              "group-[.toast]:bg-muted group-[.toast]:text-gray-700",
           },
         }}
         {...props}

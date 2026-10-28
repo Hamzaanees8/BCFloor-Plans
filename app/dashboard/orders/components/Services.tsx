@@ -559,43 +559,64 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             {/* Agent Discount Notification Banner */}
             {agentDiscount && (
                 <div
-                    className={`p-3.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm transition-all shadow-xs ${
+                    className={`px-3.5 py-2.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-sm transition-all shadow-xs ${
                         isPackageHigher
-                            ? 'bg-amber-50/80 border-amber-200'
-                            : 'bg-emerald-50/80 border-emerald-200'
+                            ? 'bg-amber-50/70 border-amber-200'
+                            : 'bg-emerald-50/70 border-emerald-200'
                     }`}
                 >
-                    <div className="flex items-start sm:items-center gap-2.5">
-                        <div className={`p-1.5 rounded-md ${isPackageHigher ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'} shrink-0 mt-0.5 sm:mt-0`}>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className={`p-1.5 rounded-md ${isPackageHigher ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'} shrink-0`}>
                             <Tag className="w-4 h-4" />
                         </div>
-                        <div>
-                            <p className="leading-snug text-gray-950 font-medium">
-                                <span className="font-semibold">{agentName ? `${agentName}: ` : ''}</span>
-                                Agent Discount <strong className="font-semibold">{agentDiscount.name || 'Special Discount'}</strong>
-                                {' '}&mdash; Eligible for <strong className="font-bold text-emerald-700">
-                                    {agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}
-                                </strong>
-                                {agentDiscount.minimum_spend > 0 ? ` on orders over $${Number(agentDiscount.minimum_spend).toLocaleString()}` : ''}
-                            </p>
-                            {isPackageHigher ? (
-                                <div className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-md w-fit">
-                                    <Info className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                                    <span>
-                                        The selected <strong>{activePackage?.name}</strong> package offers a higher discount ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF) than your agent discount ({agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`} OFF). To ensure you receive maximum savings, the package discount is currently applied to this order.
+                        {isPackageHigher ? (
+                            <div className="flex flex-col items-start gap-1">
+                                <span className="text-gray-500 font-medium text-[11px] line-through bg-gray-200/80 px-2 py-0.5 rounded border border-gray-300">
+                                    Agent Discount ({agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`} OFF)
+                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-emerald-800 font-semibold text-xs bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                        ✓ {activePackage?.name} ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF) Applied
+                                    </span>
+                                    <span className="text-[11px] text-amber-800 font-medium">
+                                        (Higher discount applied)
                                     </span>
                                 </div>
-                            ) : (
-                                <p className="text-[11px] text-emerald-700/80 mt-0.5">
-                                    Discount is automatically deducted from your order total in the summary below.
-                                </p>
-                            )}
-                        </div>
+                            </div>
+                        ) : bestDiscountWinner === 'agent' && rawPackageDiscount > 0 ? (
+                            <div className="flex flex-col items-start gap-1">
+                                <span className="text-gray-500 font-medium text-[11px] line-through bg-gray-200/80 px-2 py-0.5 rounded border border-gray-300">
+                                    {activePackage?.name} ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
+                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-emerald-800 font-semibold text-xs bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                        ✓ Agent Discount ({agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`} OFF) Applied
+                                    </span>
+                                    <span className="text-[11px] text-emerald-800 font-medium">
+                                        (Higher discount applied)
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-800 font-medium">
+                                <span>
+                                    {agentName ? `${agentName}: ` : ''}Agent Discount:
+                                </span>
+                                <span className="font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">
+                                    {agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}
+                                </span>
+                                {Number(agentDiscount.minimum_spend || 0) > 0 && (
+                                    <span className="text-gray-500 text-[11px]">
+                                        (Orders over ${Number(agentDiscount.minimum_spend).toLocaleString()})
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full text-white shadow-xs ${isPackageHigher ? 'bg-amber-600' : 'bg-emerald-600'}`}>
                         {isPackageHigher
                             ? `Package Applied (${activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)`
-                            : `${agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}${Number(agentDiscount.minimum_spend || 0) > 0 ? ` (Min. $${Number(agentDiscount.minimum_spend).toLocaleString()})` : ''}`
+                            : `${agentDiscount.is_percentage ? `${agentDiscount.amount}% OFF` : `$${agentDiscount.amount} OFF`}`
                         }
                     </span>
                 </div>
@@ -841,128 +862,127 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                     </AccordionItem>
                 </Accordion> */}
                 <div className="hidden lg:block w-full lg:w-[40%] relative" style={{ color: roleSettings.pageText }}>
-                    <div className="rounded-[8px] p-4 border shadow-md py-[40px] sticky top-[160px]" style={{ backgroundColor: headerBg, borderColor: fieldBorder }}>
-                        <h2 className=" font-[600] mb-4 text-[24px]" style={{ color: roleSettings.pageTabColor }}>Order</h2>
+                    <div className="rounded-[8px] p-4 md:p-5 border shadow-md py-5 sticky top-[100px] max-h-[calc(100vh-120px)] flex flex-col justify-between overflow-y-auto thin-scroll" style={{ backgroundColor: headerBg, borderColor: fieldBorder }}>
+                        <h2 className="font-[600] mb-3 text-[22px]" style={{ color: roleSettings.pageTabColor }}>Order</h2>
 
-                        <div className="space-y-[12px] text-[15px] text-[#666666]">
-                            <div className="flex justify-between">
-                                <span className="text-[#888] text-[10px] font-[700]">Services</span>
+                        <div className="space-y-[10px] text-[14px] text-[#666666] max-h-[220px] overflow-y-auto pr-1 thin-scroll">
+                            <div className="flex justify-between pb-1">
+                                <span className="text-[#888] text-[11px] font-[700] uppercase tracking-wider">Services</span>
                             </div>
                             {displayedServices.map((service, idx) => (
                                 <div key={idx} className="flex flex-col gap-y-1">
-                                    <div className="flex justify-between">
-                                        <div className="flex items-center gap-x-3">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div className="flex items-center gap-x-2">
                                             <div className="flex flex-col">
-                                                <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>
-                                                    {service.title} - <span className='text-xs'>{service.optionName}</span>
+                                                <span title={service.title + ' - ' + service.optionName} className='max-w-[190px] truncate cursor-pointer font-medium text-gray-800'>
+                                                    {service.title} - <span className='text-xs text-gray-600'>{service.optionName}</span>
                                                 </span>
                                                 {service.quantity && service.quantity > 0 && (
                                                     <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
                                                 )}
                                             </div>
                                             {(isEdit || isAddFlow) && service.payment_status && service.service_uuid && (
-                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${service.payment_status.toUpperCase() === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm shrink-0 ${service.payment_status.toUpperCase() === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                     {service.payment_status}
                                                 </span>
                                             )}
                                         </div>
-                                        <span>$ {Number(service.price).toFixed(2)}</span>
+                                        <span className="whitespace-nowrap shrink-0 font-medium">$ {Number(service.price).toFixed(2)}</span>
                                     </div>
                                     {service.addOns && service.addOns.length > 0 && (
                                         <div className="flex flex-col gap-y-0.5 pl-3 border-l border-gray-200 ml-1 mt-0.5">
                                             {service.addOns.map((addon, aIdx) => (
                                                 <div key={aIdx} className="flex justify-between text-xs text-gray-500">
-                                                    <span className="truncate max-w-[190px]" title={addon.title}>↳ + {addon.title}</span>
-                                                    <span>+${Number(addon.amount).toFixed(2)}</span>
+                                                    <span className="truncate max-w-[180px]" title={addon.title}>↳ + {addon.title}</span>
+                                                    <span className="whitespace-nowrap shrink-0">+${Number(addon.amount).toFixed(2)}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                 </div>
                             ))}
+                        </div>
 
-
-                            {/* <div className="flex justify-between">
-                                <span>Feature Sheets</span>
-                                <span>$54.00</span>
+                        <div className='w-full mt-3 pt-2 border-t border-gray-200'>
+                            <div className="flex justify-between items-center font-[500] text-[14px] text-gray-800 py-1">
+                                <span>Sub Total:</span>
+                                <span className="whitespace-nowrap font-semibold">$ {rawTotalPrice.toFixed(2)}</span>
                             </div>
 
-                            <div className="flex justify-between flex-col">
-                                <div className="flex justify-between">
-                                    <span>Standard Still Photos</span>
-                                    <span>$119.00</span>
-                                </div>
-                                <span className="text-[12px] text-[#888] pl-2">20 Photos</span>
-                            </div> */}
-
-                            <div className='flex justify-end'>
-                                <div className='w-2/3'>
-                                    <hr className="my-2 h-[2px] justify-self-end" style={{ backgroundColor: roleSettings.pageTabColor, opacity: 0.3 }} />
-                                    <div className="flex justify-between font-[500]">
-                                        <span>Sub Total:</span>
-                                        <span>$ {rawTotalPrice.toFixed(2)}</span>
+                            {/* Package and Discount Breakdown */}
+                            {activePackage && (
+                                <div className="space-y-1 my-1">
+                                    <div className="flex justify-between items-center text-[13px] md:text-[14px] text-blue-700 font-[500]">
+                                        <span>Package:</span>
+                                        <span className="font-[500]">{activePackage.name}</span>
                                     </div>
 
-                                    {activePackage && (
-                                        <>
-                                            <div className="flex justify-between text-[11px] text-blue-600 font-[500]">
-                                                <span>Package:</span>
-                                                <span>{activePackage.name}</span>
-                                            </div>
-                                            {appliedPackageDiscount > 0 ? (
-                                                <div className="flex justify-between text-[11px] text-green-600 font-[500]">
-                                                    <span>Discount ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`}) {bestDiscountWinner === 'package' && rawAgentDiscount > 0 ? '★ Best discount' : ''}</span>
-                                                    <span>- ${appliedPackageDiscount.toFixed(2)}</span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-between text-[10px] text-gray-500 italic">
-                                                    <span>Package Savings:</span>
-                                                    <span>Superseded by Agent Discount (${rawAgentDiscount.toFixed(2)})</span>
-                                                </div>
-                                            )}
-                                        </>
+                                    {/* If Package is higher, show cutted Agent discount above and applied Package savings below */}
+                                    {appliedPackageDiscount > 0 && rawAgentDiscount > 0 && (
+                                        <div className="flex justify-between items-start text-[12px] md:text-[13px] text-gray-400 font-[500] line-through py-0.5 gap-2">
+                                            <span className="flex items-center gap-1">
+                                                <Tag className="w-3.5 h-3.5 shrink-0" />
+                                                Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)
+                                            </span>
+                                            <span className="whitespace-nowrap shrink-0 font-medium">- ${rawAgentDiscount.toFixed(2)}</span>
+                                        </div>
                                     )}
 
-                                    {agentDiscount && (
-                                        <>
-                                            <div className="flex justify-between text-[11px] text-emerald-600 font-[500]">
-                                                <span className="flex items-center gap-1">
-                                                    <Tag className="w-3 h-3" />
-                                                    Agent Discount:
-                                                </span>
-                                                <span>{agentDiscount.name || 'Special Discount'} ({agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`})</span>
-                                            </div>
-                                            {appliedAgentDiscount > 0 ? (
-                                                <div className="flex justify-between text-[11px] text-emerald-600 font-[500]">
-                                                    <span>Discount{agentDiscount.minimum_spend > 0 ? ` (Min. $${Number(agentDiscount.minimum_spend).toLocaleString()} met)` : ''} {bestDiscountWinner === 'agent' && rawPackageDiscount > 0 ? '★ Best discount' : ''}:</span>
-                                                    <span>- ${appliedAgentDiscount.toFixed(2)}</span>
-                                                </div>
-                                            ) : bestDiscountWinner === 'package' && rawAgentDiscount > 0 ? (
-                                                <div className="flex justify-between text-[10px] text-gray-500 italic">
-                                                    <span>Agent Discount:</span>
-                                                    <span>Superseded by Package Savings (${rawPackageDiscount.toFixed(2)})</span>
-                                                </div>
-                                            ) : agentDiscount.minimum_spend > 0 ? (
-                                                <div className="flex justify-between items-center text-[10px] text-amber-700 bg-amber-50/90 border border-amber-200 p-1.5 rounded my-1">
-                                                    <span>Min. spend: ${Number(agentDiscount.minimum_spend).toLocaleString()}</span>
-                                                    <span className="font-medium text-amber-800">Add ${(Number(agentDiscount.minimum_spend) - (rawTotalPrice || 0)).toFixed(2)} more</span>
-                                                </div>
-                                            ) : null}
-                                        </>
-                                    )}
-
-                                    <div className="flex justify-between text-[11px]">
-                                        <span>Taxes</span>
-                                        <span>${0}</span>
-                                    </div>
-
-                                    <div className="flex justify-between font-[400] text-[15px] my-10">
-                                        <span>Order/Quote approx:</span>
-                                        <span>${totalPrice.toFixed(2)}</span>
-                                    </div>
+                                    {appliedPackageDiscount > 0 ? (
+                                        <div className="flex justify-between items-start text-[13px] md:text-[14px] text-emerald-600 font-[500] py-0.5 gap-2">
+                                            <span className="flex items-center gap-1.5 flex-wrap">
+                                                <span>Package Savings ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`} OFF)</span>
+                                                {bestDiscountWinner === 'package' && rawAgentDiscount > 0 && (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300">
+                                                        Best Value
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span className="whitespace-nowrap shrink-0 font-bold">- ${appliedPackageDiscount.toFixed(2)}</span>
+                                        </div>
+                                    ) : rawPackageDiscount > 0 ? (
+                                        <div className="flex justify-between items-start text-[12px] md:text-[13px] text-gray-400 font-[500] line-through py-0.5 gap-2">
+                                            <span>Package ({activePackage.discount_type === 'dollar' ? `$${activePackage.discount}` : `${activePackage.discount}%`} OFF)</span>
+                                            <span className="whitespace-nowrap shrink-0 font-medium">- ${rawPackageDiscount.toFixed(2)}</span>
+                                        </div>
+                                    ) : null}
                                 </div>
+                            )}
+
+                            {/* Agent Discount Breakdown (when Agent is Winner or only discount) */}
+                            {agentDiscount && (
+                                <div className="space-y-1 my-1">
+                                    {appliedAgentDiscount > 0 ? (
+                                        <div className="flex justify-between items-start text-[13px] md:text-[14px] text-emerald-600 font-[500] py-0.5 gap-2">
+                                            <span className="flex items-center gap-1.5 flex-wrap">
+                                                <Tag className="w-3.5 h-3.5 shrink-0" />
+                                                <span>Agent Discount ({agentDiscount.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount.amount}`} OFF)</span>
+                                                {bestDiscountWinner === 'agent' && rawPackageDiscount > 0 && (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300">
+                                                        Best Value
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span className="whitespace-nowrap shrink-0 font-bold">- ${appliedAgentDiscount.toFixed(2)}</span>
+                                        </div>
+                                    ) : agentDiscount.minimum_spend > 0 && !rawAgentDiscount ? (
+                                        <div className="flex justify-between items-center text-[11px] text-amber-700 bg-amber-50/90 border border-amber-200 p-1.5 rounded my-1">
+                                            <span>Agent Discount ({agentDiscount.amount}%): Min. ${Number(agentDiscount.minimum_spend).toLocaleString()}</span>
+                                            <span className="font-semibold text-amber-800">Add ${(Number(agentDiscount.minimum_spend) - (rawTotalPrice || 0)).toFixed(2)} more</span>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-center text-[12px] text-gray-600 py-0.5">
+                                <span>Taxes</span>
+                                <span className="whitespace-nowrap">${0}</span>
                             </div>
 
+                            <div className="flex justify-between font-[400] text-[15px] mt-3 pt-2.5 border-t" style={{ borderColor: fieldBorder }}>
+                                <span>Order/Quote approx:</span>
+                                <span className="whitespace-nowrap">${totalPrice.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

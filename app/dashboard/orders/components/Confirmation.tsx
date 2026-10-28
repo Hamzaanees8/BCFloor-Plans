@@ -1402,29 +1402,78 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     <div className='flex items-center justify-between'>
                                                         <p className='font-normal text-[14px] text-[#424242]'>Subtotal</p>
                                                         <p className='font-normal text-[14px] text-[#424242]'>
-                                                            ${grandTotal.toFixed(2)}
+                                                            ${baseBeforeAgent.toFixed(2)}
                                                         </p>
                                                     </div>
 
-                                                    {activePackage && (activePackage.discount || 0) > 0 && (
-                                                        <div className='flex items-center justify-between text-green-600'>
-                                                            <p className='font-normal text-[14px]'>
-                                                                Package Discount ({activePackage.name}) {effectivePkgDisc > 0 && rawAgentDisc > 0 ? '★ Best discount' : ''}
-                                                            </p>
-                                                            <p className='font-normal text-[14px]'>
-                                                                {effectivePkgDisc > 0 ? `-$${effectivePkgDisc.toFixed(2)}` : `Superseded by Agent Discount`}
-                                                            </p>
-                                                        </div>
+                                                    {/* When Package is winner and Agent is superseded */}
+                                                    {effectivePkgDisc > 0 && (
+                                                        <>
+                                                            {rawAgentDisc > 0 && (
+                                                                <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
+                                                                    <p className='truncate max-w-[280px]'>
+                                                                        Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)
+                                                                    </p>
+                                                                    <p className='whitespace-nowrap shrink-0 font-medium'>
+                                                                        -${rawAgentDisc.toFixed(2)}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
+                                                                <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
+                                                                    <span className='truncate max-w-[260px]' title={activePackage?.name}>
+                                                                        Package: {activePackage?.name}
+                                                                    </span>
+                                                                    <span className='shrink-0'>
+                                                                        ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
+                                                                    </span>
+                                                                    {rawAgentDisc > 0 && (
+                                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
+                                                                            Best Value
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className='whitespace-nowrap shrink-0 font-bold'>
+                                                                    -${effectivePkgDisc.toFixed(2)}
+                                                                </p>
+                                                            </div>
+                                                        </>
                                                     )}
 
-                                                    {agentDiscount && (
-                                                        <div className='flex items-center justify-between text-emerald-600'>
-                                                            <p className='font-normal text-[14px]'>
-                                                                Agent Discount ({agentDiscount?.name || 'Special Discount'}) {effectiveAgentDisc > 0 && rawPkgDisc > 0 ? '★ Best discount' : ''}
-                                                            </p>
-                                                            <p className='font-normal text-[14px]'>
-                                                                {effectiveAgentDisc > 0 ? `-$${effectiveAgentDisc.toFixed(2)}` : rawPkgDisc > 0 ? `Superseded by Package Savings` : `Min. spend requirement not met`}
-                                                            </p>
+                                                    {/* When Agent is winner and Package is superseded */}
+                                                    {effectiveAgentDisc > 0 && (
+                                                        <>
+                                                            {rawPkgDisc > 0 && (
+                                                                <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
+                                                                    <p className='truncate max-w-[280px]' title={activePackage?.name}>
+                                                                        Package ({activePackage?.name} &mdash; {activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
+                                                                    </p>
+                                                                    <p className='whitespace-nowrap shrink-0 font-medium'>
+                                                                        -${rawPkgDisc.toFixed(2)}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
+                                                                <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
+                                                                    <span>Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)</span>
+                                                                    {rawPkgDisc > 0 && (
+                                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
+                                                                            Best Value
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className='whitespace-nowrap shrink-0 font-bold'>
+                                                                    -${effectiveAgentDisc.toFixed(2)}
+                                                                </p>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* When Agent discount has min spend not met */}
+                                                    {agentDiscount && agentDiscount.minimum_spend > 0 && baseBeforeAgent < Number(agentDiscount.minimum_spend) && !effectivePkgDisc && (
+                                                        <div className='flex items-center justify-between text-amber-700 text-[12px] bg-amber-50/80 px-2 py-1 rounded border border-amber-200'>
+                                                            <p>Agent Discount ({agentDiscount.amount}%): Min. spend ${Number(agentDiscount.minimum_spend).toLocaleString()} not met</p>
+                                                            <p className='whitespace-nowrap shrink-0'>&mdash;</p>
                                                         </div>
                                                     )}
 

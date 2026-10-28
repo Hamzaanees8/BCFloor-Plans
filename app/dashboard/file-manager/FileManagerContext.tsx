@@ -372,6 +372,23 @@ type FileManagerContextType = {
   tourDefaultSettings: any | null;
   setTourDefaultSettings: Dispatch<SetStateAction<any | null>>;
 
+  mediaCacheVersion: number;
+  setMediaCacheVersion: Dispatch<SetStateAction<number>>;
+
+  watermarkProcessing: {
+    isProcessing: boolean;
+    total: number;
+    processing: number;
+    completed: number;
+    percent: number;
+    shouldShowInfo?: boolean;
+    title?: string;
+    description?: string;
+    isRefreshing?: boolean;
+    onRefresh?: () => Promise<void>;
+  } | null;
+  setWatermarkProcessing: Dispatch<SetStateAction<any>>;
+
   handleSave: (overrideChangedFiles?: Files[]) => Promise<void>;
 };
 
@@ -648,6 +665,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
   const [tourDefaultSettings, setTourDefaultSettings] = useState<any | null>(
     null,
   );
+  const [mediaCacheVersion, setMediaCacheVersion] = useState<number>(() => Date.now());
+  const [watermarkProcessing, setWatermarkProcessing] = useState<any | null>(null);
 
 
   const [restoreDetailFieldHandler, setRestoreDetailFieldHandler] = useState<
@@ -797,6 +816,10 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       setTourSettings,
       tourDefaultSettings,
       setTourDefaultSettings,
+      mediaCacheVersion,
+      setMediaCacheVersion,
+      watermarkProcessing,
+      setWatermarkProcessing,
       handleSave: async () => {},
     }),
     [
@@ -833,6 +856,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       approvalSelectedUuids,
       tourSettings,
       tourDefaultSettings,
+      mediaCacheVersion,
+      watermarkProcessing,
       restoreDetailFieldHandler,
       restoreAllDetailFieldsHandler,
       setFloorPlanSubtype,

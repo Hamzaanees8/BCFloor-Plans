@@ -410,6 +410,8 @@ const FileManager = () => {
     setHeroVideoUuid,
     panAdjust,
     setPanAdjust,
+    setMediaCacheVersion,
+    setWatermarkProcessing,
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
@@ -419,7 +421,7 @@ const FileManager = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
-  const { startUpload } = useGlobalFileUpload();
+  const { startUpload, isUploading } = useGlobalFileUpload();
 
   useEffect(() => {
     if (orderData?.order_status) {
@@ -453,7 +455,7 @@ const FileManager = () => {
   const [showReleaseMediaConfirm, setShowReleaseMediaConfirm] = useState(false);
   const [showRevokeMediaConfirm, setShowRevokeMediaConfirm] = useState(false);
   const [showReleaseSuccessModal, setShowReleaseSuccessModal] = useState(false);
-  const [isReleaseBannerDismissed, setIsReleaseBannerDismissed] = useState(false);
+  const [, setIsReleaseBannerDismissed] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
 
@@ -567,7 +569,8 @@ const FileManager = () => {
     }
   }, [orderId, orderData?.id, orderData?.uuid]);
 
-  const handleDismissReleaseBanner = React.useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleDismissReleaseBanner = React.useCallback(() => {
     setIsReleaseBannerDismissed(true);
     const currentId = orderId || orderData?.id;
     const currentUuid = orderData?.uuid;
@@ -614,7 +617,7 @@ const FileManager = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
 
-  const [isAgentPaymentBannerDismissed, setIsAgentPaymentBannerDismissed] =
+  const [, setIsAgentPaymentBannerDismissed] =
     useState(false);
 
   const isOrderOrInvoicePaid = React.useMemo(() => {
@@ -657,7 +660,8 @@ const FileManager = () => {
     }
   }, [orderId, orderData?.id, orderData?.uuid, userType]);
 
-  const handleDismissAgentPaymentBanner = React.useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleDismissAgentPaymentBanner = React.useCallback(() => {
     setIsAgentPaymentBannerDismissed(true);
     const currentId = orderId || orderData?.id;
     const currentUuid = orderData?.uuid;
@@ -815,15 +819,12 @@ const FileManager = () => {
         if (updatedTour.files) {
           updatedTour.files = updatedTour.files.map((f: any) => ({
             ...f,
-            is_processing:
-              f.status === "processing" ||
-              f.is_processing ||
-              (f.type === "photo" &&
-                (!f.variant_urls || Object.keys(f.variant_urls).length === 0)),
+            is_processing: Boolean(f.status === "processing" || f.is_processing),
           }));
         }
         setFilesData(updatedTour);
       }
+      setMediaCacheVersion(Date.now());
       await fetchOrder();
       toast.success("Media files refreshed successfully");
     } catch (err: any) {
@@ -832,7 +833,7 @@ const FileManager = () => {
     } finally {
       setIsManualRefreshing(false);
     }
-  }, [orderData?.uuid, includeHidden, setFilesData, fetchOrder]);
+  }, [orderData?.uuid, includeHidden, setFilesData, fetchOrder, setMediaCacheVersion]);
 
   // Keep vendor services in sync when servicesData catalog finishes loading or orderData updates
   useEffect(() => {
@@ -2093,12 +2094,7 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing:
-                f.status === "processing" ||
-                f.is_processing ||
-                (f.type === "photo" &&
-                  (!f.variant_urls ||
-                    Object.keys(f.variant_urls).length === 0)),
+              is_processing: Boolean(f.status === "processing" || f.is_processing),
             }));
           }
           setFilesData(updatedTour);
@@ -2153,44 +2149,80 @@ const FileManager = () => {
   // ------------------------------------------------------------------
   const hasProcessingFiles = React.useMemo(() => {
     return filesData?.files?.some(
-      (f) =>
-        (f as any).status === "processing" ||
-        f.is_processing === true ||
-        (f.type === "photo" &&
-          (!f.variant_urls || Object.keys(f.variant_urls).length === 0)),
+      (f) => (f as any).status === "processing" || f.is_processing === true,
     );
   }, [filesData?.files]);
 
-  const isWatermarkRemovalActive = React.useMemo(() => {
-    if (
-      userType === "agent" &&
-      isOrderOrInvoicePaid &&
-      !isAgentPaymentBannerDismissed
-    ) {
-      return true;
-    }
-    if (
-      userType === "admin" &&
-      orderData?.release_media_before_payment &&
-      !isReleaseBannerDismissed
-    ) {
-      return true;
-    }
-    return false;
+  const watermarkProcessingStats = React.useMemo(() => {
+    const photoFiles =
+      filesData?.files?.filter((f) => f.type === "photo" && !f.is_deleted) || [];
+    const total = photoFiles.length;
+    const processingPhotos = photoFiles.filter((f) => f.is_processing);
+    const processing = processingPhotos.length;
+    const completed = total - processing;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 100;
+    const isProcessing = processing > 0;
+
+    const isWatermarkRemoval =
+      (userType === "agent" && (isOrderOrInvoicePaid || photoFiles.some((f) => f.is_paid))) ||
+      (userType === "admin" &&
+        (orderData?.release_media_before_payment || isOrderOrInvoicePaid || photoFiles.some((f) => f.is_paid)));
+
+    // Reprocessing is active if any photo is processing and either:
+    // 1. It has existing variants being swapped (reprocessing), OR
+    // 2. The order/service is released or paid
+    const isReprocessing = photoFiles.some(
+      (f) =>
+        f.is_processing &&
+        f.variant_urls &&
+        Object.keys(f.variant_urls).length > 0
+    );
+
+    const isRevertingWatermark = !isWatermarkRemoval && isReprocessing;
+    const shouldShowInfo = isProcessing && (isWatermarkRemoval || isRevertingWatermark);
+
+    const title = isRevertingWatermark
+      ? "Applying Watermarks in Progress"
+      : "Watermark Removal in Progress";
+
+    const description = isRevertingWatermark
+      ? `Background processing is applying watermarks (${completed} of ${total} photos ready). It may take a couple of minutes to apply watermarks.`
+      : `Background processing is generating unwatermarked versions (${completed} of ${total} photos ready). It may take a couple of minutes to generate unwatermarked media.`;
+
+    return {
+      isProcessing,
+      total,
+      processing,
+      completed,
+      percent,
+      shouldShowInfo,
+      title,
+      description,
+      isRefreshing: isManualRefreshing,
+      onRefresh: handleRefreshFiles,
+    };
   }, [
+    filesData?.files,
     userType,
     isOrderOrInvoicePaid,
-    isAgentPaymentBannerDismissed,
     orderData?.release_media_before_payment,
-    isReleaseBannerDismissed,
+    isManualRefreshing,
+    handleRefreshFiles,
   ]);
 
-  const shouldPollMedia = hasProcessingFiles || isWatermarkRemovalActive;
+  React.useEffect(() => {
+    setWatermarkProcessing(watermarkProcessingStats);
+  }, [watermarkProcessingStats, setWatermarkProcessing]);
+
+  const shouldPollMedia = !isUploading && Boolean(watermarkProcessingStats?.shouldShowInfo);
 
   React.useEffect(() => {
     if (!shouldPollMedia || !orderData?.uuid) {
       return;
     }
+
+    // Polling frequency set to 14s (12-15 sec) to minimize server load
+    const pollInterval = 14000;
 
     const intervalId = setInterval(async () => {
       const token = localStorage.getItem("token");
@@ -2203,15 +2235,11 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing:
-                f.status === "processing" ||
-                f.is_processing ||
-                (f.type === "photo" &&
-                  (!f.variant_urls ||
-                    Object.keys(f.variant_urls).length === 0)),
+              is_processing: Boolean(f.status === "processing" || f.is_processing),
             }));
           }
           setFilesData(updatedTour);
+          setMediaCacheVersion(Date.now());
         }
       } catch (err) {
         console.error(
@@ -2219,10 +2247,10 @@ const FileManager = () => {
           err,
         );
       }
-    }, 25000);
+    }, pollInterval);
 
     return () => clearInterval(intervalId);
-  }, [shouldPollMedia, orderData?.uuid, includeHidden, setFilesData]);
+  }, [shouldPollMedia, hasProcessingFiles, orderData?.uuid, includeHidden, setFilesData, setMediaCacheVersion]);
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
@@ -2301,12 +2329,7 @@ const FileManager = () => {
             if (updatedTour.files) {
               updatedTour.files = updatedTour.files.map((f: any) => ({
                 ...f,
-                is_processing:
-                  f.status === "processing" ||
-                  f.is_processing ||
-                  (f.type === "photo" &&
-                    (!f.variant_urls ||
-                      Object.keys(f.variant_urls).length === 0)),
+                is_processing: Boolean(f.status === "processing" || f.is_processing),
               }));
             }
 
@@ -4050,107 +4073,7 @@ const FileManager = () => {
             </div>
           )}
 
-          {/* Pre-Payment Release & Watermark Processing In-UI Banner */}
-          {userType === "admin" &&
-            orderData?.release_media_before_payment &&
-            !isReleaseBannerDismissed && (
-              <div className="mx-[25px] my-3 p-3.5 border border-emerald-300 bg-emerald-50/90 rounded-[8px] flex flex-col md:flex-row justify-between items-start md:items-center gap-3 font-alexandria shadow-sm text-emerald-900 transition-all">
-                <div className="flex items-start md:items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0 mt-0.5 md:mt-0">
-                    <Sparkles className="w-4 h-4 text-emerald-700" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-bold text-emerald-950">
-                        Media Released to Agent (Pre-Payment)
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 border border-emerald-300 uppercase tracking-wide">
-                        Watermark Removal in Progress
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
-                      Files are unlocked for the agent. Background processing is actively generating unwatermarked versions (takes a couple of minutes). If images still show watermarks, click Refresh to load completed variants.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshFiles}
-                    disabled={isManualRefreshing}
-                    className="h-[30px] px-3 text-[12px] font-semibold border-emerald-400 bg-white hover:bg-emerald-100 text-emerald-900 flex items-center gap-1.5 shadow-xs"
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`}
-                    />
-                    <span>
-                      {isManualRefreshing ? "Refreshing..." : "Refresh Media"}
-                    </span>
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={handleDismissReleaseBanner}
-                    title="Dismiss notice for this order"
-                    className="text-emerald-700 hover:text-emerald-950 p-1 rounded hover:bg-emerald-200/50 transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
 
-          {/* Agent Paid Media & Watermark Processing In-UI Banner */}
-          {userType === "agent" &&
-            isOrderOrInvoicePaid &&
-            !isAgentPaymentBannerDismissed && (
-              <div className="mx-[25px] my-3 p-3.5 border border-emerald-300 bg-emerald-50/90 rounded-[8px] flex flex-col md:flex-row justify-between items-start md:items-center gap-3 font-alexandria shadow-sm text-emerald-900 transition-all">
-                <div className="flex items-start md:items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0 mt-0.5 md:mt-0">
-                    <Sparkles className="w-4 h-4 text-emerald-700" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-bold text-emerald-950">
-                        Payment Received — Processing Watermark Removal
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 border border-emerald-300 uppercase tracking-wide">
-                        In Progress
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-emerald-800 leading-snug mt-0.5">
-                      Thank you for your payment! Our background system is actively processing your media to remove watermarks and generate unwatermarked versions (takes a couple of minutes). If images still show watermarks, click Refresh Media to load completed files.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshFiles}
-                    disabled={isManualRefreshing}
-                    className="h-[30px] px-3 text-[12px] font-semibold border-emerald-400 bg-white hover:bg-emerald-100 text-emerald-900 flex items-center gap-1.5 shadow-xs"
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`}
-                    />
-                    <span>
-                      {isManualRefreshing ? "Refreshing..." : "Refresh Media"}
-                    </span>
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={handleDismissAgentPaymentBanner}
-                    title="Dismiss notice"
-                    className="text-emerald-700 hover:text-emerald-950 p-1 rounded hover:bg-emerald-200/50 transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
 
           {/* Admin Approval Widget */}
           {userType === "admin" &&

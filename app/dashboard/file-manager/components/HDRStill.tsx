@@ -133,6 +133,7 @@ function FileTab1({
     tourSettings,
     tourDefaultSettings,
     isSaving,
+    mediaCacheVersion,
   } = useFileManagerContext();
   const [downloadingFiles, setDownloadingFiles] = useState<Record<string, boolean>>({});
   const isAlwaysSort = Boolean(
@@ -848,9 +849,10 @@ function FileTab1({
               </>
             ) : (
               <>
-                {file.is_processing ? (
-                  <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                    <p className="text-gray-500 font-medium text-sm">
+                {file.is_processing && (!file.variant_urls || Object.keys(file.variant_urls).length === 0) ? (
+                  <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200 animate-pulse">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                    <p className="text-gray-500 font-medium text-xs">
                       Processing...
                     </p>
                   </div>
@@ -982,55 +984,76 @@ function FileTab1({
                     </div>
                   )
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={file.thumbnail_url || file.variant_urls?.thumb}
-                    onClick={() => {
-                      if (isHidingMode && file.uuid) {
-                        setFilesToHide((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(file.uuid)) next.delete(file.uuid);
-                          else next.add(file.uuid);
-                          return next;
-                        });
-                      } else if (
-                        isBulkSelecting &&
-                        file.uuid &&
-                        !file.is_agent_approved
-                      ) {
-                        setBulkSelectedIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(file.uuid)) next.delete(file.uuid);
-                          else next.add(file.uuid);
-                          return next;
-                        });
-                      } else if (
-                        isBulkDeselecting &&
-                        file.uuid &&
-                        file.is_agent_approved
-                      ) {
-                        setBulkDeselectedIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(file.uuid)) next.delete(file.uuid);
-                          else next.add(file.uuid);
-                          return next;
-                        });
-                      } else if (!isHidingMode) {
-                        if (!file.is_deleted)
-                          handleImageClick(
-                            file.variant_urls?.popup ||
-                              file.url ||
-                              (file.file_path
-                                ? `${API_URL}/${file.file_path}`
-                                : ""),
-                            file,
-                          );
-                      }
-                    }}
-                    alt="preview"
-                    className={`absolute inset-0 w-full h-full ${letterboxClass} cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && effectiveUserType === "admin" ? "opacity-70" : ""} ${file.is_hidden ? "grayscale opacity-60" : ""}`}
-                    draggable={false}
-                  />
+                  (() => {
+                    const thumbUrl = file.thumbnail_url || file.variant_urls?.thumb;
+                    const cacheBustedThumb = thumbUrl
+                      ? `${thumbUrl}${thumbUrl.includes("?") ? "&" : "?"}v=${mediaCacheVersion}`
+                      : "";
+
+                    return (
+                      <div className="absolute inset-0 w-full h-full overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={cacheBustedThumb}
+                          onClick={() => {
+                            if (file.is_processing) return;
+                            if (isHidingMode && file.uuid) {
+                              setFilesToHide((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                else next.add(file.uuid);
+                                return next;
+                              });
+                            } else if (
+                              isBulkSelecting &&
+                              file.uuid &&
+                              !file.is_agent_approved
+                            ) {
+                              setBulkSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                else next.add(file.uuid);
+                                return next;
+                              });
+                            } else if (
+                              isBulkDeselecting &&
+                              file.uuid &&
+                              file.is_agent_approved
+                            ) {
+                              setBulkDeselectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                else next.add(file.uuid);
+                                return next;
+                              });
+                            } else if (!isHidingMode) {
+                              if (!file.is_deleted)
+                                handleImageClick(
+                                  file.variant_urls?.popup ||
+                                    file.url ||
+                                    (file.file_path
+                                      ? `${API_URL}/${file.file_path}`
+                                      : ""),
+                                  file,
+                                );
+                            }
+                          }}
+                          alt="preview"
+                          className={`w-full h-full ${letterboxClass} ${file.is_processing ? "cursor-wait opacity-55 filter blur-[0.5px]" : "cursor-pointer"} ${!file.is_admin_approved && reviewFilesEnabled && effectiveUserType === "admin" ? "opacity-70" : ""} ${file.is_hidden ? "grayscale opacity-60" : ""}`}
+                          draggable={false}
+                        />
+                        {file.is_processing && (
+                          <div className="absolute inset-0 z-[22] flex flex-col items-center justify-center pointer-events-none">
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/30 via-white/50 to-emerald-100/30 animate-pulse backdrop-blur-[1px]" />
+                            <div className="relative z-10 flex items-center gap-1.5 px-2 py-1 bg-black/80 backdrop-blur-xs rounded-full text-white text-[10.5px] font-semibold shadow-md border border-white/20">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                              <span>Processing...</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
                 )}
                 {file.uuid &&
                   filesToHide.has(file.uuid) &&

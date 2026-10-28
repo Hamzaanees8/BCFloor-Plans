@@ -100,7 +100,10 @@ export async function GetFilesData(token: string, orderUuid: string, includeHidd
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
     },
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -110,6 +113,45 @@ export async function GetFilesData(token: string, orderUuid: string, includeHidd
     );
   }
 
+  return response.json();
+}
+
+export async function GetProcessingStatus(token: string, orderUuid: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  if (!orderUuid) return null;
+
+  const url = `${API_URL}/tours/order/${orderUuid}/processing-status`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function ReprocessWatermarks(token: string, orderUuid: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  if (!orderUuid) return null;
+
+  const url = `${API_URL}/tours/order/${orderUuid}/reprocess-watermarks`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || "Failed to trigger watermark reprocessing");
+  }
   return response.json();
 }
 
@@ -217,94 +259,8 @@ export async function UploadFilesData(
   panAdjust?: boolean
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  const uploads: {
-    upload_id: string;
-    s3_key: string;
-    original_filename: string;
-    content_type: string;
-    presigned_url: string;
-  }[] = [];
 
-  const fileUuids = new Map<File, string>();
-
-  // Step 1: Upload files to S3 in batches
-  if (files.length > 0) {
-    try {
-      // Split files into chunks for presigned URL requests
-      for (let i = 0; i < files.length; i += PRESIGNED_BATCH_SIZE) {
-        const fileBatch = files.slice(i, i + PRESIGNED_BATCH_SIZE);
-
-        const filesPayload: any[] = [];
-        fileBatch.forEach((f) => {
-          filesPayload.push({
-            filename: f.file.name,
-            content_type: f.file.type,
-            size: f.file.size,
-          });
-        });
-
-        const presignedRequest = {
-          entity_type: "order" as const,
-          entity_id: orderUuid,
-          files: filesPayload,
-        };
-
-        const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
-        if (!presignedResponse.success) throw new Error("Failed to get presigned URLs");
-
-        const batchUploads = presignedResponse.data.uploads;
-        uploads.push(...batchUploads);
-
-        const uploadTasks: { fileObj: SelectedFiles; upload: any; isThumb: boolean }[] = [];
-        let uploadIdx = 0;
-        fileBatch.forEach((fileObj) => {
-           uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: false });
-        });
-
-        // Upload files in this batch to S3 (concurrency limit)
-        for (let j = 0; j < uploadTasks.length; j += S3_CONCURRENT_UPLOADS) {
-          const s3Batch = uploadTasks.slice(j, j + S3_CONCURRENT_UPLOADS);
-
-          await Promise.all(s3Batch.map(async (task) => {
-            const globalIndex = files.indexOf(task.fileObj);
-            const upload = task.upload;
-
-            if (onProgress && !task.isThumb) {
-              onProgress(globalIndex, 0, 'uploading');
-            }
-
-            try {
-              await S3UploadService.uploadToS3(
-                upload.presigned_url,
-                task.isThumb && task.fileObj.thumbnailFile ? task.fileObj.thumbnailFile : task.fileObj.file,
-                upload.content_type,
-                (progress) => {
-                  if (onProgress && !task.isThumb) {
-                    onProgress(globalIndex, progress, 'uploading');
-                  }
-                }
-              );
-              if (!task.isThumb) fileUuids.set(task.fileObj.file, upload.upload_id);
-
-              if (onProgress && !task.isThumb) {
-                onProgress(globalIndex, 100, 'confirming');
-              }
-            } catch (error) {
-              if (onProgress && !task.isThumb) {
-                onProgress(globalIndex, 0, 'error');
-              }
-              throw error;
-            }
-          }));
-        }
-      }
-    } catch (error) {
-      console.error("S3 upload in UploadFilesData failed:", error);
-      throw error;
-    }
-  }
-
-  // Step 2: Create tour FIRST (to get tour UUID)
+  // Step 1: Create tour FIRST (to get tour UUID)
   const formData = new FormData();
   formData.append("order_id", orderUuid);
 
@@ -369,102 +325,26 @@ export async function UploadFilesData(
   const tourResult = await tourResponse.json();
   const tourUuid = tourResult.data.uuid;
 
-  // Step 3: NOW confirm uploads with the new tourUuid in batches
-  if (files.length > 0 && uploads.length > 0) {
-    try {
-      for (let i = 0; i < files.length; i += PRESIGNED_BATCH_SIZE) {
-        const filesBatch = files.slice(i, i + PRESIGNED_BATCH_SIZE);
-        const uploadsBatch = uploads.slice(i, i + PRESIGNED_BATCH_SIZE);
-
-        const confirmUploadsPayload: any[] = [];
-        let cIdx = 0;
-        filesBatch.forEach((fileObj) => {
-            const mainUpload = uploadsBatch[cIdx++];
-            
-            confirmUploadsPayload.push({
-              upload_id: mainUpload.upload_id,
-              s3_key: mainUpload.s3_key,
-              original_filename: mainUpload.original_filename,
-              content_type: mainUpload.content_type,
-              type: getFileTypeFromContentType(mainUpload.content_type),
-              subtype: fileObj.subtype || (fileObj.isPanorama ? "panorama_360" : null),
-              group: fileObj.type,
-              service_id: fileObj.service_id,
-              is_featured: fileObj.is_featured || false,
-              is_show: fileObj.is_show !== false,
-              is_admin_approved: fileObj.is_admin_approved !== false,
-              is_agent_approved: fileObj.is_agent_approved || false,
-              is_complimentary: fileObj.is_complimentary || false,
-              image_type: fileObj.isPanorama ? "panorama" : "normal",
-              sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : files.indexOf(fileObj) + 1,
-            });
-        });
-
-        const confirmResponse = await S3UploadService.confirmUpload({
-          entity_type: "tour",
-          entity_id: tourUuid,
-          tour_id: tourUuid,
-          uploads: confirmUploadsPayload,
-        });
-
-        // Loop over filesBatch to upload thumbnails for any video files that have one
-        const createdFiles = confirmResponse.data?.files || [];
-        for (const fileObj of filesBatch) {
-            if (fileObj.thumbnailFile && fileObj.file.type.startsWith('video/')) {
-                const createdFile = createdFiles.find(f => f.filename === fileObj.file.name);
-                if (createdFile) {
-                    const videoUuid = createdFile.uuid;
-                    try {
-                        const presignedResponse = await S3UploadService.getPresignedUrls({
-                            entity_type: "video-thumbnail",
-                            entity_id: videoUuid,
-                            files: [{
-                                filename: fileObj.thumbnailFile.name,
-                                content_type: fileObj.thumbnailFile.type,
-                                size: fileObj.thumbnailFile.size,
-                            }],
-                        });
-
-                        if (presignedResponse.success && presignedResponse.data.uploads.length) {
-                            const uploadData = presignedResponse.data.uploads[0];
-                            await S3UploadService.uploadToS3(uploadData.presigned_url, fileObj.thumbnailFile, uploadData.content_type);
-                            await S3UploadService.confirmUpload({
-                                entity_type: "video-thumbnail",
-                                entity_id: videoUuid,
-                                uploads: [{
-                                    upload_id: uploadData.upload_id,
-                                    s3_key: uploadData.s3_key,
-                                    original_filename: uploadData.original_filename,
-                                    content_type: uploadData.content_type,
-                                }],
-                            });
-                            console.log(`Successfully uploaded custom thumbnail for video ${videoUuid}`);
-                        }
-                    } catch (thumbErr) {
-                        console.error(`Failed to upload thumbnail for video ${videoUuid}:`, thumbErr);
-                    }
-                }
-            }
-        }
-
-        // Mark this batch as complete in UI
-        if (onProgress) {
-          filesBatch.forEach((_, batchIdx) => {
-            onProgress(i + batchIdx, 100, 'complete');
-          });
-        }
-      }
-      return tourResult;
-    } catch (confirmError) {
-      console.error(
-        "Confirmation of S3 uploads failed after tour creation:",
-        confirmError,
-      );
-      throw confirmError;
-    }
+  // Step 2: Upload and confirm files in batches of 5 via UpdateFilesData
+  if (files.length === 0) {
+    return tourResult;
   }
 
-  return tourResult;
+  return await UpdateFilesData(
+    token,
+    tourUuid,
+    files,
+    links,
+    snapshots,
+    delay,
+    transition,
+    selectedAudioTrack,
+    undefined,
+    onProgress,
+    heroType,
+    heroVideoUuid,
+    panAdjust
+  );
 }
 
 export async function UpdateFilesData(
