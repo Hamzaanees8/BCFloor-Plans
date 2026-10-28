@@ -14,6 +14,7 @@ import { useAppContext } from "@/app/context/AppContext"
 import { toast } from "sonner"
 import { UpdateOrderService } from "../../orders/orders"
 import { Order, OrderService } from "../../orders/page"
+import { useFileManagerContext } from "../FileManagerContext"
 
 type OptionShape = {
     uuid: string
@@ -28,7 +29,7 @@ interface PricingPopupProps {
     currentOption?: OptionShape | null
     orderData?: Order | null
     currentBookedService?: OrderService
-    onSuccess?: () => void
+    onSuccess?: () => Promise<void> | void
 }
 
 export default function UpgradeServicePopup({
@@ -43,6 +44,7 @@ export default function UpgradeServicePopup({
     const [selected, setSelected] = React.useState<string | null>(null)
     const [isLoading, setIsLoading] = React.useState(false)
     const { userType } = useAppContext()
+    const { setIsPackageUpgrading } = useFileManagerContext()
 
     React.useEffect(() => {
         if (open) {
@@ -72,6 +74,7 @@ export default function UpgradeServicePopup({
         }
 
         setIsLoading(true)
+        setIsPackageUpgrading(true)
         try {
             const token = localStorage.getItem('token') ?? ''
 
@@ -121,12 +124,14 @@ export default function UpgradeServicePopup({
             )
 
             toast.success('Plan upgraded successfully')
-            setOpen(false)
 
-            // Call success callback to refresh data
+            // Call success callback to refresh data in background
             if (onSuccess) {
-                onSuccess()
+                await onSuccess()
             }
+
+            // Close popup only after API and background refresh complete
+            setOpen(false)
         } catch (error) {
             console.error('Failed to upgrade service:', error)
             if (error instanceof Error) {
@@ -136,6 +141,7 @@ export default function UpgradeServicePopup({
             }
         } finally {
             setIsLoading(false)
+            setIsPackageUpgrading(false)
         }
     }
 

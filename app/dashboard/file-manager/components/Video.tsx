@@ -8,7 +8,7 @@ import React, {
 import CopyableFileName from "./CopyableFileName";
 import FilePreviewModal from "./FilePreviewModal";
 import { naturalSortFiles } from "../utils/naturalSort";
-import { Check, PlayCircle, Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Check, PlayCircle, Loader2, Eye, EyeOff, Trash2, Send } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -31,6 +31,7 @@ import PayInvoiceModal from "./PayInvoiceModal";
 import AgentNotificationModal from "./AgentNotificationModal";
 import DownloadModal from "./DownloadModal";
 import PhotoPreviewModal from "./PhotoPreviewModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DownloadFile,
   ServiceCompletion,
@@ -94,6 +95,10 @@ const VideoThumbnailDisplay = ({
   );
 };
 
+const isVideoFile = (file: File) =>
+  file.type.startsWith("video/") ||
+  /\.(mov|mp4|webm|avi|mkv|m4v|wmv)$/i.test(file.name);
+
 function Video({
   currentService,
   orderData,
@@ -106,6 +111,8 @@ function Video({
   isScrolled,
   stickyOffset,
   onShowHiddenMedia,
+  onRefreshAll,
+  onSendToClient,
 }: {
   currentService?: Services;
   orderData: Order | null;
@@ -119,6 +126,8 @@ function Video({
   isScrolled?: boolean;
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
+  onRefreshAll?: () => Promise<void> | void;
+  onSendToClient?: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -148,6 +157,7 @@ function Video({
     tourSettings,
     tourDefaultSettings,
     isSaving,
+    isPackageUpgrading,
   } = useFileManagerContext();
   const [downloadingFiles, setDownloadingFiles] = useState<Record<string, boolean>>({});
   const isAlwaysSort = Boolean(
@@ -333,9 +343,7 @@ function Video({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const videoFiles = selected.filter((file) =>
-      file.type.startsWith("video/"),
-    );
+    const videoFiles = selected.filter(isVideoFile);
     if (videoFiles.length > 0) {
       if (replacingFile) {
         setSelectedVideoFiles((prev) =>
@@ -634,12 +642,8 @@ function Video({
       return;
     }
 
-    const videoFiles = droppedFiles.filter((file) =>
-      file.type.startsWith("video/"),
-    );
-    const invalidFiles = droppedFiles.filter(
-      (file) => !file.type.startsWith("video/"),
-    );
+    const videoFiles = droppedFiles.filter(isVideoFile);
+    const invalidFiles = droppedFiles.filter((file) => !isVideoFile(file));
 
     if (invalidFiles.length > 0) {
       toast.error("Only video files are allowed.");
@@ -1520,7 +1524,7 @@ function Video({
                 type="file"
                 multiple
                 hidden
-                accept="video/*"
+                accept="video/*,video/quicktime,.mov,.mp4,.webm,.avi"
                 onChange={handleFileSelect}
               />
               <input
@@ -1567,14 +1571,25 @@ function Video({
 
             {!isScrolled && (
               <span className="text-[12px] text-[#7D7D7D]">
-                {bookingToUse?.option?.title ||
-                  `${bookingToUse?.option?.quantity || 1} Files`}
+                {isPackageUpgrading ? (
+                  <Skeleton className="h-4 w-20 inline-block align-middle" />
+                ) : (
+                  bookingToUse?.option?.title ||
+                  `${bookingToUse?.option?.quantity || 1} Files`
+                )}
                 {userType !== "agent" && (
                   <span className="ml-1">
                     (
-                    {currentServiceFiles?.filter((f) => !f.is_deleted).length ||
-                      0}{" "}
-                    / {bookingToUse?.option?.quantity || 1})
+                    {currentServiceFiles?.filter(
+                      (f) => !f.is_deleted && !f.is_complimentary,
+                    ).length || 0}{" "}
+                    /{" "}
+                    {isPackageUpgrading ? (
+                      <Skeleton className="h-3 w-6 inline-block align-middle" />
+                    ) : (
+                      bookingToUse?.option?.quantity || 1
+                    )}
+                    )
                   </span>
                 )}
               </span>
@@ -1618,6 +1633,26 @@ function Video({
               {mediaUploaded ? "Submitted" : "Submit for Admin Approval"}
             </Button>
           )}
+          {!isHidingMode &&
+            (userType === "admin" ||
+              userType === "subaccount" ||
+              userType === "agent_admin" ||
+              userType === "assistant" ||
+              (userType === "vendor" && !reviewFilesEnabled)) &&
+            onSendToClient && (
+              <Button
+                onClick={onSendToClient}
+                className={`bg-blue-600 hover:bg-blue-700 text-white flex justify-center items-center font-alexandria transition-all duration-300 shadow-sm ${
+                  isScrolled
+                    ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]"
+                    : "h-[32px] min-w-[150px] w-fit px-4 text-[12px]"
+                }`}
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                Send To Client
+              </Button>
+            )}
+
           <AgentNotificationModal
             open={showConfirmation}
             onClose={() => setShowConfirmation(false)}
@@ -1642,7 +1677,11 @@ function Video({
                 <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                   {gstRate
                     ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                    : `${bookingToUse?.option?.quantity || 1} Files`}
+                    : isPackageUpgrading ? (
+                        <Skeleton className="h-3 w-10 inline-block align-middle" />
+                      ) : (
+                        `${bookingToUse?.option?.quantity || 1} Files`
+                      )}
                 </p>
               </div>
               <Button
@@ -1740,9 +1779,7 @@ function Video({
             currentOption={bookingToUse?.option}
             orderData={orderData}
             currentBookedService={currentBookedService}
-            onSuccess={() => {
-              window.location.reload();
-            }}
+            onSuccess={onRefreshAll}
           />
         </div>
       </div>
@@ -1772,13 +1809,17 @@ function Video({
 
         {userType !== "vendor" && userType !== "agent" && (
           <div className="flex flex-col items-end order-2 md:order-2 ml-auto md:ml-0">
-            <Button
-              variant="outline"
-              onClick={() => setOpenUpgrade(true)}
-              className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
-            >
-              Upgrade Plan
-            </Button>
+            {isPackageUpgrading ? (
+              <Skeleton className="h-[32px] w-[105px] rounded" />
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setOpenUpgrade(true)}
+                className={`${userType}-bg hover-${userType}-bg text-white hover:!text-white hover:brightness-90 h-[32px] w-auto px-[10px] flex justify-center items-center border-none`}
+              >
+                Upgrade Plan
+              </Button>
+            )}
           </div>
         )}
       </div>

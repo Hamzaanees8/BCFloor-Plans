@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Copy, Check, Lock, Loader2 } from 'lucide-react';
+import { X, Copy, Check, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -69,6 +69,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const [isCopied, setIsCopied] = useState(false);
     const [videoMessage, setVideoMessage] = useState<string>('');
     const [isVideoLoading, setIsVideoLoading] = useState<boolean>(true);
+    const [hasPlaybackError, setHasPlaybackError] = useState<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -91,6 +92,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
             setAutoDetectedSubtype(null);
             setVideoMessage('');
             setIsVideoLoading(true);
+            setHasPlaybackError(false);
 
             // Auto-detect panorama if subtype is not explicitly set
             if (type === 'photo' && file) {
@@ -217,9 +219,18 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                 playsInline
                                 className="max-w-full max-h-full rounded-md"
                                 onLoadStart={() => setIsVideoLoading(true)}
-                                onCanPlay={() => setIsVideoLoading(false)}
-                                onLoadedData={() => setIsVideoLoading(false)}
-                                onError={() => setIsVideoLoading(false)}
+                                onCanPlay={() => {
+                                    setIsVideoLoading(false);
+                                    setHasPlaybackError(false);
+                                }}
+                                onLoadedData={() => {
+                                    setIsVideoLoading(false);
+                                    setHasPlaybackError(false);
+                                }}
+                                onError={() => {
+                                    setIsVideoLoading(false);
+                                    setHasPlaybackError(true);
+                                }}
                                 onTimeUpdate={(e) => {
                                     if (isRestrictedVideo && e.currentTarget.currentTime >= 5) {
                                         e.currentTarget.pause();
@@ -248,6 +259,30 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                     }
                                 }}
                             />
+                            {hasPlaybackError && !videoMessage && (
+                                <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center p-6 text-center z-20">
+                                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-full p-3 mb-3">
+                                        <AlertCircle className="w-8 h-8 text-amber-400" />
+                                    </div>
+                                    <h4 className="text-white text-base font-semibold mb-1">
+                                        Browser cannot preview this video
+                                    </h4>
+                                    <p className="text-gray-300 text-xs max-w-sm mb-4 leading-relaxed">
+                                        This video is in QuickTime (.mov) format. Some desktop browsers cannot stream .mov directly, but the file is uploaded and safely stored.
+                                    </p>
+                                    {mediaUrl && (
+                                        <a
+                                            href={mediaUrl}
+                                            download={name || "video.mov"}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded-md hover:bg-gray-200 transition shadow inline-flex items-center gap-2"
+                                        >
+                                            Download to Play Locally
+                                        </a>
+                                    )}
+                                </div>
+                            )}
                             {videoMessage && (
                                 <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-md p-4 z-50 transition-all duration-300">
                                     <div className="bg-white rounded-[12px] shadow-2xl p-8 max-w-[400px] w-full flex flex-col items-center transform transition-all duration-300">

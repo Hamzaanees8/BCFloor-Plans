@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Copy, ClipboardCheck, Loader2, AlertTriangle } from "lucide-react";
+import { Check, Copy, ClipboardCheck, Loader2, AlertTriangle, Send } from "lucide-react";
 import { toast } from "sonner";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Services } from "../../services/page";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/popover";
 import { ServiceCompletion } from "../file-manager";
 import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function FileTab2({
   currentService,
@@ -41,6 +42,8 @@ function FileTab2({
   gstRate,
   isScrolled,
   stickyOffset,
+  onRefreshAll,
+  onSendToClient,
 }: {
   currentService?: Services;
   orderData: Order | null;
@@ -53,6 +56,8 @@ function FileTab2({
   isScrolled?: boolean;
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
+  onRefreshAll?: () => Promise<void> | void;
+  onSendToClient?: () => void;
 }) {
   const {
     links,
@@ -63,6 +68,7 @@ function FileTab2({
     filesToHide,
     setFilesToHide,
     tourSettings,
+    isPackageUpgrading,
   } = useFileManagerContext();
   const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
   const [openPayment, setOpenPayment] = useState(false);
@@ -540,7 +546,11 @@ function FileTab2({
               </span>
               {!isScrolled && (
                 <span className="text-[12px] text-[#7D7D7D]">
-                  {bookingToUse?.option?.title ?? "1 Link"}
+                  {isPackageUpgrading ? (
+                    <Skeleton className="h-4 w-20 inline-block align-middle" />
+                  ) : (
+                    bookingToUse?.option?.title ?? "1 Link"
+                  )}
                 </span>
               )}
             </p>
@@ -564,6 +574,26 @@ function FileTab2({
                 {mediaUploaded ? "Submitted" : "Submit for Admin Approval"}
               </Button>
             )}
+            {!isHidingMode &&
+              (userType === "admin" ||
+                userType === "subaccount" ||
+                userType === "agent_admin" ||
+                userType === "assistant" ||
+                (userType === "vendor" && !reviewFilesEnabled)) &&
+              onSendToClient && (
+                <Button
+                  onClick={onSendToClient}
+                  className={`bg-blue-600 hover:bg-blue-700 text-white flex justify-center items-center font-alexandria transition-all duration-300 shadow-sm ${
+                    isScrolled
+                      ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]"
+                      : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[140px] w-fit px-2 md:px-4 md:text-[12px]"
+                  }`}
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Send To Client
+                </Button>
+              )}
+
             {userType === "admin" && (
               <div className="flex items-center gap-[5px] md:gap-[10px] md:mr-2">
                 <div className="flex flex-col justify-center items-end mr-1 md:mr-2 text-right">
@@ -582,7 +612,11 @@ function FileTab2({
                   <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                     {gstRate
                       ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                      : `${bookingToUse?.option?.quantity || 1} Link`}
+                      : isPackageUpgrading ? (
+                          <Skeleton className="h-3 w-10 inline-block align-middle" />
+                        ) : (
+                          `${bookingToUse?.option?.quantity || 1} Link`
+                        )}
                   </p>
                 </div>
                 <Button
@@ -639,7 +673,11 @@ function FileTab2({
                   <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                     {gstRate
                       ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                      : `${bookingToUse?.option?.quantity || 1} Link`}
+                      : isPackageUpgrading ? (
+                          <Skeleton className="h-3 w-10 inline-block align-middle" />
+                        ) : (
+                          `${bookingToUse?.option?.quantity || 1} Link`
+                        )}
                   </p>
                 </div>
                 <Button
@@ -695,9 +733,7 @@ function FileTab2({
               currentOption={bookingToUse?.option}
               orderData={orderData}
               currentBookedService={currentBookedService}
-              onSuccess={() => {
-                window.location.reload();
-              }}
+              onSuccess={onRefreshAll}
             />
           </div>
         </div>

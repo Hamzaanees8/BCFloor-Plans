@@ -56,7 +56,8 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw, Send } from "lucide-react";
+import SendToClientModal from "./SendToClientModal";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
 import { isVoidOrCancelled } from "../../billing/billing";
@@ -458,6 +459,75 @@ const FileManager = () => {
   const [, setIsReleaseBannerDismissed] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [isReleaseMediaLoading, setIsReleaseMediaLoading] = useState(false);
+  const [isSendToClientOpen, setIsSendToClientOpen] = useState(false);
+  const [sendToClientService, setSendToClientService] = useState<any>(null);
+
+  const handleOpenSendToClient = (serviceToUse?: any) => {
+    setSendToClientService(serviceToUse ?? activeService);
+    setIsSendToClientOpen(true);
+  };
+
+  const handleApproveAllMediaForService = async (serviceToApprove?: any) => {
+    const target = serviceToApprove ?? sendToClientService ?? activeService;
+    const filesToApprove =
+      filesData?.files?.filter(
+        (f) =>
+          (target ? f.service?.uuid === target.uuid || f.service_id === target.id : true) &&
+          !f.is_admin_approved &&
+          !f.is_deleted &&
+          !f.is_hidden,
+      ) || [];
+    if (filesToApprove.length === 0) return;
+
+    const approvedFiles = filesToApprove.map((f) => ({
+      ...f,
+      is_admin_approved: true,
+    }));
+
+    setFilesData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        files: prev.files.map((f) => {
+          if (
+            (target ? f.service?.uuid === target.uuid || f.service_id === target.id : true) &&
+            !f.is_admin_approved
+          ) {
+            return { ...f, is_admin_approved: true };
+          }
+          return f;
+        }),
+      };
+    });
+
+    setChangedFileUuids((prevSet) => {
+      const newSet = new Set(prevSet);
+      filesToApprove.forEach((f) => newSet.add(f.uuid));
+      return newSet;
+    });
+
+    setApprovalSelectedUuids(new Set());
+    await handleSave(approvedFiles);
+  };
+
+  const handleSendToClientSuccess = () => {
+    const deliveredService = sendToClientService ?? activeService;
+    if (deliveredService && orderData?.services) {
+      setOrderData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          services: prev.services.map((s: any) => {
+            if (s.service?.uuid === deliveredService.uuid || s.service_id === deliveredService.id) {
+              return { ...s, is_completed: true };
+            }
+            return s;
+          }),
+        };
+      });
+    }
+    handleRefreshAll();
+  };
 
   const handleToggleReleaseMedia = async (enable: boolean) => {
     if (enable) {
@@ -943,6 +1013,50 @@ const FileManager = () => {
     fetchOrder();
   }, [orderData?.uuid, userType, fetchOrder]);
 
+  const handleRefreshAll = React.useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const targetUuid = orderData?.uuid || orderId;
+    if (!token || !targetUuid) return;
+
+    try {
+      // 1. Fetch updated order (updates orderData, services, package limits)
+      await fetchOrder();
+
+      // 2. Refresh invoices
+      if (userType !== "vendor") {
+        try {
+          const invRes = await GetInvoicesByOrder(targetUuid);
+          setInvoices(Array.isArray(invRes?.data) ? invRes.data : []);
+        } catch (invErr) {
+          console.error("Failed to refresh invoices:", invErr);
+        }
+      }
+
+      // 3. Refresh whole tour media files
+      try {
+        const filesRes = await GetFilesData(token, targetUuid, includeHidden);
+        if (filesRes?.data && filesRes.data.length > 0) {
+          const updatedTour = filesRes.data[0];
+          if (updatedTour.files) {
+            updatedTour.files = updatedTour.files.map((f: any) => ({
+              ...f,
+              is_processing: Boolean(f.status === "processing" || f.is_processing),
+            }));
+          }
+          setFilesData(updatedTour);
+        }
+        setMediaCacheVersion(Date.now());
+      } catch (fileErr) {
+        console.error("Failed to refresh tour files:", fileErr);
+      }
+
+      // 4. Reset package limit warning modal state
+      setPkgWarningConfig((prev) => ({ ...prev, open: false }));
+    } catch (err) {
+      console.error("Failed in handleRefreshAll:", err);
+    }
+  }, [orderData?.uuid, orderId, fetchOrder, userType, includeHidden, setFilesData, setMediaCacheVersion]);
+
   useEffect(() => {
     refreshInvoices();
   }, [refreshInvoices]);
@@ -1297,6 +1411,15 @@ const FileManager = () => {
     rawReviewFiles === 1 ||
     rawReviewFiles === "1" ||
     rawReviewFiles === "true";
+
+  const isSubAccount =
+    userType === "subaccount" ||
+    userType === "agent_admin" ||
+    userType === "assistant";
+  const canSendToClient =
+    userType === "admin" ||
+    isSubAccount ||
+    (userType === "vendor" && !reviewFilesEnabled);
 
   // Compute the media date boundary for the current service + sub-tab index
   type OrderServiceEntry = NonNullable<typeof orderData>["services"][0];
@@ -1665,7 +1788,7 @@ const FileManager = () => {
         <CreateFeatureSheet
           ref={featureSheetRef}
           orderData={orderData}
-          onRefreshOrder={fetchOrder}
+          onRefreshOrder={handleRefreshAll}
           onOpenInvoice={handleOpenInvoice}
           previewSheetUuid={sheetUuid || undefined}
         />
@@ -1871,6 +1994,8 @@ const FileManager = () => {
               gstRate={gstRate}
               isScrolled={isScrolled}
               stickyOffset={stickyOffset}
+              onRefreshAll={handleRefreshAll}
+              onSendToClient={() => handleOpenSendToClient(activeService)}
             />
           </div>
         );
@@ -1893,6 +2018,8 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "HDR Photos":
@@ -1913,6 +2040,8 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "3d rendering":
@@ -1932,6 +2061,8 @@ const FileManager = () => {
             onSave={handleSave}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "drone":
@@ -1952,6 +2083,8 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "Staging":
@@ -1998,6 +2131,8 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "Twilight Photos":
@@ -2018,6 +2153,8 @@ const FileManager = () => {
             gstRate={gstRate}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       case "3D Tour":
@@ -2037,6 +2174,8 @@ const FileManager = () => {
             onSave={handleSave}
             isScrolled={isScrolled}
             stickyOffset={stickyOffset}
+            onRefreshAll={handleRefreshAll}
+            onSendToClient={() => handleOpenSendToClient(activeService)}
           />
         );
       default:
@@ -3770,7 +3909,21 @@ const FileManager = () => {
                   </button>
                 </div>
               )}
+              {canSendToClient && (
+                <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-gray-300 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenSendToClient(activeService)}
+                    title="Send media completion email to client"
+                    className="text-[9px] md:text-[10px] font-bold rounded px-2.5 py-1 transition-all shadow-sm flex items-center gap-1.5 border cursor-pointer bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:shadow"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Send To Client</span>
+                  </button>
+                </div>
+              )}
             </div>
+
           </div>
         </div>
       )}
@@ -4281,7 +4434,7 @@ const FileManager = () => {
           currentOption={pkgWarningConfig.currentOption}
           orderData={orderData}
           currentBookedService={pkgWarningConfig.currentBookedService}
-          onSuccess={() => fetchOrder()}
+          onSuccess={handleRefreshAll}
         />
       )}
 
@@ -4324,6 +4477,19 @@ const FileManager = () => {
           }}
         />
       )}
+
+      <SendToClientModal
+        open={isSendToClientOpen}
+        onOpenChange={setIsSendToClientOpen}
+        orderData={orderData}
+        currentService={sendToClientService ?? activeService}
+        currentBookedService={activeServiceGroup?.[activeServiceIndex]}
+        filesData={filesData}
+        onApproveAllMedia={async () => {
+          await handleApproveAllMediaForService(sendToClientService ?? activeService);
+        }}
+        onSuccess={handleSendToClientSuccess}
+      />
     </div>
   );
 };

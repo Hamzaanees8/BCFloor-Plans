@@ -10,7 +10,9 @@ interface FileDropZoneProps {
 const VideoUploader: React.FC<FileDropZoneProps> = ({ onFilesChange }) => {
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    const isVideoFile = (file: File) => file.type.startsWith('video/');
+    const isVideoFile = (file: File) => {
+        return file.type.startsWith('video/') || /\.(mov|mp4|webm|avi|mkv|m4v|wmv)$/i.test(file.name);
+    };
 
     const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -45,7 +47,7 @@ const VideoUploader: React.FC<FileDropZoneProps> = ({ onFilesChange }) => {
             <input
                 type="file"
                 multiple
-                accept="video/*"
+                accept="video/*,video/quicktime,.mov,.mp4,.webm,.avi"
                 onChange={handleChange}
                 ref={inputRef}
                 className="hidden"

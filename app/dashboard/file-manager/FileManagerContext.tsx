@@ -389,6 +389,9 @@ type FileManagerContextType = {
   } | null;
   setWatermarkProcessing: Dispatch<SetStateAction<any>>;
 
+  isPackageUpgrading: boolean;
+  setIsPackageUpgrading: Dispatch<SetStateAction<boolean>>;
+
   handleSave: (overrideChangedFiles?: Files[]) => Promise<void>;
 };
 
@@ -597,6 +600,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     "upload",
   );
   const [imagesPerRow, setImagesPerRow] = useState<number>(4);
+  const [isPackageUpgrading, setIsPackageUpgrading] = useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -820,6 +824,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       setMediaCacheVersion,
       watermarkProcessing,
       setWatermarkProcessing,
+      isPackageUpgrading,
+      setIsPackageUpgrading,
       handleSave: async () => {},
     }),
     [
@@ -849,6 +855,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
       fileManagerMode,
       imagesPerRow,
       isSaving,
+      isPackageUpgrading,
       isHidingMode,
       filesToHide,
       includeHidden,

@@ -48,7 +48,7 @@ const FileUploader: React.FC<FileDropZoneProps> = ({
 
         // Check file sizes
         files = files.filter(file => {
-            const isVideo = file.type.startsWith('video/');
+            const isVideo = file.type.startsWith('video/') || /\.(mov|mp4|webm|avi|mkv|m4v|wmv)$/i.test(file.name);
             const limit = isVideo ? VIDEO_MAX_FILE_SIZE : MAX_FILE_SIZE;
 
             if (file.size > limit) {
@@ -141,7 +141,7 @@ const FileUploader: React.FC<FileDropZoneProps> = ({
                     {isDragging ? 'Drop files here' : 'Drag & Drop Files'}
                 </p>
                 <p className="text-[#8E8E8E] text-sm">
-                    {type === 'video' ? 'Video MP4' : 'RAW, JPG, PNG, PDF'}
+                    {type === 'video' ? 'Video MP4, MOV' : 'RAW, JPG, PNG, PDF'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                     {type === 'video' ? 'Max 50GB per file' : 'Max 100MB per file'}
@@ -149,7 +149,7 @@ const FileUploader: React.FC<FileDropZoneProps> = ({
                 <input
                     type="file"
                     multiple
-                    accept={type === 'video' ? 'video/*' : '.raw,.jpg,.jpeg,.png,.pdf'}
+                    accept={type === 'video' ? 'video/*,video/quicktime,.mov,.mp4,.webm,.avi' : '.raw,.jpg,.jpeg,.png,.pdf'}
                     onChange={handleChange}
                     ref={inputRef}
                     className="hidden"

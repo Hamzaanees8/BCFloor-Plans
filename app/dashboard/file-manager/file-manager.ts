@@ -79,13 +79,61 @@ import { Order } from "../orders/page";
 import { PRESIGNED_BATCH_SIZE, S3_CONCURRENT_UPLOADS, S3UploadService } from "@/lib/upload/s3-service";
 
 /**
+ * Helper function to determine MIME content_type with fallbacks (especially for .mov on Windows where file.type can be empty)
+ */
+export function getFileContentType(file: File): string {
+  if (file.type && file.type.trim() !== "") {
+    return file.type;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "mov":
+      return "video/quicktime";
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "avi":
+      return "video/x-msvideo";
+    case "mkv":
+      return "video/x-matroska";
+    case "m4v":
+      return "video/x-m4v";
+    case "wmv":
+      return "video/x-ms-wmv";
+    case "pdf":
+      return "application/pdf";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+export function isVideoFile(file: File): boolean {
+  if (file.type && file.type.startsWith("video/")) return true;
+  return /\.(mov|mp4|webm|avi|mkv|m4v|wmv)$/i.test(file.name);
+}
+
+/**
  * Helper function to determine file type from content_type (MIME type)
  */
-function getFileTypeFromContentType(contentType: string): string {
-  if (contentType.startsWith("video/")) return "video";
+function getFileTypeFromContentType(contentType: string, fileName?: string): string {
+  if (contentType?.startsWith("video/")) return "video";
   if (contentType === "application/pdf") return "pdf";
+  if (fileName) {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (ext && ["mov", "mp4", "webm", "avi", "mkv", "m4v", "wmv"].includes(ext)) return "video";
+    if (ext === "pdf") return "pdf";
+  }
   return "photo";
 }
+
 
 
 export async function GetFilesData(token: string, orderUuid: string, includeHidden: boolean = false) {
@@ -384,7 +432,7 @@ export async function UpdateFilesData(
         fileBatch.forEach((f) => {
           filesPayload.push({
             filename: f.file.name,
-            content_type: f.file.type,
+            content_type: getFileContentType(f.file),
             size: f.file.size,
           });
           // thumbnail uploaded separately
@@ -457,7 +505,7 @@ export async function UpdateFilesData(
               s3_key: mainUpload.s3_key,
               original_filename: mainUpload.original_filename,
               content_type: mainUpload.content_type,
-              type: getFileTypeFromContentType(mainUpload.content_type),
+              type: getFileTypeFromContentType(mainUpload.content_type, mainUpload.original_filename),
               subtype: fileObj.subtype || (fileObj.isPanorama ? "panorama_360" : null),
               group: fileObj.type,
               service_id: fileObj.service_id,
@@ -482,7 +530,7 @@ export async function UpdateFilesData(
         // Loop over fileBatch to upload thumbnails for any video files that have one
         const createdFiles = confirmResponse.data?.files || [];
         for (const fileObj of fileBatch) {
-            if (fileObj.thumbnailFile && fileObj.file.type.startsWith('video/')) {
+            if (fileObj.thumbnailFile && isVideoFile(fileObj.file)) {
                 const createdFile = createdFiles.find(f => f.filename === fileObj.file.name);
                 if (createdFile) {
                     const videoUuid = createdFile.uuid;
@@ -690,7 +738,7 @@ export async function UpdatePhotosData(
           entity_id: tourUuid,
           files: fileBatch.map((f) => ({
             filename: f.file.name,
-            content_type: f.file.type,
+            content_type: getFileContentType(f.file),
             size: f.file.size,
           })),
         };
@@ -750,7 +798,7 @@ export async function UpdatePhotosData(
               s3_key: upload.s3_key,
               original_filename: upload.original_filename,
               content_type: upload.content_type,
-              type: getFileTypeFromContentType(upload.content_type),
+              type: getFileTypeFromContentType(upload.content_type, upload.original_filename),
               group: fileObj.type,
               service_id: fileObj.service_id,
               is_featured: fileObj.is_featured || false,
@@ -1147,7 +1195,7 @@ export async function UploadPhotosToS3(
         entity_id: tourUuid,
         files: fileBatch.map((f) => ({
           filename: f.file.name,
-          content_type: f.file.type,
+          content_type: getFileContentType(f.file),
           size: f.file.size,
         })),
       };
@@ -1203,7 +1251,7 @@ export async function UploadPhotosToS3(
           original_filename: file.original_filename,
           content_type: file.content_type,
           group: file.group,
-          type: getFileTypeFromContentType(file.content_type),
+          type: getFileTypeFromContentType(file.content_type, file.original_filename),
           service_id: file.service_id,
           is_featured: file.fileObj.is_featured || false,
           is_show: file.fileObj.is_show !== false,
@@ -1258,7 +1306,7 @@ export async function UploadTourToS3(
           entity_id: orderUuid,
           files: fileBatch.map((f) => ({
             filename: f.file.name,
-            content_type: f.file.type,
+            content_type: getFileContentType(f.file),
             size: f.file.size,
           })),
         };
@@ -1314,7 +1362,7 @@ export async function UploadTourToS3(
             original_filename: file.original_filename,
             content_type: file.content_type,
             group: file.group,
-            type: getFileTypeFromContentType(file.content_type),
+            type: getFileTypeFromContentType(file.content_type, file.original_filename),
             service_id: file.service_id,
             is_featured: file.fileObj.is_featured || false,
             is_show: file.fileObj.is_show !== false,
@@ -2522,3 +2570,37 @@ export async function GetTourSettings(token?: string) {
 
   return response.json();
 }
+
+export interface SendToClientPayload {
+  order_uuid: string;
+  service_uuid?: string;
+  service_id?: string | number;
+  custom_message?: string;
+  recipient_emails?: string[];
+}
+
+export async function SendMediaToClient(
+  payload: SendToClientPayload,
+  token: string,
+): Promise<{ success: boolean; message: string; data?: any }> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const response = await fetch(`${API_URL}/orders/${payload.order_uuid}/send-to-client`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const resJson = await response.json().catch(() => ({}));
+
+  if (!response.ok || resJson.success === false) {
+    throw new Error(
+      resJson.message || `Failed to send media to client (${response.status})`,
+    );
+  }
+
+  return resJson;
+}
+

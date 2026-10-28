@@ -13,7 +13,7 @@ import SquareFootage from "../../calendar/components/SquareFootage";
 import { format } from "date-fns";
 
 import { Order, OrderService } from "../../orders/page";
-import { Check, Loader2, Eye, EyeOff, FileText } from "lucide-react";
+import { Check, Loader2, Eye, EyeOff, FileText, Send } from "lucide-react";
 import {
   DownloadFile,
   ServiceCompletion,
@@ -37,6 +37,7 @@ import DownloadModal from "./DownloadModal";
 import { toast } from "sonner";
 import PayInvoiceModal from "./PayInvoiceModal";
 import AgentNotificationModal from "./AgentNotificationModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   OptimizedImagePreview,
   PdfPlaceholder,
@@ -66,6 +67,8 @@ type Props = {
   isScrolled?: boolean;
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
+  onRefreshAll?: () => Promise<void> | void;
+  onSendToClient?: () => void;
 };
 const Service: React.FC<
   Props & { onSave?: (overrideChangedFiles?: Files[]) => void }
@@ -83,6 +86,8 @@ const Service: React.FC<
   isScrolled,
   stickyOffset,
   onShowHiddenMedia,
+  onRefreshAll,
+  onSendToClient,
 }) => {
   const {
     floorFiles,
@@ -102,6 +107,7 @@ const Service: React.FC<
     tourSettings,
     tourDefaultSettings,
     isSaving,
+    isPackageUpgrading,
   } = useFileManagerContext();
   const isAlwaysSort = Boolean(
     tourSettings?.always_enable_sorting ??
@@ -1404,8 +1410,12 @@ const Service: React.FC<
               </span>
               {!isScrolled && (
                 <span className="text-[12px] text-[#7D7D7D]">
-                  {bookingToUse?.option?.title ||
-                    `${bookingToUse?.option?.quantity || 0} Files`}
+                  {isPackageUpgrading ? (
+                    <Skeleton className="h-4 w-20 inline-block align-middle" />
+                  ) : (
+                    bookingToUse?.option?.title ||
+                    `${bookingToUse?.option?.quantity || 0} Files`
+                  )}
                 </span>
               )}
             </p>
@@ -1448,6 +1458,26 @@ const Service: React.FC<
                   {mediaUploaded ? "Submitted" : "Submit for Admin Approval"}
                 </Button>
               )}
+              {!isHidingMode &&
+                (userType === "admin" ||
+                  userType === "subaccount" ||
+                  userType === "agent_admin" ||
+                  userType === "assistant" ||
+                  (userType === "vendor" && !reviewFilesEnabled)) &&
+                onSendToClient && (
+                  <Button
+                    onClick={onSendToClient}
+                    className={`bg-blue-600 hover:bg-blue-700 text-white flex justify-center items-center font-alexandria transition-all duration-300 shadow-sm ${
+                      isScrolled
+                        ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]"
+                        : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[140px] w-fit px-2 md:px-4 md:text-[12px]"
+                    }`}
+                  >
+                    <Send className="mr-1.5 h-3.5 w-3.5" />
+                    Send To Client
+                  </Button>
+                )}
+
               <AgentNotificationModal
                 open={showEmailConfirmation}
                 onClose={() => setShowEmailConfirmation(false)}
@@ -1472,7 +1502,11 @@ const Service: React.FC<
                     <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                       {gstRate
                         ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                        : `${bookingToUse?.option?.quantity || 1} Files`}
+                        : isPackageUpgrading ? (
+                            <Skeleton className="h-3 w-10 inline-block align-middle" />
+                          ) : (
+                            `${bookingToUse?.option?.quantity || 1} Files`
+                          )}
                     </p>
                   </div>
                   <Button
@@ -1522,7 +1556,11 @@ const Service: React.FC<
                     <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                       {gstRate
                         ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                        : `${bookingToUse?.option?.quantity || 1} Files`}
+                        : isPackageUpgrading ? (
+                            <Skeleton className="h-3 w-10 inline-block align-middle" />
+                          ) : (
+                            `${bookingToUse?.option?.quantity || 1} Files`
+                          )}
                     </p>
                   </div>
                   <Button
@@ -1568,10 +1606,7 @@ const Service: React.FC<
                 currentOption={bookingToUse?.option}
                 orderData={orderData}
                 currentBookedService={currentBookedService}
-                onSuccess={() => {
-                  // Refresh the page to get updated order data
-                  window.location.reload();
-                }}
+                onSuccess={onRefreshAll}
               />
             </div>
             <input
@@ -1647,7 +1682,9 @@ const Service: React.FC<
           <div className="flex items-center gap-4 md:gap-8 flex-wrap w-auto justify-end">
             <div className="flex flex-col items-center">
               <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
-                {currentServiceFiles?.filter((f) => !f.is_deleted).length || 0}
+                {currentServiceFiles?.filter(
+                  (f) => !f.is_deleted && !f.is_complimentary,
+                ).length || 0}
               </span>
               <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">
                 Total Files

@@ -23,6 +23,7 @@ import {
   Trash2,
   UserCheck,
   Undo2,
+  Send,
 } from "lucide-react";
 import { DownloadIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ import PayInvoiceModal from "./PayInvoiceModal";
 import AgentNotificationModal from "./AgentNotificationModal";
 import PhotoPreviewModal from "./PhotoPreviewModal";
 import DownloadModal from "./DownloadModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useS3Upload } from "@/hooks/useS3Upload";
 import { UploadProgressOverlay } from "./UploadProgressOverlay";
 import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
@@ -94,6 +96,8 @@ function FileTab1({
   isScrolled,
   stickyOffset,
   onShowHiddenMedia,
+  onRefreshAll,
+  onSendToClient,
 }: {
   currentService?: Services;
   orderData: Order | null;
@@ -107,6 +111,8 @@ function FileTab1({
   isScrolled?: boolean;
   stickyOffset?: number;
   onShowHiddenMedia?: () => void;
+  onRefreshAll?: () => Promise<void> | void;
+  onSendToClient?: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [sortBy, setSortBy] = useState<"order" | "name" | "date">("order");
@@ -134,6 +140,7 @@ function FileTab1({
     tourDefaultSettings,
     isSaving,
     mediaCacheVersion,
+    isPackageUpgrading,
   } = useFileManagerContext();
   const [downloadingFiles, setDownloadingFiles] = useState<Record<string, boolean>>({});
   const isAlwaysSort = Boolean(
@@ -2215,8 +2222,12 @@ function FileTab1({
               </span>
               {!isScrolled && (
                 <span className="text-[12px] text-[#7D7D7D]">
-                  {bookingToUse?.option?.title ||
-                    `${bookingToUse?.option?.quantity || 0} Photos`}
+                  {isPackageUpgrading ? (
+                    <Skeleton className="h-4 w-20 inline-block align-middle" />
+                  ) : (
+                    bookingToUse?.option?.title ||
+                    `${bookingToUse?.option?.quantity || 0} Photos`
+                  )}
                 </span>
               )}
             </p>
@@ -2258,6 +2269,26 @@ function FileTab1({
                 {mediaUploaded ? "Submitted" : "Submit for Admin Approval"}
               </Button>
             )}
+            {!isHidingMode &&
+              (userType === "admin" ||
+                userType === "subaccount" ||
+                userType === "agent_admin" ||
+                userType === "assistant" ||
+                (userType === "vendor" && !reviewFilesEnabled)) &&
+              onSendToClient && (
+                <Button
+                  onClick={onSendToClient}
+                  className={`bg-blue-600 hover:bg-blue-700 text-white flex justify-center items-center font-alexandria transition-all duration-300 shadow-sm ${
+                    isScrolled
+                      ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]"
+                      : "h-[26px] min-w-[120px] text-[10px] md:h-[32px] md:min-w-[140px] w-fit px-2 md:px-4 md:text-[12px]"
+                  }`}
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Send To Client
+                </Button>
+              )}
+
             {effectiveUserType === "admin" && (
               <div className="flex items-center gap-[5px] md:gap-[10px] md:mr-2">
                 <div className="flex flex-col justify-center items-end mr-1 md:mr-2 text-right">
@@ -2276,7 +2307,11 @@ function FileTab1({
                   <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                     {gstRate
                       ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                      : `${bookingToUse?.option?.quantity || 0} Photos`}
+                      : isPackageUpgrading ? (
+                          <Skeleton className="h-3 w-12 inline-block align-middle" />
+                        ) : (
+                          `${bookingToUse?.option?.quantity || 0} Photos`
+                        )}
                   </p>
                 </div>
                 <Button
@@ -2333,7 +2368,11 @@ function FileTab1({
                   <p className="text-[#7D7D7D] text-[9px] md:text-[10px] leading-none">
                     {gstRate
                       ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST`
-                      : `${bookingToUse?.option?.quantity || 0} Photos`}
+                      : isPackageUpgrading ? (
+                          <Skeleton className="h-3 w-12 inline-block align-middle" />
+                        ) : (
+                          `${bookingToUse?.option?.quantity || 0} Photos`
+                        )}
                   </p>
                 </div>
                 <Button
@@ -2380,7 +2419,7 @@ function FileTab1({
               currentOption={bookingToUse?.option}
               orderData={orderData}
               currentBookedService={currentBookedService}
-              onSuccess={() => window.location.reload()}
+              onSuccess={onRefreshAll}
             />
           </div>
         </div>
@@ -2527,7 +2566,14 @@ function FileTab1({
                       className={`text-[20px] md:text-[26px] font-medium leading-none ${isOverLimit ? "text-[#E06D5E]" : "text-[#7D7D7D]"}`}
                     >
                       {selectedCount}{" "}
-                      <span className="text-[#7D7D7D]">/ {currentLimit}</span>
+                      <span className="text-[#7D7D7D]">
+                        /{" "}
+                        {isPackageUpgrading ? (
+                          <Skeleton className="h-6 w-10 inline-block align-middle" />
+                        ) : (
+                          currentLimit
+                        )}
+                      </span>
                     </span>
                     <span
                       className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? "text-[#E06D5E] font-medium" : "text-[#7D7D7D]"}`}
@@ -2537,8 +2583,9 @@ function FileTab1({
                   </div>
                   <div className="flex flex-col items-center">
                     <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
-                      {currentServiceFiles?.filter((f) => !f.is_deleted)
-                        .length || 0}
+                      {currentServiceFiles?.filter(
+                        (f) => !f.is_deleted && !f.is_complimentary,
+                      ).length || 0}
                     </span>
                     <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">
                       Available
@@ -2550,13 +2597,17 @@ function FileTab1({
                       (bookingToUse?.media_access === false ||
                         (bookingToUse?.service as any)?.media_access === false)
                     ) && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
-                      >
-                        Upgrade Plan
-                      </Button>
+                      isPackageUpgrading ? (
+                        <Skeleton className="h-[30px] md:h-[36px] w-[100px] md:w-[130px] rounded mb-1" />
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => setOpenUpgrade(true)}
+                          className={`${effectiveUserType}-bg hover-${effectiveUserType}-bg text-white hover:!text-white hover:brightness-90 h-[30px] md:h-[36px] px-3 md:px-6 rounded transition-colors font-medium border-none mb-1 text-[11px] md:text-sm`}
+                        >
+                          Upgrade Plan
+                        </Button>
+                      )
                     )}
                     {isOverLimit && (
                       <div className="text-right text-[10px] md:text-[11px] text-[#666666] leading-[1.3] mt-0.5">
@@ -2648,9 +2699,16 @@ function FileTab1({
           <div className="flex items-center gap-2 md:gap-4 shrink-0 justify-end">
             <div className="flex flex-col items-center">
               <span className="text-[20px] md:text-[22px] font-medium text-[#7D7D7D] leading-none">
-                {currentServiceFiles?.filter((f) => !f.is_deleted).length || 0}{" "}
+                {currentServiceFiles?.filter(
+                  (f) => !f.is_deleted && !f.is_complimentary,
+                ).length || 0}{" "}
                 <span className="text-[#7D7D7D]">
-                  / {bookingToUse?.option?.quantity || 1}
+                  /{" "}
+                  {isPackageUpgrading ? (
+                    <Skeleton className="h-5 w-8 inline-block align-middle" />
+                  ) : (
+                    bookingToUse?.option?.quantity || 1
+                  )}
                 </span>
               </span>
               <span className="text-[11px] md:text-[12px] text-[#7D7D7D] mt-1">
@@ -2658,12 +2716,16 @@ function FileTab1({
               </span>
             </div>
             {userType !== "vendor" && (
-              <Button
-                onClick={() => setOpenUpgrade(true)}
-                className={`${effectiveUserType}-bg h-[28px] md:h-[32px] w-auto px-2 md:px-[10px] flex justify-center items-center hover-${effectiveUserType}-bg text-[11px] md:text-sm`}
-              >
-                Upgrade photo package
-              </Button>
+              isPackageUpgrading ? (
+                <Skeleton className="h-[28px] md:h-[32px] w-[130px] md:w-[160px] rounded" />
+              ) : (
+                <Button
+                  onClick={() => setOpenUpgrade(true)}
+                  className={`${effectiveUserType}-bg h-[28px] md:h-[32px] w-auto px-2 md:px-[10px] flex justify-center items-center hover-${effectiveUserType}-bg text-[11px] md:text-sm`}
+                >
+                  Upgrade photo package
+                </Button>
+              )
             )}
           </div>
         </div>
