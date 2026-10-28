@@ -423,7 +423,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           // Restricted sections for vendors
           if (userType === "vendor") {
-            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors", "/dashboard/services"];
+            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors", "/dashboard/services", "/dashboard/billing"];
             if (restrictedUrls.includes(item.url)) {
               return false;
             }
