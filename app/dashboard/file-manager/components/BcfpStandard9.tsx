@@ -1532,7 +1532,7 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
                     scale={scale[key]}
                     position={position[key]}
                     rotation={rotation[key]}
-                    objectFit="contain"
+                    objectFit={isLogoSlot ? "contain" : "cover"}
                   />
                 </div>
 

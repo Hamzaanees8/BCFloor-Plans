@@ -1153,6 +1153,19 @@ export default function StyledInput({
       e.preventDefault();
       editableRef.current?.blur();
     }
+    const isDeleteKey =
+      e.key === "Delete" ||
+      e.key === "Del" ||
+      (e.metaKey && e.key === "Backspace");
+    if ((e.ctrlKey || e.metaKey) && isDeleteKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (onDeleteRef.current) onDeleteRef.current();
+      else if (draggableBoxRef.current?.onDelete)
+        draggableBoxRef.current.onDelete();
+      fieldPanel?.closePanel();
+      editableRef.current?.blur();
+    }
   };
 
   const handleMouseEnter = (key: string) => setActiveDropdown(key);

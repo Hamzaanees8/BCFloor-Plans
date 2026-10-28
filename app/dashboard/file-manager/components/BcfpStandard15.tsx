@@ -878,6 +878,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+            usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1177,7 +1178,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             scale={scale.image1}
                             position={position.image1}
                             rotation={rotation.image1}
-                            objectFit="contain"
+                            objectFit="cover"
                           />
                         </div>
 
@@ -1581,7 +1582,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                               scale={scale.image4}
                               position={position.image4}
                               rotation={rotation.image4}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -1684,7 +1685,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                               scale={scale.image5}
                               position={position.image5}
                               rotation={rotation.image5}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -1787,7 +1788,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                               scale={scale.image6}
                               position={position.image6}
                               rotation={rotation.image6}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -1890,7 +1891,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                               scale={scale.image7}
                               position={position.image7}
                               rotation={rotation.image7}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -2064,7 +2065,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             scale={scale.image9}
                             position={position.image9}
                             rotation={rotation.image9}
-                            objectFit="contain"
+                            objectFit="cover"
                           />
                         </div>
 
@@ -3202,7 +3203,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                           scale={scale.image8}
                           position={position.image8}
                           rotation={rotation.image8}
-                          objectFit="contain"
+                          objectFit="cover"
                         />
                       </div>
 

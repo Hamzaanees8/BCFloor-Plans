@@ -642,12 +642,12 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       scale={scale[key]}
                       position={position[key]}
                       rotation={rotation[key]}
-                      objectFit="contain"
+                      objectFit={isLogoSlot ? "contain" : "cover"}
                     />
                   </div>
 
                   {/* Zoom Controls */}
-                  <div className="absolute bottom-1 left-1 flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                  <div className="absolute bottom-12 left-1 flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                     <button
                       type="button"
                       onClick={(e) => {

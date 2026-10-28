@@ -1070,7 +1070,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                     scale={scale[slotKey]}
                     position={position[slotKey]}
                     rotation={rotation[slotKey]}
-                    objectFit="contain"
+                    objectFit={slotKey === "image7" ? "contain" : "cover"}
                   />
                 </div>
 

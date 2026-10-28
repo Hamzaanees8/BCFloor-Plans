@@ -2059,7 +2059,7 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
                               scale={scale.image2}
                               position={position.image2}
                               rotation={rotation.image2}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -2360,7 +2360,7 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
                               scale={scale.image8}
                               position={position.image8}
                               rotation={rotation.image8}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
@@ -3286,7 +3286,7 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
                                 scale={scale.image9}
                                 position={position.image9}
                                 rotation={rotation.image9}
-                                objectFit="contain"
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3388,7 +3388,7 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
                                 scale={scale.image10}
                                 position={position.image10}
                                 rotation={rotation.image10}
-                                objectFit="contain"
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3616,7 +3616,7 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
                               scale={scale.image11}
                               position={position.image11}
                               rotation={rotation.image11}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 

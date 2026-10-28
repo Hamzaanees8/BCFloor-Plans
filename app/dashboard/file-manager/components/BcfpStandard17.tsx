@@ -1438,7 +1438,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             scale={scale.image1}
                             position={position.image1}
                             rotation={rotation.image1}
-                            objectFit="contain"
+                            objectFit="cover"
                           />
                         </div>
 
@@ -1552,7 +1552,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image2}
                                       position={position.image2}
                                       rotation={rotation.image2}
-                                      objectFit="contain"
+                                      objectFit="cover"
                                     />
                                   </div>
 
@@ -1659,7 +1659,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image3}
                                       position={position.image3}
                                       rotation={rotation.image3}
-                                      objectFit="contain"
+                                      objectFit="cover"
                                     />
                                   </div>
 
@@ -1766,7 +1766,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image4}
                                       position={position.image4}
                                       rotation={rotation.image4}
-                                      objectFit="contain"
+                                      objectFit="cover"
                                     />
                                   </div>
 
@@ -1873,7 +1873,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image5}
                                       position={position.image5}
                                       rotation={rotation.image5}
-                                      objectFit="contain"
+                                      objectFit="cover"
                                     />
                                   </div>
 
@@ -1982,7 +1982,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image6}
                                       position={position.image6}
                                       rotation={rotation.image6}
-                                      objectFit="contain"
+                                      objectFit="cover"
                                     />
                                   </div>
 
@@ -3009,7 +3009,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               scale={scale.image8}
                               position={position.image8}
                               rotation={rotation.image8}
-                              objectFit="contain"
+                              objectFit="cover"
                             />
                           </div>
 
