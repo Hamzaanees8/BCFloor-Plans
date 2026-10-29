@@ -261,19 +261,19 @@ export default function FileManagerGallery({
                     key={file.id}
                     className={`group relative cursor-pointer flex flex-col rounded-xl overflow-hidden border transition-all duration-200 ${
                       isSelected
-                        ? 'border-[#4290E9] ring-2 ring-[#4290E9] shadow-md bg-slate-100'
+                        ? 'border-[#4290E9] ring-2 ring-[#4290E9] shadow-md bg-neutral-100'
                         : isAlreadyUsed
-                        ? 'border-gray-300 bg-gray-100 shadow-xs hover:border-[#4290E9]/60 hover:shadow-md'
+                        ? 'border-neutral-300 bg-neutral-100 shadow-xs hover:border-[#4290E9]/60 hover:shadow-md'
                         : 'border-gray-200 bg-white hover:border-[#4290E9]/60 hover:shadow-md'
                     }`}
                     onClick={() => handleImageSelect(idx)}
                   >
                     <div className={`relative w-full aspect-video overflow-hidden flex items-center justify-center ${
-                      isAlreadyUsed ? 'bg-slate-900/90' : 'bg-black'
+                      'bg-black'
                     }`}>
                       {/* Already added grey count badge in bottom-left */}
                       {isAlreadyUsed && (
-                        <div className="absolute bottom-2 left-2.5 z-10 bg-gray text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm border border-gray-600/50 flex items-center justify-center leading-none">
+                        <div className="absolute bottom-2 left-2.5 z-10 bg-neutral-800/95 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm border border-gray-600/50 flex items-center justify-center leading-none">
                           {useCount}x
                         </div>
                       )}
@@ -316,7 +316,7 @@ export default function FileManagerGallery({
 
                       {/* Already added subtle grey overlay */}
                       {isAlreadyUsed && !isSelected && (
-                        <div className="absolute inset-0 bg-slate-950/20 pointer-events-none" />
+                        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
                       )}
 
                       {/* Selected Overlay */}

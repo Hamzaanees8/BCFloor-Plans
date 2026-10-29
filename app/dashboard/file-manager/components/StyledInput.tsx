@@ -1055,7 +1055,7 @@ export default function StyledInput({
 
   const handleFocus = () => {
     setIsFocused(true);
-    setShowPlaceholder(false);
+    setShowPlaceholder((internalValue || "").length === 0);
 
     if (isPanelActive && fieldPanel) {
       const nudgeFn = (dx: number, dy: number) => {
@@ -1315,8 +1315,11 @@ export default function StyledInput({
 
         {showPlaceholder && placeholder && (
           <div
+            data-styled-input-placeholder="true"
+            data-html2canvas-ignore="true"
             className={cn(
               "col-start-1 row-start-1 pr-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
+              "print:hidden",
               cleanedClassName,
             )}
             style={{
