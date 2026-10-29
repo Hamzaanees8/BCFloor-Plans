@@ -133,6 +133,7 @@ export type FilesData = {
     service_id?: number | string;
     service?: { id: number; uuid: string };
     is_hidden?: boolean;
+    is_admin_approved?: boolean;
   }[];
   snapshots: SnapShots[];
   slide_show: {
@@ -145,6 +146,7 @@ export type FilesData = {
     hero_video_uuid?: string;
     pan_adjust?: boolean | string | number;
   };
+  tours?: any;
 };
 
 type LinkItem = {

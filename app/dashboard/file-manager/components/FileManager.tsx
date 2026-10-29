@@ -56,7 +56,7 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw, Send } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw } from "lucide-react";
 import SendToClientModal from "./SendToClientModal";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
@@ -469,10 +469,17 @@ const FileManager = () => {
 
   const handleApproveAllMediaForService = async (serviceToApprove?: any) => {
     const target = serviceToApprove ?? sendToClientService ?? activeService;
+    const isTargetFile = (f: any) => {
+      if (!target) return true;
+      if (target.uuid && (f.service?.uuid === target.uuid || f.service_uuid === target.uuid)) return true;
+      if (target.id && (String(f.service_id) === String(target.id) || String(f.service?.id) === String(target.id))) return true;
+      return false;
+    };
+
     const filesToApprove =
       filesData?.files?.filter(
         (f) =>
-          (target ? f.service?.uuid === target.uuid || f.service_id === target.id : true) &&
+          isTargetFile(f) &&
           !f.is_admin_approved &&
           !f.is_deleted &&
           !f.is_hidden,
@@ -489,14 +496,36 @@ const FileManager = () => {
       return {
         ...prev,
         files: prev.files.map((f) => {
-          if (
-            (target ? f.service?.uuid === target.uuid || f.service_id === target.id : true) &&
-            !f.is_admin_approved
-          ) {
+          if (isTargetFile(f) && !f.is_admin_approved) {
             return { ...f, is_admin_approved: true };
           }
           return f;
         }),
+        links: (prev.links || []).map((l: any) => {
+          if (
+            (!target?.id || String(l.service_id) === String(target.id)) &&
+            !l.is_admin_approved
+          ) {
+            return { ...l, is_admin_approved: true };
+          }
+          return l;
+        }),
+        ...(prev.tours
+          ? {
+              tours: {
+                ...prev.tours,
+                links: (prev.tours.links || []).map((l: any) => {
+                  if (
+                    (!target?.id || String(l.service_id) === String(target.id)) &&
+                    !l.is_admin_approved
+                  ) {
+                    return { ...l, is_admin_approved: true };
+                  }
+                  return l;
+                }),
+              },
+            }
+          : {}),
       };
     });
 
@@ -1411,15 +1440,6 @@ const FileManager = () => {
     rawReviewFiles === 1 ||
     rawReviewFiles === "1" ||
     rawReviewFiles === "true";
-
-  const isSubAccount =
-    userType === "subaccount" ||
-    userType === "agent_admin" ||
-    userType === "assistant";
-  const canSendToClient =
-    userType === "admin" ||
-    isSubAccount ||
-    (userType === "vendor" && !reviewFilesEnabled);
 
   // Compute the media date boundary for the current service + sub-tab index
   type OrderServiceEntry = NonNullable<typeof orderData>["services"][0];
@@ -3906,19 +3926,6 @@ const FileManager = () => {
                         ? "Media Released"
                         : "Release Media"}
                     </span>
-                  </button>
-                </div>
-              )}
-              {canSendToClient && (
-                <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-gray-300 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenSendToClient(activeService)}
-                    title="Send media completion email to client"
-                    className="text-[9px] md:text-[10px] font-bold rounded px-2.5 py-1 transition-all shadow-sm flex items-center gap-1.5 border cursor-pointer bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:shadow"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>Send To Client</span>
                   </button>
                 </div>
               )}

@@ -78,7 +78,8 @@ export default function SendToClientModal({
     });
 
     // Check relevant links (for 3D / Matterport / Video links)
-    const relevantLinks = (filesData.tours?.links || []).filter((l: any) => {
+    const rawLinks = filesData?.links || filesData?.tours?.links || [];
+    const relevantLinks = rawLinks.filter((l: any) => {
       if (!serviceId) return true;
       return String(l.service_id) === String(serviceId);
     });
@@ -126,10 +127,19 @@ export default function SendToClientModal({
       ? `${orderData?.property?.street_address || ""}, ${orderData?.property?.city || ""}`
       : "Order Property");
 
+  // Media states:
+  // 1. Mixed: some approved, some unapproved (!approvalSuccess && approvedCount > 0 && unapprovedCount > 0)
+  // 2. Zero approved: (!approvalSuccess && approvedCount === 0 && unapprovedCount > 0)
+  // 3. No media at all: totalCount === 0
+  // 4. All approved: either initially (approvedCount > 0 && unapprovedCount === 0) or user clicked Approve All in modal session
+  const isMixed = !approvalSuccess && approvedCount > 0 && unapprovedCount > 0;
+  const isZeroApproved = !approvalSuccess && approvedCount === 0 && unapprovedCount > 0;
+  const isNoMedia = !approvalSuccess && totalCount === 0;
+  const isAllApproved = approvalSuccess || (approvedCount > 0 && unapprovedCount === 0);
+
   // Effective approved count considers if admin just approved all in this modal session
   const effectiveApprovedCount = approvalSuccess ? totalCount : approvedCount;
   const isUnderLimit = packageLimit > 0 && effectiveApprovedCount < packageLimit;
-  const hasZeroApproved = effectiveApprovedCount === 0;
 
   // Handle Approve All Media
   const handleApproveAll = async () => {
@@ -184,6 +194,22 @@ export default function SendToClientModal({
     }
   };
 
+  const modalTitle = isZeroApproved
+    ? "No Approved Media to Send"
+    : isMixed
+    ? "Review & Send to Client"
+    : isNoMedia
+    ? "No Media Uploaded"
+    : "Send to Client";
+
+  const modalSubtitle = isZeroApproved
+    ? "Approval required before delivering files"
+    : isMixed
+    ? `${approvedCount} approved, ${unapprovedCount} awaiting approval`
+    : isNoMedia
+    ? `No files uploaded for ${serviceName}`
+    : `Delivering ${serviceName} to ${agentName}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[94vw] max-w-[560px] rounded-[14px] p-0 font-alexandria shadow-2xl border border-gray-200 bg-white overflow-hidden [&>button]:hidden">
@@ -195,14 +221,10 @@ export default function SendToClientModal({
             </div>
             <div>
               <DialogTitle className="text-[17px] font-bold text-gray-900 leading-tight">
-                {hasZeroApproved && !approvalSuccess
-                  ? "No Approved Media to Send"
-                  : "Send to Client"}
+                {modalTitle}
               </DialogTitle>
               <DialogDescription className="text-[12px] text-gray-500 mt-0.5">
-                {hasZeroApproved && !approvalSuccess
-                  ? "Approval required before delivering files"
-                  : `Delivering ${serviceName} to ${agentName}`}
+                {modalSubtitle}
               </DialogDescription>
             </div>
           </div>
@@ -237,40 +259,85 @@ export default function SendToClientModal({
             </div>
           </div>
 
-          {/* ZERO APPROVED MEDIA: Initial View before any approval */}
-          {hasZeroApproved && !approvalSuccess && (
-            <div className="space-y-4">
+          {/* STATE 1: NO MEDIA UPLOADED AT ALL */}
+          {isNoMedia && (
+            <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-[10px] flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-amber-900">
+                <p className="text-[14px] font-bold">No media uploaded</p>
+                <p className="text-[12.5px] leading-relaxed text-amber-800">
+                  No media files have been uploaded yet for this service. Please upload media files before delivering to the client.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* STATE 2: ZERO APPROVED MEDIA (All uploaded files are unapproved) */}
+          {isZeroApproved && (
+            <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-[10px] flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-amber-900">
+                <p className="text-[14px] font-bold">
+                  There is no approved media by admin
+                </p>
+                <p className="text-[12.5px] leading-relaxed text-amber-800">
+                  Media files must be approved before sending the service completion email to the client.
+                  There {unapprovedCount === 1 ? "is" : "are"}{" "}
+                  <span className="font-bold">{unapprovedCount}</span> uploaded file
+                  {unapprovedCount === 1 ? "" : "s"} waiting for approval.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* STATE 3: MIXED STATE (Both Approved and Unapproved Media Exist) */}
+          {isMixed && (
+            <div className="space-y-3">
               <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-[10px] flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-amber-900">
                   <p className="text-[14px] font-bold">
-                    There is no approved media by admin
+                    Files Pending Approval ({unapprovedCount})
                   </p>
                   <p className="text-[12.5px] leading-relaxed text-amber-800">
-                    Media files must be approved before sending the service completion email to the client.
-                    {unapprovedCount > 0 ? (
-                      <>
-                        {" "}
-                        There {unapprovedCount === 1 ? "is" : "are"}{" "}
-                        <span className="font-bold">{unapprovedCount}</span> uploaded file
-                        {unapprovedCount === 1 ? "" : "s"} waiting for approval.
-                      </>
-                    ) : (
-                      <> No media files have been uploaded yet for this service.</>
-                    )}
+                    This service has <span className="font-bold text-amber-950">{approvedCount}</span> approved file{approvedCount === 1 ? "" : "s"} and{" "}
+                    <span className="font-bold text-amber-950">{unapprovedCount}</span> file{unapprovedCount === 1 ? "" : "s"} awaiting approval.
+                    You can approve all remaining files now, send only the currently approved files to the client, or close to review manually.
                   </p>
                 </div>
               </div>
 
-              {unapprovedCount === 0 && (
-                <p className="text-[13px] text-gray-500 italic text-center">
-                  Please upload media files before attempting to deliver to the client.
-                </p>
+              {/* Package Limit Warning if approved count < package ordered */}
+              {isUnderLimit && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-[8px] flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-amber-800">
+                    Package limit warning: Only <span className="font-bold text-amber-950">{approvedCount}</span> approved out of{" "}
+                    <span className="font-bold text-amber-950">{packageLimit}</span> ordered in this package.
+                  </p>
+                </div>
               )}
+
+              {/* Custom Message Textarea */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[12px] font-bold text-gray-700 flex items-center justify-between">
+                  <span>Custom Message (Optional)</span>
+                  <span className="text-[10px] text-gray-400 font-normal">
+                    Included in client email
+                  </span>
+                </label>
+                <Textarea
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="e.g. Hi, your photos are ready! Please review and let us know if you need any edits."
+                  maxLength={2000}
+                  className="min-h-[80px] text-[13px] rounded-[8px] border-gray-300 resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                />
+              </div>
             </div>
           )}
 
-          {/* APPROVAL JUST COMPLETED: Small Info Message */}
+          {/* APPROVAL JUST COMPLETED IN MODAL: Small Info Message */}
           {approvalSuccess && (
             <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-[8px] flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -280,8 +347,8 @@ export default function SendToClientModal({
             </div>
           )}
 
-          {/* READY STATE: Approved Media Count & Package Limit Warning */}
-          {(!hasZeroApproved || approvalSuccess) && (
+          {/* STATE 4: ALL APPROVED (Either Initially or After "Approve All") */}
+          {isAllApproved && (
             <div className="space-y-3">
               {/* Package Limit Warning Banner */}
               {isUnderLimit && (
@@ -333,8 +400,20 @@ export default function SendToClientModal({
 
         {/* Footer Actions */}
         <DialogFooter className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row sm:justify-end gap-2.5">
-          {/* STATE 1: Zero Approved Media Initial View -> "Approve Manually" & "Approve All Media" */}
-          {hasZeroApproved && !approvalSuccess ? (
+          {/* CASE 1: NO MEDIA */}
+          {isNoMedia && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-[38px] px-4 text-[13px] font-medium border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Close
+            </Button>
+          )}
+
+          {/* CASE 2: ZERO APPROVED (2 buttons: Approve Manually & Approve All) */}
+          {isZeroApproved && (
             <>
               <Button
                 type="button"
@@ -363,8 +442,61 @@ export default function SendToClientModal({
                 )}
               </Button>
             </>
-          ) : (
-            /* STATE 2: Approved State (or Post-Approval) -> "Cancel" & "Send To Client" */
+          )}
+
+          {/* CASE 3: MIXED MEDIA (3 buttons: Approve Manually, Approve All, Send To Client) */}
+          {isMixed && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isApproving || isSending}
+                onClick={() => onOpenChange(false)}
+                className="h-[38px] px-3.5 text-[13px] font-medium border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Approve Manually
+              </Button>
+              <Button
+                type="button"
+                onClick={handleApproveAll}
+                disabled={isApproving || isSending}
+                className="h-[38px] px-4 text-[13px] font-semibold bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-2"
+              >
+                {isApproving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileCheck className="w-4 h-4" />
+                    <span>Approve All ({unapprovedCount})</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSendToClient}
+                disabled={isSending || isApproving}
+                className="h-[38px] px-4 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 shadow-sm"
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Send Approved ({approvedCount})</span>
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+
+          {/* CASE 4: ALL APPROVED (2 buttons: Cancel & Send To Client) */}
+          {isAllApproved && !isNoMedia && (
             <>
               <Button
                 type="button"
