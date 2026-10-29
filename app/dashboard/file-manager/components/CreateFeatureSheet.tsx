@@ -2979,6 +2979,15 @@ const CreateFeatureSheet = forwardRef<
                                       Ctrl
                                     </kbd>
                                     <span>+ Scroll to Zoom</span>
+                                    <span className="text-amber-300">|</span>
+                                    <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                      Ctrl
+                                    </kbd>
+                                    <span>+</span>
+                                    <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
+                                      Del
+                                    </kbd>
+                                    <span>Delete Field</span>
                                   </div>
                                 )}
                               </>

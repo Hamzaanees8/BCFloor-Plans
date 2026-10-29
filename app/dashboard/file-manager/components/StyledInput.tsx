@@ -1055,7 +1055,7 @@ export default function StyledInput({
 
   const handleFocus = () => {
     setIsFocused(true);
-    setShowPlaceholder(false);
+    setShowPlaceholder((internalValue || "").length === 0);
 
     if (isPanelActive && fieldPanel) {
       const nudgeFn = (dx: number, dy: number) => {
@@ -1151,6 +1151,19 @@ export default function StyledInput({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      editableRef.current?.blur();
+    }
+    const isDeleteKey =
+      e.key === "Delete" ||
+      e.key === "Del" ||
+      (e.metaKey && e.key === "Backspace");
+    if ((e.ctrlKey || e.metaKey) && isDeleteKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (onDeleteRef.current) onDeleteRef.current();
+      else if (draggableBoxRef.current?.onDelete)
+        draggableBoxRef.current.onDelete();
+      fieldPanel?.closePanel();
       editableRef.current?.blur();
     }
   };
@@ -1302,8 +1315,11 @@ export default function StyledInput({
 
         {showPlaceholder && placeholder && (
           <div
+            data-styled-input-placeholder="true"
+            data-html2canvas-ignore="true"
             className={cn(
               "col-start-1 row-start-1 pr-2 pointer-events-none break-words whitespace-pre-wrap opacity-70",
+              "print:hidden",
               cleanedClassName,
             )}
             style={{

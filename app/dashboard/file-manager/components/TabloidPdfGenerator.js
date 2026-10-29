@@ -1,3 +1,77 @@
+/**
+ * Removes all input placeholders and empty Unit # boxes (including '#' prefix)
+ * from the PDF clone before html2canvas captures the page.
+ */
+const cleanPdfPlaceholders = (cloneRoot) => {
+  // 1. Remove all placeholder elements so placeholders NEVER download in the PDF
+  const placeholders = cloneRoot.querySelectorAll(
+    '[data-styled-input-placeholder="true"], [data-placeholder="true"]'
+  );
+  placeholders.forEach((el) => {
+    el.remove();
+  });
+
+  // 2. Hide empty Unit # boxes (e.g. addressCode, addressCodePage2) unless user entered text
+  const unitBoxSelectors = [
+    '#addressCode',
+    '#addressCodePage2',
+    '[data-field-id="addressCode"]',
+    '[data-field-id="addressCodePage2"]',
+    '[data-unit-box="true"]',
+  ].join(', ');
+
+  const unitBoxes = cloneRoot.querySelectorAll(unitBoxSelectors);
+  unitBoxes.forEach((box) => {
+    const editable =
+      box.querySelector('[contenteditable]') ||
+      box.querySelector('input') ||
+      box.querySelector('textarea');
+    const text = (
+      editable ? (editable.textContent || editable.value || '') : (box.textContent || '')
+    ).trim();
+
+    // If empty (no text entered by user), completely remove it from the PDF clone
+    if (!text || text === '#') {
+      const parent = box.parentElement;
+      if (parent) {
+        parent.querySelectorAll('#addressHash, #addressHashPage2, #addressHashLabel, #mlsHash, #mlsHashTop, [id*="Hash"]').forEach((h) => h.remove());
+      }
+      const prev = box.previousElementSibling;
+      if (prev && prev.textContent && prev.textContent.trim() === '#') {
+        prev.remove();
+      }
+      box.remove();
+    }
+  });
+
+  // 3. Remove any standalone '#' symbol whose associated unit input is empty
+  const allSpans = Array.from(cloneRoot.querySelectorAll('span, div, p'));
+  allSpans.forEach((el) => {
+    if (el.textContent && el.textContent.trim() === '#') {
+      const parent = el.parentElement;
+      if (parent) {
+        const editable =
+          parent.querySelector('[contenteditable]') ||
+          parent.querySelector('input') ||
+          parent.nextElementSibling?.querySelector('[contenteditable]') ||
+          parent.nextElementSibling?.querySelector('input');
+
+        if (editable) {
+          const text = (editable.textContent || editable.value || '').trim();
+          if (!text) {
+            el.remove();
+          }
+        } else {
+          const remainingText = parent.textContent.replace(/#/g, '').trim();
+          if (!remainingText) {
+            el.remove();
+          }
+        }
+      }
+    }
+  });
+};
+
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -177,7 +251,10 @@ const TabloidPdfGenerator = async (
     }
   });
 
-  // Explicitly render shadows as faux shadow layers for 100% accurate html2canvas capture
+  // Remove placeholders and empty Unit # from PDF output
+  cleanPdfPlaceholders(clone);
+
+  // Explicitly render shadows as faux shadow layers for 100% accurate html2canvas capture
   applyFauxShadows(clone);
 
   await new Promise((resolve) => setTimeout(resolve, 500));

@@ -575,7 +575,7 @@ export default function FieldSidePanel({
                   </button>
                   <button
                     type="button"
-                    title="Delete field"
+                    title="Delete field (Ctrl + Del)"
                     onClick={() => {
                       activeField.onDelete?.();
                       onClose();

@@ -59,7 +59,7 @@ const ImageEditor = ({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full relative flex items-center justify-center ${className}`}
+      className={`w-full h-full relative flex items-center justify-center cursor-grab active:cursor-grabbing ${className}`}
     >
       <Image
         src={src}
@@ -938,6 +938,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 <div className="my-0 w-[200px] h-full relative overflow-hidden group">
                   {/* logo */}
                   <div
+                    className="w-full h-full cursor-grab active:cursor-grabbing"
                     onMouseDown={(e) => handleMouseDown("image1", e)}
                     onMouseMove={(e) => handleMouseMove("image1", e)}
                     onMouseUp={() => handleMouseUp("image1")}
@@ -1024,7 +1025,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             <div className="flex gap-4 ">
               <div className="w-[65%] flex flex-col gap-4">
                 <div
-                  className="h-[300px] w-full group relative overflow-hidden"
+                  className={`h-[300px] w-full group relative overflow-hidden ${images.image2 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   onMouseDown={(e) => handleMouseDown("image2", e)}
                   onMouseMove={(e) => handleMouseMove("image2", e)}
                   onMouseUp={() => handleMouseUp("image2")}
@@ -1282,7 +1283,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               <div className="w-[35%]">
                 <div className="grid grid-cols-1 gap-4">
                   <div
-                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image3 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseDown={(e) => handleMouseDown("image3", e)}
                     onMouseMove={(e) => handleMouseMove("image3", e)}
                     onMouseUp={() => handleMouseUp("image3")}
@@ -1361,7 +1362,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image4 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseDown={(e) => handleMouseDown("image4", e)}
                     onMouseMove={(e) => handleMouseMove("image4", e)}
                     onMouseUp={() => handleMouseUp("image4")}
@@ -1440,7 +1441,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image5 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseDown={(e) => handleMouseDown("image5", e)}
                     onMouseMove={(e) => handleMouseMove("image5", e)}
                     onMouseUp={() => handleMouseUp("image5")}
@@ -1519,7 +1520,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image6 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseDown={(e) => handleMouseDown("image6", e)}
                     onMouseMove={(e) => handleMouseMove("image6", e)}
                     onMouseUp={() => handleMouseUp("image6")}
@@ -1598,7 +1599,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className="w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden"
+                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image7 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseDown={(e) => handleMouseDown("image7", e)}
                     onMouseMove={(e) => handleMouseMove("image7", e)}
                     onMouseUp={() => handleMouseUp("image7")}
@@ -1860,7 +1861,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               {images.image8 ? (
                 <>
                   <div
-                    className="w-full h-full relative overflow-hidden"
+                    className="w-full h-full relative overflow-hidden cursor-grab active:cursor-grabbing"
                     onMouseDown={(e) => handleMouseDown("image8", e)}
                   >
                     <ImageEditor

@@ -16,13 +16,15 @@ interface FileManagerGalleryProps {
   trigger?: React.ReactNode;
   isOpen?: boolean;
   onClose?: () => void;
+  usedImageUrls?: (string | null | undefined)[];
 }
 
 export default function FileManagerGallery({
   onImageSelect,
   trigger,
   isOpen: externalIsOpen,
-  onClose: externalOnClose
+  onClose: externalOnClose,
+  usedImageUrls,
 }: FileManagerGalleryProps) {
   const fieldPanel = useFieldPanel();
   const [selected, setSelected] = useState<number | null>(null);
@@ -104,6 +106,51 @@ export default function FileManagerGallery({
     if (!open) {
       setSelected(null);
     }
+  };
+
+    const isImageMatch = (usedUrl: string | null | undefined, file: any): boolean => {
+    if (!usedUrl || !file) return false;
+
+    const cleanUsedUrl = decodeURIComponent(usedUrl.split('?')[0].split('#')[0]);
+
+    // 1. Direct or variant URL match
+    if (file.url && (usedUrl === file.url || cleanUsedUrl === decodeURIComponent(file.url.split('?')[0].split('#')[0]))) return true;
+    if (file.thumbnail_url && (usedUrl === file.thumbnail_url || cleanUsedUrl === decodeURIComponent(file.thumbnail_url.split('?')[0].split('#')[0]))) return true;
+
+    if (API_URL && file.file_path) {
+      const fullApiPath = `${API_URL}/${file.file_path}`;
+      if (usedUrl === fullApiPath || cleanUsedUrl === decodeURIComponent(fullApiPath.split('?')[0].split('#')[0])) return true;
+    }
+
+    if (file.variant_urls && typeof file.variant_urls === 'object') {
+      for (const key of Object.keys(file.variant_urls)) {
+        const vUrl = file.variant_urls[key];
+        if (typeof vUrl === 'string' && vUrl) {
+          if (usedUrl === vUrl || cleanUsedUrl === decodeURIComponent(vUrl.split('?')[0].split('#')[0])) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 2. UUID match (if UUID exists and is distinct)
+    if (file.uuid && file.uuid.length >= 8 && cleanUsedUrl.includes(file.uuid)) {
+      return true;
+    }
+
+    // 3. File path match
+    if (file.file_path && file.file_path.length > 3) {
+      const cleanFilePath = decodeURIComponent(file.file_path.replace(/^[\\/]+/, ''));
+      if (cleanUsedUrl.endsWith(cleanFilePath) || cleanUsedUrl.includes(cleanFilePath)) {
+        return true;
+      }
+      const fileName = cleanFilePath.split('/').pop();
+      if (fileName && fileName.length > 4 && cleanUsedUrl.endsWith(fileName)) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const isPDF = (file: any): boolean => {
@@ -204,18 +251,33 @@ export default function FileManagerGallery({
               {files.map((file, idx) => {
                 const displayName = file.group || file.name || file.file_path?.split('/').pop() || 'Untitled Image';
                 const isSelected = selected === idx;
+                const useCount = usedImageUrls
+                  ? usedImageUrls.filter((url) => isImageMatch(url, file)).length
+                  : 0;
+                const isAlreadyUsed = useCount > 0;
                 
                 return (
                   <div
                     key={file.id}
-                    className={`group relative cursor-pointer flex flex-col bg-white rounded-xl overflow-hidden border transition-all duration-200 ${
+                    className={`group relative cursor-pointer flex flex-col rounded-xl overflow-hidden border transition-all duration-200 ${
                       isSelected
-                        ? 'border-[#4290E9] ring-2 ring-[#4290E9] shadow-md'
-                        : 'border-gray-200 hover:border-[#4290E9]/60 hover:shadow-md'
+                        ? 'border-[#4290E9] ring-2 ring-[#4290E9] shadow-md bg-neutral-100'
+                        : isAlreadyUsed
+                        ? 'border-neutral-300 bg-neutral-100 shadow-xs hover:border-[#4290E9]/60 hover:shadow-md'
+                        : 'border-gray-200 bg-white hover:border-[#4290E9]/60 hover:shadow-md'
                     }`}
                     onClick={() => handleImageSelect(idx)}
                   >
-                    <div className="relative w-full aspect-video bg-black overflow-hidden flex items-center justify-center">
+                    <div className={`relative w-full aspect-video overflow-hidden flex items-center justify-center ${
+                      'bg-black'
+                    }`}>
+                      {/* Already added grey count badge in bottom-left */}
+                      {isAlreadyUsed && (
+                        <div className="absolute bottom-2 left-2.5 z-10 bg-neutral-800/95 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm border border-gray-600/50 flex items-center justify-center leading-none">
+                          {useCount}x
+                        </div>
+                      )}
+
                       {isPanoramaFile(file) && <PanoramaBadge />}
                       {file.is_processing || file.status === "processing" ? (
                         <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900/90 text-white p-2">
@@ -244,8 +306,17 @@ export default function FileManagerGallery({
                         <img
                           src={file.variant_urls?.print || file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                           alt={displayName}
-                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300 ease-out"
+                          className={`object-contain w-full h-full group-hover:scale-105 transition-transform duration-300 ease-out ${
+                            isAlreadyUsed && !isSelected
+                              ? 'grayscale contrast-90 brightness-95 opacity-80'
+                              : ''
+                          }`}
                         />
+                      )}
+
+                      {/* Already added subtle grey overlay */}
+                      {isAlreadyUsed && !isSelected && (
+                        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
                       )}
 
                       {/* Selected Overlay */}
@@ -262,9 +333,13 @@ export default function FileManagerGallery({
                     </div>
 
                     {/* Image Group/Name Footer */}
-                    <div className="px-3.5 py-2.5 bg-white border-t border-gray-100 flex items-center justify-between">
+                    <div className={`px-3.5 py-2.5 border-t border-gray-100 flex items-center justify-between ${
+                      isAlreadyUsed ? 'bg-gray-100' : 'bg-white'
+                    }`}>
                       <p
-                        className="text-xs font-medium text-gray-700 truncate w-full"
+                        className={`text-xs font-medium truncate w-full ${
+                          isAlreadyUsed ? 'text-gray-600' : 'text-gray-700'
+                        }`}
                         title={displayName}
                       >
                         {displayName}

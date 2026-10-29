@@ -122,6 +122,36 @@ export function FieldPanelProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
+  // Listen for Ctrl + Del (or Cmd + Del on Mac) to delete the currently selected input field
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!activeField) return;
+
+      const isDeleteKey =
+        e.key === "Delete" ||
+        e.key === "Del" ||
+        e.code === "Delete" ||
+        (e.metaKey && e.key === "Backspace");
+
+      if ((e.ctrlKey || e.metaKey) && isDeleteKey) {
+        if (typeof activeField.onDelete === "function") {
+          e.preventDefault();
+          e.stopPropagation();
+          activeField.onDelete();
+          closePanel();
+          if (typeof document !== "undefined") {
+            (document.activeElement as HTMLElement)?.blur?.();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [activeField, closePanel]);
+
   // Listen for global close sidebars event broadcast
   React.useEffect(() => {
     const handleCloseEvent = () => {
