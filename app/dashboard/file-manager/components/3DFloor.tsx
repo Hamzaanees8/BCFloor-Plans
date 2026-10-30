@@ -405,7 +405,7 @@ function FileTab2({
     });
   };
 
-  const handleFilesChange = (selectedFiles: File[]) => {
+  const handleFilesChange = useCallback((selectedFiles: File[]) => {
     if (userType === "agent") return;
     if (selectedFiles.length === 0) return;
 
@@ -415,7 +415,7 @@ function FileTab2({
     }));
 
     setPreviewFiles((prev) => [...prev, ...newFiles]);
-  };
+  }, [userType]);
 
   const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -430,7 +430,7 @@ function FileTab2({
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
     handleFilesChange(droppedFiles);
-  }, [userType]);
+  }, [userType, handleFilesChange]);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();

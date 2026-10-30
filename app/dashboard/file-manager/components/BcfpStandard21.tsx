@@ -1273,6 +1273,7 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 

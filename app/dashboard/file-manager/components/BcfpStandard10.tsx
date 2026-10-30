@@ -2008,6 +2008,7 @@ const BcfpStandard10 = forwardRef<BcfpStandard10Ref, BcfpStandard10Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -2467,6 +2468,54 @@ const BcfpStandard10 = forwardRef<BcfpStandard10Ref, BcfpStandard10Props>(
 
                       <div className="text-[24px] font-light leading-none text-[#2E4F23] flex items-center justify-center gap-1 flex-nowrap">
                         {/* # Code */}
+                        {!isFieldDeleted("addressHash") && (
+                          <DraggableBox
+                            id="addressHash"
+                            position={fieldPositions.addressHash}
+                            onPositionChange={updateFieldPosition}
+                            label="Unit # Symbol"
+                            zoom={0.55}
+                            disabled={lockedSections.address}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center shrink-0"
+                            onDelete={() =>
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                addressHashLabel || "#",
+                                "Page 1 - Address",
+                                fieldStyles.addressHash,
+                              )
+                            }
+                            deleteTitle="Remove Unit # Symbol"
+                          >
+                            <StyledInput
+                                fieldId="addressHash"
+                                fieldLabel="Unit # Symbol"
+                                value={addressHashLabel}
+                                onChange={(e) => setAddressHashLabel(e.target.value)}
+                                inputStyle={fieldStyles.addressHash || fieldStyles.addressHashLabel}
+                                onChangeStyle={(s) => {
+                                  updateFieldStyle("addressHash", s);
+                                  updateFieldStyle("addressHashLabel", s);
+                                }}
+                                className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 text-[20px] text-[#2E4F23] leading-none mr-0.5"
+                                placeholder="#"
+                                disabled={lockedSections.address}
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "addressHash",
+                                    "Unit # Symbol",
+                                    addressHashLabel || "#",
+                                    "Page 1 - Address",
+                                    fieldStyles.addressHash,
+                                  )
+                                }
+                                wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                              />
+                          </DraggableBox>
+                        )}
+
                         {!isFieldDeleted("addressCode") && (
                           <DraggableBox
                             id="addressCode"
@@ -2487,19 +2536,6 @@ const BcfpStandard10 = forwardRef<BcfpStandard10Ref, BcfpStandard10Props>(
                             deleteTitle="Remove MLS/Suite #"
                           >
                             <div className="flex items-center gap-0.5">
-                              <StyledInput
-                                value={addressHashLabel}
-                                onChange={(e) =>
-                                  setAddressHashLabel(e.target.value)
-                                }
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("addressHashLabel", s)
-                                }
-                                inputStyle={fieldStyles.addressHashLabel}
-                                className="text-[20px] text-[#2E4F23] bg-transparent focus:outline-none border-none whitespace-nowrap"
-                                placeholder="#"
-                                wrapperClassName="w-auto shrink-0"
-                              />
                               <StyledInput
                                 value={addressCode}
                                 onChange={(e) => setAddressCode(e.target.value)}

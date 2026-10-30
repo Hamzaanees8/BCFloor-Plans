@@ -27,6 +27,7 @@ interface BcfpStandard24Props {
 const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
   ({ orderData }, ref) => {
     // const [title, setTitle] = useState("");
+    const [addressHash, setAddressHash] = useState("#");
     // const [subtitle, setSubtitle] = useState("");
     // const [fullName, setFullName] = useState("");
     // const [email, setEmail] = useState("");
@@ -760,6 +761,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
           const details = state.otherDetails as Record<string, unknown>;
           if (details.presentedBy)
             setPresentedBy(details.presentedBy as string);
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.presentedByCompany)
             setPresentedByCompany(details.presentedByCompany as string);
           if (details.phone) setPhone(details.phone as string);
@@ -1179,6 +1181,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
         <div className="w-full items-center justify-center font-alexandria">
@@ -1870,9 +1873,21 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="flex text-white content-center h-[40px] relative group-hover:z-[11]">
-                      <span className="whitespace-nowrap content-center">
-                        #
-                      </span>
+                      <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[40px] text-white leading-none mr-0.5"
+                            placeholder="#"
+                            
+                            onDelete={() => {
+                              
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
                       <StyledInput
                         value={strNum}
                         rows={1}

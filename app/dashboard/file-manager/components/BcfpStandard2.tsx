@@ -392,6 +392,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
             setCurrentImageSlot(null);
           }}
           onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
         />
       )}
 
@@ -434,6 +435,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                           scale={scale.image1}
                           position={position.image1}
                           rotation={rotation.image1}
+                          objectFit="cover"
                         />
                       </div>
 
@@ -527,6 +529,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                           scale={scale.image2}
                           position={position.image2}
                           rotation={rotation.image2}
+                          objectFit="cover"
                         />
                       </div>
 
@@ -617,6 +620,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                           scale={scale.image3}
                           position={position.image3}
                           rotation={rotation.image3}
+                          objectFit="cover"
                         />
                       </div>
 
@@ -713,6 +717,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image4}
                             position={position.image4}
                             rotation={rotation.image4}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -803,6 +808,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image5}
                             position={position.image5}
                             rotation={rotation.image5}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -893,6 +899,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image6}
                             position={position.image6}
                             rotation={rotation.image6}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -1129,6 +1136,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                           scale={scale.image7}
                           position={position.image7}
                           rotation={rotation.image7}
+                          objectFit="cover"
                         />
                       </div>
 
@@ -1221,6 +1229,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image8}
                             position={position.image8}
                             rotation={rotation.image8}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -1311,6 +1320,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image9}
                             position={position.image9}
                             rotation={rotation.image9}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -1401,6 +1411,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image10}
                             position={position.image10}
                             rotation={rotation.image10}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -1491,6 +1502,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                             scale={scale.image11}
                             position={position.image11}
                             rotation={rotation.image11}
+                          objectFit="cover"
                           />
                         </div>
 
@@ -1671,6 +1683,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                           scale={scale.image12}
                           position={position.image12}
                           rotation={rotation.image12}
+                          objectFit="cover"
                         />
                       </div>
 

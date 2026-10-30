@@ -78,6 +78,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData.deletedDetailFields || [],
     );
+    const [mlsHash, setMlsHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData.deletedStandardFieldIds || []);
@@ -569,6 +570,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
+        if ((formData as any).mlsHash !== undefined) setMlsHash((formData as any).mlsHash);
         if (formData.maintenanceFees)
           setMaintenanceFees(formData.maintenanceFees);
         if (formData.maintenanceFeesInclude)
@@ -959,6 +961,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
           const details = state.otherDetails as Record<string, unknown>;
           if (details.maintenanceFees)
             setMaintenanceFees(details.maintenanceFees as string);
+          if (details.mlsHash !== undefined) setMlsHash(details.mlsHash as string);
           if (details.maintenanceFeesInclude)
             setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
@@ -1165,7 +1168,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
                       scale={scale[key]}
                       position={position[key]}
                       rotation={rotation[key]}
-                      objectFit={isLogoSlot ? "contain" : "cover"}
+                      objectFit={isLogo ? "contain" : "cover"}
                     />
                   </div>
 
@@ -1288,6 +1291,7 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1418,6 +1422,51 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
                       className="flex items-center justify-center text-[#8B0000] text-[42px] leading-none font-normal flex-nowrap shrink-0 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(255,255,255,0.95)]"
                       style={{ fontFamily: "'BickhamScript', cursive" }}
                     >
+                      {!isFieldDeleted("mlsHash") && (
+                        <DraggableBox
+                          id="mlsHash"
+                          position={fieldPositions.mlsHash}
+                          onPositionChange={updateFieldPosition}
+                          label="MLS # Symbol"
+                          zoom={0.85}
+                          disabled={lockedSections.header}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "mlsHash",
+                              "MLS # Symbol",
+                              "#",
+                              "Header",
+                              fieldStyles.mlsHash,
+                            )
+                          }
+                          deleteTitle="Remove MLS # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="mlsHash"
+                            fieldLabel="MLS # Symbol"
+                            value={mlsHash}
+                            onChange={(e) => setMlsHash(e.target.value)}
+                            inputStyle={fieldStyles["mlsHash"] || fieldStyles.mlsHash}
+                            onChangeStyle={(s) => updateFieldStyle("mlsHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 text-[28px] text-[#8B0000] font-bold leading-none mr-1"
+                            placeholder="#"
+                            style={{ fontFamily: "'BickhamScript', cursive" }}
+                            disabled={lockedSections.header}
+                            onDelete={() =>
+                              removeStandardField(
+                                "mlsHash",
+                                "MLS # Symbol",
+                                "#",
+                                "Header",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )}
+
                       {!isFieldDeleted("mlsNumberTop") && (
                         <DraggableBox
                           id="mlsNumberTop"
@@ -1440,12 +1489,6 @@ const BcfpStandard22 = forwardRef<BcfpStandard22Ref, BcfpStandard22Props>(
                           deleteTitle="Remove MLS Number"
                         >
                           <div className="flex items-center whitespace-nowrap">
-                            <span
-                              className="text-[28px] mt-[4px] mr-1 select-none font-bold"
-                              style={{ fontFamily: "'BickhamScript', cursive" }}
-                            >
-                              #
-                            </span>
                             <StyledInput
                               value={mlsNumber}
                               onChange={(e) => setMlsNumber(e.target.value)}

@@ -79,6 +79,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData.deletedDetailFields || [],
     );
+    const [addressHash, setAddressHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData.deletedStandardFieldIds || []);
@@ -535,6 +536,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
         if (formData.maintenanceFeesInclude)
           setMaintFeesInclude(formData.maintenanceFeesInclude);
@@ -902,6 +904,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
           if (details.amenities) setAmenities(details.amenities as string);
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.view) setView(details.view as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
           if (details.bathroom) setBathroom(details.bathroom as string);
@@ -1267,6 +1270,49 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
 
           {/* Top Line */}
           <div className="flex items-center gap-2 font-light text-[21px] text-[#ffffff] leading-none whitespace-nowrap flex-nowrap shrink-0">
+            {!isFieldDeleted("addressHash") && (
+              <DraggableBox
+                id="addressHash"
+                position={fieldPositions.addressHash}
+                onPositionChange={updateFieldPosition}
+                label="Unit # Symbol"
+                zoom={0.85}
+                disabled={lockedSections.header}
+                containerClassName="w-auto inline-flex items-center shrink-0"
+                className="w-auto inline-flex items-center shrink-0"
+                onDelete={() =>
+                  removeStandardField(
+                    "addressHash",
+                    "Unit # Symbol",
+                    "#",
+                    "Header",
+                  )
+                }
+                deleteTitle="Remove Unit # Symbol"
+              >
+                <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[21px] text-[#ffffff] leading-none mr-1"
+                            placeholder="#"
+                            disabled={lockedSections.header}
+                            onDelete={() => {
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Header",
+                              )
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+              </DraggableBox>
+            )}
+
             {!isFieldDeleted("addressCode") && (
               <DraggableBox
                 id="addressCode"
@@ -1288,24 +1334,21 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                 }
                 deleteTitle="Remove MLS / Code"
               >
-                <div className="inline-flex items-center whitespace-nowrap">
-                  <span className="leading-none select-none mr-1">#</span>
-                  <StyledInput
-                    value={mlsNumber || addressCode}
-                    onChange={(e) => {
-                      setMlsNumber(e.target.value);
-                      setAddressCode(e.target.value);
-                    }}
-                    inputStyle={fieldStyles.mlsNumber}
-                    onChangeStyle={(s) => {
-                      updateFieldStyle("mlsNumber", s);
-                      updateFieldStyle("addressCode", s);
-                    }}
-                    className="w-[140px] bg-transparent text-[#ffffff] font-light text-[21px] focus:outline-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap border-none"
-                    placeholder="0000-0000"
-                    wrapperClassName="w-auto shrink-0"
-                  />
-                </div>
+                <StyledInput
+                  value={mlsNumber || addressCode}
+                  onChange={(e) => {
+                    setMlsNumber(e.target.value);
+                    setAddressCode(e.target.value);
+                  }}
+                  inputStyle={fieldStyles.mlsNumber}
+                  onChangeStyle={(s) => {
+                    updateFieldStyle("mlsNumber", s);
+                    updateFieldStyle("addressCode", s);
+                  }}
+                  className="w-[140px] bg-transparent text-[#ffffff] font-light text-[21px] focus:outline-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap border-none"
+                  placeholder="0000-0000"
+                  wrapperClassName="w-auto shrink-0"
+                />
               </DraggableBox>
             )}
 
@@ -1506,6 +1549,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 

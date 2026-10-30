@@ -180,6 +180,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
     const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
       DEFAULT_LEFT_DETAIL_FIELDS,
     );
+    const [addressHash, setAddressHash] = useState("#");
     const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
       DEFAULT_RIGHT_DETAIL_FIELDS,
     );
@@ -724,6 +725,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
 
         if (formData.leftDetailFields)
           setLeftDetailFields(formData.leftDetailFields);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
         if (formData.rightDetailFields)
           setRightDetailFields(formData.rightDetailFields);
         if (formData.deletedStandardFieldIds)
@@ -1332,6 +1334,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
           const details = state.otherDetails as Record<string, any>;
           if (details.amenities) {
             const idx = rightFields.findIndex((f) => f.id === "amenities");
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
             if (idx !== -1) rightFields[idx].value = s(details.amenities);
           }
           if (details.view) {
@@ -1436,6 +1439,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -2121,6 +2125,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                               scale={scale.image1}
                               position={position.image1}
                               rotation={rotation.image1}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -2234,6 +2239,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image2}
                                   position={position.image2}
                                   rotation={rotation.image2}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -2727,6 +2733,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                               scale={scale.image3}
                               position={position.image3}
                               rotation={rotation.image3}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -2843,7 +2850,48 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                     </button>
 
                     <div className="text-[28px] font-light leading-none mt-0 text-white flex items-center flex-wrap justify-center">
-                      <span className="text-[16px] mr-1">#</span>
+                      {!isFieldDeleted("addressHash") && (
+                        <DraggableBox
+                          id="addressHash"
+                          position={fieldPositions.addressHash}
+                          onPositionChange={updateFieldPosition}
+                          label="Unit # Symbol"
+                          zoom={0.55}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressHash",
+                              "Unit # Symbol",
+                              "#",
+                              "Page 1 - Address",
+                            )
+                          }
+                          deleteTitle="Remove Unit # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[16px] text-white leading-none mr-1"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            onDelete={() => {
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Page 1 - Address",
+                              )
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )}
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
@@ -3016,6 +3064,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                     scale={scale.image4}
                                     position={position.image4}
                                     rotation={rotation.image4}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3132,6 +3181,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                     scale={scale.image5}
                                     position={position.image5}
                                     rotation={rotation.image5}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3248,6 +3298,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                     scale={scale.image6}
                                     position={position.image6}
                                     rotation={rotation.image6}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3364,6 +3415,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                     scale={scale.image7}
                                     position={position.image7}
                                     rotation={rotation.image7}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3487,6 +3539,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image8}
                                   position={position.image8}
                                   rotation={rotation.image8}
+                                objectFit="contain"
                                 />
                               </div>
 
@@ -4079,6 +4132,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                               scale={scale.image9}
                               position={position.image9}
                               rotation={rotation.image9}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -4269,6 +4323,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                 scale={scale.image10}
                                 position={position.image10}
                                 rotation={rotation.image10}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -4381,6 +4436,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                 scale={scale.image11}
                                 position={position.image11}
                                 rotation={rotation.image11}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -4510,6 +4566,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image12}
                                   position={position.image12}
                                   rotation={rotation.image12}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4626,6 +4683,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image13}
                                   position={position.image13}
                                   rotation={rotation.image13}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4742,6 +4800,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image14}
                                   position={position.image14}
                                   rotation={rotation.image14}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4858,6 +4917,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image15}
                                   position={position.image15}
                                   rotation={rotation.image15}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4974,6 +5034,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image16}
                                   position={position.image16}
                                   rotation={rotation.image16}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -5090,6 +5151,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                   scale={scale.image17}
                                   position={position.image17}
                                   rotation={rotation.image17}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -5205,6 +5267,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                                 scale={scale.image18}
                                 position={position.image18}
                                 rotation={rotation.image18}
+                                objectFit="cover"
                               />
                             </div>
 

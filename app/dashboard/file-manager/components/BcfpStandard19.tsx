@@ -76,6 +76,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData.deletedDetailFields || [],
     );
+    const [addressHash, setAddressHash] = useState("#");
+    const [page2AddressHash, setPage2AddressHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData.deletedStandardFieldIds || []);
@@ -474,6 +476,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
+        if ((formData as any).page2AddressHash !== undefined) setPage2AddressHash((formData as any).page2AddressHash);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
         if (formData.maintenanceFeesInclude)
           setMaintFeesInclude(formData.maintenanceFeesInclude);
@@ -895,6 +899,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           const details = state.otherDetails as Record<string, unknown>;
           if (details.maintenanceFees)
             setMaintFees(details.maintenanceFees as string);
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
+          if (details.page2AddressHash !== undefined) setPage2AddressHash(details.page2AddressHash as string);
           if (details.maintenanceFeesInclude)
             setMaintFeesInclude(details.maintenanceFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
@@ -1406,6 +1412,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               setShowGallery(false);
               setCurrentImageSlot(null);
             }}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1503,6 +1510,49 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
                   <div className="flex flex-col items-center justify-center w-full">
                     <div className="flex items-center justify-center gap-2 w-full text-white text-[28px] font-light leading-none">
+                      {!isFieldDeleted("addressHash") && (
+                        <DraggableBox
+                          id="addressHash"
+                          position={fieldPositions.addressHash}
+                          onPositionChange={updateFieldPosition}
+                          label="Unit # Symbol"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressHash",
+                              "Unit # Symbol",
+                              "#",
+                              "Page 1 - Address",
+                            )
+                          }
+                          deleteTitle="Remove Unit # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-white leading-none mr-1.5"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            onDelete={() =>
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Page 1 - Address",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )}
+
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
@@ -1523,9 +1573,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           deleteTitle="Remove MLS #"
                         >
                           <div className="flex items-center gap-1.5 text-white text-[28px] font-light leading-none whitespace-nowrap flex-nowrap">
-                            <span className="shrink-0 text-[28px] leading-none select-none">
-                              #
-                            </span>
                             <StyledInput
                               value={addressCode}
                               onChange={(e) => setAddressCode(e.target.value)}
@@ -2752,9 +2799,26 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                 <div className="flex flex-col relative w-full">
                   <div className="text-[28px] font-light leading-none mt-0 text-white flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="text-[28px] font-light leading-none select-none">
-                        #
-                      </span>
+                      <StyledInput
+                            fieldId="page2AddressHash"
+                            fieldLabel="Unit # Symbol (Page 2)"
+                            value={page2AddressHash}
+                            onChange={(e) => setPage2AddressHash(e.target.value)}
+                            inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
+                            onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-white leading-none mr-1.5"
+                            placeholder="#"
+                            disabled={lockedSections.page2Header}
+                            onDelete={() =>
+                              removeStandardField(
+                                "page2AddressHash",
+                                "Unit # Symbol (Page 2)",
+                                "#",
+                                "Page 2 - Address",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
                       <StyledInput
                         value={addressCode}
                         onChange={(e) => setAddressCode(e.target.value)}

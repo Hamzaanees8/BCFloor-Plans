@@ -649,6 +649,7 @@ export default function StyledInput({
   onNudge,
   onDelete,
   onResetPosition,
+  style: passedStyle,
   ...props
 }: StyledInputProps) {
   const contextFontFolder = useContext(FontFolderContext);
@@ -1267,6 +1268,7 @@ export default function StyledInput({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           style={{
+            ...passedStyle,
             fontSize,
             textAlign: activeTextAlign,
             fontWeight: getFontWeightStyle(),

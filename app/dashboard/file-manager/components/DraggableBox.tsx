@@ -30,8 +30,7 @@ export interface DraggableBoxProps {
   label?: string;
   disabled?: boolean;
   onDelete?: () => void;
-  deleteTitle?: string;
-}
+  deleteTitle?: string;  inputStyle?: any;  onChangeStyle?: (style: any) => void;}
 
 export const DraggableBox: React.FC<DraggableBoxProps> = ({
   id,

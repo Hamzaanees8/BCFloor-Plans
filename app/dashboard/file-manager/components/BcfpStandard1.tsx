@@ -362,6 +362,7 @@ const BcfpStandard1 = ({ orderData }: BcfpStandard) => {
             setCurrentImageSlot(null);
           }}
           onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
         />
       )}
       <div className="w-full items-center justify-center">

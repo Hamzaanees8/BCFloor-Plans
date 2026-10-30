@@ -77,6 +77,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData?.deletedDetailFields || [],
     );
+    const [addressHash, setAddressHash] = useState("#");
+    const [page2AddressHash, setPage2AddressHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData?.deletedStandardFieldIds || []);
@@ -483,6 +485,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
+        if ((formData as any).page2AddressHash !== undefined) setPage2AddressHash((formData as any).page2AddressHash);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
         if (formData.maintenanceFeesInclude)
           setMaintFeesInclude(formData.maintenanceFeesInclude);
@@ -825,6 +829,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
           if (details.headline) setHeadline(details.headline as string);
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
+          if (details.page2AddressHash !== undefined) setPage2AddressHash(details.page2AddressHash as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
           if (details.byLawLabel) setByLawLabel(details.byLawLabel as string);
@@ -914,6 +920,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1388,27 +1395,71 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                         }}
                       >
-                        {!isFieldDeleted("addressCode") && (
-                          <DraggableBox
-                            id="addressCode"
-                            position={fieldPositions.addressCode}
-                            onPositionChange={updateFieldPosition}
-                            label="Unit Number"
-                            zoom={0.85}
+                        <div className="tracking-wide text-white mt-0 flex items-center">
+                          {!isFieldDeleted("addressHash") && (
+                            <DraggableBox
+                              id="addressHash"
+                              position={fieldPositions.addressHash}
+                              onPositionChange={updateFieldPosition}
+                              label="Unit # Symbol"
+                              zoom={0.85}
+                              disabled={lockedSections.headerAddress}
+                              containerClassName="w-auto inline-flex items-center shrink-0"
+                              className="w-auto inline-flex items-center shrink-0"
+                              onDelete={() =>
+                                removeStandardField(
+                                  "addressHash",
+                                  "Unit # Symbol",
+                                  "#",
+                                  "Header Address",
+                                )
+                              }
+                              deleteTitle="Remove Unit # Symbol"
+                            >
+                              <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[30px] text-white leading-none mr-0.5"
+                            placeholder="#"
                             disabled={lockedSections.headerAddress}
                             onDelete={() =>
                               removeStandardField(
-                                "addressCode",
-                                "Unit Number",
-                                addressCode,
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
                                 "Header Address",
-                                fieldStyles.addressCode,
                               )
                             }
-                            deleteTitle="Remove Unit Number"
-                          >
-                            <div className="tracking-wide text-white mt-0 flex items-center">
-                              <span className="mr-0.5">#</span>
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                            </DraggableBox>
+                          )}
+
+                          {!isFieldDeleted("addressCode") && (
+                            <DraggableBox
+                              id="addressCode"
+                              position={fieldPositions.addressCode}
+                              onPositionChange={updateFieldPosition}
+                              label="Unit Number"
+                              zoom={0.85}
+                              disabled={lockedSections.headerAddress}
+                              containerClassName="w-auto inline-flex items-center flex-1"
+                              className="w-auto inline-flex items-center flex-1"
+                              onDelete={() =>
+                                removeStandardField(
+                                  "addressCode",
+                                  "Unit Number",
+                                  addressCode,
+                                  "Header Address",
+                                  fieldStyles.addressCode,
+                                )
+                              }
+                              deleteTitle="Remove Unit Number"
+                            >
                               <StyledInput
                                 value={addressCode}
                                 onChange={(e) => setAddressCode(e.target.value)}
@@ -1419,9 +1470,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 className="font-light text-[18px] h-[24px] w-[120px] flex-1 leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
                                 placeholder="0000-0000"
                               />
-                            </div>
-                          </DraggableBox>
-                        )}
+                            </DraggableBox>
+                          )}
+                        </div>
 
                         <div className="text-[13px] mb-3 text-white font-bold leading-none mt-0 flex items-center justify-center gap-1.5 whitespace-nowrap w-full">
                           {!isFieldDeleted("roadLabelBefore") && (
@@ -2958,6 +3009,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           scale={scale.image7}
                           position={position.image7}
                           rotation={rotation.image7}
+                          objectFit="cover"
                         />
                       </div>
 
@@ -3088,27 +3140,73 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                       }}
                     >
-                      {!isFieldDeleted("addressCodePage2") && (
-                        <DraggableBox
-                          id="addressCodePage2"
-                          position={fieldPositions.addressCodePage2}
-                          onPositionChange={updateFieldPosition}
-                          label="Unit Number"
-                          zoom={0.85}
-                          disabled={lockedSections.headerAddressPage2}
-                          onDelete={() =>
-                            removeStandardField(
-                              "addressCodePage2",
-                              "Unit Number",
-                              addressCode,
-                              "Header Address (Page 2)",
-                              fieldStyles.addressCode,
-                            )
-                          }
-                          deleteTitle="Remove Unit Number"
-                        >
-                          <div className="tracking-wide text-white mt-0 mb-2 flex items-center">
-                            <span className="mr-0.5">#</span>
+                      <div className="tracking-wide text-white mt-0 mb-2 flex items-center">
+                        {!isFieldDeleted("page2AddressHash") && (
+                          <DraggableBox
+                            id="page2AddressHash"
+                            position={fieldPositions.page2AddressHash}
+                            onPositionChange={updateFieldPosition}
+                            label="Unit # Symbol (Page 2)"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddressPage2}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
+                                onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
+                                className="w-auto inline-flex items-center shrink-0"
+                            onDelete={() =>
+                              removeStandardField(
+                                "page2AddressHash",
+                                "Unit # Symbol (Page 2)",
+                                "#",
+                                "Header Address (Page 2)",
+                              )
+                            }
+                            deleteTitle="Remove Unit # Symbol"
+                          >
+                            <StyledInput
+                            fieldId="page2AddressHash"
+                            fieldLabel="Unit # Symbol (Page 2)"
+                            value={page2AddressHash}
+                            onChange={(e) => setPage2AddressHash(e.target.value)}
+                            inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
+                            onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[21px] text-white leading-none mr-0.5"
+                            placeholder="#"
+                            disabled={lockedSections.headerAddressPage2}
+                            onDelete={() =>
+                              removeStandardField(
+                                "page2AddressHash",
+                                "Unit # Symbol (Page 2)",
+                                "#",
+                                "Header Address (Page 2)",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                          </DraggableBox>
+                        )}
+
+                        {!isFieldDeleted("addressCodePage2") && (
+                          <DraggableBox
+                            id="addressCodePage2"
+                            position={fieldPositions.addressCodePage2}
+                            onPositionChange={updateFieldPosition}
+                            label="Unit Number"
+                            zoom={0.85}
+                            disabled={lockedSections.headerAddressPage2}
+                            containerClassName="w-auto inline-flex items-center flex-1"
+                            className="w-auto inline-flex items-center flex-1"
+                            onDelete={() =>
+                              removeStandardField(
+                                "addressCodePage2",
+                                "Unit Number",
+                                addressCode,
+                                "Header Address (Page 2)",
+                                fieldStyles.addressCode,
+                              )
+                            }
+                            deleteTitle="Remove Unit Number"
+                          >
                             <StyledInput
                               value={addressCode}
                               onChange={(e) => setAddressCode(e.target.value)}
@@ -3119,9 +3217,9 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               className="font-light text-[21px] h-[42px] w-[120px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                               placeholder="0000-0000"
                             />
-                          </div>
-                        </DraggableBox>
-                      )}
+                          </DraggableBox>
+                        )}
+                      </div>
 
                       <div className="text-[13px] text-white font-bold leading-none mt-0 flex items-center justify-center gap-1.5 whitespace-nowrap w-full mb-3">
                         {!isFieldDeleted("roadLabelBeforePage2") && (
