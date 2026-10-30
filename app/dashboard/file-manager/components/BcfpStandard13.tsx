@@ -458,15 +458,23 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             setAddressCode(orderData.property.mls_number);
           if (orderData.property.suite) setRoadName(orderData.property.suite);
 
-          let cityString = "";
-          if (orderData.property.city) cityString += orderData.property.city;
+          const addressParts: string[] = [];
+          const propAddress =
+            orderData.property.address ||
+            (orderData as any).property_address ||
+            "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (orderData.property.city)
+            addressParts.push(orderData.property.city.trim());
           if (orderData.property.province)
-            cityString +=
-              (cityString ? ", " : "") + orderData.property.province;
+            addressParts.push(orderData.property.province.trim());
+          if (orderData.property.country)
+            addressParts.push(orderData.property.country.trim());
           if (orderData.property.postal_code)
-            cityString +=
-              (cityString ? " " : "") + orderData.property.postal_code;
-          if (cityString) setCityLine(cityString);
+            addressParts.push(orderData.property.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
 
         if (orderData.agent) {
@@ -1423,7 +1431,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             onChange={(e) => setAddressHash(e.target.value)}
                             inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
                             onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[30px] text-white leading-none mr-0.5"
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[18px] text-white leading-none mr-0.5"
                             placeholder="#"
                             disabled={lockedSections.headerAddress}
                             onDelete={() =>
@@ -1615,7 +1623,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 onChangeStyle={(style) =>
                                   updateFieldStyle("cityLine", style)
                                 }
-                                className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
+                                className="text-[#B3B394] text-[13px] min-h-[40px] h-auto bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                                 placeholder="BRIGHOUSE SOUTH, RICHMOND"
                               />
                             </div>
@@ -3362,7 +3370,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               onChangeStyle={(style) =>
                                 updateFieldStyle("cityLine", style)
                               }
-                              className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
+                              className="text-[#B3B394] text-[13px] min-h-[40px] h-auto bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                               placeholder="BRIGHOUSE SOUTH, RICHMOND"
                             />
                           </div>

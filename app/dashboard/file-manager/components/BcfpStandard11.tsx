@@ -773,11 +773,16 @@ const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(
             : prop.address;
           if (fullAddress) setRoadName(prop.suite ?? "");
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(prop.address || city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullCityAddress = addressParts.join(", ");
+          if (fullCityAddress) setCityLine(fullCityAddress);
         }
 
         if (agent) {

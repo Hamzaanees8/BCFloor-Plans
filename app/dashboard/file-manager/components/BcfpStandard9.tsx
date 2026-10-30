@@ -704,11 +704,16 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
             : prop.address;
           if (fullAddress) setRoadName(prop.suite ?? "");
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(prop.address || city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullCityAddress = addressParts.join(", ");
+          if (fullCityAddress) setCityLine(fullCityAddress);
         }
 
         if (agent) {
@@ -2249,7 +2254,7 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(
                                   updateFieldStyle("addressHash", s);
                                   updateFieldStyle("addressHashLabel", s);
                                 }}
-                                className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 text-[16px] text-white leading-none mr-0.5"
+                                className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-white leading-none mr-0.5"
                                 placeholder="#"
                                 disabled={lockedSections.address}
                                 onDelete={() =>

@@ -690,11 +690,16 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
           if (prop.suite) setAddressCode(prop.suite.toString());
           if (prop.address) setRoadName(prop.suite ?? "");
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(prop.address || city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
 
         if (agent) {
@@ -2877,7 +2882,7 @@ const BcfpStandard7 = forwardRef<BcfpStandard7Ref, BcfpStandard7Props>(
                             onChange={(e) => setAddressHash(e.target.value)}
                             inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
                             onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[16px] text-white leading-none mr-1"
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-white leading-none mr-1"
                             placeholder="#"
                             disabled={lockedSections.address}
                             onDelete={() => {

@@ -600,10 +600,16 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
           if (prop.mls_number) setMlsNumber(prop.mls_number);
           if (prop.suite) setRoadName(prop.suite.toString());
 
-          let fullAddr = prop.address || "";
-          if (prop.city) fullAddr += (fullAddr ? ", " : "") + prop.city;
-          if (prop.province) fullAddr += (fullAddr ? ", " : "") + prop.province;
-          if (fullAddr) setPropertyName(fullAddr);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setPropertyName(fullAddress);
         }
 
         if (agent) {

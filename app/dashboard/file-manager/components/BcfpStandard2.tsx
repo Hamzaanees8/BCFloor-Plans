@@ -140,11 +140,16 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
         const fullAddress = prop.suite ? `${prop.suite} - ${prop.address}` : prop.address;
         if (fullAddress) setTitle(fullAddress);
 
-        let city = "";
-        if (prop.city) city += prop.city;
-        if (prop.province) city += (city ? ", " : "") + prop.province;
-        if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-        if (city) setSubtitle(city);
+        const addressParts: string[] = [];
+        const propAddress = prop.address || (orderData as any).property_address || "";
+        if (propAddress) addressParts.push(propAddress.trim());
+        if (prop.city) addressParts.push(prop.city.trim());
+        if (prop.province) addressParts.push(prop.province.trim());
+        if (prop.country) addressParts.push(prop.country.trim());
+        if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+        const fullCityAddress = addressParts.join(", ");
+        if (fullCityAddress) setSubtitle(fullCityAddress);
       }
 
       if (agent) {

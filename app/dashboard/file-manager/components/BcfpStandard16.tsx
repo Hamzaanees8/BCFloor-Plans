@@ -474,15 +474,23 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           if (orderData.property.mls_number)
             setAddressCode(orderData.property.mls_number);
           if (orderData.property.suite) setRoadName(orderData.property.suite);
-          let cityString = "";
-          if (orderData.property.city) cityString += orderData.property.city;
+          const addressParts: string[] = [];
+          const propAddress =
+            orderData.property.address ||
+            (orderData as any).property_address ||
+            "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (orderData.property.city)
+            addressParts.push(orderData.property.city.trim());
           if (orderData.property.province)
-            cityString +=
-              (cityString ? ", " : "") + orderData.property.province;
+            addressParts.push(orderData.property.province.trim());
+          if (orderData.property.country)
+            addressParts.push(orderData.property.country.trim());
           if (orderData.property.postal_code)
-            cityString +=
-              (cityString ? " " : "") + orderData.property.postal_code;
-          if (cityString) setCityLine(cityString);
+            addressParts.push(orderData.property.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
@@ -1184,7 +1192,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setAddressHash(e.target.value)}
                             inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
                             onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[30px] text-[#ffffff] leading-none mr-0.5"
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[28px] text-[#ffffff] leading-none mr-0.5"
                             placeholder="#"
                             disabled={lockedSections.address}
                             onDelete={() =>
@@ -1298,9 +1306,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   </div>
                 </div>
               </div>
-              <div>
+              <div className="w-[200px] h-[100px] shrink-0">
                 <div
-                  className="my-0 w-[200px] h-full relative overflow-hidden group"
+                  className={`my-0 w-[200px] h-[100px] relative overflow-hidden group ${images.image1 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   onMouseEnter={() => setHoveredImageSlot("image1")}
                   onMouseLeave={() => setHoveredImageSlot(null)}
                 >
@@ -1320,7 +1328,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           scale={scale.image1}
                           position={position.image1}
                           rotation={image1Rotation}
-                          objectFit="contain"
+                          objectFit="cover"
                         />
 
                         {/* Zoom Controls */}
@@ -2400,7 +2408,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setPage2AddressHash(e.target.value)}
                             inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
                             onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[21px] text-[#ffffff] leading-none mr-0.5"
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-[#ffffff] leading-none mr-0.5"
                             placeholder="#"
                             disabled={lockedSections.page2Header}
                             onDelete={() =>

@@ -461,15 +461,23 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             setRoadName(orderData.property.address);
           }
 
-          let cityString = "";
-          if (orderData.property.city) cityString += orderData.property.city;
+          const addressParts: string[] = [];
+          const propAddress =
+            orderData.property.address ||
+            (orderData as any).property_address ||
+            "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (orderData.property.city)
+            addressParts.push(orderData.property.city.trim());
           if (orderData.property.province)
-            cityString +=
-              (cityString ? ", " : "") + orderData.property.province;
+            addressParts.push(orderData.property.province.trim());
+          if (orderData.property.country)
+            addressParts.push(orderData.property.country.trim());
           if (orderData.property.postal_code)
-            cityString +=
-              (cityString ? " " : "") + orderData.property.postal_code;
-          if (cityString) setCityLine(cityString);
+            addressParts.push(orderData.property.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
