@@ -560,10 +560,13 @@ export async function VendorTourMedia(uuid: string) {
   return data;
 }
 
-export const connectGoogleCalendar = async (redirectBackUrl?: string) => {
+export const connectGoogleCalendar = async (redirectBackUrl?: string, vendorUuid?: string) => {
   try {
     const response = await api.get(`/vendor/calendar/connect`, {
-      params: { redirect_back_url: redirectBackUrl || (typeof window !== 'undefined' ? window.location.href : undefined) }
+      params: { 
+        redirect_back_url: redirectBackUrl || (typeof window !== 'undefined' ? window.location.href : undefined),
+        vendor_uuid: vendorUuid
+      }
     });
 
     const data = await response.data;

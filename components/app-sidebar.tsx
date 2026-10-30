@@ -148,7 +148,7 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { userType, unreadNotificationCount } = useAppContext();
+  const { userType, unreadNotificationCount, unreadPrintRequestCount } = useAppContext();
   const { organization } = useOrganization();
   const { allowPrintRequest } = usePortalSettings();
   const pathname = usePathname();
@@ -250,10 +250,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
           }
 
-          // Print Requests (Admin only, requires allow_print_request)
+          // Print Requests (Requires allow_print_request, visible to Admin, Agent, and Sub-Accounts)
           if (
             item.url === "/dashboard/admin/print-requests" &&
-            (userType !== "admin" || !allowPrintRequest)
+            (!allowPrintRequest || userType === "vendor")
           ) {
             return false;
           }
@@ -399,7 +399,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               "/dashboard/agents",
               "/dashboard/vendors",
               "/dashboard/vendor-billing",
-              "/dashboard/admin/print-requests",
+              // "/dashboard/admin/print-requests",
             ];
             if (alwaysHidden.includes(item.url)) {
               return false;
@@ -416,7 +416,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               "/dashboard/agents",
               "/dashboard/vendors",
               "/dashboard/vendor-billing",
-              "/dashboard/admin/print-requests",
+              // "/dashboard/admin/print-requests",
             ];
             return !restrictedUrls.includes(item.url);
           }
@@ -628,6 +628,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                           {unreadNotificationCount}
                                         </span>
                                       )}
+                                    {subItem.url === "/dashboard/admin/print-requests" && unreadPrintRequestCount > 0 && (
+                                      <span
+                                        className="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none"
+                                        style={{
+                                          backgroundColor: (orgPrimaryColor || roleSettings.activeColor),
+                                          color: "white",
+                                        }}
+                                      >
+                                        {unreadPrintRequestCount}
+                                      </span>
+                                    )}
                                   </div>
                                   {!isCollapsed && (
                                     <span className="flex items-center gap-2 flex-1">
@@ -650,6 +661,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </SidebarMenuItem>
                     );
                   })}
+
                 </SidebarMenu>
               )}
             </SidebarGroupContent>

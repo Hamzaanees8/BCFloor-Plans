@@ -1372,6 +1372,9 @@ const VendorForm = () => {
   //   setIsCalendarLoading(false);
   // };
   const stripeStatus = searchParams.get("stripe");
+  const googleSuccess = searchParams.get("google_calendar_success");
+  const googleError = searchParams.get("google_calendar_error");
+
   useEffect(() => {
     if (stripeStatus === "success") {
       toast.success("Stripe connected successfully!");
@@ -1379,6 +1382,31 @@ const VendorForm = () => {
       toast.info("Stripe onboarding link expired. Please reconnect.");
     }
   }, [stripeStatus]);
+
+  useEffect(() => {
+    if (googleSuccess || googleError) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("google_calendar_success");
+      url.searchParams.delete("google_calendar_error");
+      window.history.replaceState({}, "", url.toString());
+
+      if (googleSuccess === "true") {
+        toast.success("Google Calendar connected successfully!");
+        const idToUse = userId || currentUser?.uuid;
+        if (idToUse) {
+          GetOne(idToUse).then((data) => {
+            if (data?.data) {
+              setCurrentUser(data.data);
+            }
+          });
+        }
+      } else if (googleError) {
+        toast.error(
+          decodeURIComponent(googleError) || "Failed to connect Google Calendar",
+        );
+      }
+    }
+  }, [googleSuccess, googleError, userId, currentUser?.uuid]);
 
   useEffect(() => {
     if (state && code) {

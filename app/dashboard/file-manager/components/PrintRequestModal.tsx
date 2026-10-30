@@ -17,7 +17,6 @@ import { useAppContext } from "@/app/context/AppContext";
 import {
   featureSheetService,
   CreateTour,
-  createPayment,
 } from "../file-manager";
 import { toast } from "sonner";
 import { Order } from "../../orders/page";
@@ -488,7 +487,19 @@ export default function PrintRequestModal({
           }),
         );
 
-        // Find and update the pre-booked item in the list
+        // 1. Send print request first so PrintRequest model is created, triggering print request notifications and emails
+        await featureSheetService.requestPrint(resolvedFsUuid, {
+          copies,
+          option_id: selectedOptionUuid || currentPreBooked.option?.uuid,
+          amount: Number(selectedOption?.amount ?? currentPreBooked.amount ?? 0),
+          with_bleed: withBleed,
+          additional_info: additionalInfo,
+          agent_id: agentId,
+          property_id: propertyId,
+          tour_id: activeTourId,
+        });
+
+        // 2. Find and update the pre-booked item in the list
         const preBookedIdx = allServices.findIndex(
           (s) => s.uuid === currentPreBooked.uuid,
         );
@@ -501,12 +512,11 @@ export default function PrintRequestModal({
           };
         }
 
-        const updateRes = await UpdateOrderService(
+        await UpdateOrderService(
           orderData!.uuid,
           allServices,
           token,
         );
-        const updatedOrder = updateRes?.data || orderData;
 
         if (isPaidPreBooked) {
           // PATH A1: Already paid — just attach the sheet, no payment needed
@@ -518,46 +528,12 @@ export default function PrintRequestModal({
           }
           onClose();
         } else {
-          // PATH A2: Pre-booked but unpaid — attach sheet and prompt payment using EXISTING invoice
-          toast.success("Print request sent! Proceeding to payment...");
+          // PATH A2: Pre-booked but unpaid — attach sheet
+          toast.success("Print request sent successfully!");
           if (resolvedFsUuid && onRequestSuccess) {
             onRequestSuccess(resolvedFsUuid, currentPreBooked.uuid);
           }
           onClose();
-
-          if (updatedOrder && token) {
-            try {
-              // Locate existing invoice for this order/service so we DO NOT create a duplicate
-              const existingMatchingInvoice = (updatedOrder as any).invoices?.find(
-                (inv: any) =>
-                  inv.items?.some(
-                    (item: any) =>
-                      item.order_service_id === currentPreBooked.id ||
-                      item.order_service?.id === currentPreBooked.id ||
-                      item.order_service?.uuid === currentPreBooked.uuid,
-                  ) ||
-                  inv.order_id === updatedOrder.id ||
-                  inv.order_uuid === updatedOrder.uuid,
-              );
-
-              const existingInvoiceUuid = existingMatchingInvoice?.uuid;
-
-              if (existingInvoiceUuid) {
-                toast.info("Opening payment checkout for your pre-booked service invoice...");
-                await createPayment(updatedOrder, token, window.location.href, {
-                  serviceId: currentPreBooked.uuid,
-                  paymentType: "service",
-                  serviceName: sheetCustomName,
-                  amount: Number(currentPreBooked.amount || selectedOption?.amount || 0),
-                  existingInvoiceUuid,
-                });
-              } else {
-                toast.info("Your sheet is attached. Please pay via your order invoice.");
-              }
-            } catch (payErr) {
-              console.error("Payment checkout error:", payErr);
-            }
-          }
         }
       } else {
         // ── PATH B: No pre-booked service — original flow ─────────────────
@@ -574,7 +550,6 @@ export default function PrintRequestModal({
         });
 
         // 2. Add/update the Feature Sheets service in the order
-        let updatedOrder = orderData;
 
         if (orderData) {
           // Build all existing services list from the order safely with optional chaining
@@ -671,14 +646,11 @@ export default function PrintRequestModal({
             });
           }
 
-          const updateRes = await UpdateOrderService(
+          await UpdateOrderService(
             orderData.uuid,
             allServices,
             token,
           );
-          if (updateRes && updateRes.data) {
-            updatedOrder = updateRes.data;
-          }
         }
 
         toast.success("Print request sent & service booked successfully!");
@@ -686,32 +658,6 @@ export default function PrintRequestModal({
           onRequestSuccess(resolvedFsUuid);
         }
         onClose();
-
-        // 3. Automatically initiate invoice generation and payment checkout
-        if (updatedOrder && token) {
-          try {
-            const bookedServiceItem = (updatedOrder.services || []).find(
-              (os: any) =>
-                (os.feature_sheet_uuid &&
-                  os.feature_sheet_uuid === resolvedFsUuid) ||
-                (os.service?.uuid &&
-                  os.service.uuid === featureSheetsService?.uuid) ||
-                (os.service_id && os.service_id === featureSheetsService?.uuid),
-            );
-            const serviceUuidForInvoice =
-              bookedServiceItem?.uuid || featureSheetsService?.uuid;
-
-            toast.info("Opening payment checkout...");
-            await createPayment(updatedOrder, token, window.location.href, {
-              serviceId: serviceUuidForInvoice,
-              paymentType: "service",
-              serviceName: sheetCustomName,
-              amount: Number(selectedOption?.amount ?? 0),
-            });
-          } catch (payErr) {
-            console.error("Payment checkout error:", payErr);
-          }
-        }
       }
     } catch (error) {
       console.error("Print request failed:", error);

@@ -127,6 +127,7 @@ const Service: React.FC<
   const [openUpgrade, setOpenUpgrade] = useState(false);
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [imagePopupOpen, setImagePopupOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | File>("");
@@ -1510,8 +1511,14 @@ const Service: React.FC<
                     </p>
                   </div>
                   <Button
-                    onClick={() => {
-                      onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                    disabled={isOpeningInvoice}
+                    onClick={async () => {
+                      setIsOpeningInvoice(true);
+                      try {
+                        await onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                      } finally {
+                        setIsOpeningInvoice(false);
+                      }
                     }}
                     className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
                                             ${
@@ -1529,7 +1536,9 @@ const Service: React.FC<
                                                   : "bg-[#DC9600] hover:bg-[#eda304]"
                                             }`}
                   >
-                    {bookingToUse?.payment_status === "REFUNDED" ||
+                    {isOpeningInvoice ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : bookingToUse?.payment_status === "REFUNDED" ||
                     orderData?.payment_status === "REFUNDED"
                       ? "Refunded"
                       : bookingToUse?.payment_status == "PAID" ||
@@ -1564,8 +1573,14 @@ const Service: React.FC<
                     </p>
                   </div>
                   <Button
-                    onClick={() => {
-                      onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                    disabled={isOpeningInvoice}
+                    onClick={async () => {
+                      setIsOpeningInvoice(true);
+                      try {
+                        await onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                      } finally {
+                        setIsOpeningInvoice(false);
+                      }
                     }}
                     className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center font-bold text-white cursor-pointer px-1 md:px-4
                                             ${
@@ -1583,7 +1598,9 @@ const Service: React.FC<
                                                   : "bg-[#DC9600] hover:bg-[#eda304]"
                                             }`}
                   >
-                    {bookingToUse?.payment_status === "REFUNDED" ||
+                    {isOpeningInvoice ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : bookingToUse?.payment_status === "REFUNDED" ||
                     orderData?.payment_status === "REFUNDED"
                       ? "REFUNDED"
                       : bookingToUse?.payment_status == "PAID" ||

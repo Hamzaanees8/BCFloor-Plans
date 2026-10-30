@@ -397,14 +397,17 @@ export async function Get(token: string) {
       },
     });
 
-    const OrderData = await response.json();
-
     if (!response.ok) {
-      throw new Error(
-        OrderData.message || `Request failed with status ${response.status}`
-      );
+      const errorText = await response.text().catch(() => "");
+      let errorMessage = `Request failed with status ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.message) errorMessage = errorJson.message;
+      } catch {}
+      throw new Error(errorMessage);
     }
 
+    const OrderData = await response.json();
     return OrderData;
   } catch (error) {
     console.error("Failed to fetch Order data:", error);
@@ -542,11 +545,24 @@ export async function ResetPasswordSubAccount(
 
   return data;
 }
-export async function GetVendors(token: string, orgSlug?: string | null) {
+export async function GetVendors(
+  token: string,
+  orgSlug?: string | null,
+  includeGoogleEvents: boolean = false,
+  startDate?: string,
+  endDate?: string
+) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   try {
-    const url = orgSlug ? `${API_URL}/vendors?slug=${encodeURIComponent(orgSlug)}` : `${API_URL}/vendors`;
+    const params = new URLSearchParams();
+    if (orgSlug) params.append("slug", orgSlug);
+    if (includeGoogleEvents) params.append("include_google_events", "true");
+    if (startDate) params.append("start_date", startDate);
+    if (endDate) params.append("end_date", endDate);
+
+    const queryStr = params.toString();
+    const url = `${API_URL}/vendors${queryStr ? `?${queryStr}` : ""}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -710,7 +726,9 @@ export async function fetchBackendTwilightWindow(
     if (address) params.append('address', address);
 
     const res = await fetch(`${API_URL}/twilight-window?${params.toString()}`);
-    const json = await res.json();
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    if (!json) return null;
     if (!json.success || !json.data) return null;
 
     const data = json.data;

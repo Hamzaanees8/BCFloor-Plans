@@ -1,6 +1,7 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   getServiceCombinedStatus,
   isPaidOrSucceeded,
@@ -15,7 +16,7 @@ interface ServicePriceBadgeProps {
   userType: string;
   currentUserUuid?: string;
   isCoAgentUser?: boolean;
-  onOpenInvoice?: () => void;
+  onOpenInvoice?: () => void | Promise<any>;
   paymentSuccess?: boolean;
   quantityLabel?: string;
 }
@@ -133,14 +134,26 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
     );
   };
 
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
+
+  const handleOpen = async () => {
+    if (!onOpenInvoice) return;
+    setIsOpeningInvoice(true);
+    try {
+      await onOpenInvoice();
+    } finally {
+      setIsOpeningInvoice(false);
+    }
+  };
+
   const renderBadge = () => {
     const btnBase =
       "h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white rounded-md font-bold";
 
     if (combinedStatus === "refunded") {
       return (
-        <Button onClick={onOpenInvoice} className={`${btnBase} bg-[#D0021B] hover:bg-[#b00217]`}>
-          {userType === "admin" ? "REFUNDED" : "Refunded"}
+        <Button disabled={isOpeningInvoice} onClick={handleOpen} className={`${btnBase} bg-[#D0021B] hover:bg-[#b00217]`}>
+          {isOpeningInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : userType === "admin" ? "REFUNDED" : "Refunded"}
         </Button>
       );
     }
@@ -148,8 +161,8 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
     if (combinedStatus === "partially_paid") {
       return (
         <div className="flex flex-col items-end gap-0.5">
-          <Button onClick={onOpenInvoice} className={`${btnBase} bg-[#DC9600] hover:bg-[#b87d00]`}>
-            PARTIAL
+          <Button disabled={isOpeningInvoice} onClick={handleOpen} className={`${btnBase} bg-[#DC9600] hover:bg-[#b87d00]`}>
+            {isOpeningInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "PARTIAL"}
           </Button>
           {userOwnPaid && userType !== "admin" && (
             <span className="text-[8px] text-[#6BAE41] font-semibold whitespace-nowrap">
@@ -162,15 +175,15 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
 
     if (combinedStatus === "paid") {
       return (
-        <Button onClick={onOpenInvoice} className={`${btnBase} bg-[#6BAE41] hover:bg-[#5fa43a]`}>
-          {userType === "admin" ? "PAID" : "Paid"}
+        <Button disabled={isOpeningInvoice} onClick={handleOpen} className={`${btnBase} bg-[#6BAE41] hover:bg-[#5fa43a]`}>
+          {isOpeningInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : userType === "admin" ? "PAID" : "Paid"}
         </Button>
       );
     }
 
     return (
-      <Button onClick={onOpenInvoice} className={`${btnBase} bg-[#DC9600] hover:bg-[#eda304]`}>
-        {userType === "admin" ? "UNPAID" : "UnPaid"}
+      <Button disabled={isOpeningInvoice} onClick={handleOpen} className={`${btnBase} bg-[#DC9600] hover:bg-[#eda304]`}>
+        {isOpeningInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : userType === "admin" ? "UNPAID" : "UnPaid"}
       </Button>
     );
   };

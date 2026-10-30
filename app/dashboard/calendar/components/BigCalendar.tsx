@@ -27,6 +27,7 @@ import { EditSlotTimeModal } from './EditSlotTimeModal';
 import CancelOrderDialog from '../../orders/components/CancelOrderDialog';
 import RemoveServiceModal from '../../orders/components/RemoveServiceModal';
 import { PreviewCancelService, CancelService, convertTimeToTimezone, resolveTimezoneFromProvince } from '../../orders/orders';
+import { parseToPropertyTimezone } from '../../orders/components/OneDayCalendar';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -276,10 +277,18 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         vendorsToProcess.forEach(vendor => {
             if (vendor.calendar_events && Array.isArray(vendor.calendar_events)) {
                 const mappedEvents = vendor.calendar_events
-                    .filter(event => event.status !== 'cancelled')
+                    .filter(event => {
+                        if (!event || event.status === 'cancelled') return false;
+                        const summary = (event.summary || '').trim();
+                        if (/^Order\s*#\d+/i.test(summary) || /^External:\s*Order\s*#\d+/i.test(summary)) {
+                            return false;
+                        }
+                        return true;
+                    })
                     .map(event => {
-                        const start = dayjs(event.start).toDate();
-                        let end = dayjs(event.end).toDate();
+                        const vendorTz = vendor.work_hours?.timezone || (vendor as any).workHours?.[0]?.timezone || "America/Vancouver";
+                        const start = parseToPropertyTimezone(event.start, vendorTz).toDate();
+                        let end = parseToPropertyTimezone(event.end, vendorTz).toDate();
 
                         // If all day or spans multiple days, just show as a 1 hour block on start date
                         const isMultiDay = dayjs(event.end).diff(dayjs(event.start), 'day') > 0;
@@ -289,7 +298,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
                         return {
                             id: event.id,
-                            title: 'External Event',
+                            title: event.summary ? `External: ${event.summary}` : 'External Event',
                             start,
                             end,
                             allDay: false, // Force false to show in time grid

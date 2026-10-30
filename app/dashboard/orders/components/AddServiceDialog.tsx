@@ -96,7 +96,7 @@ export default function AddServiceDialog({
         })
         .catch((err) => console.log("Failed to fetch packages in AddServiceDialog:", err));
 
-      GetVendors(token)
+      GetVendors(token, undefined, true)
         .then((res) => {
           if (Array.isArray(res?.data)) setVendorsData(res.data);
         })

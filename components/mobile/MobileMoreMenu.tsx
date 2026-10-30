@@ -60,6 +60,7 @@ const allNavGroups: NavGroup[] = [
       { title: '3D / Matterport', url: '/dashboard/matterport', icon: MatterportIcon as any },
       { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
       { title: 'Billing', url: '/dashboard/billing', icon: PanelTop },
+      { title: 'Print Requests', url: '/dashboard/admin/print-requests', icon: Printer },
       { title: 'Vendor Billing', url: '/dashboard/vendor-billing', icon: PanelTop },
     ],
   },
@@ -74,7 +75,6 @@ const allNavGroups: NavGroup[] = [
   {
     title: 'GENERAL',
     items: [
-      { title: 'Print Requests', url: '/dashboard/admin/print-requests', icon: Printer },
       { title: 'Global Settings', url: '/dashboard/global-settings', icon: Sliders },
     ],
   },
@@ -128,7 +128,7 @@ function getFilteredNav(userType: string, allowPrintRequest: boolean): NavGroup[
           // Print Requests: admin only + requires allow_print_request
           if (
             item.url === '/dashboard/admin/print-requests' &&
-            (userType !== 'admin' || !allowPrintRequest)
+            (!allowPrintRequest || userType === 'vendor')
           )
             return false;
 
@@ -174,7 +174,7 @@ function getFilteredNav(userType: string, allowPrintRequest: boolean): NavGroup[
 /* -------------------------------------------------------------------------- */
 
 export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
-  const { userType, unreadNotificationCount } = useAppContext();
+  const { userType, unreadNotificationCount, unreadPrintRequestCount } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
   const router = useRouter();
 
@@ -313,6 +313,11 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
                           : unreadNotificationCount}
                       </span>
                     )}
+                    {item.url === "/dashboard/admin/print-requests" && unreadPrintRequestCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
+                        {unreadPrintRequestCount > 99 ? "99+" : unreadPrintRequestCount}
+                      </span>
+                    )}
                   </span>
                   <span className="text-[15px] text-gray-800 font-normal">
                     {item.title}
@@ -320,6 +325,7 @@ export default function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
                 </Link>
               );
             })}
+
           </div>
         ))}
       </div>

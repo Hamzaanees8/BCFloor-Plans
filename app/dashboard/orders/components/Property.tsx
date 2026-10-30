@@ -260,6 +260,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setListingSearchValue("");
         } else {
             setSelectedListingId(id);
+            setTempPropertyData(null);
             setOpenListing(false);
             setOpenAddListingDialog(false);
             setListingSearchValue("");
@@ -407,7 +408,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             return;
         }
 
-        GetVendors(token as string, orgSlug)
+        GetVendors(token as string, orgSlug, true)
             .then((data) => {
                 const fetched = Array.isArray(data.data) ? data.data : [];
                 setVendorsData(fetched);
@@ -725,7 +726,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 const updatedPayload = { ...apiPayload, _method: 'PUT' };
                 await EditListings(currentListing.uuid, updatedPayload, token);
                 if (selectedListingId === currentListing.uuid) {
-                    setTempPropertyData(tempPayload);
+                    setTempPropertyData(null);
                 }
                 resetForm();
                 setOpenAddListingDialog(false);

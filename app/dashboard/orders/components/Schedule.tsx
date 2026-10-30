@@ -12,7 +12,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar, { getDistanceColor } from './OneDayCalendar'
-import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightTime, fetchBackendTwilightWindow, TwilightResponse } from '../orders'
+import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightTime, fetchBackendTwilightWindow, TwilightResponse, GetVendors } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
@@ -127,6 +127,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         selectedServices,
         setSelectedServices,
         vendorsData,
+        setVendorsData,
         servicesData,
         tempPropertyData,
         selectedSlots,
@@ -139,6 +140,18 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         portalSettings,
         setPortalSettings,
     } = useOrderContext();
+
+    useEffect(() => {
+        if (vendorsData.length === 0) {
+            const token = localStorage.getItem('agentToken') || localStorage.getItem('token');
+            if (token) {
+                GetVendors(token, organization?.slug).then((res: any) => {
+                    const fetched = Array.isArray(res.data) ? res.data : [];
+                    if (fetched.length > 0) setVendorsData(fetched);
+                }).catch(err => console.log("Error fetching vendors fallback in Schedule:", err));
+            }
+        }
+    }, [vendorsData.length, organization?.slug, setVendorsData]);
 
     useEffect(() => {
         GetTourSettings().then((res: any) => {
@@ -203,15 +216,15 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
     const lastAddressRef = React.useRef<string>('');
     const isRunningRef = React.useRef<boolean>(false);
-    // Capture the initial selected slots once for edit-mode vendor force-injection.
+    // Capture the initial selected slots once for edit-mode and tab-navigation vendor force-injection.
     // Using a ref avoids adding selectedSlots to loadAndCalculate's deps, which would
     // trigger the heavy vendor/geofence recalculation on every slot selection.
     const initialEditSlotsRef = React.useRef<Slot[]>([]);
     useEffect(() => {
-        if (isEdit && selectedSlots.length > 0 && initialEditSlotsRef.current.length === 0) {
+        if (selectedSlots.length > 0 && initialEditSlotsRef.current.length === 0) {
             initialEditSlotsRef.current = selectedSlots;
         }
-    }, [isEdit, selectedSlots]);
+    }, [selectedSlots]);
 
     const addressString = React.useMemo(() => {
         if (selectedCurrentListing) {
@@ -251,7 +264,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
             if (!vendorsData.length || !addressString || !servicesData.length) {
                 setFilteredVendorsByService({});
                 setOverridableVendorsByService({});
-                setIsCalculating(false);
+                if (!addressString && !selectedCurrentListing && !tempPropertyData) {
+                    setIsCalculating(false);
+                }
                 return;
             }
 
@@ -259,86 +274,93 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
             isRunningRef.current = true;
             setIsCalculating(true);
 
-            // Fetch geocode once for all ops
-            const propertyCoords = await getCachedGeocode(addressString);
+            try {
+                // Fetch geocode once for all ops
+                const propertyCoords = await getCachedGeocode(addressString);
 
-            // 1. Filter vendors by service/area
-            const result: Record<string, VendorData[]> = {};
-            const overridable: Record<string, VendorData[]> = {};
+                // 1. Filter vendors by service/area
+                const result: Record<string, VendorData[]> = {};
+                const overridable: Record<string, VendorData[]> = {};
 
-            for (const service of servicesData) {
-                const vendorsForService = vendorsData.filter(v =>
-                    v.vendor_services?.some(vs => vs.service?.uuid === service.uuid)
-                );
+                for (const service of servicesData) {
+                    const vendorsForService = vendorsData.filter(v =>
+                        v.vendor_services?.some(vs => vs.service?.uuid === service.uuid)
+                    );
 
-                const isTravelReq = isServiceRequiringTravel(service, servicesData);
-                if (!isTravelReq) {
-                    result[service.uuid] = vendorsForService;
-                    overridable[service.uuid] = [];
-                    continue;
+                    const isTravelReq = isServiceRequiringTravel(service, servicesData);
+                    if (!isTravelReq) {
+                        result[service.uuid] = vendorsForService;
+                        overridable[service.uuid] = [];
+                        continue;
+                    }
+
+                    const insideResults = await Promise.all(
+                        vendorsForService.map(async vendor => {
+                            const enable_service_area = vendor.settings?.enable_service_area;
+                            const isServiceAreaEnabled = enable_service_area === 1 || enable_service_area === true;
+
+                            if (!isServiceAreaEnabled) {
+                                return { vendor, inside: true, canOverride: false };
+                            }
+
+                            const force_service_area = vendor.settings?.force_service_area;
+                            const isForced = force_service_area === 1 || force_service_area === true;
+
+                            let hasCoordinates = false;
+                            try {
+                                const coords = JSON.parse(vendor.coordinates as unknown as string);
+                                hasCoordinates = Array.isArray(coords) && coords.length >= 3;
+                            } catch {
+                                hasCoordinates = false;
+                            }
+
+                            if (isForced) {
+                                const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
+                                return { vendor, inside, canOverride: false };
+                            }
+
+                            if (!hasCoordinates) {
+                                return { vendor, inside: true, canOverride: false };
+                            }
+
+                            const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
+                            return { vendor, inside, canOverride: !inside };
+                        })
+                    );
+
+                    result[service.uuid] = insideResults
+                        .filter(r => r.inside)
+                        .map(r => r.vendor);
+
+                    overridable[service.uuid] = insideResults
+                        .filter(r => r.canOverride)
+                        .map(r => r.vendor);
                 }
 
-                const insideResults = await Promise.all(
-                    vendorsForService.map(async vendor => {
-                        const enable_service_area = vendor.settings?.enable_service_area;
-                        const isServiceAreaEnabled = enable_service_area === 1 || enable_service_area === true;
-
-                        if (!isServiceAreaEnabled) {
-                            return { vendor, inside: true, canOverride: false };
-                        }
-
-                        const force_service_area = vendor.settings?.force_service_area;
-                        const isForced = force_service_area === 1 || force_service_area === true;
-
-                        let hasCoordinates = false;
-                        try {
-                            const coords = JSON.parse(vendor.coordinates as unknown as string);
-                            hasCoordinates = Array.isArray(coords) && coords.length >= 3;
-                        } catch {
-                            hasCoordinates = false;
-                        }
-
-                        if (isForced) {
-                            const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
-                            return { vendor, inside, canOverride: false };
-                        }
-
-                        if (!hasCoordinates) {
-                            return { vendor, inside: true, canOverride: false };
-                        }
-
-                        const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
-                        return { vendor, inside, canOverride: !inside };
-                    })
-                );
-
-                result[service.uuid] = insideResults
-                    .filter(r => r.inside)
-                    .map(r => r.vendor);
-
-                overridable[service.uuid] = insideResults
-                    .filter(r => r.canOverride)
-                    .map(r => r.vendor);
-            }
-
-            // ── Edit-mode fix: force-include previously-booked vendors ──────────
-            // When editing an existing order, ensure the vendor who was booked
-            // always appears in the dropdown — even if they no longer pass the
-            // service / geofence filters. Use the ref snapshot (captured once
-            // on load) so this logic does NOT re-run on every slot selection.
-            if (isEdit && initialEditSlotsRef.current.length > 0) {
+                // ── Force-include previously-booked / assigned vendors ──────────
+                // When editing an existing order OR navigating between tabs, ensure any vendor
+                // who was already booked in selectedSlots / initialEditSlotsRef OR assigned in servicesToSchedule
+                // always appears in result[service.uuid] — even if they are outside their service area
+                // (e.g. booked via Admin Schedule Override) or fail geofence filtering.
+                // This guarantees both Admins and Agents always see the assigned/booked vendor.
+                const slotsToPreserve = selectedSlots.length > 0 ? selectedSlots : initialEditSlotsRef.current;
                 for (const service of servicesData) {
-                    const bookedVendorIds = new Set(
-                        initialEditSlotsRef.current
-                            .filter(s => String(s.service_id) === String(service.uuid))
-                            .map(s => s.vendor?.uuid || s.vendor_id)
-                            .filter(Boolean)
-                    );
+                    const bookedVendorIds = new Set<string>();
+
+                    slotsToPreserve
+                        .filter(s => String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id)))
+                        .map(s => s.vendor?.uuid || s.vendor_id)
+                        .filter(Boolean)
+                        .forEach(id => bookedVendorIds.add(id));
+
+                    const assignedSvc = servicesToSchedule?.find(s => s.uuid === service.uuid || (service.id && String(s.id) === String(service.id)));
+                    if (assignedSvc?.vendor_id && assignedSvc.vendor_id !== 'all' && assignedSvc.vendor_id !== 'none') {
+                        bookedVendorIds.add(assignedSvc.vendor_id);
+                    }
 
                     bookedVendorIds.forEach(vendorId => {
                         const alreadyInResult = (result[service.uuid] ?? []).some(v => v.uuid === vendorId);
-                        const alreadyInOverridable = (overridable[service.uuid] ?? []).some(v => v.uuid === vendorId);
-                        if (!alreadyInResult && !alreadyInOverridable) {
+                        if (!alreadyInResult) {
                             const vendorData = vendorsData.find(v => v.uuid === vendorId);
                             if (vendorData) {
                                 if (!result[service.uuid]) result[service.uuid] = [];
@@ -347,45 +369,49 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         }
                     });
                 }
-            }
 
-            setFilteredVendorsByService(result);
-            setOverridableVendorsByService(overridable);
+                setFilteredVendorsByService(result);
+                setOverridableVendorsByService(overridable);
 
-            // 2. Load property timezone (uses cached geocode under the hood)
-            const location = await getPropertyTimezone(fullAddress);
-            if (location) {
-                setPropertyLocation(location);
-            } else {
-                console.error('Failed to fetch property timezone');
-            }
-
-            // 3. Calculate distances for ALL vendors (not just in-area/overridable)
-            // so that vendors shown in the "Not Offering This Service" group and the
-            // calendar slot popup also have correct travel times.
-            const uniqueVendorsMap = new Map<string, VendorData>();
-            vendorsData.forEach(v => {
-                if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
-            });
-
-            const uniqueVendors = Array.from(uniqueVendorsMap.values());
-
-            if (uniqueVendors.length > 0) {
-                for (let i = 0; i < uniqueVendors.length; i += 25) {
-                    const batch = uniqueVendors.slice(i, i + 25);
-                    await calculateAllVendorDistances(fullAddress, batch);
+                // 2. Load property timezone (uses cached geocode under the hood)
+                const location = await getPropertyTimezone(fullAddress);
+                if (location) {
+                    setPropertyLocation(location);
+                } else {
+                    console.error('Failed to fetch property timezone');
                 }
-            }
 
-            setIsCalculating(false);
-            isRunningRef.current = false;
-            lastAddressRef.current = addressString;
+                // 3. Calculate distances for ALL vendors (not just in-area/overridable)
+                // so that vendors shown in the "Not Offering This Service" group and the
+                // calendar slot popup also have correct travel times.
+                const uniqueVendorsMap = new Map<string, VendorData>();
+                vendorsData.forEach(v => {
+                    if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
+                });
+
+                const uniqueVendors = Array.from(uniqueVendorsMap.values());
+
+                if (uniqueVendors.length > 0) {
+                    for (let i = 0; i < uniqueVendors.length; i += 25) {
+                        const batch = uniqueVendors.slice(i, i + 25);
+                        await calculateAllVendorDistances(fullAddress, batch);
+                    }
+                }
+
+                lastAddressRef.current = addressString;
+            } catch (err) {
+                console.error("Error in loadAndCalculate:", err);
+            } finally {
+                setIsCalculating(false);
+                isRunningRef.current = false;
+            }
         }
 
         loadAndCalculate();
     // NOTE: selectedSlots intentionally omitted from deps — see initialEditSlotsRef above.
     // Adding selectedSlots would cause the heavy vendor/geofence recalculation to run on
     // every single slot click, showing a loading spinner on ALL service calendars.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [addressString, fullAddress, vendorsData, servicesData, googleReady, isEdit]);
 
     useEffect(() => {
@@ -785,13 +811,22 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
                                             const visibleUUIDs = new Set(visibleVendors.map(v => v.uuid));
 
+                                            // Also guarantee any vendor who is already booked in serviceSlots or assigned to this service is included
+                                            const bookedVendorsForService = vendorsData.filter(v =>
+                                                (serviceSlots.some(s => (s.vendor?.uuid || s.vendor_id) === v.uuid) ||
+                                                (selectedVendor && selectedVendor !== 'all' && selectedVendor !== 'none' && v.uuid === selectedVendor)) &&
+                                                !visibleUUIDs.has(v.uuid)
+                                            );
+                                            const allVisibleVendors = [...visibleVendors, ...bookedVendorsForService];
+                                            const allVisibleUUIDs = new Set(allVisibleVendors.map(v => v.uuid));
+
                                             // Issue 2: When Schedule Override is ON, compute vendors who don't
                                             // offer this service at all (not in filteredVendors or overridable).
                                             const nonServiceVendors: VendorData[] = scheduleOverride === 1
-                                                ? vendorsData.filter(v => v.uuid && !visibleUUIDs.has(v.uuid))
+                                                ? vendorsData.filter(v => v.uuid && !allVisibleUUIDs.has(v.uuid))
                                                 : [];
 
-                                            const noVendors = !isCalculating && !!service.uuid && visibleVendors.length === 0 && nonServiceVendors.length === 0;
+                                            const noVendors = !isCalculating && !!service.uuid && allVisibleVendors.length === 0 && nonServiceVendors.length === 0;
 
                                             return (
                                                 <>
@@ -806,7 +841,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                         </div>
                                                     )}
                                                     {/* Show hint that override will reveal non-service vendors */}
-                                                    {!isCalculating && scheduleOverride === 0 && userType === 'admin' && visibleVendors.length === 0 && !hasOverridable && vendorsData.length > 0 && (
+                                                    {!isCalculating && scheduleOverride === 0 && userType === 'admin' && allVisibleVendors.length === 0 && !hasOverridable && vendorsData.length > 0 && (
                                                         <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
                                                             <Info className="w-4 h-4 text-amber-600 shrink-0" />
                                                             <p className="text-[11px] text-amber-700 leading-snug">
@@ -839,15 +874,15 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                                 </SelectItem>
                                                             ) : (
                                                                 <>
-                                                                    {/* Group 1: vendors offering the service (in-area + overridable) */}
-                                                                    {visibleVendors.length > 0 && (
+                                                                    {/* Group 1: vendors offering the service (in-area + overridable + booked) */}
+                                                                    {allVisibleVendors.length > 0 && (
                                                                         <SelectGroup>
                                                                             {scheduleOverride === 1 && (
                                                                                 <SelectLabel className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide px-2 py-1">
                                                                                     Offering This Service
                                                                                 </SelectLabel>
                                                                             )}
-                                                                            {[...visibleVendors]
+                                                                            {[...allVisibleVendors]
                                                                                 .sort((a, b) => {
                                                                                     const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
                                                                                     const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
@@ -891,7 +926,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                                     {/* Group 2: vendors NOT offering this service (only when Override is ON) */}
                                                                     {nonServiceVendors.length > 0 && (
                                                                         <>
-                                                                            {visibleVendors.length > 0 && <SelectSeparator />}
+                                                                            {allVisibleVendors.length > 0 && <SelectSeparator />}
                                                                             <SelectGroup>
                                                                                 <SelectLabel className="text-[10px] text-amber-600 font-semibold uppercase tracking-wide px-2 py-1 flex items-center gap-1">
                                                                                     <AlertTriangle className="w-3 h-3" />
@@ -927,7 +962,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                                     )}
 
                                                                     {/* Fallback when truly no vendors */}
-                                                                    {visibleVendors.length === 0 && nonServiceVendors.length === 0 && (
+                                                                    {allVisibleVendors.length === 0 && nonServiceVendors.length === 0 && (
                                                                         <SelectItem value="none" disabled>
                                                                             No vendors available for this service in the selected area
                                                                         </SelectItem>
@@ -1121,6 +1156,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 const svcUuid = service.uuid ?? '';
                                                 const hasAnyVendor = !svcUuid ? false : (
                                                     (filteredVendorsByService[svcUuid] ?? []).length > 0 ||
+                                                    serviceSlots.length > 0 ||
+                                                    isVendorAssigned ||
                                                     (scheduleOverride === 1 && (overridableVendorsByService[svcUuid] ?? []).length > 0) ||
                                                     (scheduleOverride === 1 && vendorsData.some(v => {
                                                         const visUUIDs = new Set([
@@ -1181,7 +1218,12 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                                             const extraVendors = scheduleOverride === 1
                                                                                 ? vendorsData.filter(v => v.uuid && !normalUUIDs.has(v.uuid))
                                                                                 : [];
-                                                                            return [...normalVendors, ...extraVendors]
+                                                                            const bookedVendors = vendorsData.filter(v =>
+                                                                                v.uuid &&
+                                                                                !normalUUIDs.has(v.uuid) &&
+                                                                                serviceSlots.some(s => (s.vendor?.uuid || s.vendor_id) === v.uuid)
+                                                                            );
+                                                                            return [...normalVendors, ...extraVendors, ...bookedVendors]
                                                                                 .map((v) => v.uuid)
                                                                                 .filter((uuid): uuid is string => typeof uuid === 'string');
                                                                         })()

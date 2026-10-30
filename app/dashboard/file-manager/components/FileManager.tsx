@@ -56,7 +56,7 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X, Edit2, Save, Trash2, Sparkles, RefreshCw } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2 } from "lucide-react";
 import SendToClientModal from "./SendToClientModal";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
@@ -1026,10 +1026,11 @@ const FileManager = () => {
     };
 
     processStripePayment();
-  }, [searchParams, router, fetchOrder, orderData?.uuid, userType]);
+  }, [searchParams, router, fetchOrder, orderData?.uuid, userType, orderId, orderData?.id]);
 
   const refreshInvoices = React.useCallback(async () => {
-    if (!orderData?.uuid || userType === "vendor") return;
+    const currentUserType = userType || (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
+    if (!orderData?.uuid || currentUserType === "vendor") return;
     setInvoicesLoading(true);
     try {
       const res = await GetInvoicesByOrder(orderData.uuid);
@@ -1039,20 +1040,20 @@ const FileManager = () => {
     } finally {
       setInvoicesLoading(false);
     }
-    fetchOrder();
-  }, [orderData?.uuid, userType, fetchOrder]);
+  }, [orderData?.uuid, userType]);
 
   const handleRefreshAll = React.useCallback(async () => {
     const token = localStorage.getItem("token");
     const targetUuid = orderData?.uuid || orderId;
-    if (!token || !targetUuid) return;
+    if (!token || !targetUuid || targetUuid === "undefined" || targetUuid === "null") return;
 
     try {
       // 1. Fetch updated order (updates orderData, services, package limits)
       await fetchOrder();
 
       // 2. Refresh invoices
-      if (userType !== "vendor") {
+      const currentUserType = userType || (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
+      if (currentUserType !== "vendor") {
         try {
           const invRes = await GetInvoicesByOrder(targetUuid);
           setInvoices(Array.isArray(invRes?.data) ? invRes.data : []);
@@ -3041,34 +3042,7 @@ const FileManager = () => {
                               )}
                             </div>
 
-                            {status === "PAID" && (
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-blue-50/80 border border-blue-200 rounded-[6px] text-blue-900 text-[11.5px]">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                  <span>
-                                    Invoice Paid — Background processing removes watermarks (takes a couple of minutes).
-                                  </span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={handleRefreshFiles}
-                                  disabled={isManualRefreshing}
-                                  className="h-[26px] px-2 text-[11px] font-medium border-blue-300 bg-white hover:bg-blue-100 text-blue-900 flex items-center gap-1 shrink-0 self-end sm:self-auto shadow-xs"
-                                >
-                                  <RefreshCw
-                                    className={`w-3 h-3 ${isManualRefreshing ? "animate-spin" : ""}`}
-                                  />
-                                  <span>
-                                    {isManualRefreshing
-                                      ? "Refreshing..."
-                                      : "Refresh Media"}
-                                  </span>
-                                </Button>
-                              </div>
-                            )}
-
+                            
                             {/* Bottom Action Footer Row: All buttons on right */}
                             <div className="pt-2.5 border-t border-gray-200/60 flex items-center gap-2 flex-wrap justify-end">
                               <Button

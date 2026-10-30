@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BellOff, ArrowRight } from 'lucide-react';
+import { BellOff, ArrowRight, Printer } from 'lucide-react';
 import { useOrganization } from '@/app/context/OrganizationContext';
 import type { NotificationData } from '@/lib/types';
 
@@ -164,6 +164,23 @@ export default function MobileNotificationsList({
                           <span className="text-blue-900 bg-blue-100/90 border border-blue-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
                             {displayType}
+                          </span>
+                        );
+                      }
+                      const sourceStr = (notification.source || '').toLowerCase();
+                      if (
+                        sourceStr === 'printrequest' ||
+                        typeStr.includes('print_request') ||
+                        typeStr.includes('print request') ||
+                        subjectStr.includes('print request')
+                      ) {
+                        const displayLabel = typeStr.includes('completed')
+                          ? 'Print Request Completed'
+                          : 'Print Request';
+                        return (
+                          <span className="text-purple-900 bg-purple-100/90 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                            <Printer className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                            {displayLabel}
                           </span>
                         );
                       }

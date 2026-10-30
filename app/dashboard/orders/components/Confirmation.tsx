@@ -59,6 +59,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         isSplitInvoice,
         selectedAgentId,
         selectedListingId,
+        setSelectedListingId,
+        setSelectedCurrentListing,
         agentNotes,
         coAgents,
         selectedServices,
@@ -360,7 +362,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return;
         }
 
-        GetVendors(token, orgSlug)
+        GetVendors(token, orgSlug, true)
             .then((data) => {
                 setVendorsData(data.data);
             })
@@ -570,8 +572,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 const listingResponse = await CreateListings(listingPayload, token);
                 if (listingResponse?.data?.uuid) {
                     propertyId = listingResponse.data.uuid;
-                    // We can clear tempPropertyData after order is fully submitted if we want, 
-                    // but doing it here ensures we don't try to create it again if order fails and they retry.
+                    setSelectedListingId(listingResponse.data.uuid);
+                    if (setSelectedCurrentListing && listingResponse.data) {
+                        setSelectedCurrentListing(listingResponse.data);
+                    }
+                    setTempPropertyData(null);
                 } else {
                     toast.error("Failed to create property");
                     throw new Error("Failed to create property");
@@ -741,7 +746,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
  
             setCreatedOrderUuid(response.data.uuid);
             setIsSubmitted(true);
-            setTempPropertyData(null);
             return true;
         } catch (err) {
             console.error("Failed to submit order", err);

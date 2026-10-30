@@ -1847,7 +1847,10 @@ const AgentForm = () => {
     }
     setIsCalendarLoading(true);
     try {
-      const res = await ConnectCalendar(window.location.href);
+      const res = await ConnectCalendar(
+        window.location.href,
+        (userId || currentUser?.uuid) as string,
+      );
       if (res.success && res.auth_url) {
         window.location.href = res.auth_url;
       } else {

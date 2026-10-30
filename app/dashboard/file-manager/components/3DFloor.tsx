@@ -75,6 +75,7 @@ function FileTab2({
   const [, setSuccess] = useState(false);
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const [openUpgrade, setOpenUpgrade] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [copiedField, setCopiedField] = useState<
@@ -405,7 +406,7 @@ function FileTab2({
     });
   };
 
-  const handleFilesChange = (selectedFiles: File[]) => {
+  const handleFilesChange = useCallback((selectedFiles: File[]) => {
     if (userType === "agent") return;
     if (selectedFiles.length === 0) return;
 
@@ -415,7 +416,7 @@ function FileTab2({
     }));
 
     setPreviewFiles((prev) => [...prev, ...newFiles]);
-  };
+  }, [userType, setPreviewFiles]);
 
   const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -430,7 +431,7 @@ function FileTab2({
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
     handleFilesChange(droppedFiles);
-  }, [userType]);
+  }, [userType, handleFilesChange]);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -620,8 +621,14 @@ function FileTab2({
                   </p>
                 </div>
                 <Button
-                  onClick={() => {
-                    onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                  disabled={isOpeningInvoice}
+                  onClick={async () => {
+                    setIsOpeningInvoice(true);
+                    try {
+                      await onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                    } finally {
+                      setIsOpeningInvoice(false);
+                    }
                   }}
                   className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
                                         ${
@@ -639,7 +646,9 @@ function FileTab2({
                                               : "bg-[#DC9600] hover:bg-[#eda304]"
                                         }`}
                 >
-                  {bookingToUse?.payment_status === "REFUNDED" ||
+                  {isOpeningInvoice ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : bookingToUse?.payment_status === "REFUNDED" ||
                   orderData?.payment_status === "REFUNDED"
                     ? "REFUNDED"
                     : bookingToUse?.payment_status == "PAID" ||
@@ -681,8 +690,14 @@ function FileTab2({
                   </p>
                 </div>
                 <Button
-                  onClick={() => {
-                    onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                  disabled={isOpeningInvoice}
+                  onClick={async () => {
+                    setIsOpeningInvoice(true);
+                    try {
+                      await onOpenInvoice?.(currentService?.name, bookingToUse?.uuid);
+                    } finally {
+                      setIsOpeningInvoice(false);
+                    }
                   }}
                   className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
                                         ${
@@ -700,7 +715,9 @@ function FileTab2({
                                               : "bg-[#DC9600] hover:bg-[#eda304]"
                                         }`}
                 >
-                  {bookingToUse?.payment_status === "REFUNDED" ||
+                  {isOpeningInvoice ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : bookingToUse?.payment_status === "REFUNDED" ||
                   orderData?.payment_status === "REFUNDED"
                     ? "Refunded"
                     : bookingToUse?.payment_status == "PAID" ||
