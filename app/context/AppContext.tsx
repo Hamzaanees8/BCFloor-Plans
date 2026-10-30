@@ -10,6 +10,7 @@ import {
   useCallback,
 } from "react";
 import { GetNotifications } from "@/app/dashboard/notifications/notification";
+import { GetPrintRequestsUnreadCount } from "@/app/dashboard/admin/print-requests/print-requests";
 import { NotificationData } from "@/lib/types";
 
 type AppContextType = {
@@ -20,6 +21,9 @@ type AppContextType = {
   unreadNotificationCount: number;
   setUnreadNotificationCount: Dispatch<SetStateAction<number>>;
   refreshNotifications: () => Promise<void>;
+  unreadPrintRequestCount: number;
+  setUnreadPrintRequestCount: Dispatch<SetStateAction<number>>;
+  refreshPrintRequestsCount: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -29,6 +33,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] =
     useState<number>(0);
+  const [unreadPrintRequestCount, setUnreadPrintRequestCount] =
+    useState<number>(0);
+
   useEffect(() => {
     const userType = localStorage.getItem("userType");
     setUserType(userType || "");
@@ -48,9 +55,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const refreshPrintRequestsCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const count = await GetPrintRequestsUnreadCount();
+      setUnreadPrintRequestCount(count);
+    } catch (error) {
+      console.error("Failed to fetch print requests unread count in context:", error);
+    }
+  }, []);
+
   useEffect(() => {
     refreshNotifications();
-  }, [refreshNotifications]);
+    refreshPrintRequestsCount();
+  }, [refreshNotifications, refreshPrintRequestsCount]);
 
   return (
     <AppContext.Provider
@@ -62,12 +82,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         unreadNotificationCount,
         setUnreadNotificationCount,
         refreshNotifications,
+        unreadPrintRequestCount,
+        setUnreadPrintRequestCount,
+        refreshPrintRequestsCount,
       }}
     >
       {children}
     </AppContext.Provider>
   );
 };
+
 export const useAppContext = () => {
   const context = useContext(AppContext);
   if (!context) {

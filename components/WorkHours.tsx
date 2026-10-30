@@ -538,7 +538,9 @@ const VendorWorkHours = ({
   ) => {
     e.preventDefault();
     setIsCalendarLoading(true);
-    const data = await connectGoogleCalendar();
+    const vendorUuid = (currentUser?.uuid ||
+      currentUser?.company?.vendor_id?.toString()) as string;
+    const data = await connectGoogleCalendar(undefined, vendorUuid);
 
     if (data.success) {
       toast.success("Redirecting to Google Calendar...");

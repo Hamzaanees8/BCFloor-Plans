@@ -19,7 +19,7 @@ import { GetNotifications, MarkNotificationAsRead, MarkAllNotificationsAsRead } 
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileNotificationsList from "@/components/mobile/notifications/MobileNotificationsList";
-import { CheckCheck, Loader2 } from "lucide-react";
+import { CheckCheck, Loader2, Printer } from "lucide-react";
 
 const Page = () => {
   const isMobile = useIsMobile();
@@ -365,10 +365,29 @@ const Page = () => {
           typeStr.includes("media_uploaded") ||
           typeStr.includes("media ready") ||
           subjectStr.includes("media");
+        const isPrintRequest =
+          (row.original.source || "").toLowerCase() === "printrequest" ||
+          typeStr.includes("print_request") ||
+          typeStr.includes("print request") ||
+          subjectStr.includes("print request");
 
         const formattedType = (row.original.type || row.original.Subject)
           ?.replace(/_/g, " ")
           ?.replace(/\b\w/g, (char: string) => char.toUpperCase());
+
+        if (isPrintRequest) {
+          const displayLabel = typeStr.includes("completed")
+            ? "Print Request Completed"
+            : "Print Request";
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-[600] text-purple-900 bg-purple-100/90 border border-purple-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+                <Printer className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                {displayLabel}
+              </span>
+            </div>
+          );
+        }
 
         if (isApproval) {
           return (

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
@@ -275,6 +276,8 @@ const CreateFeatureSheet = forwardRef<
   const { userType } = useAppContext();
   const { allowPrintRequest } = usePortalSettings();
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
+  const [openingInvoiceSheetUuid, setOpeningInvoiceSheetUuid] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("userInfo");
@@ -1951,20 +1954,25 @@ const CreateFeatureSheet = forwardRef<
                                   PDF Document
                                 </div>
                                 <div
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     if (isSheetBookedUnpaid) {
                                       e.stopPropagation();
                                       if (
                                         onOpenInvoice &&
                                         statusInfo.orderService
                                       ) {
-                                        onOpenInvoice(
-                                          statusInfo.orderService.custom ||
-                                            "Feature Sheets",
-                                          statusInfo.orderService.uuid,
-                                          sheet.uuid,
-                                          sheet.id,
-                                        );
+                                        setOpeningInvoiceSheetUuid(sheet.uuid);
+                                        try {
+                                          await onOpenInvoice(
+                                            statusInfo.orderService.custom ||
+                                              "Feature Sheets",
+                                            statusInfo.orderService.uuid,
+                                            sheet.uuid,
+                                            sheet.id,
+                                          );
+                                        } finally {
+                                          setOpeningInvoiceSheetUuid(null);
+                                        }
                                       } else {
                                         setSelectedSheetUuid(sheet.uuid);
                                         setIsPaymentModalOpen(true);
@@ -1980,15 +1988,19 @@ const CreateFeatureSheet = forwardRef<
                                     isSheetPaid
                                       ? "bg-[#6BAE41]"
                                       : isSheetBookedUnpaid
-                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm flex items-center justify-center min-w-[50px]"
                                         : `${userType}-bg`
                                   }`}
                                 >
-                                  {isSheetPaid
-                                    ? "Paid"
-                                    : isSheetBookedUnpaid
-                                      ? "Booked (Unpaid)"
-                                      : "PDF Sheet"}
+                                  {openingInvoiceSheetUuid === sheet.uuid ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : isSheetPaid ? (
+                                    "Paid"
+                                  ) : isSheetBookedUnpaid ? (
+                                    "Booked (Unpaid)"
+                                  ) : (
+                                    "PDF Sheet"
+                                  )}
                                 </div>
                               </div>
                             ) : (
@@ -1997,20 +2009,25 @@ const CreateFeatureSheet = forwardRef<
                                 className="w-full h-[400px]"
                               >
                                 <div
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     if (isSheetBookedUnpaid) {
                                       e.stopPropagation();
                                       if (
                                         onOpenInvoice &&
                                         statusInfo.orderService
                                       ) {
-                                        onOpenInvoice(
-                                          statusInfo.orderService.custom ||
-                                            "Feature Sheets",
-                                          statusInfo.orderService.uuid,
-                                          sheet.uuid,
-                                          sheet.id,
-                                        );
+                                        setOpeningInvoiceSheetUuid(sheet.uuid);
+                                        try {
+                                          await onOpenInvoice(
+                                            statusInfo.orderService.custom ||
+                                              "Feature Sheets",
+                                            statusInfo.orderService.uuid,
+                                            sheet.uuid,
+                                            sheet.id,
+                                          );
+                                        } finally {
+                                          setOpeningInvoiceSheetUuid(null);
+                                        }
                                       } else {
                                         setSelectedSheetUuid(sheet.uuid);
                                         setIsPaymentModalOpen(true);
@@ -2026,15 +2043,19 @@ const CreateFeatureSheet = forwardRef<
                                     isSheetPaid
                                       ? "bg-[#6BAE41]"
                                       : isSheetBookedUnpaid
-                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm"
+                                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-sm flex items-center justify-center min-w-[50px]"
                                         : `${userType}-bg`
                                   }`}
                                 >
-                                  {isSheetPaid
-                                    ? "Paid"
-                                    : isSheetBookedUnpaid
-                                      ? "Booked (Unpaid)"
-                                      : "Saved"}
+                                  {openingInvoiceSheetUuid === sheet.uuid ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : isSheetPaid ? (
+                                    "Paid"
+                                  ) : isSheetBookedUnpaid ? (
+                                    "Booked (Unpaid)"
+                                  ) : (
+                                    "Saved"
+                                  )}
                                 </div>
                               </FeatureSheetThumbnail>
                             )}
@@ -2193,43 +2214,42 @@ const CreateFeatureSheet = forwardRef<
                                 <span className="text-[11px] md:text-[12px] font-alexandria text-[#7D7D7D]">
                                   Printed
                                 </span>
-                                <span
-                                  onClick={() => {
-                                    if (
-                                      bookedFeatureSheetsService?.payment_status !==
-                                      "PAID"
-                                    ) {
-                                      if (onOpenInvoice) {
-                                        onOpenInvoice(
+                                <Button
+                                  type="button"
+                                  disabled={isOpeningInvoice}
+                                  onClick={async () => {
+                                    if (onOpenInvoice) {
+                                      setIsOpeningInvoice(true);
+                                      try {
+                                        await onOpenInvoice(
                                           bookedFeatureSheetsService.custom ||
                                             "Feature Sheets",
                                           bookedFeatureSheetsService.uuid,
                                           currentSheet?.uuid,
                                           currentSheet?.id,
                                         );
-                                      } else {
-                                        setIsPaymentModalOpen(true);
+                                      } finally {
+                                        setIsOpeningInvoice(false);
                                       }
+                                    } else {
+                                      setIsPaymentModalOpen(true);
                                     }
                                   }}
-                                  title={
-                                    bookedFeatureSheetsService?.payment_status !==
-                                    "PAID"
-                                      ? "Click to view invoice / pay print request"
-                                      : "Paid"
-                                  }
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase transition-colors ${
-                                    bookedFeatureSheetsService.payment_status ===
-                                    "PAID"
-                                      ? "bg-green-100 text-green-700 border border-green-300"
-                                      : "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer shadow-sm"
+                                  className={`h-[24px] w-[65px] text-[10px] md:h-[30px] md:w-[90px] md:text-[12px] flex justify-center items-center cursor-pointer px-1 md:px-3 text-white font-bold rounded-md shadow-xs ${
+                                    bookedFeatureSheetsService.payment_status === "PAID"
+                                      ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                      : "bg-[#DC9600] hover:bg-[#eda304]"
                                   }`}
+                                  title="Click to view invoice"
                                 >
-                                  {bookedFeatureSheetsService.payment_status ===
-                                  "PAID"
+                                  {isOpeningInvoice ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : bookedFeatureSheetsService.payment_status === "PAID"
                                     ? "PAID"
-                                    : "UNPAID"}
-                                </span>
+                                    : userType === "admin"
+                                      ? "UNPAID"
+                                      : "UnPaid"}
+                                </Button>
                               </div>
                             </div>
                             {userType !== "vendor" &&

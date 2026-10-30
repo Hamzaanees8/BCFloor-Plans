@@ -252,6 +252,39 @@ export interface ValidStartSlotResult {
   startSlots: Slots[];
   proposedSlotsMap: Map<string, { start: string; end: string }[]>;
   travelSlotsSet: Set<string>;
+  freeWorkingSlotsSet: Set<string>;
+}
+
+export function parseToPropertyTimezone(
+  isoString: string | undefined | null,
+  targetTz?: string,
+): dayjs.Dayjs {
+  if (!isoString) return dayjs(isoString);
+  const tz = targetTz || "America/Vancouver";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return dayjs(isoString);
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    const map: Record<string, string> = {};
+    parts.forEach((p) => {
+      map[p.type] = p.value;
+    });
+    return dayjs(
+      `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}`,
+    );
+  } catch {
+    return dayjs(isoString);
+  }
 }
 
 export interface TravelBufferInfo {
@@ -272,6 +305,8 @@ export function getRequiredTravelBufferInfo(
   allBookedSlots: MinimalSlot[] = [],
   otherServiceSlots: MinimalSlot[] = [],
   selectedSlots: Slot[] = [],
+  calendarEvents: CalendarEvent[] = [],
+  targetTimezone?: string,
 ): TravelBufferInfo {
   const serviceSlotsNeeded = Math.ceil(serviceDurationMins / 15);
   const serviceEnd = candidateStart.add(serviceDurationMins, "minute");
@@ -292,6 +327,7 @@ export function getRequiredTravelBufferInfo(
     end: dayjs.Dayjs;
     address?: string;
     isSameProperty?: boolean;
+    isExternal?: boolean;
   };
 
   const vendorBookings: BookingRef[] = [];
@@ -304,18 +340,23 @@ export function getRequiredTravelBufferInfo(
       const bStart = dayjs(`${s.date}T${s.start_time}`);
       const bEnd = dayjs(`${s.date}T${s.end_time}`);
       const addr =
-        (s as any).order?.property?.address || (s as any).address || "";
+        (s as any).property_address ||
+        (s as any).order?.property?.address ||
+        (s as any).address ||
+        "";
+      const normalizeStreet = (a: string) =>
+        a.split(",")[0].trim().toLowerCase();
       const isSame = !!(
         currentPropertyAddress &&
         addr &&
-        currentPropertyAddress.trim().toLowerCase() ===
-          addr.trim().toLowerCase()
+        normalizeStreet(currentPropertyAddress) === normalizeStreet(addr)
       );
       vendorBookings.push({
         start: bStart,
         end: bEnd,
         address: addr,
         isSameProperty: isSame,
+        isExternal: false,
       });
     });
 
@@ -353,7 +394,48 @@ export function getRequiredTravelBufferInfo(
       });
     });
 
+  // External Google Calendar Events
+  calendarEvents
+    ?.filter((event) => {
+      if (!event || event.status === "cancelled") return false;
+      const summary = (event.summary || "").trim();
+      if (/^Order\s*#\d+/i.test(summary) || /^External:\s*Order\s*#\d+/i.test(summary)) return false;
+      const bStart = parseToPropertyTimezone(event.start, targetTimezone);
+      return bStart.format("YYYY-MM-DD") === date;
+    })
+    .forEach((event) => {
+      const bStart = parseToPropertyTimezone(event.start, targetTimezone);
+      const bEnd = parseToPropertyTimezone(event.end, targetTimezone);
+      const addr = (event as any).location || "";
+      const isSame = !!(
+        currentPropertyAddress &&
+        addr &&
+        currentPropertyAddress.trim().toLowerCase() === addr.trim().toLowerCase()
+      );
+      vendorBookings.push({
+        start: bStart,
+        end: bEnd,
+        address: addr,
+        isSameProperty: isSame,
+        isExternal: true,
+      });
+    });
+
   vendorBookings.sort((a, b) => a.start.valueOf() - b.start.valueOf());
+
+  // Overlapping booking check: if any booking directly overlaps [candidateStart, serviceEnd)
+  const overlappingBooking = vendorBookings.find(
+    (b) => b.start.isBefore(serviceEnd) && b.end.isAfter(candidateStart),
+  );
+  if (overlappingBooking) {
+    return {
+      isValid: false,
+      travelBeforeMins: 0,
+      travelAfterMins: 0,
+      serviceSlotsNeeded,
+      totalSlotsNeeded: serviceSlotsNeeded,
+    };
+  }
 
   // Find latest prior booking ending at or before candidateStart
   const priorBookings = vendorBookings.filter((b) =>
@@ -372,7 +454,7 @@ export function getRequiredTravelBufferInfo(
   let travelBeforeMins = 0;
   let travelAfterMins = 0;
 
-  if (!priorBooking) {
+  if (!priorBooking || priorBooking.isExternal) {
     // Case 1: First booking of the day -> 0 mins travel before
     travelBeforeMins = 0;
   } else if (priorBooking.isSameProperty) {
@@ -388,7 +470,7 @@ export function getRequiredTravelBufferInfo(
     }
   }
 
-  if (!subsequentBooking) {
+  if (!subsequentBooking || subsequentBooking.isExternal) {
     travelAfterMins = 0;
   } else if (subsequentBooking.isSameProperty) {
     // Case 3: Same property next booking -> 0 travel after
@@ -460,7 +542,11 @@ export function getVendorValidStartSlots(
       startSlots: [],
       proposedSlotsMap: new Map(),
       travelSlotsSet: new Set(),
+      freeWorkingSlotsSet: new Set(),
     };
+
+  const targetTimezone =
+    workHours.timezone || vendor?.work_hours?.timezone || "America/Vancouver";
 
   const currentDateObj = dayjs(date);
   const dayOfWeek = currentDateObj.format("ddd").toLowerCase();
@@ -478,6 +564,7 @@ export function getVendorValidStartSlots(
       startSlots: [],
       proposedSlotsMap: new Map(),
       travelSlotsSet: new Set(),
+      freeWorkingSlotsSet: new Set(),
     };
   }
 
@@ -493,6 +580,7 @@ export function getVendorValidStartSlots(
         startSlots: [],
         proposedSlotsMap: new Map(),
         travelSlotsSet: new Set(),
+        freeWorkingSlotsSet: new Set(),
       };
     }
   }
@@ -510,6 +598,7 @@ export function getVendorValidStartSlots(
       startSlots: [],
       proposedSlotsMap: new Map(),
       travelSlotsSet: new Set(),
+      freeWorkingSlotsSet: new Set(),
     };
 
   const vendorId = vendor.uuid ?? "";
@@ -545,7 +634,20 @@ export function getVendorValidStartSlots(
       .map((s) => {
         const bStart = dayjs(`${s.date}T${s.start_time}`);
         const bEnd = dayjs(`${s.date}T${s.end_time}`);
-        const travelMins = s.est_time ? Number(s.est_time) : 0;
+        const rawAddr =
+          (s as any).property_address ||
+          (s as any).order?.property?.address ||
+          (s as any).address ||
+          "";
+        const normalizeStreet = (a: string) =>
+          a.split(",")[0].trim().toLowerCase();
+        const isSame = !!(
+          currentPropertyAddress &&
+          rawAddr &&
+          normalizeStreet(currentPropertyAddress) === normalizeStreet(rawAddr)
+        );
+        // Internal bookings require 30 mins travel buffer unless at the exact same property
+        const travelMins = isSame ? 0 : 30;
         return {
           start: bStart,
           end: bEnd,
@@ -607,13 +709,17 @@ export function getVendorValidStartSlots(
     .filter(Boolean);
 
   const relevantCalendarEvents = calendarEvents
-    ?.filter(
-      (event) =>
-        event &&
-        event.status !== "cancelled" &&
-        dayjs(event.start).format("YYYY-MM-DD") === date,
-    )
-    .map((e) => ({ start: dayjs(e.start), end: dayjs(e.end) }));
+    ?.filter((event) => {
+      if (!event || event.status === "cancelled") return false;
+      const summary = (event.summary || "").trim();
+      if (/^Order\s*#\d+/i.test(summary) || /^External:\s*Order\s*#\d+/i.test(summary)) return false;
+      const bStart = parseToPropertyTimezone(event.start, targetTimezone);
+      return bStart.format("YYYY-MM-DD") === date;
+    })
+    .map((e) => ({
+      start: parseToPropertyTimezone(e.start, targetTimezone),
+      end: parseToPropertyTimezone(e.end, targetTimezone),
+    }));
 
   const now = dayjs();
   const isToday = currentDateObj.isSame(now, "day");
@@ -702,6 +808,13 @@ export function getVendorValidStartSlots(
     cur = nxt;
   }
 
+  const freeWorkingSlotsSet = new Set<string>();
+  intervals.forEach((interval) => {
+    if (interval.isFreeWorking) {
+      freeWorkingSlotsSet.add(interval.start.toISOString());
+    }
+  });
+
   const validStartSlots: Slots[] = [];
   const proposedSlotsMap = new Map<string, { start: string; end: string }[]>();
   const travelSlotsSet = new Set<string>();
@@ -720,6 +833,8 @@ export function getVendorValidStartSlots(
       allBookedSlots,
       otherServiceSlots,
       selectedSlots,
+      calendarEvents,
+      targetTimezone,
     );
 
     if (!travelInfo.isValid) continue;
@@ -756,7 +871,7 @@ export function getVendorValidStartSlots(
       }
     }
 
-    if (collected.length > 0) {
+    if (workingCount === requiredSlotsCount) {
       const startISO = candidate.start.toISOString();
       const endISO = candidate.end.toISOString();
       validStartSlots.push({
@@ -812,6 +927,7 @@ export function getVendorValidStartSlots(
         startSlots: filteredStartSlots,
         proposedSlotsMap,
         travelSlotsSet,
+        freeWorkingSlotsSet,
       };
     }
   }
@@ -820,6 +936,7 @@ export function getVendorValidStartSlots(
     startSlots: validStartSlots,
     proposedSlotsMap,
     travelSlotsSet,
+    freeWorkingSlotsSet,
   };
 }
 
@@ -1779,12 +1896,18 @@ export default function OneDayCalendar({
       dayEndTime,
     );
     const slotVendorsMap = new Map<string, string[]>();
+    const freeWorkingVendorsMap = new Map<string, string[]>();
     const bookedVendorsMap = new Map<string, Set<string>>();
+    const externalEventVendorsMap = new Map<string, Set<string>>();
     const travelVendorsMap = new Map<string, Set<string>>();
     const breakVendorsMap = new Map<string, Set<string>>();
     const bookingInfoMap = new Map<
       string,
       { booking: any; isFirst: boolean; isLast: boolean }
+    >();
+    const externalEventInfoMap = new Map<
+      string,
+      { summary: string; location: string; isFirst: boolean; isLast: boolean }
     >();
 
     // Collect booked slots, travel buffers, and breaks per vendor
@@ -1915,12 +2038,25 @@ export default function OneDayCalendar({
             }
           });
 
+          const rawAddr =
+            (s as any).property_address ||
+            (s as any).order?.property?.address ||
+            (s as any).address ||
+            "";
+          const normalizeStreet = (a: string) =>
+            a.split(",")[0].trim().toLowerCase();
+          const isSame = !!(
+            destinationAddress &&
+            rawAddr &&
+            normalizeStreet(destinationAddress) === normalizeStreet(rawAddr)
+          );
+
           return {
             rawSlot: s,
             start: bStart,
             end: bEnd,
-            address:
-              (s as any).order?.property?.address || (s as any).address || "",
+            address: rawAddr,
+            isSameProperty: isSame,
           };
         })
         .filter((b) => b.end.isAfter(b.start))
@@ -1951,25 +2087,138 @@ export default function OneDayCalendar({
         });
       });
 
-      // 3. Mark 30-minute travel buffer after each effective booking (unless it falls in a break)
+      // 3. Mark 30-minute travel buffer before & after each internal booking at a different property
       vendorBookings.forEach((b) => {
-        const tStart = b.end;
-        const tEnd = b.end.add(30, "minute");
+        // Skip travel buffer if booking is at the exact same property
+        if (b.isSameProperty) return;
+
+        // Travel buffer BEFORE booking (transit to the shoot)
+        const tBeforeStart = b.start.subtract(30, "minute");
+        const tBeforeEnd = b.start;
 
         fullDaySlots.forEach((slot) => {
           const slotStart = dayjs(slot.start);
           const slotEnd = dayjs(slot.end);
           const slotKey = `${slot.start}_${slot.end}`;
 
-          if (slotStart.isSameOrAfter(tStart) && slotEnd.isSameOrBefore(tEnd)) {
+          if (
+            slotStart.isSameOrAfter(tBeforeStart) &&
+            slotEnd.isSameOrBefore(tBeforeEnd)
+          ) {
             const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
-            if (!inBreak) {
+            const isBooked = bookedVendorsMap.get(slotKey)?.has(vId);
+            if (!inBreak && !isBooked) {
               if (!travelVendorsMap.has(slotKey))
                 travelVendorsMap.set(slotKey, new Set());
               travelVendorsMap.get(slotKey)!.add(vId);
             }
           }
         });
+
+        // Travel buffer AFTER booking (transit from the shoot)
+        const tAfterStart = b.end;
+        const tAfterEnd = b.end.add(30, "minute");
+
+        fullDaySlots.forEach((slot) => {
+          const slotStart = dayjs(slot.start);
+          const slotEnd = dayjs(slot.end);
+          const slotKey = `${slot.start}_${slot.end}`;
+
+          if (
+            slotStart.isSameOrAfter(tAfterStart) &&
+            slotEnd.isSameOrBefore(tAfterEnd)
+          ) {
+            const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
+            const isBooked = bookedVendorsMap.get(slotKey)?.has(vId);
+            if (!inBreak && !isBooked) {
+              if (!travelVendorsMap.has(slotKey))
+                travelVendorsMap.set(slotKey, new Set());
+              travelVendorsMap.get(slotKey)!.add(vId);
+            }
+          }
+        });
+      });
+
+      // 4. Mark external Google Calendar events and travel buffers for this vendor
+      const vendorExtEvents = (vendor.calendar_events || [])
+        .filter((e) => {
+          if (!e || e.status === "cancelled") return false;
+          const summary = (e.summary || "").trim();
+          if (/^Order\s*#\d+/i.test(summary) || /^External:\s*Order\s*#\d+/i.test(summary)) return false;
+          const bStart = parseToPropertyTimezone(e.start, targetTimezone);
+          return bStart.format("YYYY-MM-DD") === date;
+        })
+        .map((e) => ({
+          start: parseToPropertyTimezone(e.start, targetTimezone),
+          end: parseToPropertyTimezone(e.end, targetTimezone),
+          summary: e.summary || "External Event",
+          location: (e as any).location || "",
+        }))
+        .filter((e) => e.end.isAfter(e.start));
+
+      vendorExtEvents.forEach((ev) => {
+        fullDaySlots.forEach((slot) => {
+          const slotStart = dayjs(slot.start);
+          const slotEnd = dayjs(slot.end);
+          const slotKey = `${slot.start}_${slot.end}`;
+
+          if (
+            slotStart.isSameOrAfter(ev.start) &&
+            slotEnd.isSameOrBefore(ev.end)
+          ) {
+            if (!externalEventVendorsMap.has(slotKey))
+              externalEventVendorsMap.set(slotKey, new Set());
+            externalEventVendorsMap.get(slotKey)!.add(vId);
+
+            const isFirst = slotStart.isSame(ev.start, "minute");
+            const isLast = slotEnd.isSame(ev.end, "minute");
+            externalEventInfoMap.set(slotKey, {
+              summary: ev.summary,
+              location: ev.location,
+              isFirst,
+              isLast,
+            });
+          }
+        });
+
+        // Add 30-minute travel buffer before & after external appointment if travel is required
+        if (false as boolean) { // No travel buffer for external appointments
+          // Travel buffer before external appointment
+          const tBeforeStart = ev.start.subtract(30, "minute");
+          const tBeforeEnd = ev.start;
+          fullDaySlots.forEach((slot) => {
+            const slotStart = dayjs(slot.start);
+            const slotEnd = dayjs(slot.end);
+            const slotKey = `${slot.start}_${slot.end}`;
+
+            if (slotStart.isSameOrAfter(tBeforeStart) && slotEnd.isSameOrBefore(tBeforeEnd)) {
+              const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
+              if (!inBreak) {
+                if (!travelVendorsMap.has(slotKey))
+                  travelVendorsMap.set(slotKey, new Set());
+                travelVendorsMap.get(slotKey)!.add(vId);
+              }
+            }
+          });
+
+          // Travel buffer after external appointment
+          const tStart = ev.end;
+          const tEnd = ev.end.add(30, "minute");
+          fullDaySlots.forEach((slot) => {
+            const slotStart = dayjs(slot.start);
+            const slotEnd = dayjs(slot.end);
+            const slotKey = `${slot.start}_${slot.end}`;
+
+            if (slotStart.isSameOrAfter(tStart) && slotEnd.isSameOrBefore(tEnd)) {
+              const inBreak = breakVendorsMap.get(slotKey)?.has(vId);
+              if (!inBreak) {
+                if (!travelVendorsMap.has(slotKey))
+                  travelVendorsMap.set(slotKey, new Set());
+                travelVendorsMap.get(slotKey)!.add(vId);
+              }
+            }
+          });
+        }
       });
     });
 
@@ -2023,7 +2272,7 @@ export default function OneDayCalendar({
           ],
         };
 
-        const { startSlots, travelSlotsSet: vendorTravelSlots } =
+        const { startSlots, travelSlotsSet: vendorTravelSlots, freeWorkingSlotsSet } =
           getVendorValidStartSlots(
             vendor,
             currentDate,
@@ -2042,6 +2291,12 @@ export default function OneDayCalendar({
             currentServiceDataForSlots?.is_travel_required !== false,
             destinationAddress,
           );
+
+        freeWorkingSlotsSet?.forEach((startISO) => {
+          if (!freeWorkingVendorsMap.has(startISO))
+            freeWorkingVendorsMap.set(startISO, []);
+          freeWorkingVendorsMap.get(startISO)!.push(vendorId);
+        });
 
         vendorTravelSlots?.forEach((key) => {
           if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
@@ -2073,7 +2328,7 @@ export default function OneDayCalendar({
           targetTimezone,
         );
 
-        const { startSlots, travelSlotsSet: vendorTravelSlots } =
+        const { startSlots, travelSlotsSet: vendorTravelSlots, freeWorkingSlotsSet } =
           getVendorValidStartSlots(
             vendor,
             currentDate,
@@ -2092,6 +2347,12 @@ export default function OneDayCalendar({
             currentServiceDataForSlots?.is_travel_required !== false,
             destinationAddress,
           );
+
+        freeWorkingSlotsSet?.forEach((startISO) => {
+          if (!freeWorkingVendorsMap.has(startISO))
+            freeWorkingVendorsMap.set(startISO, []);
+          freeWorkingVendorsMap.get(startISO)!.push(vendorId);
+        });
 
         vendorTravelSlots?.forEach((key) => {
           if (!travelVendorsMap.has(key)) travelVendorsMap.set(key, new Set());
@@ -2256,19 +2517,69 @@ export default function OneDayCalendar({
         };
       }
 
+      // 1b. External Event Slot check (vendors are blocked by an external Google Calendar appointment)
+      const externalCount = externalEventVendorsMap.get(key)?.size || 0;
+      const isExternalBlocked =
+        filteredVendors.length > 0 &&
+        availableVendorIds.length === 0 &&
+        (externalCount === filteredVendors.length ||
+          (bookedCount + externalCount >= filteredVendors.length && externalCount > 0));
+      if (isExternalBlocked) {
+        const info = externalEventInfoMap.get(key);
+        const isAdmin = userType === "admin";
+        return {
+          ...slot,
+          title: isAdmin ? (info?.summary || "External Event") : "Booked",
+          className: isAdmin ? "slot-external-event" : "slot-booked",
+          extendedProps: {
+            availableVendorIds: [],
+            isExternalEvent: true,
+            summary: info?.summary || "External Event",
+            location: info?.location || "",
+            isFirstOfGroup: info?.isFirst || false,
+            isLastOfGroup: info?.isLast || false,
+          },
+        };
+      }
+
       // 2. Vendor Break Slot check (vendor(s) on break during this slot, when no vendor is available for service start)
       const breakCount = breakVendorsMap.get(key)?.size || 0;
       if (breakCount > 0 && availableVendorIds.length === 0) {
         return {
           ...slot,
-          title: "Vendor Break",
-          className: "slot-vendor-break",
+          title: userType === "admin" ? "Vendor Break" : "Booked",
+          className: userType === "admin" ? "slot-vendor-break" : "slot-booked",
           extendedProps: { availableVendorIds: [] },
         };
       }
 
-      // 3. Available Slots check (at least 1 vendor has candidate start slot available)
-      if (availableVendorIds.length > 0 && !isTwilightRestricted) {
+      // 3. Travel Adjustment Slot check (vendor(s) in transit to/from a booking at a different property)
+      const travelCount = travelVendorsMap.get(key)?.size || 0;
+      if (travelCount > 0 && availableVendorIds.length === 0) {
+        if (userType === "admin") {
+          return {
+            ...slot,
+            title: "Travel Adjustment",
+            className: "slot-travel-adjustment",
+            extendedProps: { availableVendorIds: [] },
+          };
+        } else {
+          return {
+            ...slot,
+            title: "Booked",
+            className: "slot-booked",
+            extendedProps: { availableVendorIds: [] },
+          };
+        }
+      }
+
+      // 4. Available Slots check (either valid start slot or free working slot within vendor hours)
+      const isAvailableStart = availableVendorIds.length > 0 && !isTwilightRestricted;
+      const freeWorkingVendorIds = freeWorkingVendorsMap.get(slot.start) || [];
+      const isFreeWorking = freeWorkingVendorIds.length > 0 && !isTwilightRestricted;
+
+      if (isAvailableStart || isFreeWorking) {
+        const effectiveVendorIds = isAvailableStart ? availableVendorIds : freeWorkingVendorIds;
         let isRecommended = false;
         const isTwilightService =
           currentServiceData?.category?.name === "Twilight Photos" ||
@@ -2289,6 +2600,7 @@ export default function OneDayCalendar({
         }
 
         if (
+          isAvailableStart &&
           availableSlotsCount < maxRecommended &&
           (recommendTimeMap[serviceKey] === 1 || isTwilightService)
         ) {
@@ -2302,8 +2614,9 @@ export default function OneDayCalendar({
             title: "Recommended",
             className: "slot-available slot-recommended",
             extendedProps: {
-              availableVendorIds,
+              availableVendorIds: effectiveVendorIds,
               twilightRecommended: isTwilightService,
+              isShortDuration: false,
             },
           };
         }
@@ -2312,31 +2625,14 @@ export default function OneDayCalendar({
           ...slot,
           title: "",
           className: "slot-available",
-          extendedProps: { availableVendorIds },
+          extendedProps: {
+            availableVendorIds: effectiveVendorIds,
+            isShortDuration: !isAvailableStart,
+          },
         };
       }
 
-      // 4. Travel Adjustment Slot check
-      const travelCount = travelVendorsMap.get(key)?.size || 0;
-      if (travelCount > 0) {
-        if (userType === "admin") {
-          return {
-            ...slot,
-            title: "Travel Adjustment",
-            className: "slot-travel-adjustment",
-            extendedProps: { availableVendorIds: [] },
-          };
-        } else {
-          return {
-            ...slot,
-            title: "Unavailable",
-            className: "slot-unavailable",
-            extendedProps: { availableVendorIds: [] },
-          };
-        }
-      }
-
-      // 5. Fallback: Unavailable
+      // 5. Fallback: Unavailable (weekends, off-days, outside working hours, or insufficient duration)
       return {
         ...slot,
         title: "Unavailable",
@@ -3059,7 +3355,8 @@ export default function OneDayCalendar({
       classNames.includes("slot-booked") ||
       classNames.includes("slot-vendor-break") ||
       classNames.includes("slot-travel-adjustment") ||
-      classNames.includes("slot-unavailable")
+      classNames.includes("slot-unavailable") ||
+      classNames.includes("slot-external-event")
     ) {
       return;
     }
@@ -3080,6 +3377,7 @@ export default function OneDayCalendar({
     const isVendorBreak = classNames.includes("slot-vendor-break");
     const isTravelAdjustment = classNames.includes("slot-travel-adjustment");
     const isUnavailable = classNames.includes("slot-unavailable");
+    const isExternalEvent = classNames.includes("slot-external-event");
 
     const isAdmin = userType === "admin";
 
@@ -3095,11 +3393,19 @@ export default function OneDayCalendar({
       return;
     }
 
-    // For Agent/Client users, Vendor Break, Travel Adjustment, and Unavailable slots are NOT clickable
+    // For Agent/Client users, Vendor Break, Travel Adjustment, Unavailable, and External Event slots are NOT clickable
     if (!isAdmin) {
-      if (isVendorBreak || isTravelAdjustment || isUnavailable) {
+      if (isVendorBreak || isTravelAdjustment || isUnavailable || isExternalEvent) {
         return;
       }
+    }
+
+    // For Admin: external event click when schedule override is OFF informs the admin
+    if (isAdmin && isExternalEvent && scheduleOverride !== 1) {
+      toast.info(
+        "This slot is blocked by an external Google Calendar appointment. Turn on Schedule Override to book over it.",
+      );
+      return;
     }
 
     const clicked = {
@@ -3777,6 +4083,24 @@ export default function OneDayCalendar({
       font-weight: 600;
       cursor: ${userType === "admin" ? "pointer" : "not-allowed"} !important;
     }
+    .slot-external-event {
+      background-color: #F5F3FF !important;
+      color: #7C3AED !important;
+      border: 1px solid #DDD6FE !important;
+      font-weight: 600;
+      cursor: ${userType === "admin" ? "pointer" : "not-allowed"} !important;
+    }
+    .slot-external-event .fc-event-main-frame,
+    .slot-external-event .fc-event-main,
+    .slot-external-event .fc-event-title-container,
+    .slot-external-event .fc-event-title {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      width: 100% !important;
+      margin: 0 auto !important;
+    }
     .slot-unavailable {
       cursor: not-allowed !important;
     }
@@ -4041,6 +4365,25 @@ export default function OneDayCalendar({
 
                     return eventInner;
                   })()
+                ) : eventInfo.event.classNames.includes("slot-external-event") ? (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-center w-full h-full px-1 text-center cursor-default">
+                          <span className="fc-event-title text-[9px] text-[#7C3AED] font-semibold text-center w-full truncate">
+                            {eventInfo.event.title || "External Event"}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="bg-[#1E1B4B] text-white text-[11px] p-2 rounded max-w-xs z-50 shadow-md">
+                        <p className="font-semibold text-violet-300">Google Calendar Event</p>
+                        <p className="text-white mt-0.5">{eventInfo.event.extendedProps?.summary || "Busy"}</p>
+                        {eventInfo.event.extendedProps?.location && (
+                          <p className="text-gray-300 text-[10px] mt-1">📍 {eventInfo.event.extendedProps.location}</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ) : (
                   <div
                     className="fc-event-title fc-sticky text-center"
@@ -4056,7 +4399,11 @@ export default function OneDayCalendar({
                                 "slot-vendor-break",
                               )
                             ? "#4F46E5"
-                            : "#424242",
+                            : eventInfo.event.classNames.includes(
+                                  "slot-external-event",
+                                )
+                              ? "#7C3AED"
+                              : "#424242",
                     }}
                   >
                     {eventInfo.event.title}

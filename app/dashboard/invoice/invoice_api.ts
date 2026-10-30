@@ -68,9 +68,24 @@ export async function RefundInvoice(
     return response.data;
 }
 
-export async function GetInvoicesByOrder(orderUuid: string) {
-    const response = await api.get(`/invoices?order_uuid=${orderUuid}`);
-    return response.data;
+export async function GetInvoicesByOrder(orderUuid: string, retries: number = 2) {
+    if (!orderUuid || orderUuid === "undefined" || orderUuid === "null") {
+        return { success: true, data: [] };
+    }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await api.get(`/invoices?order_uuid=${orderUuid}`);
+            return response.data;
+        } catch (error: any) {
+            // If it's a 401 unauthorized or last attempt, throw/return error
+            if (error.response?.status === 401 || attempt === retries) {
+                throw error;
+            }
+            // Transient 5xx error or network glitch: backoff and retry
+            await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+        }
+    }
+    return { success: true, data: [] };
 }
 
 export async function PayInvoiceWithStripe(

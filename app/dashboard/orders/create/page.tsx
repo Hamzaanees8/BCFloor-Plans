@@ -15,7 +15,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { isPastBooking } from '@/lib/bookingUtils';
-import { GetOne } from '../orders';
+import { GetOne, GetVendors } from '../orders';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Property from '@/app/dashboard/orders/components/Property';
 import Services from '@/app/dashboard/orders/components/Services';
@@ -34,7 +34,7 @@ import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
-import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
+import { fetchServicesForBookNow, fetchVendorForBookNow } from '@/app/agent/book-now/book-now';
 
 import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
 import { useOrganization } from '@/app/context/OrganizationContext';
@@ -124,9 +124,11 @@ const OrderForm = () => {
         setServicesData,
         setAgentsData,
         setPackagesData,
+        setVendorsData,
         isPropertyValid,
         servicesData,
         tempPropertyData,
+        setTempPropertyData,
         selectedCurrentListing,
         setLastPopulatedAgentId,
         resetOrderData,
@@ -235,15 +237,17 @@ const OrderForm = () => {
             Promise.all([
                 GetServices(token, orgSlug).then((res: { data: ServiceType[] }) => setServicesData(Array.isArray(res.data) ? res.data : [])),
                 Get().then((res: { data: Agent[] }) => setAgentsData(Array.isArray(res.data) ? res.data : [])),
-                GetPackages(token, orgSlug).then((res: { data: Packages[] }) => setPackagesData(Array.isArray(res.data) ? res.data : []))
+                GetPackages(token, orgSlug).then((res: { data: Packages[] }) => setPackagesData(Array.isArray(res.data) ? res.data : [])),
+                GetVendors(token, orgSlug, true).then((res: { data: any[] }) => setVendorsData(Array.isArray(res.data) ? res.data : [])),
             ]).catch(err => console.log("Error fetching global data:", err));
         } else if (isBookNowMode) {
-            // Fetch public services for guests
-            fetchServicesForBookNow(orgSlug)
-                .then((res) => setServicesData(Array.isArray(res) ? res : []))
-                .catch(err => console.log("Error fetching public services:", err));
+            // Fetch public services and vendors for guests
+            Promise.all([
+                fetchServicesForBookNow(orgSlug).then((res) => setServicesData(Array.isArray(res) ? res : [])),
+                fetchVendorForBookNow(undefined, orgSlug).then((res) => setVendorsData(Array.isArray(res) ? res : [])),
+            ]).catch(err => console.log("Error fetching public services/vendors:", err));
         }
-    }, [setServicesData, setAgentsData, setPackagesData, isBookNowMode, orgSlug]);
+    }, [setServicesData, setAgentsData, setPackagesData, setVendorsData, isBookNowMode, orgSlug]);
     const handleDoneClick = () => {
         if (isBookNowMode) {
             router.push('/agent/tours');
@@ -271,6 +275,27 @@ const OrderForm = () => {
         if (currentUser) {
             setSelectedAgentId(currentUser.agent?.uuid || "");
             setSelectedListingId(currentUser.property?.uuid || "");
+            if (currentUser.property) {
+                const prop = currentUser.property as any;
+                setTempPropertyData({
+                    address: prop.address || prop.property_address || '',
+                    city: prop.city || '',
+                    province: prop.province || '',
+                    country: prop.country || 'CA',
+                    postal_code: prop.postal_code || '',
+                    square_footage: prop.square_footage ? Number(prop.square_footage) : undefined,
+                    bedrooms: prop.bedrooms !== undefined && prop.bedrooms !== null ? Number(prop.bedrooms) : undefined,
+                    bathrooms: prop.bathrooms !== undefined && prop.bathrooms !== null ? Number(prop.bathrooms) : undefined,
+                    listing_price: prop.listing_price ? Number(prop.listing_price) : undefined,
+                    mls_number: prop.mls_number || '',
+                    agent_id: currentUser.agent?.uuid || '',
+                    property_type: prop.property_type || '',
+                    property_status: prop.property_status || '',
+                    heading: prop.heading || '',
+                    description: prop.description || '',
+                    suite: prop.suite || '',
+                });
+            }
             setSelectedServices(() => {
                 return (currentUser.services || []).map((s: OrderService) => ({
                     title: s.service.name,
@@ -377,7 +402,7 @@ const OrderForm = () => {
                 setInitComplete(true);
             }, 50);
         }
-    }, [currentUser, setSelectedAgentId, setSelectedListingId, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices, setLastPopulatedAgentId]);
+    }, [currentUser, setSelectedAgentId, setSelectedListingId, setTempPropertyData, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices, setLastPopulatedAgentId]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 

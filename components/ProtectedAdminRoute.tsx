@@ -34,7 +34,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
 
     if (
       (userType === "agent" || userType === "co_agent" || isSubAccount) &&
-      (pathname.startsWith("/dashboard/admin") ||
+      ((pathname.startsWith("/dashboard/admin") && !pathname.includes("/print-requests")) ||
         pathname.startsWith("/dashboard/services") ||
         pathname.startsWith("/dashboard/vendor-billing") ||
         pathname.startsWith("/dashboard/agents") ||
@@ -197,7 +197,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       userType === "vendor" &&
       (
         pathname.startsWith("/dashboard/vendors") ||
-        pathname.startsWith("/dashboard/admin") ||
+        (pathname.startsWith("/dashboard/admin") && !pathname.includes("/print-requests")) ||
         pathname.startsWith("/dashboard/services") ||
         pathname.startsWith("/dashboard/listings/create") ||
         (pathname.startsWith("/dashboard/vendor-billing") && pathname.replace(/\/$/, "") !== "/dashboard/vendor-billing")
@@ -353,7 +353,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         }
       }
 
-      if (pathname.startsWith("/dashboard/admin")) {
+      if ((pathname.startsWith("/dashboard/admin") && !pathname.includes("/print-requests"))) {
         if (pathname.includes("/create")) {
           if (!hasPermission(PERMISSIONS.CREATE_ADMIN)) {
             toast.error("You do not have permission to create admins");

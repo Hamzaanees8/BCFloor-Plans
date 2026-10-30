@@ -76,6 +76,7 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const [downloadingFileUuid, setDownloadingFileUuid] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedPreviewFile, setSelectedPreviewFile] = useState<any | null>(null);
@@ -611,11 +612,17 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
 
             {/* Payment Badge Button */}
             <Button
-              onClick={() => {
-                onOpenInvoice?.(
-                  currentService?.name,
-                  currentBookedService?.uuid,
-                );
+              disabled={isOpeningInvoice}
+              onClick={async () => {
+                setIsOpeningInvoice(true);
+                try {
+                  await onOpenInvoice?.(
+                    currentService?.name,
+                    currentBookedService?.uuid,
+                  );
+                } finally {
+                  setIsOpeningInvoice(false);
+                }
               }}
               className={`h-[24px] w-[65px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white ${
                 isRefunded
@@ -625,7 +632,15 @@ const PrintServiceTab: React.FC<PrintServiceTabProps> = ({
                     : "bg-[#DC9600] hover:bg-[#eda304]"
               }`}
             >
-              {isRefunded ? "REFUNDED" : isPaid ? "PAID" : "UNPAID"}
+              {isOpeningInvoice ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isRefunded ? (
+                "REFUNDED"
+              ) : isPaid ? (
+                "PAID"
+              ) : (
+                "UNPAID"
+              )}
             </Button>
           </div>
         </div>

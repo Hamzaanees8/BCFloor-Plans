@@ -93,6 +93,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
   const [selectedImageUuids, setSelectedImageUuids] = useState<Set<string>>(
     new Set(),
   );
+  const [openingInvoiceServiceUuid, setOpeningInvoiceServiceUuid] = useState<string | null>(null);
 
   // Helper to check if a service or the entire order is paid or media is released
   const isServicePaid = useCallback(
@@ -800,33 +801,53 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
                       {/* Paid/Unpaid badge */}
                       {userType !== "vendor" && (
                         <span
-                          onClick={() => {
-                            if (!section.isPaid) {
-                              onOpenInvoice?.(
-                                section.bookingEntry?.service.name,
-                                section.bookingEntry?.uuid,
-                              );
+                          onClick={async () => {
+                            if (!section.isPaid && onOpenInvoice) {
+                              const sUuid = section.bookingEntry?.uuid || section.label;
+                              setOpeningInvoiceServiceUuid(sUuid);
+                              try {
+                                await onOpenInvoice(
+                                  section.bookingEntry?.service.name,
+                                  section.bookingEntry?.uuid,
+                                );
+                              } finally {
+                                setOpeningInvoiceServiceUuid(null);
+                              }
                             }
                           }}
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
                             section.isPaid
                               ? "bg-[#6BAE41] text-white"
                               : "bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]"
                           }`}
                         >
-                          {section.isPaid ? "PAID" : "UNPAID"}
+                          {openingInvoiceServiceUuid === (section.bookingEntry?.uuid || section.label) ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : section.isPaid ? (
+                            "PAID"
+                          ) : (
+                            "UNPAID"
+                          )}
                         </span>
                       )}
                       {/* Per-section download buttons */}
                       {sectionPhotos.length > 0 && (
                         <Button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!section.isPaid) {
-                              onOpenInvoice?.(
-                                section.bookingEntry?.service.name ||
-                                  section.label,
-                                section.bookingEntry?.uuid,
-                              );
+                              if (onOpenInvoice) {
+                                const sUuid = section.bookingEntry?.uuid || section.label;
+                                setOpeningInvoiceServiceUuid(sUuid);
+                                try {
+                                  await onOpenInvoice(
+                                    section.bookingEntry?.service.name ||
+                                      section.label,
+                                    section.bookingEntry?.uuid,
+                                  );
+                                } finally {
+                                  setOpeningInvoiceServiceUuid(null);
+                                }
+                              }
                               return;
                             }
                             openSizeModal(sectionPhotos, section.label);

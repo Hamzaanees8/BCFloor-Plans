@@ -138,6 +138,7 @@ function Video({
   const [openUpgrade, setOpenUpgrade] = useState(false);
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const {
     selectedVideoFiles,
     setSelectedVideoFiles,
@@ -1685,11 +1686,17 @@ function Video({
                 </p>
               </div>
               <Button
-                onClick={() => {
-                  onOpenInvoice?.(
-                    currentService?.name,
-                    currentBookedService?.uuid,
-                  );
+                disabled={isOpeningInvoice}
+                onClick={async () => {
+                  setIsOpeningInvoice(true);
+                  try {
+                    await onOpenInvoice?.(
+                      currentService?.name,
+                      currentBookedService?.uuid,
+                    );
+                  } finally {
+                    setIsOpeningInvoice(false);
+                  }
                 }}
                 className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
                                     ${
@@ -1705,7 +1712,9 @@ function Video({
                                           : "bg-[#DC9600] hover:bg-[#eda304]"
                                     }`}
               >
-                {bookingToUse?.payment_status === "REFUNDED" ||
+                {isOpeningInvoice ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : bookingToUse?.payment_status === "REFUNDED" ||
                 orderData?.payment_status === "REFUNDED"
                   ? "Refunded"
                   : bookingToUse?.payment_status == "PAID" ||
@@ -1736,11 +1745,17 @@ function Video({
                 </p>
               </div>
               <Button
-                onClick={() => {
-                  onOpenInvoice?.(
-                    currentService?.name,
-                    currentBookedService?.uuid,
-                  );
+                disabled={isOpeningInvoice}
+                onClick={async () => {
+                  setIsOpeningInvoice(true);
+                  try {
+                    await onOpenInvoice?.(
+                      currentService?.name,
+                      currentBookedService?.uuid,
+                    );
+                  } finally {
+                    setIsOpeningInvoice(false);
+                  }
                 }}
                 className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white cursor-pointer
                                     ${
@@ -1756,7 +1771,9 @@ function Video({
                                           : "bg-[#DC9600] hover:bg-[#eda304]"
                                     }`}
               >
-                {bookingToUse?.payment_status === "REFUNDED" ||
+                {isOpeningInvoice ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : bookingToUse?.payment_status === "REFUNDED" ||
                 orderData?.payment_status === "REFUNDED"
                   ? "REFUNDED"
                   : bookingToUse?.payment_status == "PAID" ||

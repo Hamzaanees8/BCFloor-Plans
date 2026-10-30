@@ -18,6 +18,8 @@ import {
   MapPin,
   FileText,
   Copy,
+  Eye,
+  Loader2,
 } from 'lucide-react';
 import type { PrintRequest } from '@/app/dashboard/admin/print-requests/print-requests';
 
@@ -27,6 +29,10 @@ interface MobilePrintRequestsListProps {
   error: boolean;
   handleStatusChange: (uuid: string, newStatus: string) => Promise<void>;
   getStatusColor: (status: string) => string;
+  isAdmin?: boolean;
+  loadingInvoiceUuid?: string | null;
+  onOpenDetail?: (request: PrintRequest) => void;
+  onOpenInvoice?: (request: PrintRequest) => void;
 }
 
 export default function MobilePrintRequestsList({
@@ -35,6 +41,10 @@ export default function MobilePrintRequestsList({
   error,
   handleStatusChange,
   getStatusColor,
+  isAdmin = false,
+  loadingInvoiceUuid,
+  onOpenDetail,
+  onOpenInvoice,
 }: MobilePrintRequestsListProps) {
   if (loading) {
     return (
@@ -77,35 +87,66 @@ export default function MobilePrintRequestsList({
           day: '2-digit',
         });
         const agentName = `${req.agent?.first_name || ''} ${req.agent?.last_name || ''}`;
+        const isPaid = req.payment_status === 'PAID';
+        const isUnread = isAdmin
+          ? !req.is_read
+          : (!req.agent_read || req.payment_status === 'UNPAID');
 
         return (
-          <Card key={req.uuid} className="overflow-hidden border border-gray-100 shadow-sm">
+          <Card
+            key={req.uuid}
+            className={`overflow-hidden border shadow-xs cursor-pointer transition-colors ${
+              isUnread ? 'border-sky-300 bg-sky-50/25' : 'border-gray-200 bg-white'
+            }`}
+            onClick={() => onOpenDetail?.(req)}
+          >
             <CardContent className="p-4">
               <div className="space-y-2.5">
                 {/* Header info */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {date}
-                  </span>
-                  <Select
-                    value={req.status}
-                    onValueChange={(value) => handleStatusChange(req.uuid, value)}
-                  >
-                    <SelectTrigger
-                      className={`w-[115px] h-[28px] text-[11px] font-medium rounded-full border ${getStatusColor(
-                        req.status
-                      )}`}
-                    >
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Processing">Processing</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                      <SelectItem value="Cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    {isUnread && (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"
+                        title={isAdmin ? "Unread request" : !req.agent_read ? "Status updated" : "Payment pending"}
+                      />
+                    )}
+                    <span className={`text-xs flex items-center gap-1 ${isUnread ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
+                      <Calendar className="h-3.5 w-3.5" />
+                      {date}
+                    </span>
+                  </div>
+
+                  <div onClick={(e) => e.stopPropagation()}>
+                    {isAdmin ? (
+                      <Select
+                        value={req.status}
+                        onValueChange={(value) => handleStatusChange(req.uuid, value)}
+                      >
+                        <SelectTrigger
+                          className={`w-[115px] h-[28px] text-[11px] font-medium rounded-full border ${getStatusColor(
+                            req.status
+                          )}`}
+                        >
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Processing">Processing</SelectItem>
+                          <SelectItem value="Completed">Completed</SelectItem>
+                          <SelectItem value="Cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 text-[11px] font-medium rounded-full border ${getStatusColor(
+                          req.status
+                        )}`}
+                      >
+                        {req.status}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Agent Details */}
@@ -120,13 +161,13 @@ export default function MobilePrintRequestsList({
                 {/* Property Address */}
                 <div className="flex items-start gap-2">
                   <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-gray-700 font-medium">
+                  <p className="text-xs text-gray-700 font-medium line-clamp-1">
                     {req.property?.address || 'No Property Address'}
                   </p>
                 </div>
 
-                {/* Print Specs */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50 text-xs text-gray-500">
+                {/* Print Specs & Payment Status */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5">
                     <Copy className="h-3.5 w-3.5 text-gray-400" />
                     Copies: <span className="font-semibold text-gray-800">{req.copies}</span>
@@ -135,33 +176,68 @@ export default function MobilePrintRequestsList({
                     <Printer className="h-3.5 w-3.5 text-gray-400" />
                     Bleed: <span className="font-semibold text-gray-800">{req.with_bleed ? 'Yes' : 'No'}</span>
                   </div>
+                  <div className="flex items-center justify-end">
+                    <Button
+                      disabled={loadingInvoiceUuid === req.uuid}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenInvoice?.(req);
+                      }}
+                      className={`h-[22px] w-[60px] text-[10px] flex justify-center items-center cursor-pointer px-1 text-white font-bold rounded-md shadow-xs ${
+                        isPaid
+                          ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                          : "bg-[#DC9600] hover:bg-[#eda304]"
+                      }`}
+                      title="Click to view invoice"
+                    >
+                      {loadingInvoiceUuid === req.uuid ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : isPaid ? (
+                        "PAID"
+                      ) : isAdmin ? (
+                        "UNPAID"
+                      ) : (
+                        "UnPaid"
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Template Info & Preview Button */}
-                {req.feature_sheet && (
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-50 mt-1">
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <FileText className="h-3.5 w-3.5 text-gray-400" />
-                      {req.feature_sheet.template_key || 'Standard Template'}
-                    </span>
-                    {req.feature_sheet.order_id && req.feature_sheet.uuid && (
+                {/* Template Info & Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-1">
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <FileText className="h-3.5 w-3.5 text-gray-400" />
+                    {req.feature_sheet?.template_key || 'Standard Template'}
+                  </span>
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => onOpenDetail?.(req)}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      View
+                    </Button>
+
+                    {(req.feature_sheet?.order_id || req.order_uuid) && req.feature_sheet?.uuid && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 shrink-0"
+                        className="h-8 text-xs text-gray-700 hover:bg-gray-50 shrink-0"
                         asChild
                       >
                         <a
-                          href={`/dashboard/file-manager/${req.feature_sheet.order_id}?serviceId=CreateFeatureSheet&sheetUuid=${req.feature_sheet.uuid}`}
+                          href={`/dashboard/file-manager/${req.feature_sheet.order_id || req.order_uuid}?serviceId=CreateFeatureSheet&sheetUuid=${req.feature_sheet.uuid}`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Preview Sheet
+                          Preview
                         </a>
                       </Button>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             </CardContent>
           </Card>

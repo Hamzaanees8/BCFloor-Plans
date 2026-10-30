@@ -176,7 +176,7 @@ const Page = () => {
             return;
         }
 
-        GetVendors(token)
+        GetVendors(token, undefined, true)
             .then(data => {
                 setVendorData(Array.isArray(data.data) ? data.data : [])
 
