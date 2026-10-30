@@ -171,6 +171,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
     const [propertyName, setPropertyName] = useState("");
     const [amount, setAmount] = useState("");
     const [number, setNumber] = useState("");
+    const [addressHash, setAddressHash] = useState("#");
+    const [page2AddressHash, setPage2AddressHash] = useState("#");
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
@@ -484,6 +486,10 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
+          if (details.addressHash !== undefined)
+            setAddressHash(details.addressHash as string);
+          if (details.page2AddressHash !== undefined)
+            setPage2AddressHash(details.page2AddressHash as string);
           if (details.addressCode)
             setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
@@ -573,15 +579,23 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           if (orderData.property.mls_number)
             setAddressCode(orderData.property.mls_number);
           if (orderData.property.suite) setRoadName(orderData.property.suite);
-          let cityString = "";
-          if (orderData.property.city) cityString += orderData.property.city;
+          const addressParts: string[] = [];
+          const propAddress =
+            orderData.property.address ||
+            (orderData as any).property_address ||
+            "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (orderData.property.city)
+            addressParts.push(orderData.property.city.trim());
           if (orderData.property.province)
-            cityString +=
-              (cityString ? ", " : "") + orderData.property.province;
+            addressParts.push(orderData.property.province.trim());
+          if (orderData.property.country)
+            addressParts.push(orderData.property.country.trim());
           if (orderData.property.postal_code)
-            cityString +=
-              (cityString ? " " : "") + orderData.property.postal_code;
-          if (cityString) setCityLine(cityString);
+            addressParts.push(orderData.property.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
@@ -625,6 +639,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         if (formData.propertyName) setPropertyName(formData.propertyName);
         if (formData.amount) setAmount(formData.amount);
         if (formData.number) setNumber(formData.number);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
+        if ((formData as any).page2AddressHash !== undefined) setPage2AddressHash((formData as any).page2AddressHash);
         if (formData.addressCode) setAddressCode(formData.addressCode);
         if (formData.roadName) setRoadName(formData.roadName);
         if (formData.cityLine) setCityLine(formData.cityLine);
@@ -981,7 +997,48 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                           deleteTitle="Remove Unit #"
                         >
                           <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex shrink-0 items-center whitespace-nowrap">
-                            <span className="text-[20px] mt-1">#</span>
+                            {!isFieldDeleted("addressHash") && (
+                              <DraggableBox
+                                id="addressHash"
+                                position={fieldPositions.addressHash}
+                                onPositionChange={updateFieldPosition}
+                                label="Unit # Symbol"
+                                zoom={0.85}
+                                disabled={lockedSections.address}
+                                containerClassName="w-auto inline-flex items-center shrink-0"
+                                className="w-auto inline-flex items-center shrink-0"
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "addressHash",
+                                    "Unit # Symbol",
+                                    "#",
+                                    "Header Address",
+                                  )
+                                }
+                                deleteTitle="Remove Unit # Symbol"
+                              >
+                                <StyledInput
+                                  fieldId="addressHash"
+                                  fieldLabel="Unit # Symbol"
+                                  value={addressHash}
+                                  onChange={(e) => setAddressHash(e.target.value)}
+                                  inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                                  onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                                  className="font-light text-[28px] text-[#ffffff] leading-none mr-1 min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
+                                  placeholder="#"
+                                  disabled={lockedSections.address}
+                                  onDelete={() =>
+                                    removeStandardField(
+                                      "addressHash",
+                                      "Unit # Symbol",
+                                      "#",
+                                      "Header Address",
+                                    )
+                                  }
+                                  wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                                />
+                              </DraggableBox>
+                            )}
                             <span className="inline">
                               <StyledInput
                                 value={addressCode}
@@ -3025,7 +3082,50 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                           disabled={lockedSections.address}
                         >
                           <div className="text-[28px] justify-center pb-2 items-center font-light leading-none text-[#ffffff] flex shrink-0 whitespace-nowrap">
-                            <span className="text-[16px] mt-1">#</span>
+                            {!isFieldDeleted("page2AddressHash") && (
+                              <DraggableBox
+                                id="page2AddressHash"
+                                position={fieldPositions.page2AddressHash}
+                                onPositionChange={updateFieldPosition}
+                                label="Unit # Symbol (Page 2)"
+                                zoom={0.85}
+                                disabled={lockedSections.address}
+                                containerClassName="w-auto inline-flex items-center shrink-0"
+                                inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
+                                onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
+                                className="w-auto inline-flex items-center shrink-0"
+                                onDelete={() =>
+                                  removeStandardField(
+                                    "page2AddressHash",
+                                    "Unit # Symbol (Page 2)",
+                                    "#",
+                                    "Header Address (Page 2)",
+                                  )
+                                }
+                                deleteTitle="Remove Unit # Symbol"
+                              >
+                                <StyledInput
+                                  fieldId="page2AddressHash"
+                                  fieldLabel="Unit # Symbol (Page 2)"
+                                  value={page2AddressHash}
+                                  onChange={(e) => setPage2AddressHash(e.target.value)}
+                                  inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
+                                  onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
+                                  className="font-light text-[28px] text-[#ffffff] leading-none mr-1 min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
+                                  placeholder="#"
+                                  disabled={lockedSections.address}
+                                  onDelete={() =>
+                                    removeStandardField(
+                                      "page2AddressHash",
+                                      "Unit # Symbol (Page 2)",
+                                      "#",
+                                      "Header Address (Page 2)",
+                                    )
+                                  }
+                                  wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                                />
+                              </DraggableBox>
+                            )}
                             <span className="inline">
                               <StyledInput
                                 value={addressCode}

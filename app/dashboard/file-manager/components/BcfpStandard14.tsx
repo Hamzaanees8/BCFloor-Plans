@@ -78,6 +78,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData?.deletedDetailFields || [],
     );
+    const [addressHash, setAddressHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData?.deletedStandardFieldIds || []);
@@ -447,11 +448,16 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
             : prop.address;
           if (fullAddress) setRoadName(prop.suite ?? "");
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(prop.address || city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullCityAddress = addressParts.join(", ");
+          if (fullCityAddress) setCityLine(fullCityAddress);
         }
 
         if (agent) {
@@ -482,6 +488,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
           typeof val === "string" ? val : val?.value || "";
         if (formData.byLawRestrictions)
           setByLawRestrictions(s(formData.byLawRestrictions));
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
         if (formData.maintenanceFees) setMaintFees(s(formData.maintenanceFees));
         if (formData.maintenanceFeesInclude)
           setMaintFeesInclude(s(formData.maintenanceFeesInclude));
@@ -774,6 +781,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
           if (details.headline) setHeadline(s(details.headline));
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.subheadline) setSubheadline(s(details.subheadline));
           if (details.amenities) setAmenities(s(details.amenities));
           if (details.view) setView(s(details.view));
@@ -1084,6 +1092,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1610,6 +1619,49 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       </button>
 
                       {/* MLS / Address Code */}
+                      {!isFieldDeleted("addressHash") && (
+                        <DraggableBox
+                          id="addressHash"
+                          position={fieldPositions.addressHash}
+                          onPositionChange={updateFieldPosition}
+                          label="Unit # Symbol"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressHash",
+                              "Unit # Symbol",
+                              "#",
+                              "Page 1 - Address",
+                            )
+                          }
+                          deleteTitle="Remove Unit # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[22px] text-white leading-none mr-0.5"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            onDelete={() => {
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Page 1 - Address",
+                              )
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )}
+
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
@@ -1630,9 +1682,6 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                           deleteTitle="Remove MLS Code"
                         >
                           <div className="tracking-wide text-white mt-0 flex items-center">
-                            <span className="text-white text-[22px] font-light">
-                              #
-                            </span>
                             <StyledInput
                               value={addressCode}
                               onChange={(e) => setAddressCode(e.target.value)}

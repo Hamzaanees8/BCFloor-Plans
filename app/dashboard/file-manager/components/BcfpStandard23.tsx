@@ -464,6 +464,7 @@ const BcfpStandard23 = forwardRef<BcfpStandard23Ref, BcfpStandard23Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
         <div className="w-full items-center justify-center font-alexandria">

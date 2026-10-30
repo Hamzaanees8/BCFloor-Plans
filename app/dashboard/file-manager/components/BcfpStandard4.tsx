@@ -238,6 +238,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
     const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
       DEFAULT_LEFT_DETAIL_FIELDS,
     );
+    const [addressHash, setAddressHash] = useState("#");
     const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
       DEFAULT_RIGHT_DETAIL_FIELDS,
     );
@@ -767,11 +768,16 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
           if (prop.suite) setAddressCode(prop.suite.toString());
           if (prop.address) setRoadName(prop.suite ?? "");
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(prop.address || city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
 
           // Populate MLS Number from orderData
           if (prop.mls_number) {
@@ -826,6 +832,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
         }
 
         if (formData.description) setDescription(s(formData.description));
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
         if (formData.fullName) setFullName(s(formData.fullName));
         if (formData.email) setEmail(s(formData.email));
         if (formData.propertyName) setPropertyName(s(formData.propertyName));
@@ -1434,6 +1441,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, any>;
           if (details.bedroom) setBedroom(s(details.bedroom));
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.bathroom) setBathroom(s(details.bathroom));
           if (details.sqft) setSqft(s(details.sqft));
           if (details.builtYear) setBuiltYear(s(details.builtYear));
@@ -1573,6 +1581,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1651,6 +1660,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image1}
                                 position={position.image1}
                                 rotation={rotation.image1}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -2057,6 +2067,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   scale={scale.image2}
                                   position={position.image2}
                                   rotation={rotation.image2}
+                                objectFit="contain"
                                 />
                               </div>
 
@@ -2293,6 +2304,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image3}
                                 position={position.image3}
                                 rotation={rotation.image3}
+                                objectFit="contain"
                               />
                             </div>
 
@@ -2399,6 +2411,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                               scale={scale.image4}
                               position={position.image4}
                               rotation={rotation.image4}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -2505,6 +2518,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image5}
                                 position={position.image5}
                                 rotation={rotation.image5}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -2609,6 +2623,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image6}
                                 position={position.image6}
                                 rotation={rotation.image6}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -2713,6 +2728,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image7}
                                 position={position.image7}
                                 rotation={rotation.image7}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -2817,6 +2833,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image8}
                                 position={position.image8}
                                 rotation={rotation.image8}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -2933,6 +2950,49 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                       )}
                     </button>
 
+                    {!isFieldDeleted("addressHash") && (
+                      <DraggableBox
+                        id="addressHash"
+                        position={fieldPositions.addressHash}
+                        onPositionChange={updateFieldPosition}
+                        label="Unit # Symbol"
+                        zoom={0.55}
+                        disabled={lockedSections.address}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center shrink-0"
+                        onDelete={() =>
+                          removeStandardField(
+                            "addressHash",
+                            "Unit # Symbol",
+                            "#",
+                            "Page 1 - Address",
+                          )
+                        }
+                        deleteTitle="Remove Unit # Symbol"
+                      >
+                        <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[30px] text-[#FFF] leading-none shrink-0"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            onDelete={() => {
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Page 1 - Address",
+                              )
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                      </DraggableBox>
+                    )}
+
                     {!isFieldDeleted("addressCode") && (
                       <DraggableBox
                         id="addressCode"
@@ -2941,6 +3001,8 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         label="MLS / Suite"
                         zoom={0.55}
                         disabled={lockedSections.address}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
                         onDelete={() =>
                           removeStandardField(
                             "addressCode",
@@ -2953,7 +3015,6 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                         deleteTitle="Remove MLS / Suite"
                       >
                         <div className="tracking-wide mt-0 flex items-center">
-                          <span className="shrink-0">#</span>
                           <StyledInput
                             value={addressCode}
                             onChange={(e) => setAddressCode(e.target.value)}
@@ -3162,6 +3223,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                 scale={scale.image9}
                                 position={position.image9}
                                 rotation={rotation.image9}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3269,6 +3331,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   scale={scale.image10}
                                   position={position.image10}
                                   rotation={rotation.image10}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -3379,6 +3442,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   scale={scale.image11}
                                   position={position.image11}
                                   rotation={rotation.image11}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -3569,6 +3633,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                     scale={scale.image12}
                                     position={position.image12}
                                     rotation={rotation.image12}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3679,6 +3744,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                     scale={scale.image13}
                                     position={position.image13}
                                     rotation={rotation.image13}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3789,6 +3855,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                     scale={scale.image14}
                                     position={position.image14}
                                     rotation={rotation.image14}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -3899,6 +3966,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                     scale={scale.image15}
                                     position={position.image15}
                                     rotation={rotation.image15}
+                                objectFit="cover"
                                   />
                                 </div>
 
@@ -4126,6 +4194,7 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(
                                   scale={scale.image16}
                                   position={position.image16}
                                   rotation={rotation.image16}
+                                objectFit="cover"
                                 />
                               </div>
 

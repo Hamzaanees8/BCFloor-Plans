@@ -27,6 +27,7 @@ interface BcfpStandard12Props {
 const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
   ({ orderData }, ref) => {
     const [byLawRestrictions, setByLawRestrictions] = useState("");
+    const [addressHash, setAddressHash] = useState("#");
     const [maintFees, setMaintFees] = useState("");
     const [maintFeesInclude, setMaintFeesInclude] = useState("");
     const [featuresIncluded, setFeaturesIncluded] = useState("");
@@ -237,6 +238,7 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
           const details = state.otherDetails as Record<string, unknown>;
           if (details.byLawRestrictions)
             setByLawRestrictions(details.byLawRestrictions as string);
+          if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.maintFees) setMaintFees(details.maintFees as string);
           if (details.maintFeesInclude)
             setMaintFeesInclude(details.maintFeesInclude as string);
@@ -287,6 +289,7 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
       if (formData) {
         if (formData.byLawRestrictions)
           setByLawRestrictions(formData.byLawRestrictions);
+        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
         if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
         if (formData.maintenanceFeesInclude)
           setMaintFeesInclude(formData.maintenanceFeesInclude);
@@ -596,6 +599,7 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
         <div className="pdf-page">
@@ -1182,8 +1186,22 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
                 </div>
                 <div className="text-[#2C2E35] flex flex-col items-center justify-center mt-[20px] py-10 space-y-2">
                   <div className="flex font-bold">
-                    <div className="tracking-wide mt-0 flex">
-                      #
+                    <div className="tracking-wide mt-0 flex items-center">
+                      <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[21px] text-[#2C2E35] leading-none mr-0.5"
+                            placeholder="#"
+                            
+                            onDelete={() => {
+                              
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
                       <StyledInput
                         value={addressCode}
                         onChange={(e) => setAddressCode(e.target.value)}

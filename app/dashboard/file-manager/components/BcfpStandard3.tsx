@@ -121,6 +121,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
     const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
       DEFAULT_LEFT_DETAIL_FIELDS,
     );
+    const [mlsHash, setMlsHash] = useState("#");
     const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
       DEFAULT_RIGHT_DETAIL_FIELDS,
     );
@@ -599,10 +600,16 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
           if (prop.mls_number) setMlsNumber(prop.mls_number);
           if (prop.suite) setRoadName(prop.suite.toString());
 
-          let fullAddr = prop.address || "";
-          if (prop.city) fullAddr += (fullAddr ? ", " : "") + prop.city;
-          if (prop.province) fullAddr += (fullAddr ? ", " : "") + prop.province;
-          if (fullAddr) setPropertyName(fullAddr);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setPropertyName(fullAddress);
         }
 
         if (agent) {
@@ -638,6 +645,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
           typeof val === "string" ? val : val?.value || "";
 
         if (formData.fullName) setFullName(s(formData.fullName));
+        if ((formData as any).mlsHash !== undefined) setMlsHash((formData as any).mlsHash);
         if (formData.companyName) setCompanyName(s(formData.companyName));
         if (formData.email) setEmail(s(formData.email));
         if (formData.phone) setPhone(s(formData.phone));
@@ -1317,6 +1325,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, any>;
           if (details.bedroom) setBedroom(s(details.bedroom));
+          if (details.mlsHash !== undefined) setMlsHash(details.mlsHash as string);
           if (details.bathroom) setBathroom(s(details.bathroom));
           if (details.sqft) setSqft(s(details.sqft));
           if (details.builtYear) setBuiltYear(s(details.builtYear));
@@ -1456,6 +1465,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1536,6 +1546,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                         scale={scale.image4}
                         position={position.image4}
                         rotation={rotation.image4}
+                                objectFit="cover"
                       />
                     </div>
 
@@ -1743,6 +1754,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image1}
                                 position={position.image1}
                                 rotation={rotation.image1}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -1859,6 +1871,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image2}
                               position={position.image2}
                               rotation={rotation.image2}
+                                objectFit="contain"
                             />
                           </div>
 
@@ -2322,6 +2335,50 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                     <div className="flex flex-col text-white">
                       <div className="flex items-baseline gap-4 flex-wrap">
                         {/* MLS Number / Suite */}
+                        {!isFieldDeleted("mlsHash") && (
+                          <DraggableBox
+                            id="mlsHash"
+                            position={fieldPositions.mlsHash}
+                            onPositionChange={updateFieldPosition}
+                            label="MLS # Symbol"
+                            zoom={0.55}
+                            disabled={lockedSections.address}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center shrink-0"
+                            onDelete={() =>
+                              removeStandardField(
+                                "mlsHash",
+                                "MLS # Symbol",
+                                "#",
+                                "Page 1 - Cover",
+                              )
+                            }
+                            deleteTitle="Remove MLS # Symbol"
+                          >
+                            <StyledInput
+                            fieldId="mlsHash"
+                            fieldLabel="MLS # Symbol"
+                            value={mlsHash}
+                            onChange={(e) => setMlsHash(e.target.value)}
+                            inputStyle={fieldStyles["mlsHash"] || fieldStyles.mlsHash}
+                            onChangeStyle={(s) => updateFieldStyle("mlsHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-extrabold text-[24px] text-white leading-none mr-0.5"
+                            placeholder="#"
+                            
+                            disabled={lockedSections.address}
+                            onDelete={() =>
+                              removeStandardField(
+                                "mlsHash",
+                                "MLS # Symbol",
+                                "#",
+                                "Page 1 - Cover",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                          </DraggableBox>
+                        )}
+
                         {!isFieldDeleted("addressCode") && (
                           <DraggableBox
                             id="addressCode"
@@ -2342,9 +2399,6 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                             deleteTitle="Remove MLS #"
                           >
                             <div className="flex items-baseline font-light text-[30px] leading-none gap-0.5">
-                              <span className="font-extrabold text-[24px] text-white">
-                                #
-                              </span>
                               <StyledInput
                                 value={mlsNumber}
                                 onChange={(e) => setMlsNumber(e.target.value)}
@@ -2497,6 +2551,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image3}
                                 position={position.image3}
                                 rotation={rotation.image3}
+                                objectFit="contain"
                               />
                             </div>
 
@@ -2877,6 +2932,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image13}
                               position={position.image13}
                               rotation={rotation.image13}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -2983,6 +3039,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image5}
                                 position={position.image5}
                                 rotation={rotation.image5}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3358,6 +3415,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image6}
                                 position={position.image6}
                                 rotation={rotation.image6}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3462,6 +3520,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image7}
                                 position={position.image7}
                                 rotation={rotation.image7}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3627,6 +3686,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image8}
                               position={position.image8}
                               rotation={rotation.image8}
+                                objectFit="cover"
                             />
                           </div>
 
@@ -3733,6 +3793,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 scale={scale.image9}
                                 position={position.image9}
                                 rotation={rotation.image9}
+                                objectFit="cover"
                               />
                             </div>
 
@@ -3841,6 +3902,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image10}
                                   position={position.image10}
                                   rotation={rotation.image10}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -3951,6 +4013,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image11}
                                   position={position.image11}
                                   rotation={rotation.image11}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4063,6 +4126,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image12}
                                   position={position.image12}
                                   rotation={rotation.image12}
+                                objectFit="cover"
                                 />
                               </div>
 
@@ -4173,6 +4237,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image14}
                               position={position.image14}
                               rotation={rotation.image14}
+                                objectFit="cover"
                             />
                           </div>
 

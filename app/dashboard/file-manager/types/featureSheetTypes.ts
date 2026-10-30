@@ -165,7 +165,7 @@ export const templateImages: TemplateDefinition[] = [
   // { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
   { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13", label: "Flyer 1", pages: ["/listing_flyer_13_page_1.png", "/listing_flyer_13_page_2.png"] },
   { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15", label: "Flyer 2", pages: ["/listing_flyer_15_page_1.png", "/listing_flyer_15_page_2.png"] },
-//   { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16", label: "Flyer 3" },
+  { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16", label: "Flyer 3" },
   { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17", label: "Flyer 4", pages: ["/listing_flyer_17_page_1.png", "/listing_flyer_17_page_2.png"] },
   { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18", label: "Flyer 5", pages: ["/listing_flyer_18_page_1.png", "/listing_flyer_18_page_2.png"] },
   { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19", label: "Flyer 6" },

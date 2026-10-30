@@ -77,6 +77,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
       formData.deletedDetailFields || [],
     );
+    const [addressHash, setAddressHash] = useState("#");
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
     >(formData.deletedStandardFieldIds || []);
@@ -460,15 +461,23 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             setRoadName(orderData.property.address);
           }
 
-          let cityString = "";
-          if (orderData.property.city) cityString += orderData.property.city;
+          const addressParts: string[] = [];
+          const propAddress =
+            orderData.property.address ||
+            (orderData as any).property_address ||
+            "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (orderData.property.city)
+            addressParts.push(orderData.property.city.trim());
           if (orderData.property.province)
-            cityString +=
-              (cityString ? ", " : "") + orderData.property.province;
+            addressParts.push(orderData.property.province.trim());
+          if (orderData.property.country)
+            addressParts.push(orderData.property.country.trim());
           if (orderData.property.postal_code)
-            cityString +=
-              (cityString ? " " : "") + orderData.property.postal_code;
-          if (cityString) setCityLine(cityString);
+            addressParts.push(orderData.property.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
@@ -1220,6 +1229,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -1325,9 +1335,48 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
                   {/* Left Address Line with # 0000-0000 Number 0 Road */}
                   <div className="flex items-center gap-1 text-[17px] text-[#4A4A4A] font-serif tracking-wide z-20">
-                    <span className="text-[#4A4A4A] font-serif leading-none">
-                      #
-                    </span>
+                    {!isFieldDeleted("addressHash") && (
+                      <DraggableBox
+                        id="addressHash"
+                        position={fieldPositions.addressHash}
+                        onPositionChange={updateFieldPosition}
+                        label="Unit # Symbol"
+                        zoom={0.85}
+                        disabled={lockedSections.headerBar}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center shrink-0"
+                        onDelete={() =>
+                          removeStandardField(
+                            "addressHash",
+                            "Unit # Symbol",
+                            "#",
+                            "Header Bar",
+                          )
+                        }
+                        deleteTitle="Remove Unit # Symbol"
+                      >
+                        <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="Unit # Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-serif text-[17px] text-[#4A4A4A] leading-none mr-0.5"
+                            placeholder="#"
+                            disabled={lockedSections.headerBar}
+                            onDelete={() => {
+                              removeStandardField(
+                                "addressHash",
+                                "Unit # Symbol",
+                                "#",
+                                "Header Bar",
+                              )
+                            }}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                      </DraggableBox>
+                    )}
                     {!isFieldDeleted("addressCode") && (
                       <DraggableBox
                         id="addressCode"

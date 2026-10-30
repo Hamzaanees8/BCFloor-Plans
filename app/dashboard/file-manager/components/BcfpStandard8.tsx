@@ -198,6 +198,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
     const [leftDetailFields, setLeftDetailFields] = useState<DetailField[]>(
       DEFAULT_LEFT_DETAIL_FIELDS,
     );
+    const [mlsHash, setMlsHash] = useState("#");
     const [rightDetailFields, setRightDetailFields] = useState<DetailField[]>(
       DEFAULT_RIGHT_DETAIL_FIELDS,
     );
@@ -726,11 +727,16 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
           if (prop.address)
             setAddress(prop.address || (prop.suite ? `${prop.suite}` : ""));
 
-          let city = "";
-          if (prop.city) city += prop.city;
-          if (prop.province) city += (city ? ", " : "") + prop.province;
-          if (prop.postal_code) city += (city ? " " : "") + prop.postal_code;
-          if (city) setCityLine(city);
+          const addressParts: string[] = [];
+          const propAddress = prop.address || (orderData as any).property_address || "";
+          if (propAddress) addressParts.push(propAddress.trim());
+          if (prop.city) addressParts.push(prop.city.trim());
+          if (prop.province) addressParts.push(prop.province.trim());
+          if (prop.country) addressParts.push(prop.country.trim());
+          if (prop.postal_code) addressParts.push(prop.postal_code.trim());
+
+          const fullAddress = addressParts.join(", ");
+          if (fullAddress) setCityLine(fullAddress);
         }
 
         if (agent) {
@@ -776,6 +782,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
         }
 
         if (formData.bedroom) setBedroom(s(formData.bedroom));
+        if ((formData as any).mlsHash !== undefined) setMlsHash((formData as any).mlsHash);
         if (formData.bathroom) setBathroom(s(formData.bathroom));
         if (formData.sqft) setSqft(s(formData.sqft));
         if (formData.builtYear) setBuiltYear(s(formData.builtYear));
@@ -1157,6 +1164,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
                   : f,
               ),
             );
+          if (details.mlsHash !== undefined) setMlsHash(details.mlsHash as string);
           }
           if (details.view) {
             setRightDetailFields((prev) =>
@@ -1309,6 +1317,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
       className: string,
       placeholderText: string = "Select Image",
     ) => {
+      const isLogoSlot = key === "image2";
       const inputRef = getFileInputRef(key);
       const settings = imageSettings[key] || {
         showBorder: true,
@@ -1420,6 +1429,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
                     scale={scale[key]}
                     position={position[key]}
                     rotation={rotation[key]}
+                    objectFit={isLogoSlot ? "contain" : "cover"}
                   />
                 </div>
 
@@ -1500,6 +1510,7 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
+          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
           />
         )}
 
@@ -2498,14 +2509,60 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
                     </button>
 
                     <div className="flex flex-col gap-2 text-black text-[12px] leading-relaxed relative z-10">
+                      {!isFieldDeleted("mlsHash") && (
+                        <DraggableBox
+                          id="mlsHash"
+                          position={fieldPositions.mlsHash}
+                          onPositionChange={updateFieldPosition}
+                          label="MLS # Symbol"
+                          zoom={0.55}
+                          disabled={lockedSections.details}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "mlsHash",
+                              "MLS # Symbol",
+                              "#",
+                              "Page 3 - Sidebar",
+                            )
+                          }
+                          deleteTitle="Remove MLS # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="mlsHash"
+                            fieldLabel="MLS # Symbol"
+                            value={mlsHash}
+                            onChange={(e) => setMlsHash(e.target.value)}
+                            inputStyle={fieldStyles["mlsHash"] || fieldStyles.mlsHash}
+                            onChangeStyle={(s) => updateFieldStyle("mlsHash", s)}
+                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[16px] text-white leading-none mr-1"
+                            placeholder="#"
+                            
+                            disabled={lockedSections.details}
+                            onDelete={() =>
+                              removeStandardField(
+                                "mlsHash",
+                                "MLS # Symbol",
+                                "#",
+                                "Page 3 - Sidebar",
+                              )
+                            }
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )}
+
                       {!isFieldDeleted("mlsNumber") && (
                         <DraggableBox
                           id="mlsNumber"
                           position={fieldPositions.mlsNumber}
                           onPositionChange={updateFieldPosition}
-                          label="MLS #"
+                          label="MLS Number"
                           zoom={0.55}
                           disabled={lockedSections.details}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
                           onDelete={() =>
                             removeStandardField(
                               "mlsNumber",
@@ -2518,7 +2575,6 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(
                           deleteTitle="Remove MLS #"
                         >
                           <div className="text-[28px] flex font-light leading-none mt-0 text-white items-center">
-                            <span className="text-[16px]">#</span>
                             <StyledInput
                               value={mlsNumber}
                               onChange={(e) => setMlsNumber(e.target.value)}
