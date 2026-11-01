@@ -1444,7 +1444,7 @@ import {
   PrintRequestData,
 } from "./types/featureSheetTypes";
 
-const PROCESSING_PLACEHOLDER = `data:image/svg+xml;base64,${btoa(`
+export const PROCESSING_PLACEHOLDER = `data:image/svg+xml;base64,${btoa(`
 <svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="800" height="600" fill="#E5E7EB"/>
   <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#6B7280">Processing...</text>
@@ -1454,6 +1454,8 @@ const PROCESSING_PLACEHOLDER = `data:image/svg+xml;base64,${btoa(`
 export class FeatureSheetService {
   private apiBaseUrl: string;
   private storageBaseUrl: string;
+  /** In-memory cache of uploaded blob URL -> confirmed image UUID to prevent re-uploading on repeated saves */
+  private uploadedBlobMap: Map<string, string> = new Map();
 
   constructor(apiBaseUrl: string = "/api") {
     this.apiBaseUrl = apiBaseUrl;
@@ -1870,26 +1872,37 @@ export class FeatureSheetService {
     images: FeatureSheetImage[],
     featureSheetUuid?: string,
   ): Promise<{ imageUuids: string[]; galleryFilePaths: { slot: string; file_path: string; meta: FeatureSheetImage['meta'] }[], newImagesForContent: { slot: string, s3_key: string, meta?: FeatureSheetImage['meta'] }[] }> {
-    // Separate local blob images from gallery images
-    const localImages = images.filter(
-      (img) =>
-        img.file &&
-        !img.is_processing &&
-        !img.file.startsWith("data:image/svg+xml") &&
-        !img.file.includes("Processing...") &&
-        (img.file.startsWith("blob:") || img.file.startsWith("data:"))
-    );
+    // Separate local blob images from gallery images, taking note of already uploaded blobs
+    const cachedUuids: string[] = [];
+    const localImages = images.filter((img) => {
+      if (!img.file) return false;
+      if (img.is_processing) return false;
+      if (img.file.startsWith("data:image/svg+xml")) return false;
+      if (img.file.includes("Processing...")) return false;
+      const isBlob = img.file.startsWith("blob:") || img.file.startsWith("data:");
+      if (!isBlob) return false;
+
+      // Check if we already uploaded this exact blob in the current session
+      const existingUuid = this.uploadedBlobMap.get(img.file);
+      if (existingUuid) {
+        cachedUuids.push(existingUuid);
+        return false; // Skip re-uploading
+      }
+      return true;
+    });
+
     const galleryImages = images
       .filter((img) => img.source === "gallery" && img.file_path)
       .map((img) => ({ slot: img.slot, file_path: img.file_path!, meta: img.meta }));
 
     console.log('[FeatureSheet] uploadImagesToS3 - total images:', images.length);
     console.log('[FeatureSheet] local blob images to upload:', localImages.length);
+    console.log('[FeatureSheet] cached local images reused:', cachedUuids.length);
     console.log('[FeatureSheet] gallery images:', galleryImages.length);
 
     if (localImages.length === 0) {
-      console.log('[FeatureSheet] No local images to upload, returning early');
-      return { imageUuids: [], galleryFilePaths: galleryImages, newImagesForContent: [] };
+      console.log('[FeatureSheet] No new local images to upload, returning cached/gallery');
+      return { imageUuids: cachedUuids, galleryFilePaths: galleryImages, newImagesForContent: [] };
     }
 
     // Convert blob URLs to File objects
@@ -1961,6 +1974,14 @@ export class FeatureSheetService {
       .filter((uuid): uuid is string => Boolean(uuid));
     console.log('[FeatureSheet] Confirmed uploads, imageUuids:', imageUuids);
 
+    // Cache local blob URLs to image UUIDs for repeat saves in the same session
+    localImages.forEach((img, idx) => {
+      const assignedUuid = imageUuids[idx] || (confirmResponse.data?.files?.[idx] as any)?.uuid;
+      if (img.file && assignedUuid) {
+        this.uploadedBlobMap.set(img.file, assignedUuid);
+      }
+    });
+
     const newImagesForContent: { slot: string, s3_key: string, meta?: FeatureSheetImage['meta'] }[] = [];
     localImages.forEach((img, idx) => {
       newImagesForContent.push({
@@ -1970,7 +1991,11 @@ export class FeatureSheetService {
       });
     });
 
-    return { imageUuids, galleryFilePaths: galleryImages, newImagesForContent };
+    return {
+      imageUuids: [...cachedUuids, ...imageUuids],
+      galleryFilePaths: galleryImages,
+      newImagesForContent,
+    };
   }
 
   /**
@@ -1985,12 +2010,14 @@ export class FeatureSheetService {
 
     console.log("[FeatureSheet] uploadFeatureSheet called");
 
-    // Step 1: Create the feature sheet record FIRST to get a UUID
+    // Step 1: Create the feature sheet record with content and theme right away
     const createPayload: Record<string, unknown> = {
       order_uuid: orderUuid,
       type: payload.type,
       uploaded_by: payload.uploaded_by,
       template_key: payload.template_key,
+      theme: payload.theme,
+      content: payload.content,
     };
     if (payload.is_published !== undefined) {
       createPayload.is_published = payload.is_published;
@@ -2552,7 +2579,66 @@ export class FeatureSheetService {
       })(),
       fieldStyles: payload.fieldStyles,
       fieldPositions: payload.fieldPositions,
+      processingSlots: (() => {
+        const acc: { [key: string]: boolean } = {};
+        for (const img of images) {
+          let slot = img.slot;
+          if (slot === 'property') {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
+          if (slot) {
+            const rawPath =
+              img.variant_urls?.print || img.variant_urls?.landing || img.variant_urls?.thumb || img.thumbnail_url || img.url || img.storage_path || img.file || img.file_path || null;
+            if (img.is_processing || (img.source === 'upload' && !rawPath)) {
+              acc[slot] = true;
+            }
+          }
+        }
+        return acc;
+      })(),
     };
+  }
+
+  /**
+   * Merge newly resolved image URLs from server into the active component image state.
+   * Preserves any local blob / data URLs currently on canvas if the server copy is still processing or null.
+   */
+  mergeResolvedImages<T extends Record<string, string | null>>(
+    prevImages: T,
+    serverImages: Record<string, string | null | undefined>,
+    processingSlots?: Record<string, boolean>
+  ): T {
+    const next: Record<string, string | null> = { ...prevImages };
+    for (const [slot, serverUrl] of Object.entries(serverImages)) {
+      const prevUrl = prevImages[slot];
+      const isSlotProcessing = processingSlots?.[slot] || false;
+      const isServerPlaceholder =
+        !serverUrl ||
+        serverUrl === PROCESSING_PLACEHOLDER ||
+        serverUrl.includes("Processing...") ||
+        isSlotProcessing;
+
+      const hasValidLocalPreview =
+        prevUrl &&
+        (prevUrl.startsWith("blob:") ||
+          prevUrl.startsWith("data:") ||
+          (prevUrl.startsWith("http") && !prevUrl.includes("Processing...")));
+
+      if (isServerPlaceholder && hasValidLocalPreview) {
+        // Keep the local crisp preview displayed!
+        continue;
+      }
+
+      if (serverUrl && serverUrl !== PROCESSING_PLACEHOLDER && !serverUrl.includes("Processing...")) {
+        next[slot] = serverUrl;
+      } else if (!hasValidLocalPreview) {
+        next[slot] = serverUrl || null;
+      }
+    }
+    return next as T;
   }
 }
 

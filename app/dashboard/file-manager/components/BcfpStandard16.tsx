@@ -109,6 +109,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
     const [image7Rotation, setImage7Rotation] = useState(0);
     const [image8Rotation, setImage8Rotation] = useState(0);
     const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
+    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
 
     const updateFieldStyle = (fieldName: string, style: any) => {
       setFieldStyles((prev) => ({ ...prev, [fieldName]: style }));
@@ -358,10 +359,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         }
 
         if (state.images) {
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as unknown as typeof prev),
-          }));
+          const sProcessing = (state as any).processingSlots || {};
+          setProcessingSlots(sProcessing);
+          setImages((prev) => featureSheetService.mergeResolvedImages(prev, state.images as any, sProcessing));
         }
         if (state.imageScales) {
           setScale((prev) => ({
@@ -676,6 +676,21 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         emailLabel,
         mlsLabel,
         disclaimerText,
+        images,
+        imageScales: scale,
+        imagePositions: position,
+        imageRotations: {
+          image1: image1Rotation,
+          image2: image2Rotation,
+          image3: image3Rotation,
+          image4: image4Rotation,
+          image5: image5Rotation,
+          image6: image6Rotation,
+          image7: image7Rotation,
+          image8: image8Rotation,
+        },
+        fieldPositions,
+        fieldStyles,
       });
     }, [
       byLawRestrictions,
@@ -720,6 +735,19 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       emailLabel,
       mlsLabel,
       disclaimerText,
+      images,
+      scale,
+      position,
+      image1Rotation,
+      image2Rotation,
+      image3Rotation,
+      image4Rotation,
+      image5Rotation,
+      image6Rotation,
+      image7Rotation,
+      image8Rotation,
+      fieldPositions,
+      fieldStyles,
       updateFormData,
     ]);
 
@@ -1372,7 +1400,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   )}
                 </button>
                 <div className="flex flex-col items-center">
-                  <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center">
+                  <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-2">
                     {!isFieldDeleted("addressHash") && (
                       <DraggableBox
                         id="addressHash"
@@ -1563,7 +1591,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image1}
                           rotation={image1Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image1}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1653,7 +1682,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         position={position.image2}
                         rotation={image2Rotation}
                           objectFit="cover"
-                      />
+                        isProcessing={processingSlots.image2}
+/>
 
                       <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                         <button
@@ -2256,7 +2286,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image3}
                           rotation={image3Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image3}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2338,7 +2369,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image4}
                           rotation={image4Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image4}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2420,7 +2452,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image5}
                           rotation={image5Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image5}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2502,7 +2535,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image6}
                           rotation={image6Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image6}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2584,7 +2618,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           position={position.image7}
                           rotation={image7Rotation}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image7}
+/>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -2728,7 +2763,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 )}
               </button>
               <div className="flex flex-col items-center">
-                <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center">
+                <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-2">
                   {!isFieldDeleted("page2AddressHash") && (
                     <DraggableBox
                       id="page2AddressHash"
@@ -3010,7 +3045,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       position={position.image8}
                       rotation={image8Rotation}
                           objectFit="cover"
-                    />
+                      isProcessing={processingSlots.image8}
+/>
                   </div>
 
                   {/* Zoom Controls */}
