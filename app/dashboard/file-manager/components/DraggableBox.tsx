@@ -185,6 +185,8 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
     if (
       target.tagName === "INPUT" ||
       target.tagName === "TEXTAREA" ||
+      target.isContentEditable ||
+      Boolean(target.closest("[contenteditable='true']")) ||
       target.closest("button:not([data-drag-handle='true'])")
     ) {
       return;
@@ -295,7 +297,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       ref={boxRef}
       onMouseDown={handleMouseDown}
       className={`relative group ${
-        isDragging ? "z-40 cursor-grabbing !transition-none select-none" : "cursor-grab transition-[box-shadow]"
+        isDragging ? "z-40 cursor-grabbing !transition-none select-none" : "transition-[box-shadow]"
       } ${containerClassName}`}
       onMouseEnter={() => {
         setIsHovered(true);
@@ -334,13 +336,13 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
             setIsToolbarHovered(true);
           }}
           onMouseLeave={() => setIsToolbarHovered(false)}
-          className="absolute -top-[22px] left-0 right-0 h-[22px] flex items-center justify-between pointer-events-auto z-40 select-none px-0.5"
+          className="absolute -top-[22px] left-0 right-0 h-[22px] flex items-center justify-between pointer-events-none z-40 select-none px-0.5"
         >
           {/* Move Handle Badge (Icon only - no text title overlaying the field) */}
           <div
             data-drag-handle="true"
             onMouseDown={handleDragHandleMouseDown}
-            className="flex items-center justify-center bg-[#00B9F2] text-white p-1 rounded shadow cursor-grab active:cursor-grabbing hover:bg-[#0096c7] transition-colors shrink-0"
+            className="flex items-center justify-center bg-[#00B9F2] text-white p-1 rounded shadow cursor-grab active:cursor-grabbing hover:bg-[#0096c7] transition-colors shrink-0 pointer-events-auto"
             title={`Drag to reposition ${label || "field"}`}
           >
             <Move size={10} strokeWidth={2.5} />
@@ -348,7 +350,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
 
           {/* Right-side Action Buttons (Reset position + Delete field) — hidden when panel is available */}
           {!hasPanelContext && (
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 pointer-events-auto">
               {/* Reset position button if moved */}
               {hasMoved && (
                 <button
