@@ -1620,6 +1620,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                       label="Property Description"
                       zoom={0.85}
                       disabled={lockedSections.description}
+                      containerClassName="w-full flex-1 min-h-0 flex flex-col"
+                      className="w-full flex-1 min-h-0 flex flex-col"
                       onDelete={() =>
                         removeStandardField(
                           "propertyDescription",
@@ -1631,16 +1633,19 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                       }
                       deleteTitle="Remove Property Description"
                     >
-                      <div className="w-full h-full overflow-hidden">
+                      <div className="w-full h-full">
                         <StyledInput
                           value={description}
                           rows={6}
                           onChange={(e) => setDescription(e.target.value)}
-                          inputStyle={fieldStyles["description"]}
+                          inputStyle={{
+                            verticalAlign: "top",
+                            ...fieldStyles["description"],
+                          }}
                           onChangeStyle={(s) =>
                             updateFieldStyle("description", s)
                           }
-                          className="font-normal text-[16px] h-full w-full z-20 text-white leading-[1.3] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                          className="font-normal text-[15px] h-full w-full z-20 text-white leading-[1.3] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
                           placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts incredible views..."
                         />
                       </div>
@@ -1649,11 +1654,11 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 </div>
 
                 {/* 4-Grid Image Slots (image4, image5, image6, image7) */}
-                <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[15px] shrink-0">
+                <div className="grid grid-cols-2 gap-2 w-full justify-self-center mt-[10px] shrink-0">
                   {/* Slot image4 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image4")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1757,7 +1762,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image5 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image5")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1861,7 +1866,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image6 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image6")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1965,7 +1970,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image7 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[150px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image7")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -3304,6 +3309,40 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                           </span>
                         </div>
                     </div>
+
+                    {!isFieldDeleted("cityLine") && (
+                      <DraggableBox
+                        id="cityLinePage2"
+                        position={fieldPositions.cityLinePage2}
+                        onPositionChange={updateFieldPosition}
+                        label="City / Province"
+                        zoom={0.85}
+                        disabled={lockedSections.address}
+                        onDelete={() =>
+                          removeStandardField(
+                            "cityLine",
+                            "City / Province",
+                            cityLine,
+                            "Header Address (Page 2)",
+                            fieldStyles.cityLine,
+                          )
+                        }
+                        deleteTitle="Remove City / Province"
+                      >
+                        <div className="text-[#ffffff] text-[10px] text-center mb-2 shrink-0 w-full">
+                          <StyledInput
+                            value={cityLine}
+                            onChange={(e) => setCityLine(e.target.value)}
+                            inputStyle={fieldStyles["cityLine"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("cityLine", s)
+                            }
+                            className="text-white text-[21px] h-[40px] bg-transparent text-center w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                          />
+                        </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
                 <hr className="w-full h-3 rotate-180 border-t-4 border-white border-dotted mt-1" />

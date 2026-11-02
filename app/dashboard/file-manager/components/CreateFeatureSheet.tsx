@@ -1011,6 +1011,164 @@ const CreateFeatureSheet = forwardRef<
   };
 
   /**
+   * Test Helper: Fill whole sheet's fields with appropriate text according to that property
+   */
+  const handleAutoFillTestData = () => {
+    try {
+      const prop = orderData?.property;
+      const agent = orderData?.agent;
+
+      // Price
+      const rawPrice = prop?.listing_price ? String(prop.listing_price).trim() : "";
+      const priceFormatted = rawPrice ? (rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`) : "$1,498,000";
+
+      // Agent Info
+      const agentName = `${agent?.first_name || ""} ${agent?.last_name || ""}`.trim() || "Sarah Jenkins";
+      const agentEmail = agent?.email || "sarah.jenkins@realtyexecutives.com";
+      const agentPhone = agent?.primary_phone || "604.555.0199";
+      const company = agent?.company_name || "Prestige Real Estate Group";
+
+      // Address Fields
+      const streetAddress = prop?.address || (orderData as any)?.property_address?.split(",")[0] || "11920 145 Avenue Northwest";
+      const suiteNumber = prop?.suite ? String(prop.suite).trim() : "101";
+      const mlsNumber = prop?.mls_number ? String(prop.mls_number).trim() : "R2894102";
+
+      const cityParts: string[] = [];
+      if (prop?.city) cityParts.push(String(prop.city).trim());
+      if (prop?.province) cityParts.push(String(prop.province).trim());
+      if (prop?.country && prop.country !== "CA" && prop.country !== "Canada") cityParts.push(String(prop.country).trim());
+      if (prop?.postal_code) cityParts.push(String(prop.postal_code).trim());
+      const cityLineFormatted = cityParts.join(", ") || "Edmonton, AB, T5X 1T6";
+
+      // Specs
+      const bedrooms = prop?.bedrooms ? String(prop.bedrooms).trim() : "4";
+      const bathrooms = prop?.bathrooms ? String(prop.bathrooms).trim() : "3.5";
+      const sqft = prop?.square_footage ? String(prop.square_footage).trim() : "2,850";
+      const builtYear = prop?.year_constructed ? String(prop.year_constructed).trim() : "2021";
+      const propDescription = prop?.description?.trim() || "Exquisite contemporary home crafted with meticulous attention to detail. Featuring an expansive open floor plan, soaring ceilings, chef-inspired kitchen with premium quartz island, and seamless indoor-outdoor living.";
+
+      const testPayload: any = {
+        id: 0,
+        uuid: selectedSheetUuid || "test-uuid",
+        order_id: orderData?.uuid || "",
+        type: "template",
+        template_key: selectedTemplate,
+        uploaded_by: "admin",
+        content: {
+          offeredAtPrice: { value: priceFormatted },
+          realtorName: { value: agentName },
+          realtorTitle: { value: "Personal Real Estate Corporation" },
+          companyName: { value: company },
+          emailLink: { value: agentEmail },
+          phoneNumber: { value: agentPhone },
+          contactLabel: { value: "Call Direct:" },
+          contactInfo: { value: `${agentPhone} | ${agentEmail}` },
+          propertyNotesTitle: { value: streetAddress },
+          propertyNotesDescription: { value: propDescription },
+          expandedDetail1Title: { value: "BY-LAW RESTRICTIONS:" },
+          expandedDetail1Description: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+          expandedDetail2Title: { value: "MAINT. FEES:" },
+          expandedDetail2Description: { value: "$485.00" },
+          expandedDetail3Title: { value: "MAINT. FEES INCLUDE:" },
+          expandedDetail3Description: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+          expandedDetail4Title: { value: "FEATURES INCLUDED:" },
+          expandedDetail4Description: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+          keyHighlightLabel: { value: "SITE INFLUENCES:" },
+          keyHighlights: {
+            value: ["Central Location", "Golf Course Nearby", "Marina Nearby", "Private Setting", "Recreation Nearby", "Shopping Nearby"]
+          },
+          otherDetails: {
+            bedroom: { value: bedrooms },
+            bathroom: { value: bathrooms },
+            sqft: { value: sqft },
+            builtYear: { value: builtYear },
+            amount: { value: priceFormatted },
+            number: { value: agentPhone },
+            addressCode: { value: mlsNumber },
+            mlsNumber: { value: mlsNumber },
+            roadName: { value: streetAddress },
+            cityLine: { value: cityLineFormatted },
+            suite: { value: suiteNumber },
+            propertyName: { value: company },
+            headline: { value: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE" },
+            amenities: { value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+            view: { value: "Panoramic City, Water & North Shore Mountain Views" },
+            byLawRestrictions: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+            maintFees: { value: "$485.00" },
+            maintenanceFees: { value: "$485.00" },
+            maintFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+            maintenanceFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+            featuresIncluded: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+            siteInfluences: { value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+            roadLabelBefore: { value: "No." },
+            roadLabelAfter: { value: "Avenue" },
+            addressHash: { value: "#" },
+            page2AddressHash: { value: "#" },
+            disclaimerText: { value: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed." },
+            _leftDetailFields: [
+              { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+              { id: "maintFees", title: "MAINT. FEES:", value: "$485.00" },
+              { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+              { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+            ],
+            _rightDetailFields: [
+              { id: "siteInfluences", title: "SITE INFLUENCES:", value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+              { id: "amenities", title: "AMENITIES:", value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+              { id: "view", title: "VIEW:", value: "Panoramic City, Water & North Shore Mountain Views" },
+            ]
+          }
+        },
+        images: []
+      };
+
+      // 1. Update active component
+      if (activeStandardRef.current?.importFromPayload) {
+        activeStandardRef.current.importFromPayload(testPayload);
+      }
+
+      // 2. Update context state
+      updateFormData({
+        title: priceFormatted,
+        amount: priceFormatted,
+        fullName: agentName,
+        realtorName: agentName,
+        email: agentEmail,
+        phone: agentPhone,
+        number: agentPhone,
+        propertyName: company,
+        roadName: streetAddress,
+        cityLine: cityLineFormatted,
+        suite: suiteNumber,
+        addressCode: mlsNumber,
+        mlsNumber: mlsNumber,
+        bedroom: bedrooms,
+        bathroom: bathrooms,
+        sqft: sqft,
+        builtYear: builtYear,
+        description: propDescription,
+        byLawRestrictions: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)",
+        maintenanceFees: "$485.00",
+        maintenanceFeesInclude: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water",
+        featuresIncluded: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security",
+        siteInfluences: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby",
+        amenities: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub",
+        view: "Panoramic City, Water & North Shore Mountain Views",
+        headline: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE",
+        roadLabelBefore: "No.",
+        roadLabelAfter: "Avenue",
+        disclaimerText: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed."
+      });
+
+      setHasUnsavedChanges(true);
+      toast.success("Sheet auto-filled with property test data!");
+    } catch (err) {
+      console.error("Error auto-filling test data:", err);
+      toast.error("Failed to auto-fill test data.");
+    }
+  };
+
+
+  /**
    * Apply style properties from a source sheet to the currently open sheet.
    * Only the `style` object of each StyledTextField is applied.
    * Content `value` fields are left completely untouched.
@@ -2895,6 +3053,19 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
+                        
+                        {/* Auto-Fill Test Data button (Uncomment to use)
+                        <button
+                          type="button"
+                          onClick={handleAutoFillTestData}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] h-[32px] text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-[6px] font-semibold transition-colors shadow-2xs cursor-pointer"
+                          title="Fill all sheet fields with appropriate test data for this property"
+                        >
+                          <span>⚡</span>
+                          <span>Auto-Fill Test Data</span>
+                        </button>
+                        */}
+
                         {/* Save Feature Sheet button */}
                         <button
                           type="button"
@@ -3009,10 +3180,10 @@ const CreateFeatureSheet = forwardRef<
                         pointer-events: none !important;
                       }
                     `}</style>
-                    <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative">
+                    <div className="flex flex-col border border-gray-200 rounded-md bg-gray-50 relative w-full">
                       {/* Sticky Header Toolbar Container */}
-                      <div className="sticky top-[60px] z-[50] pointer-events-none">
-                        <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none pointer-events-auto">
+                      <div className="sticky top-[60px] z-[50] pointer-events-none w-full">
+                        <div className="w-full bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-4 shadow-sm overflow-x-auto whitespace-nowrap scrollbar-none pointer-events-auto">
                           {/* Left Group: Mode Switcher & Pan/Zoom Hint */}
                           <div className="flex items-center gap-3 shrink-0">
                             {!isReadonly && (
@@ -3089,7 +3260,7 @@ const CreateFeatureSheet = forwardRef<
 
                                 {/* Pan & Zoom Hint */}
                                 {previewMode === "edit" && (
-                                  <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
+                                  <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/80 border border-amber-200/70 text-amber-800 text-[11px] rounded-md font-medium">
                                     <span>💡</span>
                                     <kbd className="px-1 py-0.5 bg-amber-100/90 border border-amber-300/70 rounded text-[10px] font-mono">
                                       Alt
@@ -3335,12 +3506,10 @@ const CreateFeatureSheet = forwardRef<
                           }
                         }}
                         style={{
-                          paddingLeft: "420px",
-                          paddingRight: "380px",
                           paddingTop: "48px",
                           paddingBottom: "120px",
                         }}
-                        className={`flex-1 flex flex-col overflow-auto relative min-h-[700px] w-full ${
+                        className={`flex-1 flex flex-col items-center px-6 overflow-auto relative min-h-[700px] w-full max-w-full ${
                           isPanning
                             ? "cursor-grabbing select-none"
                             : previewMode === "preview"
@@ -3353,7 +3522,7 @@ const CreateFeatureSheet = forwardRef<
                             isPanning
                               ? "transition-none"
                               : "transition-transform duration-75"
-                          } m-auto w-max`}
+                          } mx-auto w-max`}
                           style={{
                             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
                             transformOrigin: "top center",

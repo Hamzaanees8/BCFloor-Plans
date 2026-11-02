@@ -1143,7 +1143,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   {/* Section Container for Specs Bar */}
                   <div
                     data-safezone-container="true"
-                    className={`flex items-center px-5 pr-[64px] h-[38px] relative border-[3.5px] border-solid border-transparent rounded-none transition-all duration-150 group/sec ${
+                    className={`flex items-center justify-center px-5 pr-[64px] h-[38px] relative border-[3.5px] border-solid border-transparent rounded-none transition-all duration-150 group/sec ${
                       lockedSections.specs
                         ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
                         : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
@@ -1193,7 +1193,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       zoom={0.85}
                       disabled={lockedSections.specs}
                     >
-                      <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-nowrap gap-2 whitespace-nowrap">
+                      <div className="font-bold items-stretch text-[14px] text-[#B3B394] flex flex-nowrap gap-2 whitespace-nowrap">
                         {!isFieldDeleted("specBedroom") && (
                           <DraggableBox
                             id="specBedroom"
@@ -1213,7 +1213,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Bedrooms"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap h-[38px]">
+                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
                               <StyledInput
                                 value={bedroom}
                                 onChange={(e) => setBedroom(e.target.value)}
@@ -1223,7 +1223,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] leading-none"
                                 placeholder="0"
-                                wrapperClassName="w-auto shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto shrink-0 flex items-center"
                               />
                               <StyledInput
                                 value={bedroomLabel}
@@ -1236,7 +1236,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap leading-none"
                                 placeholder="BEDROOM |"
-                                wrapperClassName="w-auto whitespace-nowrap shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto whitespace-nowrap shrink-0 flex items-center"
                               />
                             </div>
                           </DraggableBox>
@@ -1261,7 +1261,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Bathrooms"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap h-[38px]">
+                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
                               <StyledInput
                                 value={bathroom}
                                 onChange={(e) => setBathroom(e.target.value)}
@@ -1271,7 +1271,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] leading-none"
                                 placeholder="0"
-                                wrapperClassName="w-auto shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto shrink-0 flex items-center"
                               />
                               <StyledInput
                                 value={bathroomLabel}
@@ -1284,7 +1284,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap leading-none"
                                 placeholder="BATHROOM |"
-                                wrapperClassName="w-auto whitespace-nowrap shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto whitespace-nowrap shrink-0 flex items-center"
                               />
                             </div>
                           </DraggableBox>
@@ -1309,7 +1309,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove SqFt"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap h-[38px]">
+                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
                               <StyledInput
                                 value={sqft}
                                 onChange={(e) => setSqft(e.target.value)}
@@ -1319,7 +1319,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] leading-none"
                                 placeholder="000"
-                                wrapperClassName="w-auto shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto shrink-0 flex items-center"
                               />
                               <StyledInput
                                 value={sqftLabel}
@@ -1330,7 +1330,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap leading-none"
                                 placeholder="SQ FT |"
-                                wrapperClassName="w-auto whitespace-nowrap shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto whitespace-nowrap shrink-0 flex items-center"
                               />
                             </div>
                           </DraggableBox>
@@ -1355,7 +1355,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Built Year"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap h-[38px]">
+                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
                               <StyledInput
                                 value={builtYearLabel}
                                 onChange={(e) =>
@@ -1367,7 +1367,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-bold text-[14px] text-[#B3B394] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap leading-none"
                                 placeholder="BUILT IN"
-                                wrapperClassName="w-auto whitespace-nowrap shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto whitespace-nowrap shrink-0 flex items-center"
                               />
                               <StyledInput
                                 value={builtYear}
@@ -1378,7 +1378,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                 }
                                 className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] leading-none"
                                 placeholder="0000"
-                                wrapperClassName="w-auto shrink-0 h-[38px] flex items-center"
+                                wrapperClassName="w-auto shrink-0 flex items-center"
                               />
                             </div>
                           </DraggableBox>
@@ -1445,7 +1445,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                         }}
                       >
-                        <div className="tracking-wide text-white mt-0 flex items-center">
+                        <div className="tracking-wide text-white mt-0 flex items-center" style={{minHeight:"28px",paddingTop:"2px"}}>
                           {!isFieldDeleted("addressHash") && (
                             <DraggableBox
                               id="addressHash"
@@ -1693,7 +1693,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           deleteTitle="Remove Price"
                         >
                           <div
-                            className="h-[40px] rounded-sm shadow-md flex items-center"
+                            className="rounded-sm shadow-md flex items-center" 
                             style={{
                               background:
                                 "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
@@ -1709,7 +1709,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               inputStyle={fieldStyles["amount"]}
                               placeholder="$000,000"
                               className="text-center text-[#ffffff] text-[28px] w-full bg-transparent border-none focus:outline-none outline-none placeholder-[#ffffff] placeholder:font-[500] px-2 leading-none"
-                              wrapperClassName="w-full h-[40px] flex items-center"
+                              wrapperClassName="w-full flex items-center"
                             />
                           </div>
                         </DraggableBox>
@@ -1722,11 +1722,11 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
               {/* BOTTOM SECTION: Left Details Column (25%) + Right Image Grid & Desc (75%) */}
               <div className="flex gap-4 px-[20px] pb-[5px] flex-1 min-h-0">
                 {/* LEFT COLUMN (25%): Property Details + Agent Contact */}
-                <div className="w-[30%] flex flex-col gap-2">
+                <div className="w-[30%] flex flex-col justify-between h-full min-h-0 gap-2">
                   {/* Property Details Section Container */}
                   <div
                     data-safezone-container="true"
-                    className={`flex flex-col flex-1 space-y-2 relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                    className={`flex flex-col flex-1 min-h-0 relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
                       lockedSections.details
                         ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
                         : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
@@ -1764,7 +1764,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       )}
                     </button>
 
-                    <div className="space-y-1.5 text-[8px] text-left">
+                    <div className="flex flex-col justify-between flex-1 h-full min-h-0 text-left">
                       {!isFieldDeleted("byLawRestrictions") && (
                         <DraggableBox
                           id="byLawRestrictions"
@@ -2096,7 +2096,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                   {/* Agent Contact Box Container */}
                   <div
                     data-safezone-container="true"
-                    className={`flex flex-col relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                    className={`flex flex-col shrink-0 mt-auto relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
                       lockedSections.contact
                         ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
                         : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"

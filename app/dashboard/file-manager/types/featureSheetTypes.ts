@@ -301,6 +301,7 @@ export interface FeatureSheetState {
     deletedStandardFieldIds?: string[];
     deletedImageSlots?: string[];
     deletedImageUuids?: string[];
+    processingSlots?: Record<string, boolean>;
 }
 
 
