@@ -1641,6 +1641,7 @@ export class FeatureSheetService {
       defaults: Partial<TextStyle>,
     ): StyledTextField | undefined => this.resolveTextField(field, defaults);
 
+    const isBcfp15 = params.templateKey === "BCFPStandard15";
     if (params.offeredAtPrice) {
       content.offeredAtPrice = resolved(params.offeredAtPrice, { fontSize: "36px", fontWeight: "600", color: "#FFFFFF", textAlign: "center" });
     }
@@ -1648,31 +1649,46 @@ export class FeatureSheetService {
       content.realtorTitle = resolved(params.realtorTitle, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.realtorName) {
-      content.realtorName = resolved(params.realtorName, { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" });
+      content.realtorName = resolved(
+        params.realtorName,
+        isBcfp15
+          ? { fontSize: "14px", fontWeight: "400", color: "#FFFFFF" }
+          : { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" },
+      );
     }
     if (params.companyName) {
-      content.companyName = resolved(params.companyName, { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" });
+      content.companyName = resolved(
+        params.companyName,
+        isBcfp15
+          ? { fontSize: "10px", fontWeight: "300", color: "#FFFFFF" }
+          : { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" },
+      );
     }
     if (params.propertyNotesTitle) {
       content.propertyNotesTitle = resolved(params.propertyNotesTitle, { fontSize: "28px", fontWeight: "300", color: "#226292" });
     }
     if (params.propertyNotesDescription) {
-      content.propertyNotesDescription = resolved(params.propertyNotesDescription, { fontSize: "10px", fontWeight: "400", color: "#2C2E35" });
+      content.propertyNotesDescription = resolved(
+        params.propertyNotesDescription,
+        isBcfp15
+          ? { fontSize: "15px", fontWeight: "400", color: "#FFFFFF" }
+          : { fontSize: "10px", fontWeight: "400", color: "#2C2E35" },
+      );
     }
     if (params.expandedDetail1Title) {
-      content.expandedDetail1Title = resolved(params.expandedDetail1Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail1Title = resolved(params.expandedDetail1Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail1Description) {
-      content.expandedDetail1Description = resolved(params.expandedDetail1Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail1Description = resolved(params.expandedDetail1Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail2Title) {
-      content.expandedDetail2Title = resolved(params.expandedDetail2Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail2Title = resolved(params.expandedDetail2Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail2Description) {
-      content.expandedDetail2Description = resolved(params.expandedDetail2Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail2Description = resolved(params.expandedDetail2Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.keyHighlightLabel) {
-      content.keyHighlightLabel = resolved(params.keyHighlightLabel, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.keyHighlightLabel = resolved(params.keyHighlightLabel, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
 
     if (params.keyHighlights && params.keyHighlights.length > 0) {
@@ -1699,16 +1715,26 @@ export class FeatureSheetService {
     }
 
     if (params.emailLink) {
-      content.emailLink = resolved(params.emailLink, { fontSize: "20px", fontWeight: "100" });
+      content.emailLink = resolved(
+        params.emailLink,
+        isBcfp15
+          ? { fontSize: "10px", fontWeight: "300" }
+          : { fontSize: "20px", fontWeight: "100" },
+      );
     }
     if (params.linkedinLink) {
       content.linkedinLink = resolved(params.linkedinLink, { fontSize: "14px", fontWeight: "400" });
     }
     if (params.phoneNumber) {
-      content.phoneNumber = resolved(params.phoneNumber, { fontSize: "20px", fontWeight: "600" });
+      content.phoneNumber = resolved(
+        params.phoneNumber,
+        isBcfp15
+          ? { fontSize: "10px", fontWeight: "300" }
+          : { fontSize: "20px", fontWeight: "600" },
+      );
     }
     if (params.contactLabel) {
-      content.contactLabel = resolved(params.contactLabel, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
+      content.contactLabel = resolved(params.contactLabel, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.contactInfo) {
       content.contactInfo = resolved(params.contactInfo, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
@@ -1717,16 +1743,16 @@ export class FeatureSheetService {
       content.ctaText = resolved(params.ctaText, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.expandedDetail3Title) {
-      content.expandedDetail3Title = resolved(params.expandedDetail3Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail3Title = resolved(params.expandedDetail3Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail3Description) {
-      content.expandedDetail3Description = resolved(params.expandedDetail3Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail3Description = resolved(params.expandedDetail3Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail4Title) {
-      content.expandedDetail4Title = resolved(params.expandedDetail4Title, { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail4Title = resolved(params.expandedDetail4Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail4Description) {
-      content.expandedDetail4Description = resolved(params.expandedDetail4Description, { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail4Description = resolved(params.expandedDetail4Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.otherDetails) {
       content.otherDetails = params.otherDetails as unknown as
@@ -2628,45 +2654,32 @@ export class FeatureSheetService {
         return acc;
       })(),
       fieldStyles: (() => {
-        const extracted: Record<string, TextStyle> = {};
         const c = content as Record<string, any>;
-        const getStyle = (f: any): TextStyle | null =>
-          f && typeof f === "object" && f.style ? (f.style as TextStyle) : null;
-
-        if (getStyle(c?.offeredAtPrice)) extracted.amount = getStyle(c.offeredAtPrice)!;
-        if (getStyle(c?.realtorName)) extracted.fullName = getStyle(c.realtorName)!;
-        if (getStyle(c?.companyName)) extracted.propertyName = getStyle(c.companyName)!;
-        if (getStyle(c?.emailLink)) extracted.email = getStyle(c.emailLink)!;
-        if (getStyle(c?.propertyNotesTitle)) extracted.roadName = getStyle(c.propertyNotesTitle)!;
-        if (getStyle(c?.propertyNotesDescription)) extracted.description = getStyle(c.propertyNotesDescription)!;
-        if (getStyle(c?.phoneNumber)) extracted.number = getStyle(c.phoneNumber)!;
-        if (getStyle(c?.contactLabel)) extracted.contactLabel = getStyle(c.contactLabel)!;
-        if (getStyle(c?.expandedDetail1Title)) extracted.byLawLabel = getStyle(c.expandedDetail1Title)!;
-        if (getStyle(c?.expandedDetail1Description)) extracted.byLawRestrictions = getStyle(c.expandedDetail1Description)!;
-        if (getStyle(c?.expandedDetail2Title)) extracted.maintFeesLabel = getStyle(c.expandedDetail2Title)!;
-        if (getStyle(c?.expandedDetail2Description)) extracted.maintFees = getStyle(c.expandedDetail2Description)!;
-        if (getStyle(c?.expandedDetail3Title)) extracted.maintFeesIncludeLabel = getStyle(c.expandedDetail3Title)!;
-        if (getStyle(c?.expandedDetail3Description)) extracted.maintFeesInclude = getStyle(c.expandedDetail3Description)!;
-        if (getStyle(c?.expandedDetail4Title)) extracted.featuresIncludedLabel = getStyle(c.expandedDetail4Title)!;
-        if (getStyle(c?.expandedDetail4Description)) extracted.featuresIncluded = getStyle(c.expandedDetail4Description)!;
-        if (getStyle(c?.keyHighlightLabel)) extracted.siteInfluencesLabel = getStyle(c.keyHighlightLabel)!;
-
         const od = (c?.otherDetails as Record<string, any>) || {};
-        for (const [k, v] of Object.entries(od)) {
-          const s = getStyle(v);
-          if (s) extracted[k] = s;
+
+        const directStyles: Record<string, TextStyle> = {
+          ...((od.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c?.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((payload as any).fieldStyles || {}),
+        };
+
+        const isBcfp15 = payload?.template_key === "BCFPStandard15";
+        if (isBcfp15) {
+          if (directStyles.fullName?.fontSize === "20px") {
+            directStyles.fullName = { ...directStyles.fullName, fontSize: "14px" };
+          }
+          if (directStyles.propertyName?.fontSize === "20px") {
+            directStyles.propertyName = { ...directStyles.propertyName, fontSize: "10px" };
+          }
+          if (directStyles.number?.fontSize === "20px") {
+            directStyles.number = { ...directStyles.number, fontSize: "10px" };
+          }
+          if (directStyles.email?.fontSize === "20px") {
+            directStyles.email = { ...directStyles.email, fontSize: "10px" };
+          }
         }
 
-        const directStyles =
-          (payload as any).fieldStyles ||
-          (content as any)?.fieldStyles ||
-          (content?.otherDetails as any)?.fieldStyles ||
-          {};
-
-        return {
-          ...extracted,
-          ...directStyles,
-        };
+        return directStyles;
       })(),
       fieldPositions:
         (payload as any).fieldPositions ||

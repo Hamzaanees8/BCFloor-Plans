@@ -422,21 +422,30 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             value: fullName,
             style: {
               ...fieldStyles.fullName,
-              fontSize: fieldStyles.fullName?.fontSize || "14px",
+              fontSize:
+                fieldStyles.fullName?.fontSize === "20px"
+                  ? "14px"
+                  : fieldStyles.fullName?.fontSize || "14px",
             },
           },
           emailLink: {
             value: email,
             style: {
               ...fieldStyles.email,
-              fontSize: fieldStyles.email?.fontSize || "10px",
+              fontSize:
+                fieldStyles.email?.fontSize === "20px"
+                  ? "10px"
+                  : fieldStyles.email?.fontSize || "10px",
             },
           },
           companyName: {
             value: propertyName,
             style: {
               ...fieldStyles.propertyName,
-              fontSize: fieldStyles.propertyName?.fontSize || "10px",
+              fontSize:
+                fieldStyles.propertyName?.fontSize === "20px"
+                  ? "10px"
+                  : fieldStyles.propertyName?.fontSize || "10px",
             },
           },
           propertyNotesTitle: {
@@ -455,7 +464,13 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           },
           phoneNumber: {
             value: number,
-            style: fieldStyles.number || {},
+            style: {
+              ...fieldStyles.number,
+              fontSize:
+                fieldStyles.number?.fontSize === "20px"
+                  ? "10px"
+                  : fieldStyles.number?.fontSize || "10px",
+            },
           },
           contactLabel: {
             value: contactLabel,
@@ -672,36 +687,24 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         const c = (payload?.content as Record<string, any>) || {};
         const od = (c.otherDetails as Record<string, any>) || {};
         const incomingStyles: Record<string, TextStyle> = {
+          ...((od.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c.fieldStyles as Record<string, TextStyle>) || {}),
           ...((state.fieldStyles as Record<string, TextStyle>) || {}),
           ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
-          ...((c.fieldStyles as Record<string, TextStyle>) || {}),
-          ...((od.fieldStyles as Record<string, TextStyle>) || {}),
         };
 
-        const getStyle = (f: any): TextStyle | null =>
-          f && typeof f === "object" && f.style ? (f.style as TextStyle) : null;
-
-        if (getStyle(c.offeredAtPrice)) incomingStyles.amount = getStyle(c.offeredAtPrice)!;
-        if (getStyle(c.realtorName)) incomingStyles.fullName = getStyle(c.realtorName)!;
-        if (getStyle(c.emailLink)) incomingStyles.email = getStyle(c.emailLink)!;
-        if (getStyle(c.companyName)) incomingStyles.propertyName = getStyle(c.companyName)!;
-        if (getStyle(c.propertyNotesTitle)) incomingStyles.roadName = getStyle(c.propertyNotesTitle)!;
-        if (getStyle(c.propertyNotesDescription)) incomingStyles.description = getStyle(c.propertyNotesDescription)!;
-        if (getStyle(c.phoneNumber)) incomingStyles.number = getStyle(c.phoneNumber)!;
-        if (getStyle(c.contactLabel)) incomingStyles.contactLabel = getStyle(c.contactLabel)!;
-        if (getStyle(c.expandedDetail1Title)) incomingStyles.byLawLabel = getStyle(c.expandedDetail1Title)!;
-        if (getStyle(c.expandedDetail1Description)) incomingStyles.byLawRestrictions = getStyle(c.expandedDetail1Description)!;
-        if (getStyle(c.expandedDetail2Title)) incomingStyles.maintFeesLabel = getStyle(c.expandedDetail2Title)!;
-        if (getStyle(c.expandedDetail2Description)) incomingStyles.maintFees = getStyle(c.expandedDetail2Description)!;
-        if (getStyle(c.expandedDetail3Title)) incomingStyles.maintFeesIncludeLabel = getStyle(c.expandedDetail3Title)!;
-        if (getStyle(c.expandedDetail3Description)) incomingStyles.maintFeesInclude = getStyle(c.expandedDetail3Description)!;
-        if (getStyle(c.expandedDetail4Title)) incomingStyles.featuresIncludedLabel = getStyle(c.expandedDetail4Title)!;
-        if (getStyle(c.expandedDetail4Description)) incomingStyles.featuresIncluded = getStyle(c.expandedDetail4Description)!;
-        if (getStyle(c.keyHighlightLabel)) incomingStyles.siteInfluencesLabel = getStyle(c.keyHighlightLabel)!;
-
-        for (const [k, v] of Object.entries(od)) {
-          const s = getStyle(v);
-          if (s) incomingStyles[k] = s;
+        // Reset any legacy 20px defaults that leaked into contact fields back to original template sizes
+        if (incomingStyles.fullName?.fontSize === "20px") {
+          incomingStyles.fullName = { ...incomingStyles.fullName, fontSize: "14px" };
+        }
+        if (incomingStyles.propertyName?.fontSize === "20px") {
+          incomingStyles.propertyName = { ...incomingStyles.propertyName, fontSize: "10px" };
+        }
+        if (incomingStyles.number?.fontSize === "20px") {
+          incomingStyles.number = { ...incomingStyles.number, fontSize: "10px" };
+        }
+        if (incomingStyles.email?.fontSize === "20px") {
+          incomingStyles.email = { ...incomingStyles.email, fontSize: "10px" };
         }
 
         if (Object.keys(incomingStyles).length > 0) {
@@ -963,11 +966,27 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             ...prev,
             ...(formData.fieldPositions as typeof fieldPositions),
           }));
-        if (formData.fieldStyles && Object.keys(formData.fieldStyles).length > 0)
+        if (formData.fieldStyles && Object.keys(formData.fieldStyles).length > 0) {
+          const sanitized: Record<string, TextStyle> = {
+            ...(formData.fieldStyles as typeof fieldStyles),
+          };
+          if (sanitized.fullName?.fontSize === "20px") {
+            sanitized.fullName = { ...sanitized.fullName, fontSize: "14px" };
+          }
+          if (sanitized.propertyName?.fontSize === "20px") {
+            sanitized.propertyName = { ...sanitized.propertyName, fontSize: "10px" };
+          }
+          if (sanitized.number?.fontSize === "20px") {
+            sanitized.number = { ...sanitized.number, fontSize: "10px" };
+          }
+          if (sanitized.email?.fontSize === "20px") {
+            sanitized.email = { ...sanitized.email, fontSize: "10px" };
+          }
           setFieldStyles((prev) => ({
             ...prev,
-            ...(formData.fieldStyles as typeof fieldStyles),
+            ...sanitized,
           }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
