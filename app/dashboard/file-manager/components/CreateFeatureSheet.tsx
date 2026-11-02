@@ -285,7 +285,9 @@ const CreateFeatureSheet = forwardRef<
   const { allowPrintRequest } = usePortalSettings();
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
-  const [openingInvoiceSheetUuid, setOpeningInvoiceSheetUuid] = useState<string | null>(null);
+  const [openingInvoiceSheetUuid, setOpeningInvoiceSheetUuid] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("userInfo");
@@ -329,7 +331,9 @@ const CreateFeatureSheet = forwardRef<
     null,
   );
   // Stable session instance key: only changes when user explicitly selects a different sheet/template, NOT on save
-  const [sheetInstanceId, setSheetInstanceId] = useState<string>(() => "inst_" + Math.random().toString(36).substring(2, 9));
+  const [sheetInstanceId, setSheetInstanceId] = useState<string>(
+    () => "inst_" + Math.random().toString(36).substring(2, 9),
+  );
   const lastSavedPayloadRef = useRef<FeatureSheetResponse | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [saveStageStatus, setSaveStageStatus] = useState<string | null>(null);
@@ -366,13 +370,20 @@ const CreateFeatureSheet = forwardRef<
     }
   }, [orderData?.uuid]);
 
-  const [claimedOrderServiceUuids, setClaimedOrderServiceUuids] = useState<string[]>([]);
+  const [claimedOrderServiceUuids, setClaimedOrderServiceUuids] = useState<
+    string[]
+  >([]);
 
-  const handlePrintRequestSuccess = (sheetUuid: string, claimedServiceUuid?: string) => {
+  const handlePrintRequestSuccess = (
+    sheetUuid: string,
+    claimedServiceUuid?: string,
+  ) => {
     if (!sheetUuid) return;
     if (claimedServiceUuid) {
       setClaimedOrderServiceUuids((prev) =>
-        prev.includes(claimedServiceUuid) ? prev : [...prev, claimedServiceUuid],
+        prev.includes(claimedServiceUuid)
+          ? prev
+          : [...prev, claimedServiceUuid],
       );
     }
     setPrintedSheetUuids((prev) => {
@@ -441,7 +452,9 @@ const CreateFeatureSheet = forwardRef<
     if (!orderData?.services || isCurrentSheetPrinted) return null;
     const currentTemplate_lower = selectedTemplate?.toLowerCase() || "";
     // Determine the expected service type based on the open template
-    const targetType = currentTemplate_lower.includes("tabloid") ? "tabloid" : "flyer";
+    const targetType = currentTemplate_lower.includes("tabloid")
+      ? "tabloid"
+      : "flyer";
     return (
       (orderData.services as any[]).find((os: any) => {
         const osFsId = os.feature_sheet_id || os.feature_sheet?.id;
@@ -467,13 +480,17 @@ const CreateFeatureSheet = forwardRef<
         const matchesType =
           targetType === "tabloid"
             ? sType === "tabloid" || sName.includes("tabloid")
-            : sType === "flyer" ||
-              (!sType && !sName.includes("tabloid"));
+            : sType === "flyer" || (!sType && !sName.includes("tabloid"));
 
         return isPrintOrFS && matchesType;
       }) || null
     );
-  }, [orderData, isCurrentSheetPrinted, selectedTemplate, claimedOrderServiceUuids]);
+  }, [
+    orderData,
+    isCurrentSheetPrinted,
+    selectedTemplate,
+    claimedOrderServiceUuids,
+  ]);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [featureSheetsFullService, setFeatureSheetsFullService] = useState<
@@ -482,10 +499,22 @@ const CreateFeatureSheet = forwardRef<
 
   // Close all feature sheet sidebars whenever any modal opens
   useEffect(() => {
-    if (isPrintModalOpen || isPaymentModalOpen || isUpgradeModalOpen || confirmOpen || copyStyleOpen) {
+    if (
+      isPrintModalOpen ||
+      isPaymentModalOpen ||
+      isUpgradeModalOpen ||
+      confirmOpen ||
+      copyStyleOpen
+    ) {
       closeFeatureSheetSidebars();
     }
-  }, [isPrintModalOpen, isPaymentModalOpen, isUpgradeModalOpen, confirmOpen, copyStyleOpen]);
+  }, [
+    isPrintModalOpen,
+    isPaymentModalOpen,
+    isUpgradeModalOpen,
+    confirmOpen,
+    copyStyleOpen,
+  ]);
 
   const handleOpenUpgradeModal = async () => {
     try {
@@ -932,7 +961,10 @@ const CreateFeatureSheet = forwardRef<
     FeatureSheetResponse | undefined
   > => {
     // Blur any active element (StyledInput) so any in-progress text edits commit immediately
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    if (
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
       document.activeElement.blur();
     }
 
@@ -973,7 +1005,9 @@ const CreateFeatureSheet = forwardRef<
 
         // Update processing image status if any variant is being generated in background
         const hasProcessing = result.images?.some(
-          (img) => img.is_processing === true || (img.source === "upload" && !img.file_path && !img.url)
+          (img) =>
+            img.is_processing === true ||
+            (img.source === "upload" && !img.file_path && !img.url),
         );
         if (hasProcessing) {
           setSaveStageStatus("Saved · Optimizing print media in background...");
@@ -1013,160 +1047,159 @@ const CreateFeatureSheet = forwardRef<
   /**
    * Test Helper: Fill whole sheet's fields with appropriate text according to that property
    */
-  const handleAutoFillTestData = () => {
-    try {
-      const prop = orderData?.property;
-      const agent = orderData?.agent;
+  // const handleAutoFillTestData = () => {
+  //   try {
+  //     const prop = orderData?.property;
+  //     const agent = orderData?.agent;
 
-      // Price
-      const rawPrice = prop?.listing_price ? String(prop.listing_price).trim() : "";
-      const priceFormatted = rawPrice ? (rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`) : "$1,498,000";
+  //     // Price
+  //     const rawPrice = prop?.listing_price ? String(prop.listing_price).trim() : "";
+  //     const priceFormatted = rawPrice ? (rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`) : "$1,498,000";
 
-      // Agent Info
-      const agentName = `${agent?.first_name || ""} ${agent?.last_name || ""}`.trim() || "Sarah Jenkins";
-      const agentEmail = agent?.email || "sarah.jenkins@realtyexecutives.com";
-      const agentPhone = agent?.primary_phone || "604.555.0199";
-      const company = agent?.company_name || "Prestige Real Estate Group";
+  //     // Agent Info
+  //     const agentName = `${agent?.first_name || ""} ${agent?.last_name || ""}`.trim() || "Sarah Jenkins";
+  //     const agentEmail = agent?.email || "sarah.jenkins@realtyexecutives.com";
+  //     const agentPhone = agent?.primary_phone || "604.555.0199";
+  //     const company = agent?.company_name || "Prestige Real Estate Group";
 
-      // Address Fields
-      const streetAddress = prop?.address || (orderData as any)?.property_address?.split(",")[0] || "11920 145 Avenue Northwest";
-      const suiteNumber = prop?.suite ? String(prop.suite).trim() : "101";
-      const mlsNumber = prop?.mls_number ? String(prop.mls_number).trim() : "R2894102";
+  //     // Address Fields
+  //     const streetAddress = prop?.address || (orderData as any)?.property_address?.split(",")[0] || "11920 145 Avenue Northwest";
+  //     const suiteNumber = prop?.suite ? String(prop.suite).trim() : "101";
+  //     const mlsNumber = prop?.mls_number ? String(prop.mls_number).trim() : "R2894102";
 
-      const cityParts: string[] = [];
-      if (prop?.city) cityParts.push(String(prop.city).trim());
-      if (prop?.province) cityParts.push(String(prop.province).trim());
-      if (prop?.country && prop.country !== "CA" && prop.country !== "Canada") cityParts.push(String(prop.country).trim());
-      if (prop?.postal_code) cityParts.push(String(prop.postal_code).trim());
-      const cityLineFormatted = cityParts.join(", ") || "Edmonton, AB, T5X 1T6";
+  //     const cityParts: string[] = [];
+  //     if (prop?.city) cityParts.push(String(prop.city).trim());
+  //     if (prop?.province) cityParts.push(String(prop.province).trim());
+  //     if (prop?.country && prop.country !== "CA" && prop.country !== "Canada") cityParts.push(String(prop.country).trim());
+  //     if (prop?.postal_code) cityParts.push(String(prop.postal_code).trim());
+  //     const cityLineFormatted = cityParts.join(", ") || "Edmonton, AB, T5X 1T6";
 
-      // Specs
-      const bedrooms = prop?.bedrooms ? String(prop.bedrooms).trim() : "4";
-      const bathrooms = prop?.bathrooms ? String(prop.bathrooms).trim() : "3.5";
-      const sqft = prop?.square_footage ? String(prop.square_footage).trim() : "2,850";
-      const builtYear = prop?.year_constructed ? String(prop.year_constructed).trim() : "2021";
-      const propDescription = prop?.description?.trim() || "Exquisite contemporary home crafted with meticulous attention to detail. Featuring an expansive open floor plan, soaring ceilings, chef-inspired kitchen with premium quartz island, and seamless indoor-outdoor living.";
+  //     // Specs
+  //     const bedrooms = prop?.bedrooms ? String(prop.bedrooms).trim() : "4";
+  //     const bathrooms = prop?.bathrooms ? String(prop.bathrooms).trim() : "3.5";
+  //     const sqft = prop?.square_footage ? String(prop.square_footage).trim() : "2,850";
+  //     const builtYear = prop?.year_constructed ? String(prop.year_constructed).trim() : "2021";
+  //     const propDescription = prop?.description?.trim() || "Exquisite contemporary home crafted with meticulous attention to detail. Featuring an expansive open floor plan, soaring ceilings, chef-inspired kitchen with premium quartz island, and seamless indoor-outdoor living.";
 
-      const testPayload: any = {
-        id: 0,
-        uuid: selectedSheetUuid || "test-uuid",
-        order_id: orderData?.uuid || "",
-        type: "template",
-        template_key: selectedTemplate,
-        uploaded_by: "admin",
-        content: {
-          offeredAtPrice: { value: priceFormatted },
-          realtorName: { value: agentName },
-          realtorTitle: { value: "Personal Real Estate Corporation" },
-          companyName: { value: company },
-          emailLink: { value: agentEmail },
-          phoneNumber: { value: agentPhone },
-          contactLabel: { value: "Call Direct:" },
-          contactInfo: { value: `${agentPhone} | ${agentEmail}` },
-          propertyNotesTitle: { value: streetAddress },
-          propertyNotesDescription: { value: propDescription },
-          expandedDetail1Title: { value: "BY-LAW RESTRICTIONS:" },
-          expandedDetail1Description: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-          expandedDetail2Title: { value: "MAINT. FEES:" },
-          expandedDetail2Description: { value: "$485.00" },
-          expandedDetail3Title: { value: "MAINT. FEES INCLUDE:" },
-          expandedDetail3Description: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-          expandedDetail4Title: { value: "FEATURES INCLUDED:" },
-          expandedDetail4Description: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-          keyHighlightLabel: { value: "SITE INFLUENCES:" },
-          keyHighlights: {
-            value: ["Central Location", "Golf Course Nearby", "Marina Nearby", "Private Setting", "Recreation Nearby", "Shopping Nearby"]
-          },
-          otherDetails: {
-            bedroom: { value: bedrooms },
-            bathroom: { value: bathrooms },
-            sqft: { value: sqft },
-            builtYear: { value: builtYear },
-            amount: { value: priceFormatted },
-            number: { value: agentPhone },
-            addressCode: { value: mlsNumber },
-            mlsNumber: { value: mlsNumber },
-            roadName: { value: streetAddress },
-            cityLine: { value: cityLineFormatted },
-            suite: { value: suiteNumber },
-            propertyName: { value: company },
-            headline: { value: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE" },
-            amenities: { value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
-            view: { value: "Panoramic City, Water & North Shore Mountain Views" },
-            byLawRestrictions: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-            maintFees: { value: "$485.00" },
-            maintenanceFees: { value: "$485.00" },
-            maintFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-            maintenanceFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-            featuresIncluded: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-            siteInfluences: { value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
-            roadLabelBefore: { value: "No." },
-            roadLabelAfter: { value: "Avenue" },
-            addressHash: { value: "#" },
-            page2AddressHash: { value: "#" },
-            disclaimerText: { value: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed." },
-            _leftDetailFields: [
-              { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-              { id: "maintFees", title: "MAINT. FEES:", value: "$485.00" },
-              { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-              { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-            ],
-            _rightDetailFields: [
-              { id: "siteInfluences", title: "SITE INFLUENCES:", value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
-              { id: "amenities", title: "AMENITIES:", value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
-              { id: "view", title: "VIEW:", value: "Panoramic City, Water & North Shore Mountain Views" },
-            ]
-          }
-        },
-        images: []
-      };
+  //     const testPayload: any = {
+  //       id: 0,
+  //       uuid: selectedSheetUuid || "test-uuid",
+  //       order_id: orderData?.uuid || "",
+  //       type: "template",
+  //       template_key: selectedTemplate,
+  //       uploaded_by: "admin",
+  //       content: {
+  //         offeredAtPrice: { value: priceFormatted },
+  //         realtorName: { value: agentName },
+  //         realtorTitle: { value: "Personal Real Estate Corporation" },
+  //         companyName: { value: company },
+  //         emailLink: { value: agentEmail },
+  //         phoneNumber: { value: agentPhone },
+  //         contactLabel: { value: "Call Direct:" },
+  //         contactInfo: { value: `${agentPhone} | ${agentEmail}` },
+  //         propertyNotesTitle: { value: streetAddress },
+  //         propertyNotesDescription: { value: propDescription },
+  //         expandedDetail1Title: { value: "BY-LAW RESTRICTIONS:" },
+  //         expandedDetail1Description: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+  //         expandedDetail2Title: { value: "MAINT. FEES:" },
+  //         expandedDetail2Description: { value: "$485.00" },
+  //         expandedDetail3Title: { value: "MAINT. FEES INCLUDE:" },
+  //         expandedDetail3Description: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+  //         expandedDetail4Title: { value: "FEATURES INCLUDED:" },
+  //         expandedDetail4Description: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+  //         keyHighlightLabel: { value: "SITE INFLUENCES:" },
+  //         keyHighlights: {
+  //           value: ["Central Location", "Golf Course Nearby", "Marina Nearby", "Private Setting", "Recreation Nearby", "Shopping Nearby"]
+  //         },
+  //         otherDetails: {
+  //           bedroom: { value: bedrooms },
+  //           bathroom: { value: bathrooms },
+  //           sqft: { value: sqft },
+  //           builtYear: { value: builtYear },
+  //           amount: { value: priceFormatted },
+  //           number: { value: agentPhone },
+  //           addressCode: { value: mlsNumber },
+  //           mlsNumber: { value: mlsNumber },
+  //           roadName: { value: streetAddress },
+  //           cityLine: { value: cityLineFormatted },
+  //           suite: { value: suiteNumber },
+  //           propertyName: { value: company },
+  //           headline: { value: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE" },
+  //           amenities: { value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+  //           view: { value: "Panoramic City, Water & North Shore Mountain Views" },
+  //           byLawRestrictions: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+  //           maintFees: { value: "$485.00" },
+  //           maintenanceFees: { value: "$485.00" },
+  //           maintFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+  //           maintenanceFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+  //           featuresIncluded: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+  //           siteInfluences: { value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+  //           roadLabelBefore: { value: "No." },
+  //           roadLabelAfter: { value: "Avenue" },
+  //           addressHash: { value: "#" },
+  //           page2AddressHash: { value: "#" },
+  //           disclaimerText: { value: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed." },
+  //           _leftDetailFields: [
+  //             { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+  //             { id: "maintFees", title: "MAINT. FEES:", value: "$485.00" },
+  //             { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+  //             { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+  //           ],
+  //           _rightDetailFields: [
+  //             { id: "siteInfluences", title: "SITE INFLUENCES:", value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+  //             { id: "amenities", title: "AMENITIES:", value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+  //             { id: "view", title: "VIEW:", value: "Panoramic City, Water & North Shore Mountain Views" },
+  //           ]
+  //         }
+  //       },
+  //       images: []
+  //     };
 
-      // 1. Update active component
-      if (activeStandardRef.current?.importFromPayload) {
-        activeStandardRef.current.importFromPayload(testPayload);
-      }
+  //     // 1. Update active component
+  //     if (activeStandardRef.current?.importFromPayload) {
+  //       activeStandardRef.current.importFromPayload(testPayload);
+  //     }
 
-      // 2. Update context state
-      updateFormData({
-        title: priceFormatted,
-        amount: priceFormatted,
-        fullName: agentName,
-        realtorName: agentName,
-        email: agentEmail,
-        phone: agentPhone,
-        number: agentPhone,
-        propertyName: company,
-        roadName: streetAddress,
-        cityLine: cityLineFormatted,
-        suite: suiteNumber,
-        addressCode: mlsNumber,
-        mlsNumber: mlsNumber,
-        bedroom: bedrooms,
-        bathroom: bathrooms,
-        sqft: sqft,
-        builtYear: builtYear,
-        description: propDescription,
-        byLawRestrictions: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)",
-        maintenanceFees: "$485.00",
-        maintenanceFeesInclude: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water",
-        featuresIncluded: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security",
-        siteInfluences: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby",
-        amenities: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub",
-        view: "Panoramic City, Water & North Shore Mountain Views",
-        headline: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE",
-        roadLabelBefore: "No.",
-        roadLabelAfter: "Avenue",
-        disclaimerText: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed."
-      });
+  //     // 2. Update context state
+  //     updateFormData({
+  //       title: priceFormatted,
+  //       amount: priceFormatted,
+  //       fullName: agentName,
+  //       realtorName: agentName,
+  //       email: agentEmail,
+  //       phone: agentPhone,
+  //       number: agentPhone,
+  //       propertyName: company,
+  //       roadName: streetAddress,
+  //       cityLine: cityLineFormatted,
+  //       suite: suiteNumber,
+  //       addressCode: mlsNumber,
+  //       mlsNumber: mlsNumber,
+  //       bedroom: bedrooms,
+  //       bathroom: bathrooms,
+  //       sqft: sqft,
+  //       builtYear: builtYear,
+  //       description: propDescription,
+  //       byLawRestrictions: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)",
+  //       maintenanceFees: "$485.00",
+  //       maintenanceFeesInclude: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water",
+  //       featuresIncluded: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security",
+  //       siteInfluences: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby",
+  //       amenities: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub",
+  //       view: "Panoramic City, Water & North Shore Mountain Views",
+  //       headline: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE",
+  //       roadLabelBefore: "No.",
+  //       roadLabelAfter: "Avenue",
+  //       disclaimerText: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed."
+  //     });
 
-      setHasUnsavedChanges(true);
-      toast.success("Sheet auto-filled with property test data!");
-    } catch (err) {
-      console.error("Error auto-filling test data:", err);
-      toast.error("Failed to auto-fill test data.");
-    }
-  };
-
+  //     setHasUnsavedChanges(true);
+  //     toast.success("Sheet auto-filled with property test data!");
+  //   } catch (err) {
+  //     console.error("Error auto-filling test data:", err);
+  //     toast.error("Failed to auto-fill test data.");
+  //   }
+  // };
 
   /**
    * Apply style properties from a source sheet to the currently open sheet.
@@ -1564,17 +1597,30 @@ const CreateFeatureSheet = forwardRef<
       setHasUnsavedChanges(false);
 
       // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData with dual branding if co-agents exist
-      const primaryAgentName = `${orderData?.agent?.first_name || ""} ${orderData?.agent?.last_name || ""}`.trim();
-      const rawCo = (orderData as any)?.co_agents || (orderData as any)?.property?.co_agents || (orderData as any)?.coagents;
+      const primaryAgentName =
+        `${orderData?.agent?.first_name || ""} ${orderData?.agent?.last_name || ""}`.trim();
+      const rawCo =
+        (orderData as any)?.co_agents ||
+        (orderData as any)?.property?.co_agents ||
+        (orderData as any)?.coagents;
       let coList: any[] = [];
       if (Array.isArray(rawCo)) coList = rawCo;
       else if (typeof rawCo === "string") {
-        try { const p = JSON.parse(rawCo); if (Array.isArray(p)) coList = p; } catch {}
+        try {
+          const p = JSON.parse(rawCo);
+          if (Array.isArray(p)) coList = p;
+        } catch {}
       }
-      const coNames = coList.map((c: any) => c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim()).filter(Boolean);
-      const combinedAgentNames = coNames.length > 0 
-        ? `${primaryAgentName} & ${coNames.join(" & ")}`
-        : (primaryAgentName || initialFormData.fullName);
+      const coNames = coList
+        .map(
+          (c: any) =>
+            c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim(),
+        )
+        .filter(Boolean);
+      const combinedAgentNames =
+        coNames.length > 0
+          ? `${primaryAgentName} & ${coNames.join(" & ")}`
+          : primaryAgentName || initialFormData.fullName;
 
       updateFormData({
         ...initialFormData,
@@ -1931,13 +1977,17 @@ const CreateFeatureSheet = forwardRef<
                   !isCurrentSheetPrinted && (
                     <>
                       {preBookedDIYService && (
-                        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium border ${
-                          preBookedDIYService.payment_status?.toUpperCase() === "PAID"
-                            ? "bg-green-50 border-green-300 text-green-700"
-                            : "bg-amber-50 border-amber-300 text-amber-700"
-                        }`}>
+                        <div
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium border ${
+                            preBookedDIYService.payment_status?.toUpperCase() ===
+                            "PAID"
+                              ? "bg-green-50 border-green-300 text-green-700"
+                              : "bg-amber-50 border-amber-300 text-amber-700"
+                          }`}
+                        >
                           <Printer className="w-3 h-3" />
-                          {preBookedDIYService.payment_status?.toUpperCase() === "PAID"
+                          {preBookedDIYService.payment_status?.toUpperCase() ===
+                          "PAID"
                             ? "Pre-booked (paid) — attach only"
                             : "Pre-booked (unpaid) — attach & pay"}
                         </div>
@@ -1948,7 +1998,9 @@ const CreateFeatureSheet = forwardRef<
                         className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
                       >
                         <Printer className="w-4 h-4" />
-                        {preBookedDIYService ? "Attach & Send Print Request" : "Send Print Request"}
+                        {preBookedDIYService
+                          ? "Attach & Send Print Request"
+                          : "Send Print Request"}
                       </button>
                     </>
                   )}
@@ -2463,7 +2515,8 @@ const CreateFeatureSheet = forwardRef<
                                     }
                                   }}
                                   className={`h-[24px] w-[65px] text-[10px] md:h-[30px] md:w-[90px] md:text-[12px] flex justify-center items-center cursor-pointer px-1 md:px-3 text-white font-bold rounded-md shadow-xs ${
-                                    bookedFeatureSheetsService.payment_status === "PAID"
+                                    bookedFeatureSheetsService.payment_status ===
+                                    "PAID"
                                       ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                       : "bg-[#DC9600] hover:bg-[#eda304]"
                                   }`}
@@ -2471,11 +2524,14 @@ const CreateFeatureSheet = forwardRef<
                                 >
                                   {isOpeningInvoice ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : bookedFeatureSheetsService.payment_status === "PAID"
-                                    ? "PAID"
-                                    : userType === "admin"
-                                      ? "UNPAID"
-                                      : "UnPaid"}
+                                  ) : bookedFeatureSheetsService.payment_status ===
+                                    "PAID" ? (
+                                    "PAID"
+                                  ) : userType === "admin" ? (
+                                    "UNPAID"
+                                  ) : (
+                                    "UnPaid"
+                                  )}
                                 </Button>
                               </div>
                             </div>
@@ -2484,9 +2540,8 @@ const CreateFeatureSheet = forwardRef<
                                 userType === "agent" &&
                                 (bookedFeatureSheetsService?.media_access ===
                                   false ||
-                                  (
-                                    bookedFeatureSheetsService?.service as any
-                                  )?.media_access === false)
+                                  (bookedFeatureSheetsService?.service as any)
+                                    ?.media_access === false)
                               ) && (
                                 <button
                                   type="button"
@@ -3053,7 +3108,6 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
-                        
                         {/* Auto-Fill Test Data button (Uncomment to use)
                         <button
                           type="button"
@@ -3498,9 +3552,10 @@ const CreateFeatureSheet = forwardRef<
                           // If user clicks an image element, image edit button, or select image placeholder
                           const isImageTarget =
                             target.closest(
-                              'button[title*="image" i], button[title*="photo" i], [data-image-slot], .image-container, img'
+                              'button[title*="image" i], button[title*="photo" i], [data-image-slot], .image-container, img',
                             ) ||
-                            target.textContent?.trim()?.toLowerCase() === "select image";
+                            target.textContent?.trim()?.toLowerCase() ===
+                              "select image";
                           if (isImageTarget) {
                             closeFeatureSheetSidebars();
                           }
@@ -3881,7 +3936,9 @@ const CreateFeatureSheet = forwardRef<
                 Revert to Saved Version?
               </DialogTitle>
               <DialogDescription className="text-gray-600 pt-2 text-sm leading-relaxed">
-                Are you sure you want to revert to the last saved version of this feature sheet? All unsaved edits made during this session will be discarded and cannot be recovered.
+                Are you sure you want to revert to the last saved version of
+                this feature sheet? All unsaved edits made during this session
+                will be discarded and cannot be recovered.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex gap-2 sm:justify-end pt-4">
