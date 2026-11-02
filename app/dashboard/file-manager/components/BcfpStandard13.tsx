@@ -247,6 +247,11 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
     };
 
+    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
+    const [imageUuids, setImageUuids] = useState<Record<string, string>>({});
+    const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
+    const [deletedImageUuids, setDeletedImageUuids] = useState<string[]>([]);
+
     // ── 5. Image States ───────────────────────────────────────────────────────
     const [images, setImages] = useState({
       image1: null as string | null,
@@ -351,6 +356,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== key));
         setImages((prev) => ({ ...prev, [key]: url }));
       }
     };
@@ -359,6 +365,15 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
       key: keyof typeof images,
       ref: React.RefObject<HTMLInputElement | null>,
     ) => {
+      const currentVal = images[key];
+      featureSheetService.clearUploadedBlob(currentVal);
+
+      const existingUuid = imageUuids[key];
+      if (existingUuid) {
+        setDeletedImageUuids((prev) => Array.from(new Set([...prev, existingUuid])));
+      }
+      setDeletedImageSlots((prev) => Array.from(new Set([...prev, key])));
+
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
@@ -368,8 +383,11 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
     const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
       setScale((prev) => {
-        const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
-        const bounded = Math.min(Math.max(newScale, 0.1), 5);
+        const step = 0.03; // Smooth, fine-grained zoom step (3% instead of 10%)
+        const current = prev[key] ?? 1;
+        const raw = direction === "in" ? current + step : current - step;
+        const rounded = Math.round(raw * 1000) / 1000;
+        const bounded = Math.min(Math.max(rounded, 0.1), 5);
         return { ...prev, [key]: bounded };
       });
     };
@@ -433,6 +451,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
+      setDeletedImageSlots((prev) => prev.filter((s) => s !== currentImageSlot));
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       setShowGallery(false);
       setCurrentImageSlot(null);
@@ -762,8 +781,12 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             _deletedStandardFieldIds: deletedStandardFieldIds,
             deletedDetailFields,
             deletedStandardFieldIds,
+            deletedImageSlots,
+            deletedImageUuids,
           },
           images,
+          deletedImageSlots,
+          deletedImageUuids,
           imageScales: scale,
           imagePositions: position,
           imageRotations: rotation,
@@ -876,11 +899,29 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           if (details.cityLine) setCityLine(details.cityLine as string);
         }
 
-        if (state.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as unknown as typeof images),
-          }));
+        if ((state as any).imageUuids) {
+          setImageUuids((state as any).imageUuids);
+        }
+        if ((state as any).deletedImageSlots) {
+          setDeletedImageSlots((state as any).deletedImageSlots);
+        }
+        if ((state as any).deletedImageUuids) {
+          setDeletedImageUuids((state as any).deletedImageUuids);
+        }
+
+        if (state.images) {
+          const sProcessing = (state as any).processingSlots || {};
+          const sDeleted = (state as any).deletedImageSlots || deletedImageSlots;
+          setProcessingSlots(sProcessing);
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              state.images as any,
+              sProcessing,
+              sDeleted
+            )
+          );
+        }
         if (state.imageScales)
           setScale((prev) => ({
             ...prev,
@@ -1001,7 +1042,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             position={position.image1}
                             rotation={rotation.image1}
                             objectFit="cover"
-                          />
+                            isProcessing={processingSlots.image1}
+/>
                         </div>
 
                         {/* Zoom Controls */}
@@ -2306,7 +2348,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     position={position.image2}
                                     rotation={rotation.image2}
                                     objectFit="cover"
-                                  />
+                                    isProcessing={processingSlots.image2}
+/>
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                                   <button
@@ -2409,7 +2452,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     position={position.image3}
                                     rotation={rotation.image3}
                                     objectFit="cover"
-                                  />
+                                    isProcessing={processingSlots.image3}
+/>
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                                   <button
@@ -2512,7 +2556,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     position={position.image4}
                                     rotation={rotation.image4}
                                     objectFit="cover"
-                                  />
+                                    isProcessing={processingSlots.image4}
+/>
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                                   <button
@@ -2615,7 +2660,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     position={position.image5}
                                     rotation={rotation.image5}
                                     objectFit="cover"
-                                  />
+                                    isProcessing={processingSlots.image5}
+/>
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                                   <button
@@ -2720,7 +2766,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                                     position={position.image6}
                                     rotation={rotation.image6}
                                     objectFit="cover"
-                                  />
+                                    isProcessing={processingSlots.image6}
+/>
                                 </div>
                                 <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                                   <button
@@ -3018,7 +3065,8 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           position={position.image7}
                           rotation={rotation.image7}
                           objectFit="cover"
-                        />
+                          isProcessing={processingSlots.image7}
+/>
                       </div>
 
                       {/* Zoom Controls */}

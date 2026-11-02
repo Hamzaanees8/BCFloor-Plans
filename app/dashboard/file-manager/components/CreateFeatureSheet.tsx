@@ -39,6 +39,14 @@ import { useFileManagerContext, initialFormData } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import BcfpStandard from "./BcfpStandard";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 import DownloadPdf from "./DownloadPdf";
 import TabloidPdfGenerator from "./TabloidPdfGenerator";
@@ -320,10 +328,16 @@ const CreateFeatureSheet = forwardRef<
   const [selectedSheetUuid, setSelectedSheetUuid] = useState<string | null>(
     null,
   );
+  // Stable session instance key: only changes when user explicitly selects a different sheet/template, NOT on save
+  const [sheetInstanceId, setSheetInstanceId] = useState<string>(() => "inst_" + Math.random().toString(36).substring(2, 9));
+  const lastSavedPayloadRef = useRef<FeatureSheetResponse | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [saveStageStatus, setSaveStageStatus] = useState<string | null>(null);
   const [copyStyleOpen, setCopyStyleOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [sheetToDelete, setSheetToDelete] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
   const [showAgain, setShowAgain] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
@@ -917,7 +931,13 @@ const CreateFeatureSheet = forwardRef<
   const handleSaveFeatureSheet = async (): Promise<
     FeatureSheetResponse | undefined
   > => {
+    // Blur any active element (StyledInput) so any in-progress text edits commit immediately
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     setIsSaving(true);
+    setSaveStageStatus("Saving feature sheet & media...");
     try {
       if (activeStandardRef.current) {
         const payload = await activeStandardRef.current.exportToPayload();
@@ -935,16 +955,32 @@ const CreateFeatureSheet = forwardRef<
           );
         } else {
           result = await featureSheetService.uploadFeatureSheet(payload);
-          // Add to local state list first
+          // Set lastLoadedSheetKeyRef BEFORE updating selectedSheetUuid to prevent remount effect from clobbering state
+          lastLoadedSheetKeyRef.current = `${selectedTemplate}_${result.uuid}`;
+          // Add to local state list
           setFeatureSheets((prev) => [...prev, result]);
           setSelectedSheetUuid(result.uuid);
         }
 
-        if (activeStandardRef.current?.importFromPayload && result) {
+        lastLoadedSheetKeyRef.current = `${selectedTemplate}_${result.uuid}`;
+        lastSavedPayloadRef.current = result;
+        setHasUnsavedChanges(false);
+
+        // Immediately update active standard component with server state & processing slots
+        if (activeStandardRef.current?.importFromPayload) {
           activeStandardRef.current.importFromPayload(result);
         }
 
-        lastLoadedSheetKeyRef.current = `${selectedTemplate}_${result.uuid}`;
+        // Update processing image status if any variant is being generated in background
+        const hasProcessing = result.images?.some(
+          (img) => img.is_processing === true || (img.source === "upload" && !img.file_path && !img.url)
+        );
+        if (hasProcessing) {
+          setSaveStageStatus("Saved · Optimizing print media in background...");
+          setTimeout(() => setSaveStageStatus(null), 4000);
+        } else {
+          setSaveStageStatus(null);
+        }
 
         toast.success("Feature sheet saved successfully!");
         return result;
@@ -958,6 +994,19 @@ const CreateFeatureSheet = forwardRef<
       toast.error("Failed to save feature sheet. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /** Revert to the last saved payload or clean initial state */
+  const handleDiscardChanges = () => {
+    if (!lastSavedPayloadRef.current) {
+      toast.info("No saved state to revert to.");
+      return;
+    }
+    if (activeStandardRef.current?.importFromPayload) {
+      activeStandardRef.current.importFromPayload(lastSavedPayloadRef.current);
+      setHasUnsavedChanges(false);
+      toast.success("Reverted to last saved version.");
     }
   };
 
@@ -1191,6 +1240,18 @@ const CreateFeatureSheet = forwardRef<
               url: featureSheetService.buildStorageUrl(sheet.pdf_url) || "",
             }));
           setUploadedPdfs(pdfSheets);
+
+          // If the active sheet is in this order and finished processing any media, silently update resolved URLs
+          const activeSheet = selectedSheetUuid
+            ? dataArray.find((s) => s.uuid === selectedSheetUuid)
+            : dataArray.find((s) => s.template_key === selectedTemplate);
+
+          if (activeSheet && activeStandardRef.current?.importFromPayload) {
+            // Update lastSavedPayloadRef with latest server state
+            lastSavedPayloadRef.current = activeSheet;
+            // Silent sync without destroying text state
+            activeStandardRef.current.importFromPayload(activeSheet);
+          }
         }
       } catch (error) {
         console.error("Error polling feature sheets:", error);
@@ -1211,6 +1272,8 @@ const CreateFeatureSheet = forwardRef<
   }, [
     orderData?.uuid,
     hasProcessingSheetImages,
+    selectedSheetUuid,
+    selectedTemplate,
     setFeatureSheets,
     setUploadedPdfs,
   ]);
@@ -1274,6 +1337,9 @@ const CreateFeatureSheet = forwardRef<
         return;
       }
       lastLoadedSheetKeyRef.current = currentKey;
+      setSheetInstanceId("inst_" + Math.random().toString(36).substring(2, 9));
+      lastSavedPayloadRef.current = sheetData || null;
+      setHasUnsavedChanges(false);
 
       console.log("Loading data for template:", selectedTemplate, sheetData);
       if (sheetData.type === "pdf") {
@@ -1335,6 +1401,9 @@ const CreateFeatureSheet = forwardRef<
         return;
       }
       lastLoadedSheetKeyRef.current = currentKey;
+      setSheetInstanceId("inst_" + Math.random().toString(36).substring(2, 9));
+      lastSavedPayloadRef.current = sheetData || null;
+      setHasUnsavedChanges(false);
 
       // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData with dual branding if co-agents exist
       const primaryAgentName = `${orderData?.agent?.first_name || ""} ${orderData?.agent?.last_name || ""}`.trim();
@@ -2794,6 +2863,38 @@ const CreateFeatureSheet = forwardRef<
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-2.5 normal-case tracking-normal shrink-0 z-10"
                       >
+                        {/* Status feedback & Revert / Discard */}
+                        {hasUnsavedChanges && !isSaving && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-700 border border-amber-300 text-xs font-medium shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span>Unsaved changes</span>
+                          </div>
+                        )}
+                        {isSaving ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{saveStageStatus || "Saving sheet..."}</span>
+                          </div>
+                        ) : saveStageStatus ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium animate-fade-in">
+                            <span>✓</span>
+                            <span>{saveStageStatus}</span>
+                          </div>
+                        ) : null}
+
+                        {/* Discard Changes Button (shows when saved snapshot exists) */}
+                        {lastSavedPayloadRef.current && (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => setRevertConfirmOpen(true)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] h-[32px] text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border-2 border-red-500 hover:border-red-600 rounded-[6px] font-semibold transition-colors disabled:opacity-50"
+                            title="Revert to last saved version of this sheet"
+                          >
+                            Revert to Saved
+                          </button>
+                        )}
+
                         {/* Save Feature Sheet button */}
                         <button
                           type="button"
@@ -3233,7 +3334,13 @@ const CreateFeatureSheet = forwardRef<
                             closeFeatureSheetSidebars();
                           }
                         }}
-                        className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
+                        style={{
+                          paddingLeft: "420px",
+                          paddingRight: "380px",
+                          paddingTop: "48px",
+                          paddingBottom: "120px",
+                        }}
+                        className={`flex-1 flex flex-col overflow-auto relative min-h-[700px] w-full ${
                           isPanning
                             ? "cursor-grabbing select-none"
                             : previewMode === "preview"
@@ -3246,12 +3353,32 @@ const CreateFeatureSheet = forwardRef<
                             isPanning
                               ? "transition-none"
                               : "transition-transform duration-75"
-                          } mx-auto min-w-full w-max`}
+                          } m-auto w-max`}
                           style={{
                             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
                             transformOrigin: "top center",
                           }}
                         >
+                          {/* Stage 1 Saving Canvas Lock Overlay */}
+                          {isSaving && (
+                            <div
+                              data-html2canvas-ignore="true"
+                              className="absolute inset-0 z-[100] bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-xl pointer-events-auto cursor-wait"
+                            >
+                              <div className="bg-white/95 px-5 py-3 rounded-xl shadow-xl border border-gray-200 flex items-center gap-3">
+                                <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-semibold text-gray-800">
+                                    Saving Feature Sheet...
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    Uploading media & persisting changes
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <div
                             id="pdf-section"
                             ref={pdfSectionRef}
@@ -3264,7 +3391,7 @@ const CreateFeatureSheet = forwardRef<
                           >
                             {selectedTemplate === "BCFPStandard" && (
                               <BcfpStandard
-                                key={selectedSheetUuid || "new-BCFPStandard"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
@@ -3272,14 +3399,14 @@ const CreateFeatureSheet = forwardRef<
                             {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
                             {selectedTemplate === "BCFPStandard2" && (
                               <BcfpStandard2
-                                key={selectedSheetUuid || "new-BCFPStandard2"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard3" && (
                               <BcfpStandard3
-                                key={selectedSheetUuid || "new-BCFPStandard3"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3288,7 +3415,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard4" && (
                               <BcfpStandard4
-                                key={selectedSheetUuid || "new-BCFPStandard4"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3298,7 +3425,7 @@ const CreateFeatureSheet = forwardRef<
                             {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
                             {selectedTemplate === "BCFPStandard6" && (
                               <BcfpStandard6
-                                key={selectedSheetUuid || "new-BCFPStandard6"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3307,7 +3434,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard7" && (
                               <BcfpStandard7
-                                key={selectedSheetUuid || "new-BCFPStandard7"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3316,14 +3443,14 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard8" && (
                               <BcfpStandard8
-                                key={selectedSheetUuid || "new-BCFPStandard8"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard9" && (
                               <BcfpStandard9
-                                key={selectedSheetUuid || "new-BCFPStandard9"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3332,7 +3459,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard10" && (
                               <BcfpStandard10
-                                key={selectedSheetUuid || "new-BCFPStandard10"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3341,7 +3468,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard11" && (
                               <BcfpStandard11
-                                key={selectedSheetUuid || "new-BCFPStandard11"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3350,14 +3477,14 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard12" && (
                               <BcfpStandard12
-                                key={selectedSheetUuid || "new-BCFPStandard12"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard13" && (
                               <BcfpStandard13
-                                key={selectedSheetUuid || "new-BCFPStandard13"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3366,7 +3493,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard14" && (
                               <BcfpStandard14
-                                key={selectedSheetUuid || "new-BCFPStandard14"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3375,7 +3502,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard15" && (
                               <BcfpStandard15
-                                key={selectedSheetUuid || "new-BCFPStandard15"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3384,7 +3511,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard16" && (
                               <BcfpStandard16
-                                key={selectedSheetUuid || "new-BCFPStandard16"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3393,7 +3520,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard17" && (
                               <BcfpStandard17
-                                key={selectedSheetUuid || "new-BCFPStandard17"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3402,7 +3529,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard18" && (
                               <BcfpStandard18
-                                key={selectedSheetUuid || "new-BCFPStandard18"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3411,7 +3538,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard19" && (
                               <BcfpStandard19
-                                key={selectedSheetUuid || "new-BCFPStandard19"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3420,7 +3547,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard20" && (
                               <BcfpStandard20
-                                key={selectedSheetUuid || "new-BCFPStandard20"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3429,7 +3556,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard21" && (
                               <BcfpStandard21
-                                key={selectedSheetUuid || "new-BCFPStandard21"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3438,7 +3565,7 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard22" && (
                               <BcfpStandard22
-                                key={selectedSheetUuid || "new-BCFPStandard22"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                                 showBleed={showBleed}
@@ -3447,14 +3574,14 @@ const CreateFeatureSheet = forwardRef<
                             )}
                             {selectedTemplate === "BCFPStandard23" && (
                               <BcfpStandard23
-                                key={selectedSheetUuid || "new-BCFPStandard23"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
                             )}
                             {selectedTemplate === "BCFPStandard24" && (
                               <BcfpStandard24
-                                key={selectedSheetUuid || "new-BCFPStandard24"}
+                                key={`${selectedTemplate}_${sheetInstanceId}`}
                                 ref={activeStandardRef}
                                 orderData={orderData || null}
                               />
@@ -3577,6 +3704,38 @@ const CreateFeatureSheet = forwardRef<
           currentSheetUuid={selectedSheetUuid}
           currentTemplateKey={selectedTemplate}
         />
+
+        <Dialog open={revertConfirmOpen} onOpenChange={setRevertConfirmOpen}>
+          <DialogContent className="max-w-[420px] bg-white p-6 rounded-lg shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-red-600 font-bold text-lg flex items-center gap-2">
+                Revert to Saved Version?
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 pt-2 text-sm leading-relaxed">
+                Are you sure you want to revert to the last saved version of this feature sheet? All unsaved edits made during this session will be discarded and cannot be recovered.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 sm:justify-end pt-4">
+              <button
+                type="button"
+                onClick={() => setRevertConfirmOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-[6px] hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRevertConfirmOpen(false);
+                  handleDiscardChanges();
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[6px] transition-colors shadow-2xs"
+              >
+                Revert Changes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <ConfirmationDialog
           open={confirmOpen}

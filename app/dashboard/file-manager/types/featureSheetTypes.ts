@@ -220,6 +220,7 @@ export interface FeatureSheetPayload {
     images?: FeatureSheetImage[];
     fieldStyles?: Record<string, any>;
     fieldPositions?: Record<string, { x: number; y: number }>;
+    processingSlots?: Record<string, boolean>;
 }
 
 export interface FeatureSheetResponse {
@@ -298,6 +299,8 @@ export interface FeatureSheetState {
     detailFields?: DetailField[];
     deletedDetailFields?: any[];
     deletedStandardFieldIds?: string[];
+    deletedImageSlots?: string[];
+    deletedImageUuids?: string[];
 }
 
 
