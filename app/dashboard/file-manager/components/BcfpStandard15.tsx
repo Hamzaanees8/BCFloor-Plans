@@ -202,8 +202,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       useState("SITE INFLUENCES:");
     const [amenitiesLabel, setAmenitiesLabel] = useState("AMENITIES:");
     const [viewLabel, setViewLabel] = useState("VIEW:");
-    const [roadLabelBefore, setRoadLabelBefore] = useState("Number");
-    const [roadLabelAfter, setRoadLabelAfter] = useState("Road");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("");
     const [disclaimerText, setDisclaimerText] = useState(
       "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
     );
@@ -217,9 +217,56 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       propShowGuide !== undefined ? propShowGuide : showGuideState;
 
     // ── 5. Field Styles, Field Positions & Section Locks ─────────────────────
-    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
-      {},
-    );
+    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({
+      byLawLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      maintFeesLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      maintFeesIncludeLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      featuresIncludedLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      siteInfluencesLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      amenitiesLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      viewLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+      contactLabel: {
+        fontSize: "16px",
+        fontWeight: "400",
+        fontFamily: "TrajanProBoldBcfp15, serif",
+        textAlign: "left",
+      },
+    });
     const updateFieldStyle = (fieldName: string, style: TextStyle) => {
       setFieldStyles((prev) => ({ ...prev, [fieldName]: style }));
     };
@@ -246,7 +293,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
+    const [processingSlots, setProcessingSlots] = useState<
+      Record<string, boolean>
+    >({});
     const [imageUuids, setImageUuids] = useState<Record<string, string>>({});
     const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
     const [deletedImageUuids, setDeletedImageUuids] = useState<string[]>([]);
@@ -404,15 +453,50 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
               fontSize: fieldStyles.description?.fontSize || "16px",
             },
           },
-          expandedDetail1Title: "By-law Restrictions",
-          expandedDetail1Description: byLawRestrictions,
-          expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: maintFees,
-          expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: maintFeesInclude,
-          expandedDetail4Title: "Features Included",
-          expandedDetail4Description: featuresIncluded,
-          keyHighlightLabel: "Site Influences",
+          phoneNumber: {
+            value: number,
+            style: fieldStyles.number || {},
+          },
+          contactLabel: {
+            value: contactLabel,
+            style: fieldStyles.contactLabel || {},
+          },
+          expandedDetail1Title: {
+            value: byLawLabel || "By-law Restrictions",
+            style: fieldStyles.byLawLabel || {},
+          },
+          expandedDetail1Description: {
+            value: byLawRestrictions,
+            style: fieldStyles.byLawRestrictions || {},
+          },
+          expandedDetail2Title: {
+            value: maintFeesLabel || "Maint. Fees",
+            style: fieldStyles.maintFeesLabel || {},
+          },
+          expandedDetail2Description: {
+            value: maintFees,
+            style: fieldStyles.maintFees || {},
+          },
+          expandedDetail3Title: {
+            value: maintFeesIncludeLabel || "Maint. Fees Include",
+            style: fieldStyles.maintFeesIncludeLabel || {},
+          },
+          expandedDetail3Description: {
+            value: maintFeesInclude,
+            style: fieldStyles.maintFeesInclude || {},
+          },
+          expandedDetail4Title: {
+            value: featuresIncludedLabel || "Features Included",
+            style: fieldStyles.featuresIncludedLabel || {},
+          },
+          expandedDetail4Description: {
+            value: featuresIncluded,
+            style: fieldStyles.featuresIncluded || {},
+          },
+          keyHighlightLabel: {
+            value: siteInfluencesLabel || "Site Influences",
+            style: fieldStyles.siteInfluencesLabel || {},
+          },
           keyHighlights: siteInfluences
             ? siteInfluences.split("\n").filter(Boolean)
             : [],
@@ -424,6 +508,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             sqft,
             builtYear,
             number,
+            addressHash,
+            page2AddressHash,
             addressCode,
             cityLine,
             mlsNumber,
@@ -449,6 +535,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             deletedDetailFields,
             deletedImageSlots,
             deletedImageUuids,
+            fieldStyles,
+            fieldPositions,
           },
           images,
           deletedImageSlots,
@@ -459,6 +547,12 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
           fieldPositions,
           fieldStyles,
         });
+        payload.fieldPositions = fieldPositions;
+        payload.fieldStyles = fieldStyles;
+        if (payload.content) {
+          (payload.content as any).fieldStyles = fieldStyles;
+          (payload.content as any).fieldPositions = fieldPositions;
+        }
         return payload;
       },
       importFromPayload: (payload: FeatureSheetResponse) => {
@@ -548,15 +642,16 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
         if (state.images) {
           const sProcessing = (state as any).processingSlots || {};
-          const sDeleted = (state as any).deletedImageSlots || deletedImageSlots;
+          const sDeleted =
+            (state as any).deletedImageSlots || deletedImageSlots;
           setProcessingSlots(sProcessing);
           setImages((prev) =>
             featureSheetService.mergeResolvedImages(
               prev,
               state.images as any,
               sProcessing,
-              sDeleted
-            )
+              sDeleted,
+            ),
           );
         }
         if (state.imageScales)
@@ -574,12 +669,56 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             ...prev,
             ...(state.imageRotations as unknown as typeof rotation),
           }));
-        if (state.fieldPositions)
-          setFieldPositions(
-            state.fieldPositions as Record<string, { x: number; y: number }>,
-          );
-        if (state.fieldStyles)
-          setFieldStyles(state.fieldStyles as Record<string, TextStyle>);
+        const c = (payload?.content as Record<string, any>) || {};
+        const od = (c.otherDetails as Record<string, any>) || {};
+        const incomingStyles: Record<string, TextStyle> = {
+          ...((state.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((od.fieldStyles as Record<string, TextStyle>) || {}),
+        };
+
+        const getStyle = (f: any): TextStyle | null =>
+          f && typeof f === "object" && f.style ? (f.style as TextStyle) : null;
+
+        if (getStyle(c.offeredAtPrice)) incomingStyles.amount = getStyle(c.offeredAtPrice)!;
+        if (getStyle(c.realtorName)) incomingStyles.fullName = getStyle(c.realtorName)!;
+        if (getStyle(c.emailLink)) incomingStyles.email = getStyle(c.emailLink)!;
+        if (getStyle(c.companyName)) incomingStyles.propertyName = getStyle(c.companyName)!;
+        if (getStyle(c.propertyNotesTitle)) incomingStyles.roadName = getStyle(c.propertyNotesTitle)!;
+        if (getStyle(c.propertyNotesDescription)) incomingStyles.description = getStyle(c.propertyNotesDescription)!;
+        if (getStyle(c.phoneNumber)) incomingStyles.number = getStyle(c.phoneNumber)!;
+        if (getStyle(c.contactLabel)) incomingStyles.contactLabel = getStyle(c.contactLabel)!;
+        if (getStyle(c.expandedDetail1Title)) incomingStyles.byLawLabel = getStyle(c.expandedDetail1Title)!;
+        if (getStyle(c.expandedDetail1Description)) incomingStyles.byLawRestrictions = getStyle(c.expandedDetail1Description)!;
+        if (getStyle(c.expandedDetail2Title)) incomingStyles.maintFeesLabel = getStyle(c.expandedDetail2Title)!;
+        if (getStyle(c.expandedDetail2Description)) incomingStyles.maintFees = getStyle(c.expandedDetail2Description)!;
+        if (getStyle(c.expandedDetail3Title)) incomingStyles.maintFeesIncludeLabel = getStyle(c.expandedDetail3Title)!;
+        if (getStyle(c.expandedDetail3Description)) incomingStyles.maintFeesInclude = getStyle(c.expandedDetail3Description)!;
+        if (getStyle(c.expandedDetail4Title)) incomingStyles.featuresIncludedLabel = getStyle(c.expandedDetail4Title)!;
+        if (getStyle(c.expandedDetail4Description)) incomingStyles.featuresIncluded = getStyle(c.expandedDetail4Description)!;
+        if (getStyle(c.keyHighlightLabel)) incomingStyles.siteInfluencesLabel = getStyle(c.keyHighlightLabel)!;
+
+        for (const [k, v] of Object.entries(od)) {
+          const s = getStyle(v);
+          if (s) incomingStyles[k] = s;
+        }
+
+        if (Object.keys(incomingStyles).length > 0) {
+          setFieldStyles((prev) => ({
+            ...prev,
+            ...incomingStyles,
+          }));
+        }
+
+        const incomingPositions =
+          (od.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (c.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (state.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (payload.fieldPositions as Record<string, { x: number; y: number }>);
+        if (incomingPositions) {
+          setFieldPositions(incomingPositions);
+        }
         if ((state as any).deletedStandardFieldIds)
           setDeletedStandardFieldIds((state as any).deletedStandardFieldIds);
         if ((state as any).deletedDetailFields)
@@ -603,26 +742,123 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             setBuiltYear(orderData.property.year_constructed.toString());
           if (orderData.property.description)
             setDescription(orderData.property.description);
-          if (orderData.property.mls_number)
-            setAddressCode(orderData.property.mls_number);
-          if (orderData.property.suite) setRoadName(orderData.property.suite);
-          const addressParts: string[] = [];
-          const propAddress =
+          if (orderData.property.mls_number) {
+            setMlsNumber(orderData.property.mls_number.toString());
+            setAddressCode(orderData.property.mls_number.toString());
+          }
+
+          let suite = orderData.property.suite
+            ? String(orderData.property.suite).trim()
+            : "";
+          // Try property.address first, then order-level property_address
+          // Strip city/province/country if address contains a comma (full address)
+          let rawAddress = (
             orderData.property.address ||
             (orderData as any).property_address ||
-            "";
-          if (propAddress) addressParts.push(propAddress.trim());
-          if (orderData.property.city)
-            addressParts.push(orderData.property.city.trim());
-          if (orderData.property.province)
-            addressParts.push(orderData.property.province.trim());
-          if (orderData.property.country)
-            addressParts.push(orderData.property.country.trim());
-          if (orderData.property.postal_code)
-            addressParts.push(orderData.property.postal_code.trim());
+            ""
+          ).trim();
+          // If rawAddress contains a comma, it's likely a full address – take only the street part (before first comma)
+          if (rawAddress.includes(",")) {
+            rawAddress = rawAddress.split(",")[0].trim();
+          }
 
-          const fullAddress = addressParts.join(", ");
-          if (fullAddress) setCityLine(fullAddress);
+          // 1. Detect if suite is prefixed in address (e.g. "101 - 3612 13 Ave" or "#101 3612 13 Ave")
+          const suiteMatch = rawAddress.match(
+            /^(?:#\s*|suite\s*|unit\s*)?(\d+[A-Za-z]?)\s*[-–—]\s*(.*)$/i,
+          );
+          if (suiteMatch) {
+            if (!suite) suite = suiteMatch[1];
+            rawAddress = suiteMatch[2].trim();
+          }
+
+          // 2. Separate Code, Street Number, and Street Name from rawAddress
+          // If address has two numbers (e.g. "16405 100 Avenue Northwest"):
+          //   first number ("16405") -> code field (showing placeholder 0000-0000)
+          //   second number ("100") -> street number field (next to 0000-0000)
+          //   remaining ("Avenue Northwest") -> street name field
+          // If address has one number (e.g. "500 Robson Street"):
+          //   number ("500") -> street number field
+          //   remaining ("Robson Street") -> street name field
+          const twoNumMatch = rawAddress.match(
+            /^(\d+[A-Za-z]?)\s+(\d+(?:st|nd|rd|th|[A-Za-z])?)\s+(.+)$/i,
+          );
+          const oneNumMatch = rawAddress.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+
+          if (twoNumMatch) {
+            setAddressCode(twoNumMatch[1]);
+            setRoadLabelBefore(twoNumMatch[2]);
+            setRoadLabelAfter(twoNumMatch[3]);
+          } else if (oneNumMatch) {
+            setRoadLabelBefore(oneNumMatch[1]);
+            setRoadLabelAfter(oneNumMatch[2]);
+          } else {
+            setRoadLabelBefore("");
+            setRoadLabelAfter(rawAddress);
+          }
+
+          // Suite → roadName (if suite is null, empty or zero, leave as "" to show "0" via placeholder)
+          if (!suite || suite === "0") {
+            setRoadName("");
+          } else {
+            setRoadName(suite);
+          }
+
+          // Un-delete any previously auto-hidden address fields
+          setDeletedStandardFieldIds((prev) =>
+            prev.filter(
+              (id) =>
+                id !== "addressCode" &&
+                id !== "addressCodePage2" &&
+                id !== "addressHash" &&
+                id !== "page2AddressHash" &&
+                id !== "roadLabelBefore" &&
+                id !== "roadLabelBeforePage2" &&
+                id !== "roadName" &&
+                id !== "roadNamePage2" &&
+                id !== "roadLabelAfter" &&
+                id !== "roadLabelAfterPage2",
+            ),
+          );
+
+          // 3. Construct Canadian Real Estate clean Location / Sub-Line
+          // Omit country codes ("CA", "Canada") and duplicates
+          const IGNORED_COUNTRY = /^(CA|Canada)$/i;
+          const subArea = ((orderData.property as any).sub_area || "").trim();
+          // Only use heading as neighborhood if it's not the street address and not empty
+          // Headings that start with a digit are treated as street addresses — skip them
+          const headingVal = (orderData.property.heading || "").trim();
+          const headingIsStreet = /^\d/.test(headingVal);
+          const neighborhood =
+            subArea ||
+            (headingVal &&
+            !headingIsStreet &&
+            headingVal !== rawAddress &&
+            !IGNORED_COUNTRY.test(headingVal)
+              ? headingVal
+              : "");
+          const city = (orderData.property.city || "").trim();
+          const province = (orderData.property.province || "").trim();
+          const postalCode = (orderData.property.postal_code || "").trim();
+          const country = ((orderData.property as any).country || "").trim();
+
+          const locationParts: string[] = [];
+          if (neighborhood) locationParts.push(neighborhood);
+          if (city) locationParts.push(city);
+
+          // Build province+postal, skip bare "CA"/"Canada" province values
+          let provincePostal = "";
+          const provinceClean = IGNORED_COUNTRY.test(province) ? "" : province;
+          if (provinceClean && postalCode)
+            provincePostal = `${provinceClean} ${postalCode}`;
+          else if (provinceClean) provincePostal = provinceClean;
+          else if (postalCode) provincePostal = postalCode;
+
+          if (provincePostal) locationParts.push(provincePostal);
+          // Explicitly skip country — not shown per Canadian Real Estate standard
+          void country;
+
+          const cleanLocation = locationParts.join(", ");
+          if (cleanLocation) setCityLine(cleanLocation);
         }
         if (orderData.agent) {
           const agent = orderData.agent;
@@ -666,8 +902,10 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         if (formData.propertyName) setPropertyName(formData.propertyName);
         if (formData.amount) setAmount(formData.amount);
         if (formData.number) setNumber(formData.number);
-        if ((formData as any).addressHash !== undefined) setAddressHash((formData as any).addressHash);
-        if ((formData as any).page2AddressHash !== undefined) setPage2AddressHash((formData as any).page2AddressHash);
+        if ((formData as any).addressHash !== undefined)
+          setAddressHash((formData as any).addressHash);
+        if ((formData as any).page2AddressHash !== undefined)
+          setPage2AddressHash((formData as any).page2AddressHash);
         if (formData.addressCode) setAddressCode(formData.addressCode);
         if (formData.roadName) setRoadName(formData.roadName);
         if (formData.cityLine) setCityLine(formData.cityLine);
@@ -720,12 +958,12 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
             ...prev,
             ...(formData.imageRotations as typeof rotation),
           }));
-        if (formData.fieldPositions)
+        if (formData.fieldPositions && Object.keys(formData.fieldPositions).length > 0)
           setFieldPositions((prev) => ({
             ...prev,
             ...(formData.fieldPositions as typeof fieldPositions),
           }));
-        if (formData.fieldStyles)
+        if (formData.fieldStyles && Object.keys(formData.fieldStyles).length > 0)
           setFieldStyles((prev) => ({
             ...prev,
             ...(formData.fieldStyles as typeof fieldStyles),
@@ -750,6 +988,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         propertyName,
         amount,
         number,
+        addressHash,
+        page2AddressHash,
         addressCode,
         roadName,
         cityLine,
@@ -799,6 +1039,8 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
       propertyName,
       amount,
       number,
+      addressHash,
+      page2AddressHash,
       addressCode,
       roadName,
       cityLine,
@@ -858,7 +1100,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
       const existingUuid = imageUuids[key];
       if (existingUuid) {
-        setDeletedImageUuids((prev) => Array.from(new Set([...prev, existingUuid])));
+        setDeletedImageUuids((prev) =>
+          Array.from(new Set([...prev, existingUuid])),
+        );
       }
       setDeletedImageSlots((prev) => Array.from(new Set([...prev, key])));
 
@@ -913,7 +1157,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-      setDeletedImageSlots((prev) => prev.filter((s) => s !== currentImageSlot));
+      setDeletedImageSlots((prev) =>
+        prev.filter((s) => s !== currentImageSlot),
+      );
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       setShowGallery(false);
       setCurrentImageSlot(null);
@@ -935,7 +1181,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
-            usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
+            usedImageUrls={Object.values(images).filter((url): url is string =>
+              Boolean(url),
+            )}
           />
         )}
 
@@ -1017,196 +1265,181 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   </button>
 
                   <div className="flex flex-col items-center w-full">
-                    <div className="flex items-center justify-center gap-4 w-full flex-nowrap shrink-0">
+                    <div className="flex items-center justify-center gap-1 w-full flex-nowrap shrink-0">
+                      {!isFieldDeleted("roadName") && (
+                        <DraggableBox
+                          id="roadName"
+                          position={fieldPositions.roadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Suite #"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadName",
+                              "Suite #",
+                              roadName,
+                              "Header Address",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Suite #"
+                        >
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            inputStyle={fieldStyles["roadName"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-center focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
+                            placeholder="0"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {/* {!isFieldDeleted("addressHash") && (
+                        <DraggableBox
+                          id="addressHash"
+                          position={fieldPositions.addressHash}
+                          onPositionChange={updateFieldPosition}
+                          label="# Symbol"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "addressHash",
+                              "# Symbol",
+                              "#",
+                              "Header Address",
+                            )
+                          }
+                          deleteTitle="Remove # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="addressHash"
+                            fieldLabel="# Symbol"
+                            value={addressHash}
+                            onChange={(e) => setAddressHash(e.target.value)}
+                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
+                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
+                            className="font-light text-[28px] text-[#ffffff] leading-none min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )} */}
+
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
                           position={fieldPositions.addressCode}
                           onPositionChange={updateFieldPosition}
-                          label="Unit #"
+                          label="MLS Number"
                           zoom={0.85}
                           disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
                           onDelete={() =>
                             removeStandardField(
                               "addressCode",
-                              "Unit #",
+                              "MLS Number",
                               addressCode,
                               "Header Address",
                               fieldStyles.addressCode,
                             )
                           }
-                          deleteTitle="Remove Unit #"
+                          deleteTitle="Remove MLS Number"
                         >
-                          <div className="text-[28px] justify-center font-light leading-none mt-0 text-[#ffffff] flex shrink-0 items-center whitespace-nowrap">
-                            {!isFieldDeleted("addressHash") && (
-                              <DraggableBox
-                                id="addressHash"
-                                position={fieldPositions.addressHash}
-                                onPositionChange={updateFieldPosition}
-                                label="Unit # Symbol"
-                                zoom={0.85}
-                                disabled={lockedSections.address}
-                                containerClassName="w-auto inline-flex items-center shrink-0"
-                                className="w-auto inline-flex items-center shrink-0"
-                                onDelete={() =>
-                                  removeStandardField(
-                                    "addressHash",
-                                    "Unit # Symbol",
-                                    "#",
-                                    "Header Address",
-                                  )
-                                }
-                                deleteTitle="Remove Unit # Symbol"
-                              >
-                                <StyledInput
-                                  fieldId="addressHash"
-                                  fieldLabel="Unit # Symbol"
-                                  value={addressHash}
-                                  onChange={(e) => setAddressHash(e.target.value)}
-                                  inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
-                                  onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
-                                  className="font-light text-[28px] text-[#ffffff] leading-none mr-1 min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
-                                  placeholder="#"
-                                  disabled={lockedSections.address}
-                                  onDelete={() =>
-                                    removeStandardField(
-                                      "addressHash",
-                                      "Unit # Symbol",
-                                      "#",
-                                      "Header Address",
-                                    )
-                                  }
-                                  wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
-                                />
-                              </DraggableBox>
-                            )}
-                            <span className="inline">
-                              <StyledInput
-                                value={addressCode}
-                                onChange={(e) => setAddressCode(e.target.value)}
-                                inputStyle={fieldStyles["addressCode"]}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("addressCode", s)
-                                }
-                                className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
-                                placeholder="0000-0000"
-                                wrapperClassName="w-auto shrink-0"
-                              />
-                            </span>
-                          </div>
+                          <StyledInput
+                            value={addressCode}
+                            onChange={(e) => setAddressCode(e.target.value)}
+                            inputStyle={fieldStyles["addressCode"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("addressCode", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
+                            placeholder="0000-0000"
+                            wrapperClassName="w-auto shrink-0"
+                          />
                         </DraggableBox>
                       )}
 
-                        <div className="text-[28px] justify-center font-light leading-none text-[#ffffff] flex flex-nowrap shrink-0 items-center gap-1 whitespace-nowrap">
-                          {!isFieldDeleted("roadLabelBefore") && (
-                            <DraggableBox
-                              id="roadLabelBefore"
-                              position={fieldPositions.roadLabelBefore}
-                              onPositionChange={updateFieldPosition}
-                              label="Number Label"
-                              zoom={0.85}
-                              disabled={lockedSections.address}
-                              containerClassName="w-auto inline-flex items-center shrink-0"
-                              className="w-auto inline-flex items-center"
-                              onDelete={() =>
-                                removeStandardField(
-                                  "roadLabelBefore",
-                                  "Number Label",
-                                  roadLabelBefore,
-                                  "Header Address",
-                                  fieldStyles.roadLabelBefore,
-                                )
-                              }
-                              deleteTitle="Remove Number Label"
-                            >
-                              <StyledInput
-                                value={roadLabelBefore}
-                                onChange={(e) =>
-                                  setRoadLabelBefore(e.target.value)
-                                }
-                                inputStyle={fieldStyles["roadLabelBefore"]}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("roadLabelBefore", s)
-                                }
-                                className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
-                                placeholder="Number"
-                                wrapperClassName="w-auto shrink-0"
-                              />
-                            </DraggableBox>
-                          )}
+                      {!isFieldDeleted("roadLabelBefore") && (
+                        <DraggableBox
+                          id="roadLabelBefore"
+                          position={fieldPositions.roadLabelBefore}
+                          onPositionChange={updateFieldPosition}
+                          label="Street Number"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadLabelBefore",
+                              "Street Number",
+                              roadLabelBefore,
+                              "Header Address",
+                              fieldStyles.roadLabelBefore,
+                            )
+                          }
+                          deleteTitle="Remove Street Number"
+                        >
+                          <StyledInput
+                            value={roadLabelBefore}
+                            onChange={(e) => setRoadLabelBefore(e.target.value)}
+                            inputStyle={fieldStyles["roadLabelBefore"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadLabelBefore", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
+                            placeholder="Number"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
 
-                          {!isFieldDeleted("roadName") && (
-                            <DraggableBox
-                              id="roadName"
-                              position={fieldPositions.roadName}
-                              onPositionChange={updateFieldPosition}
-                              label="Street Number"
-                              zoom={0.85}
-                              disabled={lockedSections.address}
-                              containerClassName="w-auto inline-flex items-center shrink-0"
-                              className="w-auto inline-flex items-center"
-                              onDelete={() =>
-                                removeStandardField(
-                                  "roadName",
-                                  "Street Number",
-                                  roadName,
-                                  "Header Address",
-                                  fieldStyles.roadName,
-                                )
-                              }
-                              deleteTitle="Remove Street Number"
-                            >
-                              <StyledInput
-                                value={roadName}
-                                onChange={(e) => setRoadName(e.target.value)}
-                                inputStyle={fieldStyles["roadName"]}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("roadName", s)
-                                }
-                                className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-center focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
-                                placeholder="0"
-                                wrapperClassName="w-auto shrink-0"
-                              />
-                            </DraggableBox>
-                          )}
-
-                          {!isFieldDeleted("roadLabelAfter") && (
-                            <DraggableBox
-                              id="roadLabelAfter"
-                              position={fieldPositions.roadLabelAfter}
-                              onPositionChange={updateFieldPosition}
-                              label="Road Label"
-                              zoom={0.85}
-                              disabled={lockedSections.address}
-                              containerClassName="w-auto inline-flex items-center shrink-0"
-                              className="w-auto inline-flex items-center"
-                              onDelete={() =>
-                                removeStandardField(
-                                  "roadLabelAfter",
-                                  "Road Label",
-                                  roadLabelAfter,
-                                  "Header Address",
-                                  fieldStyles.roadLabelAfter,
-                                )
-                              }
-                              deleteTitle="Remove Road Label"
-                            >
-                              <StyledInput
-                                value={roadLabelAfter}
-                                onChange={(e) =>
-                                  setRoadLabelAfter(e.target.value)
-                                }
-                                inputStyle={fieldStyles["roadLabelAfter"]}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("roadLabelAfter", s)
-                                }
-                                className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
-                                placeholder="Road"
-                                wrapperClassName="w-auto shrink-0"
-                              />
-                            </DraggableBox>
-                          )}
-                        </div>
+                      {!isFieldDeleted("roadLabelAfter") && (
+                        <DraggableBox
+                          id="roadLabelAfter"
+                          position={fieldPositions.roadLabelAfter}
+                          onPositionChange={updateFieldPosition}
+                          label="Street Name"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadLabelAfter",
+                              "Street Name",
+                              roadLabelAfter,
+                              "Header Address",
+                              fieldStyles.roadLabelAfter,
+                            )
+                          }
+                          deleteTitle="Remove Street Name"
+                        >
+                          <StyledInput
+                            value={roadLabelAfter}
+                            onChange={(e) => setRoadLabelAfter(e.target.value)}
+                            inputStyle={fieldStyles["roadLabelAfter"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadLabelAfter", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] text-left focus:outline-none border-none whitespace-nowrap"
+                            placeholder="Road"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
                     </div>
 
                     {!isFieldDeleted("cityLine") && (
@@ -1214,19 +1447,19 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                         id="cityLine"
                         position={fieldPositions.cityLine}
                         onPositionChange={updateFieldPosition}
-                        label="City / Province"
+                        label="City / Location"
                         zoom={0.85}
                         disabled={lockedSections.address}
                         onDelete={() =>
                           removeStandardField(
                             "cityLine",
-                            "City / Province",
+                            "City / Location",
                             cityLine,
                             "Header Address",
                             fieldStyles.cityLine,
                           )
                         }
-                        deleteTitle="Remove City / Province"
+                        deleteTitle="Remove City / Location"
                       >
                         <div className="text-[#ffffff] text-[10px] text-center mb-2 shrink-0 w-full">
                           <StyledInput
@@ -1237,7 +1470,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                               updateFieldStyle("cityLine", s)
                             }
                             className="text-white text-[21px] h-[40px] bg-transparent text-center w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                            placeholder="Brighouse South, Richmond, BC"
                           />
                         </div>
                       </DraggableBox>
@@ -1248,7 +1481,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 {/* Main Image Slot 1 */}
                 <div
                   data-image-slot="true"
-                  className="w-full h-[300px] min-w-0 border-2 border-white relative overflow-hidden flex items-center justify-center group select-none bg-black/10 shrink-0 shadow-[4px_4px_6px_rgba(0,0,0,0.4)] cursor-pointer"
+                  className="w-full h-[300px] min-w-0 relative flex items-center justify-center group select-none shrink-0 shadow-[4px_4px_6px_rgba(0,0,0,0.4)] cursor-pointer"
                   onMouseEnter={() => setHoveredSlot("image1")}
                   onMouseLeave={() => setHoveredSlot(null)}
                   onClick={(e) => {
@@ -1260,7 +1493,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   <BoxIndicator isVisible={isSlotActive("image1")} />
 
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                    className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                     onMouseMove={(e) => handleMouseMove("image1", e)}
                     onMouseUp={() => handleMouseUp("image1")}
                     onMouseLeave={() => handleMouseLeave("image1")}
@@ -1658,7 +1891,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image4 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative flex items-center justify-center group select-none cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image4")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1670,7 +1903,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     <BoxIndicator isVisible={isSlotActive("image4")} />
 
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                       onMouseMove={(e) => handleMouseMove("image4", e)}
                       onMouseUp={() => handleMouseUp("image4")}
                       onMouseLeave={() => handleMouseLeave("image4")}
@@ -1762,7 +1995,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image5 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative flex items-center justify-center group select-none cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image5")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1774,7 +2007,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     <BoxIndicator isVisible={isSlotActive("image5")} />
 
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                       onMouseMove={(e) => handleMouseMove("image5", e)}
                       onMouseUp={() => handleMouseUp("image5")}
                       onMouseLeave={() => handleMouseLeave("image5")}
@@ -1866,7 +2099,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image6 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative flex items-center justify-center group select-none cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image6")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1878,7 +2111,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     <BoxIndicator isVisible={isSlotActive("image6")} />
 
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                       onMouseMove={(e) => handleMouseMove("image6", e)}
                       onMouseUp={() => handleMouseUp("image6")}
                       onMouseLeave={() => handleMouseLeave("image6")}
@@ -1970,7 +2203,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   {/* Slot image7 */}
                   <div
                     data-image-slot="true"
-                    className="w-full min-w-0 h-[145px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative overflow-hidden flex items-center justify-center group select-none bg-black/10 cursor-pointer"
+                    className="w-full min-w-0 h-[145px] shadow-[4px_4px_6px_rgba(0,0,0,0.4)] place-self-center relative flex items-center justify-center group select-none cursor-pointer"
                     onMouseEnter={() => setHoveredSlot("image7")}
                     onMouseLeave={() => setHoveredSlot(null)}
                     onClick={(e) => {
@@ -1982,7 +2215,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     <BoxIndicator isVisible={isSlotActive("image7")} />
 
                     <div
-                      className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                      className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                       onMouseMove={(e) => handleMouseMove("image7", e)}
                       onMouseUp={() => handleMouseUp("image7")}
                       onMouseLeave={() => handleMouseLeave("image7")}
@@ -2127,7 +2360,16 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                     placeholder="All information deemed reliable but not guaranteed..."
                   />
                 </div>
-                <hr className="absolute top-0 right-[-1px] border-l-2 border-white border-dotted h-[11in] w-0 z-20" />
+                <hr
+                  className="absolute right-[4px] border-l-[5px] border-white border-dotted w-0 z-20 pointer-events-none"
+                  style={{
+                    top: showBleed ? "-0.375in" : "-0.25in",
+                    bottom: showBleed ? "-0.375in" : "-0.25in",
+                    height: showBleed
+                      ? "calc(100% + 0.75in)"
+                      : "calc(100% + 0.5in)",
+                  }}
+                />
               </div>
 
               {/* Right Column (30%) */}
@@ -2145,7 +2387,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                 {/* Slot image9 (Top Right Photo) */}
                 <div
                   data-image-slot="true"
-                  className="w-full min-w-0 h-[135px] border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] relative z-10 group select-none bg-black/10 shrink-0 cursor-pointer"
+                  className="w-full min-w-0 h-[135px] shadow-[4px_4px_6px_rgba(0,0,0,0.4)] relative z-10 group select-none shrink-0 cursor-pointer flex items-center justify-center"
                   onMouseEnter={() => setHoveredSlot("image9")}
                   onMouseLeave={() => setHoveredSlot(null)}
                   onClick={(e) => {
@@ -2157,7 +2399,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   <BoxIndicator isVisible={isSlotActive("image9")} />
 
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                    className="w-full h-full relative overflow-hidden flex items-center justify-center border-2 border-white bg-black/10 z-10"
                     onMouseMove={(e) => handleMouseMove("image9", e)}
                     onMouseUp={() => handleMouseUp("image9")}
                     onMouseLeave={() => handleMouseLeave("image9")}
@@ -2312,7 +2554,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("byLawLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="BY-LAW RESTRICTIONS:"
                           />
                           <StyledInput
@@ -2359,7 +2601,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintFeesLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="MAINT. FEES:"
                           />
                           <StyledInput
@@ -2406,7 +2648,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintFeesIncludeLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="MAINT. FEES INCLUDE:"
                           />
                           <StyledInput
@@ -2454,7 +2696,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("featuresIncludedLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="FEATURES INCLUDED:"
                           />
                           <StyledInput
@@ -2502,7 +2744,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("siteInfluencesLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="SITE INFLUENCES:"
                           />
                           <StyledInput
@@ -2546,7 +2788,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("amenitiesLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="AMENITIES:"
                           />
                           <StyledInput
@@ -2590,7 +2832,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("viewLabel", s)
                             }
-                            className="font-serif text-[12px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="VIEW:"
                           />
                           <StyledInput
@@ -2614,10 +2856,10 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   data-image-slot="true"
                   data-slot-type="logo"
                   data-logo-slot="true"
-                  className={`w-full min-w-0 h-[110px] relative z-10 group select-none overflow-hidden shrink-0 mt-[12px] cursor-pointer ${
+                  className={`w-full min-w-0 h-[110px] relative z-10 group select-none shrink-0 mt-[12px] cursor-pointer flex items-center justify-center ${
                     images.image2
                       ? "bg-transparent"
-                      : "border-[2px] border-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] bg-white"
+                      : "shadow-[4px_4px_6px_rgba(0,0,0,0.4)]"
                   }`}
                   onMouseEnter={() => setHoveredSlot("image2")}
                   onMouseLeave={() => setHoveredSlot(null)}
@@ -2630,7 +2872,9 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   <BoxIndicator isVisible={isSlotActive("image2")} />
 
                   <div
-                    className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                    className={`w-full h-full relative overflow-hidden flex items-center justify-center ${
+                      images.image2 ? "" : "border-2 border-white bg-white z-10"
+                    }`}
                     onMouseMove={(e) => handleMouseMove("image2", e)}
                     onMouseUp={() => handleMouseUp("image2")}
                     onMouseLeave={() => handleMouseLeave("image2")}
@@ -2787,7 +3031,7 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("contactLabel", s)
                             }
-                            className="text-[13px] text-white font-serif tracking-widest uppercase bg-transparent text-left w-full focus:outline-none border-none"
+                            className="font-trajan-bold font-normal text-[16px] tracking-wide text-white/95 uppercase block leading-tight bg-transparent text-left w-full focus:outline-none border-none"
                             placeholder="CONTACT:"
                           />
                           <StyledInput
@@ -3124,228 +3368,241 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
                   </button>
 
                   <div className="flex flex-col items-center w-full">
-                    <div className="flex items-center justify-center gap-4 w-full flex-nowrap shrink-0">
-                      {!isFieldDeleted("addressCode") && (
+                    <div className="flex items-center justify-center gap-1 w-full flex-nowrap shrink-0">
+                      {!isFieldDeleted("roadNamePage2") && (
                         <DraggableBox
-                          id="addressCodePage2"
-                          position={fieldPositions.addressCodePage2}
+                          id="roadNamePage2"
+                          position={fieldPositions.roadNamePage2}
                           onPositionChange={updateFieldPosition}
-                          label="Page 2 Unit #"
+                          label="Suite #"
                           zoom={0.85}
                           disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadNamePage2",
+                              "Suite #",
+                              roadName,
+                              "Header Address (Page 2)",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Suite #"
                         >
-                          <div className="text-[28px] justify-center pb-2 items-center font-light leading-none text-[#ffffff] flex shrink-0 whitespace-nowrap">
-                            {!isFieldDeleted("page2AddressHash") && (
-                              <DraggableBox
-                                id="page2AddressHash"
-                                position={fieldPositions.page2AddressHash}
-                                onPositionChange={updateFieldPosition}
-                                label="Unit # Symbol (Page 2)"
-                                zoom={0.85}
-                                disabled={lockedSections.address}
-                                containerClassName="w-auto inline-flex items-center shrink-0"
-                                inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
-                                onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
-                                className="w-auto inline-flex items-center shrink-0"
-                                onDelete={() =>
-                                  removeStandardField(
-                                    "page2AddressHash",
-                                    "Unit # Symbol (Page 2)",
-                                    "#",
-                                    "Header Address (Page 2)",
-                                  )
-                                }
-                                deleteTitle="Remove Unit # Symbol"
-                              >
-                                <StyledInput
-                                  fieldId="page2AddressHash"
-                                  fieldLabel="Unit # Symbol (Page 2)"
-                                  value={page2AddressHash}
-                                  onChange={(e) => setPage2AddressHash(e.target.value)}
-                                  inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
-                                  onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
-                                  className="font-light text-[28px] text-[#ffffff] leading-none mr-1 min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
-                                  placeholder="#"
-                                  disabled={lockedSections.address}
-                                  onDelete={() =>
-                                    removeStandardField(
-                                      "page2AddressHash",
-                                      "Unit # Symbol (Page 2)",
-                                      "#",
-                                      "Header Address (Page 2)",
-                                    )
-                                  }
-                                  wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
-                                />
-                              </DraggableBox>
-                            )}
-                            <span className="inline">
-                              <StyledInput
-                                value={addressCode}
-                                onChange={(e) => setAddressCode(e.target.value)}
-                                inputStyle={fieldStyles["addressCode"]}
-                                onChangeStyle={(s) =>
-                                  updateFieldStyle("addressCode", s)
-                                }
-                                className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
-                                placeholder="0000-0000"
-                                wrapperClassName="w-auto shrink-0"
-                              />
-                            </span>
-                          </div>
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            inputStyle={fieldStyles["roadName"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-center focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
+                            placeholder="0"
+                            wrapperClassName="w-auto shrink-0"
+                          />
                         </DraggableBox>
                       )}
 
-                        <div className="text-[28px] justify-center pb-2 items-center font-light leading-none text-[#ffffff] flex flex-nowrap shrink-0 whitespace-nowrap">
-                          <span className="text-[#ffffff] flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
-                            {!isFieldDeleted("roadLabelBeforePage2") && (
-                              <DraggableBox
-                                id="roadLabelBeforePage2"
-                                position={fieldPositions.roadLabelBeforePage2}
-                                onPositionChange={updateFieldPosition}
-                                label="Number Label"
-                                zoom={0.85}
-                                disabled={lockedSections.address}
-                                containerClassName="w-auto inline-flex items-center shrink-0"
-                                className="w-auto inline-flex items-center"
-                                onDelete={() =>
-                                  removeStandardField(
-                                    "roadLabelBeforePage2",
-                                    "Number Label",
-                                    roadLabelBefore,
-                                    "Page 2 Address",
-                                    fieldStyles.roadLabelBefore,
-                                  )
-                                }
-                                deleteTitle="Remove Number Label"
-                              >
-                                <StyledInput
-                                  value={roadLabelBefore}
-                                  onChange={(e) =>
-                                    setRoadLabelBefore(e.target.value)
-                                  }
-                                  inputStyle={fieldStyles["roadLabelBefore"]}
-                                  onChangeStyle={(s) =>
-                                    updateFieldStyle("roadLabelBefore", s)
-                                  }
-                                  className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
-                                  placeholder="Number"
-                                  wrapperClassName="w-auto shrink-0"
-                                />
-                              </DraggableBox>
-                            )}
+                      {/* {!isFieldDeleted("page2AddressHash") && (
+                        <DraggableBox
+                          id="page2AddressHash"
+                          position={fieldPositions.page2AddressHash}
+                          onPositionChange={updateFieldPosition}
+                          label="# Symbol"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          inputStyle={
+                            fieldStyles["page2AddressHash"] ||
+                            fieldStyles.page2AddressHash
+                          }
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("page2AddressHash", s)
+                          }
+                          className="w-auto inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "page2AddressHash",
+                              "# Symbol",
+                              "#",
+                              "Header Address (Page 2)",
+                            )
+                          }
+                          deleteTitle="Remove # Symbol"
+                        >
+                          <StyledInput
+                            fieldId="page2AddressHash"
+                            fieldLabel="# Symbol"
+                            value={page2AddressHash}
+                            onChange={(e) =>
+                              setPage2AddressHash(e.target.value)
+                            }
+                            inputStyle={
+                              fieldStyles["page2AddressHash"] ||
+                              fieldStyles.page2AddressHash
+                            }
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("page2AddressHash", s)
+                            }
+                            className="font-light text-[28px] text-[#ffffff] leading-none min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0"
+                            placeholder="#"
+                            disabled={lockedSections.address}
+                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
+                          />
+                        </DraggableBox>
+                      )} */}
 
-                            {!isFieldDeleted("roadNamePage2") && (
-                              <DraggableBox
-                                id="roadNamePage2"
-                                position={fieldPositions.roadNamePage2}
-                                onPositionChange={updateFieldPosition}
-                                label="Street Number"
-                                zoom={0.85}
-                                disabled={lockedSections.address}
-                                containerClassName="w-auto inline-flex items-center shrink-0"
-                                className="w-auto inline-flex items-center"
-                                onDelete={() =>
-                                  removeStandardField(
-                                    "roadNamePage2",
-                                    "Street Number",
-                                    roadName,
-                                    "Page 2 Address",
-                                    fieldStyles.roadName,
-                                  )
-                                }
-                                deleteTitle="Remove Street Number"
-                              >
-                                <StyledInput
-                                  value={roadName}
-                                  onChange={(e) => setRoadName(e.target.value)}
-                                  inputStyle={fieldStyles["roadName"]}
-                                  onChangeStyle={(s) =>
-                                    updateFieldStyle("roadName", s)
-                                  }
-                                  className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-center focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
-                                  placeholder="0"
-                                  wrapperClassName="w-auto shrink-0"
-                                />
-                              </DraggableBox>
-                            )}
+                      {!isFieldDeleted("addressCode") &&
+                        !isFieldDeleted("addressCodePage2") && (
+                          <DraggableBox
+                            id="addressCodePage2"
+                            position={fieldPositions.addressCodePage2}
+                            onPositionChange={updateFieldPosition}
+                            label="MLS Number"
+                            zoom={0.85}
+                            disabled={lockedSections.address}
+                            containerClassName="w-auto inline-flex items-center shrink-0"
+                            className="w-auto inline-flex items-center"
+                            onDelete={() =>
+                              removeStandardField(
+                                "addressCodePage2",
+                                "MLS Number",
+                                addressCode,
+                                "Header Address (Page 2)",
+                                fieldStyles.addressCode,
+                              )
+                            }
+                            deleteTitle="Remove MLS Number"
+                          >
+                            <StyledInput
+                              value={addressCode}
+                              onChange={(e) => setAddressCode(e.target.value)}
+                              inputStyle={fieldStyles["addressCode"]}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("addressCode", s)
+                              }
+                              className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200] whitespace-nowrap"
+                              placeholder="0000-0000"
+                              wrapperClassName="w-auto shrink-0"
+                            />
+                          </DraggableBox>
+                        )}
 
-                            {!isFieldDeleted("roadLabelAfterPage2") && (
-                              <DraggableBox
-                                id="roadLabelAfterPage2"
-                                position={fieldPositions.roadLabelAfterPage2}
-                                onPositionChange={updateFieldPosition}
-                                label="Road Label"
-                                zoom={0.85}
-                                disabled={lockedSections.address}
-                                containerClassName="w-auto inline-flex items-center shrink-0"
-                                className="w-auto inline-flex items-center"
-                                onDelete={() =>
-                                  removeStandardField(
-                                    "roadLabelAfterPage2",
-                                    "Road Label",
-                                    roadLabelAfter,
-                                    "Page 2 Address",
-                                    fieldStyles.roadLabelAfter,
-                                  )
-                                }
-                                deleteTitle="Remove Road Label"
-                              >
-                                <StyledInput
-                                  value={roadLabelAfter}
-                                  onChange={(e) =>
-                                    setRoadLabelAfter(e.target.value)
-                                  }
-                                  inputStyle={fieldStyles["roadLabelAfter"]}
-                                  onChangeStyle={(s) =>
-                                    updateFieldStyle("roadLabelAfter", s)
-                                  }
-                                  className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
-                                  placeholder="Road"
-                                  wrapperClassName="w-auto shrink-0"
-                                />
-                              </DraggableBox>
-                            )}
-                          </span>
-                        </div>
+                      {!isFieldDeleted("roadLabelBeforePage2") && (
+                        <DraggableBox
+                          id="roadLabelBeforePage2"
+                          position={fieldPositions.roadLabelBeforePage2}
+                          onPositionChange={updateFieldPosition}
+                          label="Street Number"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadLabelBeforePage2",
+                              "Street Number",
+                              roadLabelBefore,
+                              "Header Address (Page 2)",
+                              fieldStyles.roadLabelBefore,
+                            )
+                          }
+                          deleteTitle="Remove Street Number"
+                        >
+                          <StyledInput
+                            value={roadLabelBefore}
+                            onChange={(e) => setRoadLabelBefore(e.target.value)}
+                            inputStyle={fieldStyles["roadLabelBefore"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadLabelBefore", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] focus:outline-none border-none whitespace-nowrap"
+                            placeholder="Number"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("roadLabelAfterPage2") && (
+                        <DraggableBox
+                          id="roadLabelAfterPage2"
+                          position={fieldPositions.roadLabelAfterPage2}
+                          onPositionChange={updateFieldPosition}
+                          label="Street Name"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadLabelAfterPage2",
+                              "Street Name",
+                              roadLabelAfter,
+                              "Header Address (Page 2)",
+                              fieldStyles.roadLabelAfter,
+                            )
+                          }
+                          deleteTitle="Remove Street Name"
+                        >
+                          <StyledInput
+                            value={roadLabelAfter}
+                            onChange={(e) => setRoadLabelAfter(e.target.value)}
+                            inputStyle={fieldStyles["roadLabelAfter"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadLabelAfter", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-[#ffffff] text-left focus:outline-none border-none whitespace-nowrap"
+                            placeholder="Road"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
                     </div>
 
-                    {!isFieldDeleted("cityLine") && (
-                      <DraggableBox
-                        id="cityLinePage2"
-                        position={fieldPositions.cityLinePage2}
-                        onPositionChange={updateFieldPosition}
-                        label="City / Province"
-                        zoom={0.85}
-                        disabled={lockedSections.address}
-                        onDelete={() =>
-                          removeStandardField(
-                            "cityLine",
-                            "City / Province",
-                            cityLine,
-                            "Header Address (Page 2)",
-                            fieldStyles.cityLine,
-                          )
-                        }
-                        deleteTitle="Remove City / Province"
-                      >
-                        <div className="text-[#ffffff] text-[10px] text-center mb-2 shrink-0 w-full">
-                          <StyledInput
-                            value={cityLine}
-                            onChange={(e) => setCityLine(e.target.value)}
-                            inputStyle={fieldStyles["cityLine"]}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("cityLine", s)
-                            }
-                            className="text-white text-[21px] h-[40px] bg-transparent text-center w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
-                            placeholder="BRIGHOUSE SOUTH, RICHMOND"
-                          />
-                        </div>
-                      </DraggableBox>
-                    )}
+                    {!isFieldDeleted("cityLine") &&
+                      !isFieldDeleted("cityLinePage2") && (
+                        <DraggableBox
+                          id="cityLinePage2"
+                          position={fieldPositions.cityLinePage2}
+                          onPositionChange={updateFieldPosition}
+                          label="City / Location"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          onDelete={() =>
+                            removeStandardField(
+                              "cityLinePage2",
+                              "City / Location",
+                              cityLine,
+                              "Header Address (Page 2)",
+                              fieldStyles.cityLine,
+                            )
+                          }
+                          deleteTitle="Remove City / Location"
+                        >
+                          <div className="text-[#ffffff] text-[10px] text-center mb-2 shrink-0 w-full">
+                            <StyledInput
+                              value={cityLine}
+                              onChange={(e) => setCityLine(e.target.value)}
+                              inputStyle={fieldStyles["cityLine"]}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("cityLine", s)
+                              }
+                              className="text-white text-[21px] h-[40px] bg-transparent text-center w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
+                              placeholder="Brighouse South, Richmond, BC"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
                   </div>
                 </div>
-                <hr className="w-full h-3 rotate-180 border-t-4 border-white border-dotted mt-1" />
+                <div
+                  className="absolute bottom-[4px] border-t-[5px] border-white border-dotted h-0 z-20 pointer-events-none"
+                  style={{
+                    left: showBleed ? "-0.375in" : "-0.25in",
+                    right: showBleed ? "-0.375in" : "-0.25in",
+                  }}
+                />
               </div>
 
               {/* Slot image8 (Page 2 Floor Plan Photo) */}

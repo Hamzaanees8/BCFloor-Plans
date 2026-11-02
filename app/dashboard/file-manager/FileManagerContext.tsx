@@ -261,6 +261,8 @@ type FormData = {
   viewLabel?: string;
   roadLabelBefore?: string;
   roadLabelAfter?: string;
+  addressHash?: string;
+  page2AddressHash?: string;
   mlsLabel?: string;
   disclaimerText?: string;
   printedByText?: string;

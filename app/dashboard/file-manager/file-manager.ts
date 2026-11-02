@@ -1626,6 +1626,14 @@ export class FeatureSheetService {
       fieldPositions: params.fieldPositions,
     };
 
+    // Ensure fieldStyles and fieldPositions are preserved in content so they survive DB round-trip
+    if (params.fieldStyles) {
+      (content as Record<string, unknown>).fieldStyles = params.fieldStyles;
+    }
+    if (params.fieldPositions) {
+      (content as Record<string, unknown>).fieldPositions = params.fieldPositions;
+    }
+
     // Build content section — resolveTextField uses provided style when available,
     // falling back to the hardcoded template default only when no style was passed.
     const resolved = (
@@ -1725,6 +1733,12 @@ export class FeatureSheetService {
         | StyledTextField
         | StyledKeyHighlights
         | StyledHighlights;
+      if (params.fieldStyles && !(params.otherDetails as any).fieldStyles) {
+        (params.otherDetails as any).fieldStyles = params.fieldStyles;
+      }
+      if (params.fieldPositions && !(params.otherDetails as any).fieldPositions) {
+        (params.otherDetails as any).fieldPositions = params.fieldPositions;
+      }
     }
 
     // Build images section
@@ -2613,8 +2627,52 @@ export class FeatureSheetService {
         }
         return acc;
       })(),
-      fieldStyles: payload.fieldStyles,
-      fieldPositions: payload.fieldPositions,
+      fieldStyles: (() => {
+        const extracted: Record<string, TextStyle> = {};
+        const c = content as Record<string, any>;
+        const getStyle = (f: any): TextStyle | null =>
+          f && typeof f === "object" && f.style ? (f.style as TextStyle) : null;
+
+        if (getStyle(c?.offeredAtPrice)) extracted.amount = getStyle(c.offeredAtPrice)!;
+        if (getStyle(c?.realtorName)) extracted.fullName = getStyle(c.realtorName)!;
+        if (getStyle(c?.companyName)) extracted.propertyName = getStyle(c.companyName)!;
+        if (getStyle(c?.emailLink)) extracted.email = getStyle(c.emailLink)!;
+        if (getStyle(c?.propertyNotesTitle)) extracted.roadName = getStyle(c.propertyNotesTitle)!;
+        if (getStyle(c?.propertyNotesDescription)) extracted.description = getStyle(c.propertyNotesDescription)!;
+        if (getStyle(c?.phoneNumber)) extracted.number = getStyle(c.phoneNumber)!;
+        if (getStyle(c?.contactLabel)) extracted.contactLabel = getStyle(c.contactLabel)!;
+        if (getStyle(c?.expandedDetail1Title)) extracted.byLawLabel = getStyle(c.expandedDetail1Title)!;
+        if (getStyle(c?.expandedDetail1Description)) extracted.byLawRestrictions = getStyle(c.expandedDetail1Description)!;
+        if (getStyle(c?.expandedDetail2Title)) extracted.maintFeesLabel = getStyle(c.expandedDetail2Title)!;
+        if (getStyle(c?.expandedDetail2Description)) extracted.maintFees = getStyle(c.expandedDetail2Description)!;
+        if (getStyle(c?.expandedDetail3Title)) extracted.maintFeesIncludeLabel = getStyle(c.expandedDetail3Title)!;
+        if (getStyle(c?.expandedDetail3Description)) extracted.maintFeesInclude = getStyle(c.expandedDetail3Description)!;
+        if (getStyle(c?.expandedDetail4Title)) extracted.featuresIncludedLabel = getStyle(c.expandedDetail4Title)!;
+        if (getStyle(c?.expandedDetail4Description)) extracted.featuresIncluded = getStyle(c.expandedDetail4Description)!;
+        if (getStyle(c?.keyHighlightLabel)) extracted.siteInfluencesLabel = getStyle(c.keyHighlightLabel)!;
+
+        const od = (c?.otherDetails as Record<string, any>) || {};
+        for (const [k, v] of Object.entries(od)) {
+          const s = getStyle(v);
+          if (s) extracted[k] = s;
+        }
+
+        const directStyles =
+          (payload as any).fieldStyles ||
+          (content as any)?.fieldStyles ||
+          (content?.otherDetails as any)?.fieldStyles ||
+          {};
+
+        return {
+          ...extracted,
+          ...directStyles,
+        };
+      })(),
+      fieldPositions:
+        (payload as any).fieldPositions ||
+        (content as any)?.fieldPositions ||
+        (content?.otherDetails as any)?.fieldPositions ||
+        {},
       deletedImageSlots: ((content as Record<string, unknown>)?.deletedImageSlots as string[]) || [],
       deletedImageUuids: ((content as Record<string, unknown>)?.deletedImageUuids as string[]) || [],
       processingSlots: (() => {

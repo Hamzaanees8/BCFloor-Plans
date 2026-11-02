@@ -545,11 +545,22 @@ function restoreCaretPosition(el: HTMLElement, offset: number) {
 
 /** Convert a TextStyle fontWeight string/number to a Tailwind class for display. */
 function fontWeightToClass(fw?: string | number): string {
-  const fwStr = String(fw ?? "400");
-  if (fwStr === "100") return "font-thin";
-  if (fwStr === "500") return "font-medium";
-  if (fwStr === "700") return "font-bold";
-  if (fwStr === "800") return "font-extrabold";
+  if (!fw) return "font-normal";
+  const fwStr = String(fw).toLowerCase();
+  if (fwStr === "bold" || fwStr === "bolder" || fwStr === "700") return "font-bold";
+  if (fwStr === "normal" || fwStr === "400") return "font-normal";
+  if (
+    fwStr === "100" ||
+    fwStr === "200" ||
+    fwStr === "300" ||
+    fwStr === "thin" ||
+    fwStr === "light"
+  )
+    return "font-thin";
+  if (fwStr === "500" || fwStr === "medium") return "font-medium";
+  if (fwStr === "600" || fwStr === "semibold") return "font-semibold";
+  if (fwStr === "800" || fwStr === "extrabold") return "font-extrabold";
+  if (fwStr === "900" || fwStr === "black") return "font-black";
   return "font-normal";
 }
 
@@ -616,7 +627,11 @@ function fontFamilyToClass(ff?: string): string {
   if (f.includes("acaslonpro") || f.includes("caslon")) return "font-caslon";
   if (f.includes("bickhamscript") || f.includes("bickham"))
     return "font-bickham";
-  if (f.includes("gothicbold") || f.includes("gothic bold"))
+  if (
+    f.includes("gothicbold") ||
+    f.includes("gothic bold") ||
+    (f.includes("gothic") && (f.includes("bold") || f.includes("700")))
+  )
     return "font-gothic-bold";
   if (
     f.includes("gothicregular") ||
@@ -625,13 +640,19 @@ function fontFamilyToClass(ff?: string): string {
     return "font-gothic";
   if (
     f.includes("trajanproregular") ||
-    (f.includes("trajan") && f.includes("regular"))
+    (f.includes("trajan") && (f.includes("regular") || !f.includes("bold")))
   )
-    return "font-trajan";
+    return "font-trajan-regular";
   if (f.includes("trajanpro") || f.includes("trajan"))
     return "font-trajan-bold";
-  if (f.includes("arialbold") || f.includes("arial bold"))
+  if (
+    f.includes("arialbold") ||
+    f.includes("arial bold") ||
+    (f.includes("arial") && (f.includes("bold") || f.includes("700")))
+  )
     return "font-arial-bold";
+  if (f.includes("arial")) return "font-arial-regular";
+  if (f.includes("serif") && !f.includes("sans-serif")) return "font-serif";
   return "font-sans";
 }
 
@@ -805,13 +826,22 @@ export default function StyledInput({
 
       if (className.includes("font-extrabold")) setFontWeight("font-extrabold");
       else if (className.includes("font-bold")) setFontWeight("font-bold");
+      else if (className.includes("font-semibold")) setFontWeight("font-semibold");
       else if (className.includes("font-medium")) setFontWeight("font-medium");
+      else if (className.includes("font-light")) setFontWeight("font-thin");
       else if (className.includes("font-thin")) setFontWeight("font-thin");
+      else if (className.includes("font-normal")) setFontWeight("font-normal");
 
       if (className.includes("font-alexandria")) setFontFamily("font-alexandria");
       else if (className.includes("font-raleway")) setFontFamily("font-raleway");
       else if (className.includes("font-caslon-bold")) setFontFamily("font-caslon-bold");
       else if (className.includes("font-caslon")) setFontFamily("font-caslon");
+      else if (className.includes("font-trajan-bold")) setFontFamily("font-trajan-bold");
+      else if (className.includes("font-trajan-regular") || className.includes("font-trajan")) setFontFamily("font-trajan-regular");
+      else if (className.includes("font-gothic-bold")) setFontFamily("font-gothic-bold");
+      else if (className.includes("font-gothic")) setFontFamily("font-gothic");
+      else if (className.includes("font-arial-bold")) setFontFamily("font-arial-bold");
+      else if (className.includes("font-serif")) setFontFamily("font-serif");
     }
   }, [className]);
 
@@ -844,22 +874,30 @@ export default function StyledInput({
   const getFontWeightStyle = () => {
     switch (fontWeight) {
       case "font-thin":
-        return "100";
+        return "300";
       case "font-normal":
         return "400";
       case "font-medium":
         return "500";
+      case "font-semibold":
+        return "600";
       case "font-bold":
         return "700";
       case "font-extrabold":
         return "800";
+      case "font-black":
+        return "900";
       default:
         return "400";
     }
   };
 
   const getFontFamilyStyle = () => {
-    const matchCustom = customFonts.find((f) => f.value === fontFamily);
+    const matchCustom = customFonts.find(
+      (f) =>
+        f.value === fontFamily ||
+        (f.css && fontFamily && f.css.toLowerCase() === fontFamily.toLowerCase()),
+    );
     if (matchCustom) return matchCustom.css;
     if (customFonts.length > 0 && fontFamily === "font-sans") {
       return customFonts[0].css;
@@ -888,19 +926,25 @@ export default function StyledInput({
       case "font-gothic-bold":
         return "GothicBold, sans-serif";
       case "font-trajan-bold":
-        return "TrajanPro, serif";
+        return "TrajanProBold, serif";
       case "font-trajan":
+      case "font-trajan-regular":
         return "TrajanProRegular, serif";
       case "font-arial-bold":
         return "ArialBold, sans-serif";
+      case "font-arial-regular":
+        return "Arial, sans-serif";
+      case "font-serif":
+        return "serif";
       case "font-sans":
       default:
-        return "sans-serif";
+        return customFonts.length > 0 ? customFonts[0].css : "sans-serif";
     }
   };
 
   const getAlignContentStyle = () => {
-    switch (verticalAlign) {
+    const va = verticalAlign || inputStyle?.verticalAlign || "center";
+    switch (va) {
       case "top":
         return "start";
       case "bottom":
@@ -934,15 +978,19 @@ export default function StyledInput({
       const fwNum = (() => {
         switch (fw) {
           case "font-thin":
-            return "100";
+            return "300";
           case "font-normal":
             return "400";
           case "font-medium":
             return "500";
+          case "font-semibold":
+            return "600";
           case "font-bold":
             return "700";
           case "font-extrabold":
             return "800";
+          case "font-black":
+            return "900";
           default:
             return "400";
         }
@@ -1105,18 +1153,7 @@ export default function StyledInput({
         onStyleChange: (style) => {
           if (style.fontSize) setFontSize(style.fontSize);
           if (style.fontWeight !== undefined) {
-            const fw = String(style.fontWeight);
-            const cls =
-              fw === "100"
-                ? "font-thin"
-                : fw === "500"
-                  ? "font-medium"
-                  : fw === "700"
-                    ? "font-bold"
-                    : fw === "800"
-                      ? "font-extrabold"
-                      : "font-normal";
-            setFontWeight(cls);
+            setFontWeight(fontWeightToClass(style.fontWeight));
           }
           if (style.fontFamily) {
             setFontFamily(fontFamilyToClass(style.fontFamily));

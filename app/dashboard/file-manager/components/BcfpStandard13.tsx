@@ -777,6 +777,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
             roadLabelAfter,
             cityLine,
             fieldPositions,
+            fieldStyles,
             _deletedDetailFields: deletedDetailFields,
             _deletedStandardFieldIds: deletedStandardFieldIds,
             deletedDetailFields,
@@ -795,6 +796,10 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
         });
         payload.fieldPositions = fieldPositions;
         payload.fieldStyles = fieldStyles;
+        if (payload.content) {
+          (payload.content as any).fieldStyles = fieldStyles;
+          (payload.content as any).fieldPositions = fieldPositions;
+        }
         return payload;
       },
       importFromPayload: (payload: FeatureSheetResponse) => {
@@ -954,8 +959,40 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
           );
         }
 
-        if (state.fieldStyles)
+        const c13 = (payload?.content as Record<string, any>) || {};
+        const od13 = (c13.otherDetails as Record<string, any>) || {};
+        const incomingStyles13: Record<string, TextStyle> = {
+          ...((state.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c13.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((od13.fieldStyles as Record<string, TextStyle>) || {}),
+        };
+
+        const getStyle13 = (f: any): TextStyle | null =>
+          f && typeof f === "object" && f.style ? (f.style as TextStyle) : null;
+
+        if (getStyle13(c13.offeredAtPrice)) incomingStyles13.amount = getStyle13(c13.offeredAtPrice)!;
+        if (getStyle13(c13.realtorName)) incomingStyles13.fullName = getStyle13(c13.realtorName)!;
+        if (getStyle13(c13.emailLink)) incomingStyles13.email = getStyle13(c13.emailLink)!;
+        if (getStyle13(c13.companyName)) incomingStyles13.propertyName = getStyle13(c13.companyName)!;
+        if (getStyle13(c13.propertyNotesTitle)) incomingStyles13.roadName = getStyle13(c13.propertyNotesTitle)!;
+        if (getStyle13(c13.propertyNotesDescription)) incomingStyles13.description = getStyle13(c13.propertyNotesDescription)!;
+        if (getStyle13(c13.phoneNumber)) incomingStyles13.number = getStyle13(c13.phoneNumber)!;
+        if (getStyle13(c13.contactLabel)) incomingStyles13.contactLabel = getStyle13(c13.contactLabel)!;
+
+        for (const [k, v] of Object.entries(od13)) {
+          const s = getStyle13(v);
+          if (s) incomingStyles13[k] = s;
+        }
+
+        if (Object.keys(incomingStyles13).length > 0) {
+          setFieldStyles((prev) => ({
+            ...prev,
+            ...incomingStyles13,
+          }));
+        } else if (state.fieldStyles) {
           setFieldStyles(state.fieldStyles as Record<string, TextStyle>);
+        }
       },
     }));
 
@@ -1193,7 +1230,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                       zoom={0.85}
                       disabled={lockedSections.specs}
                     >
-                      <div className="font-bold items-stretch text-[14px] text-[#B3B394] flex flex-nowrap gap-2 whitespace-nowrap">
+                      <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-nowrap gap-2 whitespace-nowrap h-[38px]">
                         {!isFieldDeleted("specBedroom") && (
                           <DraggableBox
                             id="specBedroom"
@@ -1213,7 +1250,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Bedrooms"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <StyledInput
                                 value={bedroom}
                                 onChange={(e) => setBedroom(e.target.value)}
@@ -1261,7 +1298,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Bathrooms"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <StyledInput
                                 value={bathroom}
                                 onChange={(e) => setBathroom(e.target.value)}
@@ -1309,7 +1346,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove SqFt"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <StyledInput
                                 value={sqft}
                                 onChange={(e) => setSqft(e.target.value)}
@@ -1355,7 +1392,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             }
                             deleteTitle="Remove Built Year"
                           >
-                            <div className="flex items-center gap-1 whitespace-nowrap" style={{height:"38px",paddingTop:"9px",paddingBottom:"9px"}}>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <StyledInput
                                 value={builtYearLabel}
                                 onChange={(e) =>
@@ -1445,7 +1482,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                             "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
                         }}
                       >
-                        <div className="tracking-wide text-white mt-0 flex items-center" style={{minHeight:"28px",paddingTop:"2px"}}>
+                        <div className="tracking-wide text-white mt-0 flex items-center min-h-[28px]">
                           {!isFieldDeleted("addressHash") && (
                             <DraggableBox
                               id="addressHash"
@@ -1693,7 +1730,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                           deleteTitle="Remove Price"
                         >
                           <div
-                            className="rounded-sm shadow-md flex items-center" 
+                            className="h-[40px] rounded-sm shadow-md flex items-center justify-center" 
                             style={{
                               background:
                                 "linear-gradient(to right, #3A8D3D 0%, #368038 20%, #337434 38%, #2F6A30 54%, #274C23 100%)",
@@ -1709,7 +1746,7 @@ const BcfpStandard13 = forwardRef<BcfpStandard13Ref, BcfpStandard13Props>(
                               inputStyle={fieldStyles["amount"]}
                               placeholder="$000,000"
                               className="text-center text-[#ffffff] text-[28px] w-full bg-transparent border-none focus:outline-none outline-none placeholder-[#ffffff] placeholder:font-[500] px-2 leading-none"
-                              wrapperClassName="w-full flex items-center"
+                              wrapperClassName="w-full h-[40px] flex items-center justify-center"
                             />
                           </div>
                         </DraggableBox>

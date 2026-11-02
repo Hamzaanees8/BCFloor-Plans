@@ -258,10 +258,10 @@ const DownloadPdf = async (
     }
   });
 
-  // Remove placeholders and empty Unit # from PDF output
-  cleanPdfPlaceholders(clone);
-
-  // Explicitly render shadows as faux shadow layers for 100% accurate html2canvas capture
+  // Remove placeholders and empty Unit # from PDF output
+  cleanPdfPlaceholders(clone);
+
+  // Explicitly render shadows as faux shadow layers for 100% accurate html2canvas capture
   applyFauxShadows(clone);
 
   await new Promise((resolve) => setTimeout(resolve, 500));
@@ -438,15 +438,21 @@ const syncLiveLayout = (liveRoot, cloneRoot) => {
       cloneEl.style.verticalAlign = comp.verticalAlign;
     }
 
-    // Preserve position / top / left / width / height / transform from live DOM if set
+    // Preserve position / top / left / right / bottom / width / height / transform from live DOM if set
     if (liveEl.style.position || comp.position === "absolute" || comp.position === "relative") {
       cloneEl.style.position = comp.position;
       if (liveEl.style.top) cloneEl.style.top = liveEl.style.top;
       if (liveEl.style.left) cloneEl.style.left = liveEl.style.left;
+      if (liveEl.style.right) cloneEl.style.right = liveEl.style.right;
+      if (liveEl.style.bottom) cloneEl.style.bottom = liveEl.style.bottom;
     }
 
-    if (liveEl.style.width) cloneEl.style.width = liveEl.style.width;
-    if (liveEl.style.height) cloneEl.style.height = liveEl.style.height;
+    if (liveEl.style.width) {
+      cloneEl.style.width = liveEl.style.width.includes("calc(") ? comp.width : liveEl.style.width;
+    }
+    if (liveEl.style.height) {
+      cloneEl.style.height = liveEl.style.height.includes("calc(") ? comp.height : liveEl.style.height;
+    }
 
     // Only copy inline transform when explicitly defined on live element (e.g. DraggableBox translate3d)
     if (liveEl.style.transform) {

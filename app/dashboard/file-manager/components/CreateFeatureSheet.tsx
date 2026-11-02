@@ -1565,6 +1565,17 @@ const CreateFeatureSheet = forwardRef<
         state.deletedStandardFieldIds ||
         [];
 
+      const restoredFieldStyles =
+        (state as any).fieldStyles ||
+        (sheetData.content as any)?.fieldStyles ||
+        (rawOther as any)?.fieldStyles ||
+        {};
+      const restoredFieldPositions =
+        (state as any).fieldPositions ||
+        (sheetData.content as any)?.fieldPositions ||
+        (rawOther as any)?.fieldPositions ||
+        {};
+
       updateFormData({
         ...state,
         siteInfluences: (state.siteInfluences as string) || "",
@@ -1574,7 +1585,8 @@ const CreateFeatureSheet = forwardRef<
         imageScales: state.imageScales || {},
         imagePositions: state.imagePositions || {},
         imageRotations: state.imageRotations || {},
-        fieldPositions: (state as any).fieldPositions || {},
+        fieldPositions: restoredFieldPositions,
+        fieldStyles: restoredFieldStyles,
         deletedDetailFields: restoredDeletedDetail,
         deletedStandardFieldIds: restoredDeletedStandard,
       });
