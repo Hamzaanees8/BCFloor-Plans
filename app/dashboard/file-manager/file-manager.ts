@@ -1605,6 +1605,8 @@ export class FeatureSheetService {
     realtorImageFile?: File | string | null;
     fieldStyles?: Record<string, any>;
     fieldPositions?: Record<string, { x: number; y: number }>;
+    deletedImageSlots?: string[];
+    deletedImageUuids?: string[];
   }): Promise<FeatureSheetPayload> {
     // Use a local guaranteed-typed content object to avoid TS errors on payload.content?
     const content: FeatureSheetContent = {};
@@ -1855,6 +1857,13 @@ export class FeatureSheetService {
       (payload.content as Record<string, unknown>).galleryImagesMeta = galleryImagesMeta;
     }
 
+    if (params.deletedImageSlots && params.deletedImageSlots.length > 0) {
+      (payload.content as Record<string, unknown>).deletedImageSlots = params.deletedImageSlots;
+    }
+    if (params.deletedImageUuids && params.deletedImageUuids.length > 0) {
+      (payload.content as Record<string, unknown>).deletedImageUuids = params.deletedImageUuids;
+    }
+
     return payload;
   }
 
@@ -2038,6 +2047,12 @@ export class FeatureSheetService {
     // Step 2: Upload blob images to S3 and get their UUIDs, passing the new featureSheet UUID
     const { imageUuids, newImagesForContent } = await this.uploadImagesToS3(orderUuid, images, uuid);
 
+    // Delete any images that were removed by the user
+    const deletedImageUuids = (payload.content as Record<string, unknown>)?.deletedImageUuids as string[] | undefined;
+    if (deletedImageUuids && deletedImageUuids.length > 0) {
+      await Promise.allSettled(deletedImageUuids.map((id) => this.deleteImage(id)));
+    }
+
     // Patch content with new local images so their metadata survives
     if (newImagesForContent && newImagesForContent.length > 0) {
       const gMeta = (payload.content as Record<string, unknown>).galleryImagesMeta as Record<string, FeatureSheetImage['meta']> || {};
@@ -2186,6 +2201,25 @@ export class FeatureSheetService {
     }
 
     return response.data.data || response.data;
+  }
+
+    /**
+   * Delete a feature sheet image record from database and storage.
+   */
+  async deleteImage(imageUuid: string): Promise<boolean> {
+    try {
+      const response = await api.delete(`/feature-sheets/image/${imageUuid}`);
+      return response.status === 200 || response.status === 204;
+    } catch (error) {
+      console.warn(`[FeatureSheet] Could not delete image ${imageUuid}:`, error);
+      return false;
+    }
+  }
+
+  clearUploadedBlob(blobUrl?: string | null): void {
+    if (blobUrl && this.uploadedBlobMap.has(blobUrl)) {
+      this.uploadedBlobMap.delete(blobUrl);
+    }
   }
 
   async deleteFeatureSheet(uuid: string): Promise<void> {
@@ -2437,6 +2471,7 @@ export class FeatureSheetService {
       // Images — start with DB-backed feature sheet images (blob uploads)
       images: (() => {
         const acc: { [key: string]: string | null } = {};
+        const deletedSlots = new Set(((content as Record<string, unknown>)?.deletedImageSlots as string[]) || []);
 
         // 1. Populate from FeatureSheetImage DB records (blob / new uploads)
         for (const img of images) {
@@ -2447,14 +2482,13 @@ export class FeatureSheetService {
             );
             if (propIndex !== -1) slot = `image${propIndex + 1}`;
           }
-          if (slot) {
+          if (slot && !deletedSlots.has(slot)) {
             const rawPath =
               img.variant_urls?.print || img.variant_urls?.landing || img.variant_urls?.thumb || img.thumbnail_url || img.url || img.storage_path || img.file || img.file_path || null;
 
             if (rawPath) {
               acc[slot] = this.buildStorageUrl(rawPath);
             } else if (img.is_processing || (img.source === 'upload' && !rawPath)) {
-              // If we have an image record but no URL yet, it's processing
               acc[slot] = PROCESSING_PLACEHOLDER;
             }
           }
@@ -2466,9 +2500,11 @@ export class FeatureSheetService {
           ?.galleryImages as Record<string, string> | undefined;
         if (galleryImages) {
           for (const [slot, url] of Object.entries(galleryImages)) {
-            const isFeatureSheetImg = url.includes('/feature-sheets/') || url.includes('api-stage.bcfloorplans.com/storage');
-            if (!isFeatureSheetImg) {
-              acc[slot] = url;
+            if (!deletedSlots.has(slot)) {
+              const isFeatureSheetImg = url.includes('/feature-sheets/') || url.includes('api-stage.bcfloorplans.com/storage');
+              if (!isFeatureSheetImg) {
+                acc[slot] = url;
+              }
             }
           }
         }
@@ -2579,6 +2615,8 @@ export class FeatureSheetService {
       })(),
       fieldStyles: payload.fieldStyles,
       fieldPositions: payload.fieldPositions,
+      deletedImageSlots: ((content as Record<string, unknown>)?.deletedImageSlots as string[]) || [],
+      deletedImageUuids: ((content as Record<string, unknown>)?.deletedImageUuids as string[]) || [],
       processingSlots: (() => {
         const acc: { [key: string]: boolean } = {};
         for (const img of images) {
@@ -2609,10 +2647,22 @@ export class FeatureSheetService {
   mergeResolvedImages<T extends Record<string, string | null>>(
     prevImages: T,
     serverImages: Record<string, string | null | undefined>,
-    processingSlots?: Record<string, boolean>
+    processingSlots?: Record<string, boolean>,
+    deletedSlots?: Set<string> | string[]
   ): T {
+    const deletedSet = new Set(
+      Array.isArray(deletedSlots)
+        ? deletedSlots
+        : deletedSlots
+        ? Array.from(deletedSlots)
+        : []
+    );
     const next: Record<string, string | null> = { ...prevImages };
     for (const [slot, serverUrl] of Object.entries(serverImages)) {
+      if (deletedSet.has(slot)) {
+        next[slot] = null;
+        continue;
+      }
       const prevUrl = prevImages[slot];
       const isSlotProcessing = processingSlots?.[slot] || false;
       const isServerPlaceholder =

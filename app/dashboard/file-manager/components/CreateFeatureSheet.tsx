@@ -39,6 +39,14 @@ import { useFileManagerContext, initialFormData } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import BcfpStandard from "./BcfpStandard";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 import DownloadPdf from "./DownloadPdf";
 import TabloidPdfGenerator from "./TabloidPdfGenerator";
@@ -329,6 +337,7 @@ const CreateFeatureSheet = forwardRef<
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [sheetToDelete, setSheetToDelete] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
   const [showAgain, setShowAgain] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
@@ -957,6 +966,11 @@ const CreateFeatureSheet = forwardRef<
         lastSavedPayloadRef.current = result;
         setHasUnsavedChanges(false);
 
+        // Immediately update active standard component with server state & processing slots
+        if (activeStandardRef.current?.importFromPayload) {
+          activeStandardRef.current.importFromPayload(result);
+        }
+
         // Update processing image status if any variant is being generated in background
         const hasProcessing = result.images?.some(
           (img) => img.is_processing === true || (img.source === "upload" && !img.file_path && !img.url)
@@ -1258,6 +1272,8 @@ const CreateFeatureSheet = forwardRef<
   }, [
     orderData?.uuid,
     hasProcessingSheetImages,
+    selectedSheetUuid,
+    selectedTemplate,
     setFeatureSheets,
     setUploadedPdfs,
   ]);
@@ -1322,7 +1338,7 @@ const CreateFeatureSheet = forwardRef<
       }
       lastLoadedSheetKeyRef.current = currentKey;
       setSheetInstanceId("inst_" + Math.random().toString(36).substring(2, 9));
-      lastSavedPayloadRef.current = sheetData;
+      lastSavedPayloadRef.current = sheetData || null;
       setHasUnsavedChanges(false);
 
       console.log("Loading data for template:", selectedTemplate, sheetData);
@@ -1386,7 +1402,7 @@ const CreateFeatureSheet = forwardRef<
       }
       lastLoadedSheetKeyRef.current = currentKey;
       setSheetInstanceId("inst_" + Math.random().toString(36).substring(2, 9));
-      lastSavedPayloadRef.current = sheetData;
+      lastSavedPayloadRef.current = sheetData || null;
       setHasUnsavedChanges(false);
 
       // If no selectedSheetUuid and no saved sheet data, reset to clean initialFormData with dual branding if co-agents exist
@@ -2848,6 +2864,12 @@ const CreateFeatureSheet = forwardRef<
                         className="flex items-center gap-2.5 normal-case tracking-normal shrink-0 z-10"
                       >
                         {/* Status feedback & Revert / Discard */}
+                        {hasUnsavedChanges && !isSaving && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-700 border border-amber-300 text-xs font-medium shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span>Unsaved changes</span>
+                          </div>
+                        )}
                         {isSaving ? (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium">
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2865,8 +2887,8 @@ const CreateFeatureSheet = forwardRef<
                           <button
                             type="button"
                             disabled={isSaving}
-                            onClick={handleDiscardChanges}
-                            className="flex items-center justify-center px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 rounded-[6px] font-medium transition-colors"
+                            onClick={() => setRevertConfirmOpen(true)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] h-[32px] text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border-2 border-red-500 hover:border-red-600 rounded-[6px] font-semibold transition-colors disabled:opacity-50"
                             title="Revert to last saved version of this sheet"
                           >
                             Revert to Saved
@@ -3312,7 +3334,13 @@ const CreateFeatureSheet = forwardRef<
                             closeFeatureSheetSidebars();
                           }
                         }}
-                        className={`flex-1 flex flex-col items-center p-8 pt-12 overflow-auto relative min-h-[700px] w-full ${
+                        style={{
+                          paddingLeft: "420px",
+                          paddingRight: "380px",
+                          paddingTop: "48px",
+                          paddingBottom: "120px",
+                        }}
+                        className={`flex-1 flex flex-col overflow-auto relative min-h-[700px] w-full ${
                           isPanning
                             ? "cursor-grabbing select-none"
                             : previewMode === "preview"
@@ -3325,7 +3353,7 @@ const CreateFeatureSheet = forwardRef<
                             isPanning
                               ? "transition-none"
                               : "transition-transform duration-75"
-                          } mx-auto min-w-full w-max`}
+                          } m-auto w-max`}
                           style={{
                             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
                             transformOrigin: "top center",
@@ -3676,6 +3704,38 @@ const CreateFeatureSheet = forwardRef<
           currentSheetUuid={selectedSheetUuid}
           currentTemplateKey={selectedTemplate}
         />
+
+        <Dialog open={revertConfirmOpen} onOpenChange={setRevertConfirmOpen}>
+          <DialogContent className="max-w-[420px] bg-white p-6 rounded-lg shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-red-600 font-bold text-lg flex items-center gap-2">
+                Revert to Saved Version?
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 pt-2 text-sm leading-relaxed">
+                Are you sure you want to revert to the last saved version of this feature sheet? All unsaved edits made during this session will be discarded and cannot be recovered.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 sm:justify-end pt-4">
+              <button
+                type="button"
+                onClick={() => setRevertConfirmOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-[6px] hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRevertConfirmOpen(false);
+                  handleDiscardChanges();
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[6px] transition-colors shadow-2xs"
+              >
+                Revert Changes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <ConfirmationDialog
           open={confirmOpen}

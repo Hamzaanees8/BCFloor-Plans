@@ -125,15 +125,6 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
 
   const drawerMarkup = (
     <>
-      {/* ─── BACKDROP OVERLAY ─────────────────── */}
-      {isOpen && (
-        <div
-          onClick={handleClose}
-          className="fixed inset-0 bg-black/30 backdrop-blur-xs z-[99999] pointer-events-auto transition-opacity duration-300 animate-in fade-in"
-          aria-hidden="true"
-        />
-      )}
-
       {/* ─── SLIDE-OUT SIDEBAR OVER SCREEN ───────── */}
       <div
         style={{
