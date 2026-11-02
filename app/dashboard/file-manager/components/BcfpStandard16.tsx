@@ -824,8 +824,35 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      const dx = e.clientX - lastPosition.current[key].x;
-      const dy = e.clientY - lastPosition.current[key].y;
+      let dx = (e.clientX - lastPosition.current[key].x) / 0.85;
+      let dy = (e.clientY - lastPosition.current[key].y) / 0.85;
+
+      const rotations: Record<string, number> = {
+        image1: image1Rotation,
+        image2: image2Rotation,
+        image3: image3Rotation,
+        image4: image4Rotation,
+        image5: image5Rotation,
+        image6: image6Rotation,
+        image7: image7Rotation,
+        image8: image8Rotation,
+      };
+      const currentRot = rotations[key] || 0;
+      if (currentRot % 360 !== 0) {
+        const angle = ((currentRot % 360) + 360) % 360;
+        if (angle === 90) {
+          const temp = dx;
+          dx = dy;
+          dy = -temp;
+        } else if (angle === 180) {
+          dx = -dx;
+          dy = -dy;
+        } else if (angle === 270) {
+          const temp = dx;
+          dx = -dy;
+          dy = temp;
+        }
+      }
 
       setPosition((prev) => ({
         ...prev,
@@ -2771,7 +2798,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           </div>
         )}
 
-          <div data-safezone-container="true" className="relative w-full flex flex-col group">
+          <div data-safezone-container="true" className="relative w-full h-full flex flex-col group">
             <div className="absolute top-10 right-[70px] z-20 group/sec">
               <button
                 type="button"
@@ -2950,11 +2977,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               xmlnsXlink="http://www.w3.org/1999/xlink"
-              className="w-full h-full z-10"
+              className="w-full h-full z-10 pointer-events-none absolute inset-0"
             >
               <g clipPath="url(#clip0_490_7741)">
                 <path
-                  d="M631 772.5L3.40317 786.148L1.96216 597.068C1.96216 597.068 43.3123 789.714 631 730.5V772.5Z"
+                  d="M634 772.5L3.40317 786.148L1.96216 597.068C1.96216 597.068 43.3123 789.714 634 730.5V772.5Z"
                   fill="#00AEEF"
                 />
                 <path
@@ -2968,22 +2995,22 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   maskType: "luminance",
                 }}
                 maskUnits="userSpaceOnUse"
-                x={1}
+                x={0}
                 y={604}
-                width={630}
-                height={200}
+                width={634}
+                height={230}
               >
                 <path
-                  d="M1 811H631V757.613C42.165 806.399 1.796 604 1.796 604L1 811Z"
+                  d="M0 830H634V757.613C42.165 806.399 1.796 604 1.796 604L0 830Z"
                   fill="white"
                 />
               </mask>
               <g mask="url(#mask0_490_7741)">
                 <rect
-                  x={1}
+                  x={0}
                   y={604}
-                  width={630}
-                  height={207}
+                  width={634}
+                  height={230}
                   fill="url(#pattern0_490_7741)"
                 />
               </g>
@@ -3036,8 +3063,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 </pattern>
                 <clipPath id="clip0_490_7741">
                   <rect
-                    width={631}
-                    height={768}
+                    width={634}
+                    height={800}
                     fill="white"
                     transform="translate(0 18)"
                   />
@@ -3059,32 +3086,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               </defs>
             </svg>
             <div
-              className="w-full h-full overflow-hidden justify-center content-center absolute transition-all duration-200 group"
+              className={`w-full h-full overflow-hidden justify-center content-center absolute inset-0 z-0 transition-all duration-200 group ${images.image8 ? "cursor-grab active:cursor-grabbing" : ""}`}
               onMouseEnter={() => setHoveredImageSlot("image8")}
+              onMouseDown={(e) => handleMouseDown("image8", e)}
               onMouseMove={(e) => handleMouseMove("image8", e)}
               onMouseUp={() => handleMouseUp("image8")}
               onMouseLeave={() => { setHoveredImageSlot(null); handleMouseLeave("image8"); }}
-              style={{
-                alignSelf: "anchor-center",
-                justifySelf: "anchor-center",
-              }}
             >
               {images.image8 ? (
                 <>
                   <BoxIndicator isVisible={currentImageSlot === "image8" || hoveredImageSlot === "image8"} />
-                  <div
-                    className="w-full h-full relative overflow-hidden cursor-grab active:cursor-grabbing"
-                    onMouseDown={(e) => handleMouseDown("image8", e)}
-                  >
-                    <ImageEditor
-                      src={images.image8}
-                      scale={scale.image8}
-                      position={position.image8}
-                      rotation={image8Rotation}
-                          objectFit="cover"
-                      isProcessing={processingSlots.image8}
-/>
-                  </div>
+                  <ImageEditor
+                    src={images.image8}
+                    scale={scale.image8}
+                    position={position.image8}
+                    rotation={image8Rotation}
+                    objectFit="cover"
+                    isProcessing={processingSlots.image8}
+                  />
 
                   {/* Zoom Controls */}
                   <div className="absolute z-[22] bottom-[100px] right-8 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
