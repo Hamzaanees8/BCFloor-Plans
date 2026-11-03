@@ -13,7 +13,6 @@ import {
   MatterportAd,
   MatterportStatus,
   RenewalPlan,
-  SendRenewalReminder,
 } from "./matterport";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
@@ -32,6 +31,7 @@ import { toast } from "sonner";
 import { isUserCoAgent } from "@/lib/permissions";
 import { GetInvoicesByOrder } from "@/app/dashboard/invoice/invoice_api";
 import { isRenewalInvoice } from "@/app/dashboard/billing/billing";
+import EmailPreviewEditModal from "@/components/EmailPreviewEditModal";
 
 const CopyableLink = ({ url }: { url: string }) => {
   const [copied, setCopied] = useState(false);
@@ -101,7 +101,9 @@ const MatterportPage = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedTourForRenewal, setSelectedTourForRenewal] = useState<MatterportAd | null>(null);
   const [renewalModalOpen, setRenewalModalOpen] = useState<boolean>(false);
-  const [sendingReminderUuid, setSendingReminderUuid] = useState<string | null>(null);
+  const [selectedTourForReminder, setSelectedTourForReminder] = useState<MatterportAd | null>(null);
+  const [showReminderEditModal, setShowReminderEditModal] = useState<boolean>(false);
+  const [sendingReminderUuid] = useState<string | null>(null);
   const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
 
@@ -294,22 +296,9 @@ const MatterportPage = () => {
     }
   }, [matterports, tourParam, handlePayServiceInvoice, userType]);
 
-  const handleSendReminder = async (tour: MatterportAd) => {
-    const token = localStorage.getItem("token") || "";
-    setSendingReminderUuid(tour.tourUuid);
-    try {
-      const res = await SendRenewalReminder(token, tour.tourUuid);
-      if (res.success) {
-        toast.success(`Renewal reminder sent to ${tour.agentName || "agent"}`);
-      } else {
-        toast.error(res.message || "Failed to send reminder");
-      }
-    } catch (err: any) {
-      console.error("Reminder error:", err);
-      toast.error(err.response?.data?.message || "Failed to send reminder email");
-    } finally {
-      setSendingReminderUuid(null);
-    }
+  const handleSendReminder = (tour: MatterportAd) => {
+    setSelectedTourForReminder(tour);
+    setShowReminderEditModal(true);
   };
 
   const filteredData = useMemo(() => {
@@ -701,6 +690,22 @@ const MatterportPage = () => {
             setSelectedInvoiceUuid(null);
           }}
         />
+
+        {showReminderEditModal && selectedTourForReminder && (
+          <EmailPreviewEditModal
+            open={showReminderEditModal}
+            setOpen={setShowReminderEditModal}
+            eventType="matterport_expiry_reminder"
+            eventLabel={`Matterport Reminder (${selectedTourForReminder.address || "Tour"})`}
+            tourUuid={selectedTourForReminder.tourUuid}
+            orderUuid={selectedTourForReminder.orderuud}
+            defaultRoles={["agent"]}
+            allowedRoles={["agent", "admin"]}
+            onSuccess={() => {
+              toast.success(`Renewal reminder sent to ${selectedTourForReminder.agentName || "agent"}`);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -818,6 +823,22 @@ const MatterportPage = () => {
           setSelectedInvoiceUuid(null);
         }}
       />
+
+      {showReminderEditModal && selectedTourForReminder && (
+        <EmailPreviewEditModal
+          open={showReminderEditModal}
+          setOpen={setShowReminderEditModal}
+          eventType="matterport_expiry_reminder"
+          eventLabel={`Matterport Reminder (${selectedTourForReminder.address || "Tour"})`}
+          tourUuid={selectedTourForReminder.tourUuid}
+          orderUuid={selectedTourForReminder.orderuud}
+          defaultRoles={["agent"]}
+          allowedRoles={["agent", "admin"]}
+          onSuccess={() => {
+            toast.success(`Renewal reminder sent to ${selectedTourForReminder.agentName || "agent"}`);
+          }}
+        />
+      )}
     </div>
   );
 };

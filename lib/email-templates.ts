@@ -6,6 +6,7 @@ export interface EmailTemplate {
     content: string;
     type?: string | null;
     event_type?: string | null;
+    recipient_type?: ('admin' | 'agent' | 'vendor')[] | null;
     is_active: boolean;
     tags?: string[] | null;
 }

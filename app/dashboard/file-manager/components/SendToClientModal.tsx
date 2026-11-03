@@ -18,9 +18,11 @@ import {
   Send,
   X,
   FileCheck,
+  Edit3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SendMediaToClient } from "../file-manager";
+import EmailPreviewEditModal from "@/components/EmailPreviewEditModal";
 
 interface SendToClientModalProps {
   open: boolean;
@@ -47,6 +49,7 @@ export default function SendToClientModal({
   const [isApproving, setIsApproving] = useState(false);
   const [approvalSuccess, setApprovalSuccess] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [showCustomPreviewModal, setShowCustomPreviewModal] = useState(false);
 
   // Reset internal states whenever modal opens or service changes
   useEffect(() => {
@@ -211,7 +214,8 @@ export default function SendToClientModal({
     : `Delivering ${serviceName} to ${agentName}`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[94vw] max-w-[560px] rounded-[14px] p-0 font-alexandria shadow-2xl border border-gray-200 bg-white overflow-hidden [&>button]:hidden">
         {/* Header Banner */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50/70 to-indigo-50/40">
@@ -476,6 +480,16 @@ export default function SendToClientModal({
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                disabled={isSending || isApproving}
+                onClick={() => setShowCustomPreviewModal(true)}
+                className="h-[38px] px-3.5 text-[12px] font-semibold border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Customize Email</span>
+              </Button>
+              <Button
+                type="button"
                 onClick={handleSendToClient}
                 disabled={isSending || isApproving}
                 className="h-[38px] px-4 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 shadow-sm"
@@ -509,6 +523,16 @@ export default function SendToClientModal({
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                disabled={isSending || effectiveApprovedCount === 0}
+                onClick={() => setShowCustomPreviewModal(true)}
+                className="h-[38px] px-3.5 text-[12px] font-semibold border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Customize Email</span>
+              </Button>
+              <Button
+                type="button"
                 onClick={handleSendToClient}
                 disabled={isSending || effectiveApprovedCount === 0}
                 className="h-[38px] px-5 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 shadow-sm"
@@ -530,5 +554,26 @@ export default function SendToClientModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {showCustomPreviewModal && (
+      <EmailPreviewEditModal
+        open={showCustomPreviewModal}
+        setOpen={setShowCustomPreviewModal}
+        eventType="media_uploaded"
+        eventLabel="Media Uploaded / Ready"
+        orderUuid={orderData?.uuid}
+        serviceUuid={currentService?.uuid}
+        defaultRoles={["agent"]}
+        allowedRoles={["agent", "admin"]}
+        onSuccess={() => {
+          onSuccess?.();
+          onOpenChange(false);
+        }}
+        extraOptions={{
+          custom_message: customMessage.trim() || undefined,
+        }}
+      />
+    )}
+  </>
   );
 }

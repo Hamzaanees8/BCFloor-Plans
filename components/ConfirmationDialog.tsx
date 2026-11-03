@@ -1,7 +1,7 @@
 // components/ConfirmationDialog.tsx
 "use client"
 
-import React from "react" // Add useEffect and useState
+import React from "react"
 import {
   Dialog,
   DialogContent,
@@ -22,11 +22,12 @@ type Props = {
   setOpen: (value: boolean) => void
   onConfirm: () => void
   onCancel?: () => void
-  showAgain: boolean
-  toggleShowAgain: () => void
+  showAgain?: boolean
+  toggleShowAgain?: () => void
   dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' | 'address_change'
   title?: string
   description?: string
+  hideShowAgain?: boolean
 }
 
 const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' | 'address_change' = 'delete') => {
@@ -53,15 +54,17 @@ const ConfirmationDialog: React.FC<Props> = ({
   setOpen,
   onConfirm,
   onCancel,
-  showAgain,
+  showAgain = true,
   toggleShowAgain,
   dialogType = 'delete',
   title,
-  description
+  description,
+  hideShowAgain = false
 }) => {
   const { userType } = useAppContext();
 
   const handleCheckboxChange = () => {
+    if (!toggleShowAgain) return;
     const newValue = !showAgain;
     toggleShowAgain();
 
@@ -71,7 +74,8 @@ const ConfirmationDialog: React.FC<Props> = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
+        overlayClassName="z-[240]"
+        className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden z-[250]">
         <DialogHeader className="mb-2">
           <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}>
             {title || "CONFIRMATION"}
@@ -93,18 +97,20 @@ const ConfirmationDialog: React.FC<Props> = ({
           </DialogDescription>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 border-b-[1px] border-[#E4E4E4] pb-2">
-          <input
-            type="checkbox"
-            id="no-show"
-            checked={!showAgain}
-            onChange={handleCheckboxChange} // CHANGED THIS!
-            className="accent-[#0078D4]"
-          />
-          <label htmlFor="no-show" className="text-[14px] font-[400] text-[#666666]">Do not show again.</label>
-        </div>
+        {!hideShowAgain && toggleShowAgain && (
+          <div className="mt-4 flex items-center gap-2 border-b-[1px] border-[#E4E4E4] pb-2">
+            <input
+              type="checkbox"
+              id="no-show"
+              checked={!showAgain}
+              onChange={handleCheckboxChange}
+              className="accent-[#0078D4]"
+            />
+            <label htmlFor="no-show" className="text-[14px] font-[400] text-[#666666]">Do not show again.</label>
+          </div>
+        )}
 
-        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
+        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-alexandria">
           <DialogClose
             className={`bg-white rounded-[8px] w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text border ${userType}-border text-[#0078D4] hover-${userType}-bg ${userType}-button`}
             onClick={() => {
@@ -114,7 +120,7 @@ const ConfirmationDialog: React.FC<Props> = ({
             Cancel
           </DialogClose>
           <Button
-            className={`${userType}-bg hover:opacity-90 text-white hover-${userType}-bg w-full  md:w-[170px] h-[44px] font-[400] text-[20px]`}
+            className={`${userType}-bg hover:opacity-90 text-white hover-${userType}-bg w-full md:w-[170px] h-[44px] font-[400] text-[20px]`}
             onClick={() => {
               onConfirm()
               setOpen(false)
@@ -128,4 +134,4 @@ const ConfirmationDialog: React.FC<Props> = ({
   )
 }
 
-export default ConfirmationDialog
+export default ConfirmationDialog;

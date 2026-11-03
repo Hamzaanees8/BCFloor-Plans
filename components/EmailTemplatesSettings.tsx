@@ -68,18 +68,14 @@ const EmailTemplatesSettings = () => {
         fetchTemplates();
 
         const initSigs = async () => {
-            // First, try to get organization ID from context or localStorage
             let orgId = organizationId;
             
             if (!orgId) {
                 try {
-                    // Try to get from localStorage userInfo - look for organization.uuid first
                     const userInfoStr = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
                     if (userInfoStr) {
                         const userInfo = JSON.parse(userInfoStr);
-                        // Correct hierarchy: organization.uuid is the actual org UUID
                         orgId = userInfo?.organization?.uuid || userInfo?.data?.organization?.uuid || userInfo?.data?.uuid || userInfo?.organization_uuid;
-                        console.log('Extracted organization ID from userInfo:', orgId);
                     }
                 } catch (e) {
                     console.error('Failed to parse userInfo:', e);
@@ -92,7 +88,6 @@ const EmailTemplatesSettings = () => {
                 return;
             }
 
-            // Fallback: Try to fetch using the new GetUserOrganization function
             try {
                 const res = await GetCompany();
                 if (res.status && res.data?.uuid) {
@@ -138,19 +133,16 @@ const EmailTemplatesSettings = () => {
     const handleToggleStatus = async (uuid: string, currentStatus: boolean) => {
         const newStatus = !currentStatus;
         try {
-            // Optimistic update
             setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: newStatus } : t));
 
             const res = await UpdateTemplate(uuid, { is_active: newStatus });
             if (res.success !== false) {
                 toast.success("Template status updated");
             } else {
-                // Revert on failure
                 setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: currentStatus } : t));
                 toast.error(res.message || "Failed to update status");
             }
         } catch {
-            // Revert on failure
             setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: currentStatus } : t));
             toast.error("Failed to update status");
         }
@@ -160,25 +152,89 @@ const EmailTemplatesSettings = () => {
         {
             accessorKey: "sort_order",
             header: "ORDER",
-            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("sort_order") ?? "-"}</div>,
+            cell: ({ row }) => <div className="text-[#666666] font-mono text-xs">{row.getValue("sort_order") ?? "-"}</div>,
         },
         {
             accessorKey: "title",
             header: "TITLE",
-            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("title")}</div>,
+            cell: ({ row }) => <div className="text-[#333333] font-semibold text-xs">{row.getValue("title")}</div>,
         },
         {
             accessorKey: "type",
-            header: "TYPE",
-            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("type") || "-"}</div>,
+            header: "EVENT / TYPE",
+            cell: ({ row }) => {
+                const typeVal = row.original.event_type || row.original.type || "-";
+                const eventMap: Record<string, string> = {
+                    order_created: "Order Created",
+                    order_updated: "Order Updated",
+                    order_cancelled: "Order Cancelled",
+                    slot_booked: "Slot Booked",
+                    slot_cancelled: "Slot Cancelled",
+                    slot_rescheduled: "Slot Rescheduled",
+                    booking_reminder: "Booking Reminder",
+                    service_completed: "Service Completed",
+                    media_uploaded: "Media Uploaded",
+                    agent_payment_received: "Payment Received",
+                    vendor_payment_processed: "Vendor Payout",
+                    invoice_created: "Invoice Created",
+                    matterport_expiry_reminder: "3D Tour Expiry",
+                    matterport_expired: "3D Tour Expired",
+                    matterport_renewed: "3D Tour Renewed",
+                    password_reset: "Password Reset",
+                };
+                const friendlyLabel = eventMap[typeVal] || typeVal;
+                return (
+                    <div className="flex flex-col">
+                        <span className="font-semibold text-gray-800 text-xs">{friendlyLabel}</span>
+                        {friendlyLabel !== typeVal && (
+                            <span className="text-[10px] text-gray-400 font-mono">{typeVal}</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "recipient_type",
+            header: "RECIPIENTS",
+            cell: ({ row }) => {
+                const recipients = row.original.recipient_type;
+                if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+                    return (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            All Roles
+                        </span>
+                    );
+                }
+
+                return (
+                    <div className="flex flex-wrap gap-1 items-center">
+                        {recipients.map((r: string) => {
+                            const badgeColor =
+                                r === "admin"
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    : r === "agent"
+                                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                                    : "bg-emerald-50 text-emerald-700 border-emerald-200";
+                            return (
+                                <span
+                                    key={r}
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize border ${badgeColor}`}
+                                >
+                                    {r}
+                                </span>
+                            );
+                        })}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: "updated_at",
             header: "LAST UPDATED",
             cell: ({ row }) => {
                 const dateStr = row.getValue("updated_at") as string;
-                if (!dateStr) return <div className="text-[#666666]">-</div>;
-                return <div className="text-[#666666]">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
+                if (!dateStr) return <div className="text-[#666666] text-xs">-</div>;
+                return <div className="text-[#666666] text-xs">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
             },
         },
         {
@@ -221,15 +277,15 @@ const EmailTemplatesSettings = () => {
         {
             accessorKey: "name",
             header: "NAME",
-            cell: ({ row }) => <div className="text-[#666666] font-semibold">{row.getValue("name")}</div>,
+            cell: ({ row }) => <div className="text-[#666666] font-semibold text-xs">{row.getValue("name")}</div>,
         },
         {
             accessorKey: "updated_at",
             header: "LAST UPDATED",
             cell: ({ row }) => {
                 const dateStr = row.getValue("updated_at") as string;
-                if (!dateStr) return <div className="text-[#666666]">-</div>;
-                return <div className="text-[#666666]">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
+                if (!dateStr) return <div className="text-[#666666] text-xs">-</div>;
+                return <div className="text-[#666666] text-xs">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
             },
         },
         {
@@ -263,9 +319,11 @@ const EmailTemplatesSettings = () => {
             <div className="flex items-center justify-between w-full pb-4 px-4 py-4" style={{ backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg}, black 10%)` }}>
                 <p className={`text-[18px] font-semibold uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>TEMPLATES</p>
                 <div className="flex items-center gap-x-6">
-
                     <div
-                        onClick={() => setOpenAddDialog(true)}
+                        onClick={() => {
+                            setTemplateToEdit(null);
+                            setOpenAddDialog(true);
+                        }}
                         className="flex items-center gap-x-[10px] cursor-pointer"
                     >
                         <p className={`text-base font-semibold font-raleway ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>Add Template</p>

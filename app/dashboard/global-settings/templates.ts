@@ -1,9 +1,12 @@
 import { api } from "@/lib/api";
 
+export type RecipientRole = 'admin' | 'agent' | 'vendor';
+
 export interface EmailTemplatePayload {
     title: string;
     type?: string | null;
     event_type?: string | null;
+    recipient_type?: RecipientRole[] | null;
     tags?: string[] | null;
     sort_order?: number;
     is_active?: boolean;
@@ -17,14 +20,27 @@ export interface EmailTemplate {
     tags?: string[] | null;
     type?: string | null;
     event_type?: string | null;
+    recipient_type?: RecipientRole[] | null;
     sort_order: number;
     is_active: boolean;
     created_at: string;
     updated_at: string;
 }
 
-export async function GetTemplates() {
-    const response = await api.get(`/email-templates`);
+export interface BladePreviewData {
+    event_type: string;
+    event_label: string;
+    description?: string;
+    recipient_role: string;
+    supported_roles: RecipientRole[];
+    variables: string[];
+    subject: string;
+    content: string;
+    full_html: string;
+}
+
+export async function GetTemplates(params?: { event_type?: string; recipient_type?: string; is_active?: boolean }) {
+    const response = await api.get(`/email-templates`, { params });
     const data = await response.data;
     return data;
 }
@@ -53,8 +69,32 @@ export async function DeleteTemplate(uuid: string) {
     return data;
 }
 
-export async function PreviewTemplate(uuid: string, payload: { data: Record<string, string> }) {
+export async function PreviewTemplate(uuid: string, payload: { data: Record<string, string>; recipient_role?: string }) {
     const response = await api.post(`/email-templates/${uuid}/preview`, payload);
     const data = await response.data;
     return data;
+}
+
+export async function GetBladePreview(eventType: string, recipientRole: string = 'agent', orderUuid?: string) {
+    const response = await api.get(`/email-templates/blade-preview/${eventType}`, {
+        params: {
+            recipient_role: recipientRole,
+            ...(orderUuid ? { order_uuid: orderUuid } : {})
+        }
+    });
+    return response.data;
+}
+
+export async function SendPreviewEmail(payload: {
+    event_type: string;
+    recipient_roles: RecipientRole[];
+    content_overrides: Record<string, string>;
+    subject_overrides?: Record<string, string>;
+    order_uuid?: string;
+    tour_uuid?: string;
+    service_uuid?: string;
+    options?: Record<string, any>;
+}) {
+    const response = await api.post(`/email-templates/send-preview`, payload);
+    return response.data;
 }
