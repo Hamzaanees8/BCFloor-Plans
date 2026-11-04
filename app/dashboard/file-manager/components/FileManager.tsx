@@ -471,8 +471,17 @@ const FileManager = () => {
     const target = serviceToApprove ?? sendToClientService ?? activeService;
     const isTargetFile = (f: any) => {
       if (!target) return true;
-      if (target.uuid && (f.service?.uuid === target.uuid || f.service_uuid === target.uuid)) return true;
-      if (target.id && (String(f.service_id) === String(target.id) || String(f.service?.id) === String(target.id))) return true;
+      if (
+        target.uuid &&
+        (f.service?.uuid === target.uuid || f.service_uuid === target.uuid)
+      )
+        return true;
+      if (
+        target.id &&
+        (String(f.service_id) === String(target.id) ||
+          String(f.service?.id) === String(target.id))
+      )
+        return true;
       return false;
     };
 
@@ -516,7 +525,8 @@ const FileManager = () => {
                 ...prev.tours,
                 links: (prev.tours.links || []).map((l: any) => {
                   if (
-                    (!target?.id || String(l.service_id) === String(target.id)) &&
+                    (!target?.id ||
+                      String(l.service_id) === String(target.id)) &&
                     !l.is_admin_approved
                   ) {
                     return { ...l, is_admin_approved: true };
@@ -547,7 +557,10 @@ const FileManager = () => {
         return {
           ...prev,
           services: prev.services.map((s: any) => {
-            if (s.service?.uuid === deliveredService.uuid || s.service_id === deliveredService.id) {
+            if (
+              s.service?.uuid === deliveredService.uuid ||
+              s.service_id === deliveredService.id
+            ) {
               return { ...s, is_completed: true };
             }
             return s;
@@ -573,7 +586,11 @@ const FileManager = () => {
     try {
       await EditOrderStatus(
         orderId as string,
-        { release_media_before_payment: enable, suppress_email: true, _method: "PUT" },
+        {
+          release_media_before_payment: enable,
+          suppress_email: true,
+          _method: "PUT",
+        },
         token,
       );
       if (orderData) {
@@ -609,6 +626,7 @@ const FileManager = () => {
           description: "Pre-payment media release has been revoked.",
         });
       }
+      handleRefreshAll();
     } catch (err: any) {
       console.error("Failed to update media release:", err);
       toast.error(err?.message || "Failed to update media release status");
@@ -716,8 +734,7 @@ const FileManager = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
 
-  const [, setIsAgentPaymentBannerDismissed] =
-    useState(false);
+  const [, setIsAgentPaymentBannerDismissed] = useState(false);
 
   const isOrderOrInvoicePaid = React.useMemo(() => {
     if (orderData?.payment_status === "PAID") return true;
@@ -918,7 +935,13 @@ const FileManager = () => {
         if (updatedTour.files) {
           updatedTour.files = updatedTour.files.map((f: any) => ({
             ...f,
-            is_processing: Boolean(f.status === "processing" || f.is_processing),
+            is_processing: Boolean(
+              f.status === "processing" ||
+              f.is_processing === true ||
+              f.is_processing === 1 ||
+              f.is_processing === "1" ||
+              f.is_processing === "true",
+            ),
           }));
         }
         setFilesData(updatedTour);
@@ -932,7 +955,13 @@ const FileManager = () => {
     } finally {
       setIsManualRefreshing(false);
     }
-  }, [orderData?.uuid, includeHidden, setFilesData, fetchOrder, setMediaCacheVersion]);
+  }, [
+    orderData?.uuid,
+    includeHidden,
+    setFilesData,
+    fetchOrder,
+    setMediaCacheVersion,
+  ]);
 
   // Keep vendor services in sync when servicesData catalog finishes loading or orderData updates
   useEffect(() => {
@@ -1000,14 +1029,8 @@ const FileManager = () => {
           duration: 8000,
         });
 
-        // Re-fetch order and invoices to get updated payment_status
-        await fetchOrder();
-        if (orderData?.uuid && userType !== "vendor") {
-          const updatedInvoices = await GetInvoicesByOrder(orderData.uuid);
-          setInvoices(
-            Array.isArray(updatedInvoices.data) ? updatedInvoices.data : [],
-          );
-        }
+        // Re-fetch order, invoices, and files to get updated payment_status and media processing flags
+        await handleRefreshAll();
 
         // remove session_id and renewed from URL
         const params = new URLSearchParams(searchParams.toString());
@@ -1026,10 +1049,21 @@ const FileManager = () => {
     };
 
     processStripePayment();
-  }, [searchParams, router, fetchOrder, orderData?.uuid, userType, orderId, orderData?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    searchParams,
+    router,
+    fetchOrder,
+    orderData?.uuid,
+    userType,
+    orderId,
+    orderData?.id,
+  ]);
 
   const refreshInvoices = React.useCallback(async () => {
-    const currentUserType = userType || (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
+    const currentUserType =
+      userType ||
+      (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
     if (!orderData?.uuid || currentUserType === "vendor") return;
     setInvoicesLoading(true);
     try {
@@ -1045,14 +1079,24 @@ const FileManager = () => {
   const handleRefreshAll = React.useCallback(async () => {
     const token = localStorage.getItem("token");
     const targetUuid = orderData?.uuid || orderId;
-    if (!token || !targetUuid || targetUuid === "undefined" || targetUuid === "null") return;
+    if (
+      !token ||
+      !targetUuid ||
+      targetUuid === "undefined" ||
+      targetUuid === "null"
+    )
+      return;
 
     try {
       // 1. Fetch updated order (updates orderData, services, package limits)
       await fetchOrder();
 
       // 2. Refresh invoices
-      const currentUserType = userType || (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
+      const currentUserType =
+        userType ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("userType")
+          : null);
       if (currentUserType !== "vendor") {
         try {
           const invRes = await GetInvoicesByOrder(targetUuid);
@@ -1070,7 +1114,13 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing: Boolean(f.status === "processing" || f.is_processing),
+              is_processing: Boolean(
+                f.status === "processing" ||
+                f.is_processing === true ||
+                f.is_processing === 1 ||
+                f.is_processing === "1" ||
+                f.is_processing === "true",
+              ),
             }));
           }
           setFilesData(updatedTour);
@@ -1085,7 +1135,15 @@ const FileManager = () => {
     } catch (err) {
       console.error("Failed in handleRefreshAll:", err);
     }
-  }, [orderData?.uuid, orderId, fetchOrder, userType, includeHidden, setFilesData, setMediaCacheVersion]);
+  }, [
+    orderData?.uuid,
+    orderId,
+    fetchOrder,
+    userType,
+    includeHidden,
+    setFilesData,
+    setMediaCacheVersion,
+  ]);
 
   useEffect(() => {
     refreshInvoices();
@@ -2254,7 +2312,13 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing: Boolean(f.status === "processing" || f.is_processing),
+              is_processing: Boolean(
+                f.status === "processing" ||
+                f.is_processing === true ||
+                f.is_processing === 1 ||
+                f.is_processing === "1" ||
+                f.is_processing === "true",
+              ),
             }));
           }
           setFilesData(updatedTour);
@@ -2284,7 +2348,9 @@ const FileManager = () => {
               }
               if (ss.pan_adjust !== undefined) {
                 const p = ss.pan_adjust;
-                setPanAdjust(p === true || p === "1" || p === 1 || p === "true");
+                setPanAdjust(
+                  p === true || p === "1" || p === 1 || p === "true",
+                );
               }
             }
           }
@@ -2309,13 +2375,20 @@ const FileManager = () => {
   // ------------------------------------------------------------------
   const hasProcessingFiles = React.useMemo(() => {
     return filesData?.files?.some(
-      (f) => (f as any).status === "processing" || f.is_processing === true,
+      (f) =>
+        !f.is_deleted &&
+        ((f as any).status === "processing" ||
+          f.is_processing === true ||
+          (f as any).is_processing === 1 ||
+          (f as any).is_processing === "1" ||
+          (f as any).is_processing === "true"),
     );
   }, [filesData?.files]);
 
   const watermarkProcessingStats = React.useMemo(() => {
     const photoFiles =
-      filesData?.files?.filter((f) => f.type === "photo" && !f.is_deleted) || [];
+      filesData?.files?.filter((f) => f.type === "photo" && !f.is_deleted) ||
+      [];
     const total = photoFiles.length;
     const processingPhotos = photoFiles.filter((f) => f.is_processing);
     const processing = processingPhotos.length;
@@ -2324,9 +2397,12 @@ const FileManager = () => {
     const isProcessing = processing > 0;
 
     const isWatermarkRemoval =
-      (userType === "agent" && (isOrderOrInvoicePaid || photoFiles.some((f) => f.is_paid))) ||
+      (userType === "agent" &&
+        (isOrderOrInvoicePaid || photoFiles.some((f) => f.is_paid))) ||
       (userType === "admin" &&
-        (orderData?.release_media_before_payment || isOrderOrInvoicePaid || photoFiles.some((f) => f.is_paid)));
+        (orderData?.release_media_before_payment ||
+          isOrderOrInvoicePaid ||
+          photoFiles.some((f) => f.is_paid)));
 
     // Reprocessing is active if any photo is processing and either:
     // 1. It has existing variants being swapped (reprocessing), OR
@@ -2335,11 +2411,12 @@ const FileManager = () => {
       (f) =>
         f.is_processing &&
         f.variant_urls &&
-        Object.keys(f.variant_urls).length > 0
+        Object.keys(f.variant_urls).length > 0,
     );
 
     const isRevertingWatermark = !isWatermarkRemoval && isReprocessing;
-    const shouldShowInfo = isProcessing && (isWatermarkRemoval || isRevertingWatermark);
+    const shouldShowInfo =
+      isProcessing && (isWatermarkRemoval || isRevertingWatermark);
 
     const title = isRevertingWatermark
       ? "Applying Watermarks in Progress"
@@ -2374,7 +2451,10 @@ const FileManager = () => {
     setWatermarkProcessing(watermarkProcessingStats);
   }, [watermarkProcessingStats, setWatermarkProcessing]);
 
-  const shouldPollMedia = !isUploading && Boolean(watermarkProcessingStats?.shouldShowInfo);
+  const shouldPollMedia =
+    !isUploading &&
+    (Boolean(hasProcessingFiles) ||
+      Boolean(watermarkProcessingStats?.shouldShowInfo));
 
   React.useEffect(() => {
     if (!shouldPollMedia || !orderData?.uuid) {
@@ -2395,7 +2475,13 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing: Boolean(f.status === "processing" || f.is_processing),
+              is_processing: Boolean(
+                f.status === "processing" ||
+                f.is_processing === true ||
+                f.is_processing === 1 ||
+                f.is_processing === "1" ||
+                f.is_processing === "true",
+              ),
             }));
           }
           setFilesData(updatedTour);
@@ -2410,7 +2496,14 @@ const FileManager = () => {
     }, pollInterval);
 
     return () => clearInterval(intervalId);
-  }, [shouldPollMedia, hasProcessingFiles, orderData?.uuid, includeHidden, setFilesData, setMediaCacheVersion]);
+  }, [
+    shouldPollMedia,
+    hasProcessingFiles,
+    orderData?.uuid,
+    includeHidden,
+    setFilesData,
+    setMediaCacheVersion,
+  ]);
 
   const handleUpload = React.useCallback(
     async (overrideChangedFiles?: Files[]) => {
@@ -2489,7 +2582,13 @@ const FileManager = () => {
             if (updatedTour.files) {
               updatedTour.files = updatedTour.files.map((f: any) => ({
                 ...f,
-                is_processing: Boolean(f.status === "processing" || f.is_processing),
+                is_processing: Boolean(
+                  f.status === "processing" ||
+                  f.is_processing === true ||
+                  f.is_processing === 1 ||
+                  f.is_processing === "1" ||
+                  f.is_processing === "true",
+                ),
               }));
             }
 
@@ -2514,7 +2613,9 @@ const FileManager = () => {
               }
               if (ss?.pan_adjust !== undefined) {
                 const p = ss.pan_adjust;
-                setPanAdjust(p === true || p === "1" || p === 1 || p === "true");
+                setPanAdjust(
+                  p === true || p === "1" || p === 1 || p === "true",
+                );
               }
             }
           }
@@ -2972,7 +3073,8 @@ const FileManager = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/60 pb-3">
                               <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                                 <span className="font-alexandria text-[16px] font-[500] text-[#1C1C1C] whitespace-nowrap">
-                                  Invoice #{invoice.invoice_number || invoice.id}
+                                  Invoice #
+                                  {invoice.invoice_number || invoice.id}
                                 </span>
                                 <span
                                   className="text-white px-[12px] py-[2px] rounded-[100px] text-[10px] font-bold whitespace-nowrap"
@@ -3010,7 +3112,8 @@ const FileManager = () => {
                                 </p>
                                 {parseFloat(invoice.paid_amount) > 0 && (
                                   <p className="text-[12px] text-[#6BAE41] font-[500]">
-                                    Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                                    Paid: $
+                                    {parseFloat(invoice.paid_amount).toFixed(2)}
                                   </p>
                                 )}
                               </div>
@@ -3042,7 +3145,6 @@ const FileManager = () => {
                               )}
                             </div>
 
-                            
                             {/* Bottom Action Footer Row: All buttons on right */}
                             <div className="pt-2.5 border-t border-gray-200/60 flex items-center gap-2 flex-wrap justify-end">
                               <Button
@@ -3079,8 +3181,7 @@ const FileManager = () => {
                                 status !== "PAID" &&
                                 status !== "VOID" &&
                                 (currentUser?.uuid ===
-                                (invoice.agent?.uuid ||
-                                  invoice.agent_uuid) ? (
+                                (invoice.agent?.uuid || invoice.agent_uuid) ? (
                                   (() => {
                                     const missingSvcs =
                                       getMissingServicesForInvoice(invoice);
@@ -3155,8 +3256,7 @@ const FileManager = () => {
                                 ].includes(
                                   (invoice.status || "").toLowerCase(),
                                 ) &&
-                                parseFloat(invoice.paid_amount || "0") <=
-                                  0 && (
+                                parseFloat(invoice.paid_amount || "0") <= 0 && (
                                   <Button
                                     variant="outline"
                                     onClick={() => {
@@ -3210,7 +3310,8 @@ const FileManager = () => {
                         </span>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <span className="text-[13px] md:text-[15px] font-[500] text-gray-500 whitespace-nowrap">
-                            #{viewingInvoice.invoice_number || viewingInvoice.id}
+                            #
+                            {viewingInvoice.invoice_number || viewingInvoice.id}
                           </span>
                           {isRenewalInvoice(viewingInvoice) ? (
                             <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200 whitespace-nowrap">
@@ -3904,7 +4005,6 @@ const FileManager = () => {
                 </div>
               )}
             </div>
-
           </div>
         </div>
       )}
@@ -4207,8 +4307,6 @@ const FileManager = () => {
             </div>
           )}
 
-
-
           {/* Admin Approval Widget */}
           {userType === "admin" &&
             reviewFilesEnabled &&
@@ -4467,7 +4565,9 @@ const FileManager = () => {
         currentBookedService={activeServiceGroup?.[activeServiceIndex]}
         filesData={filesData}
         onApproveAllMedia={async () => {
-          await handleApproveAllMediaForService(sendToClientService ?? activeService);
+          await handleApproveAllMediaForService(
+            sendToClientService ?? activeService,
+          );
         }}
         onSuccess={handleSendToClientSuccess}
       />
