@@ -2,8 +2,8 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useState, Suspense } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import { UnsavedProvider } from "../context/UnsavedContext";
@@ -42,14 +42,26 @@ const DashboardLayoutContentInternal = ({ children }: { children: React.ReactNod
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
     const pathname = usePathname();
-    const searchParams = useSearchParams();
 
-    const shouldHideSidebar = (() => {
-        const isFileManagerRoute = pathname.includes("/file-manager");
-        if (!isFileManagerRoute) return false;
-        const isListing = searchParams.get('listingId');
-        return !isListing;
-    })();
+    // Shrink sidebar initially if starting on a file-manager route
+    const [sidebarOpen, setSidebarOpen] = useState(() => !pathname.includes("/file-manager"));
+    const prevPathnameRef = useRef(pathname);
+
+    useEffect(() => {
+        const prevPathname = prevPathnameRef.current;
+        const currentIsFileManager = pathname.includes("/file-manager");
+        const prevIsFileManager = prevPathname.includes("/file-manager");
+
+        if (currentIsFileManager && (!prevIsFileManager || pathname !== prevPathname)) {
+            // Shrink sidebar on opening file manager
+            setSidebarOpen(false);
+        } else if (!currentIsFileManager && prevIsFileManager) {
+            // Restore expanded sidebar when leaving file manager
+            setSidebarOpen(true);
+        }
+
+        prevPathnameRef.current = pathname;
+    }, [pathname]);
 
     const pageTitle = getPageTitle(pathname);
 
@@ -69,9 +81,9 @@ const DashboardLayoutContentInternal = ({ children }: { children: React.ReactNod
 
     return (
         <>
-            <SidebarProvider>
+            <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
             {/* Desktop sidebar — hidden on mobile */}
-            {!shouldHideSidebar && !isMobile && <AppSidebar variant="inset" />}
+            {!isMobile && <AppSidebar variant="inset" />}
 
             <SidebarInset
                 className={`flex-1 font-alexandria m-0 ${isMobile ? 'mobile-bottom-safe !p-0' : ''}`}

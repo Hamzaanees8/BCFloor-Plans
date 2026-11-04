@@ -253,6 +253,10 @@ export default function EmailPreviewEditModal({
   const [isActive, setIsActive] = useState<boolean>(true);
   const [previewMode, setPreviewMode] = useState<"edit" | "preview">("edit");
   const [textToInsert, setTextToInsert] = useState<string>("");
+  const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
+  const [rolePlaceholderValues, setRolePlaceholderValues] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [loadingTemplate, setLoadingTemplate] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
 
@@ -312,6 +316,14 @@ export default function EmailPreviewEditModal({
             [role]: forceDefault ? loadedSubject : prev[role] || loadedSubject,
           }));
 
+          if (data.placeholder_values && typeof data.placeholder_values === "object") {
+            setPlaceholderValues(data.placeholder_values);
+            setRolePlaceholderValues((prev) => ({
+              ...prev,
+              [role]: data.placeholder_values,
+            }));
+          }
+
           if (data.variables && Array.isArray(data.variables)) {
             setAvailableVariables(data.variables);
           }
@@ -327,6 +339,51 @@ export default function EmailPreviewEditModal({
     },
     [eventType, orderUuid, eventLabel]
   );
+
+  // Keep placeholderValues in sync with active role tab
+  useEffect(() => {
+    if (rolePlaceholderValues[activeRoleTab]) {
+      setPlaceholderValues(rolePlaceholderValues[activeRoleTab]);
+    }
+  }, [activeRoleTab, rolePlaceholderValues]);
+
+  // Helper to resolve live placeholder value
+  const getTagInfo = useCallback(
+    (tag: string) => {
+      const rawKey = tag.replace(/[{}]/g, "").trim();
+      const cleanKey = rawKey.toLowerCase();
+
+      let matchedValue: string | null = null;
+      for (const [k, v] of Object.entries(placeholderValues)) {
+        if (k.toLowerCase() === cleanKey) {
+          if (v !== null && v !== undefined) {
+            const str = String(v).trim();
+            if (str !== "") {
+              matchedValue = str;
+            }
+          }
+          break;
+        }
+      }
+
+      return {
+        key: rawKey,
+        value: matchedValue,
+        hasValue: matchedValue !== null && matchedValue !== "",
+      };
+    },
+    [placeholderValues]
+  );
+
+  const handleTagClick = (tag: string) => {
+    const info = getTagInfo(tag);
+
+    if (info.hasValue && info.value) {
+      setTextToInsert(info.value);
+    } else {
+      setTextToInsert(tag);
+    }
+  };
 
   // When modal opens or eventType changes, reset state and load templates
   useEffect(() => {
@@ -854,16 +911,23 @@ export default function EmailPreviewEditModal({
                     </p>
                     <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                       <ul className="flex flex-wrap gap-2 font-mono bg-[#f9f9f9] p-3 rounded-lg content-start border border-dashed border-[#CCCCCC]">
-                        {allTags.map((ph) => (
-                          <li
-                            key={ph}
-                            onClick={() => setTextToInsert(ph)}
-                            className="cursor-pointer hover:bg-[#4290E9] hover:text-white hover:scale-105 hover:shadow-xs p-2 rounded-md transition-all text-[#555555] font-bold text-[10px] inline-block bg-white border border-[#EEEEEE] shadow-2xs select-none border-b active:translate-y-0.5"
-                            title={`Click to insert ${ph}`}
-                          >
-                            {ph}
-                          </li>
-                        ))}
+                        {allTags.map((ph) => {
+                          const info = getTagInfo(ph);
+                          return (
+                            <li
+                              key={ph}
+                              onClick={() => handleTagClick(ph)}
+                              className="cursor-pointer hover:bg-[#4290E9] hover:text-white hover:scale-105 hover:shadow-xs p-2 rounded-md transition-all text-[#555555] font-bold text-[10px] inline-block bg-white border border-[#EEEEEE] shadow-2xs select-none border-b active:translate-y-0.5"
+                              title={
+                                info.hasValue
+                                  ? `Insert: "${info.value}"`
+                                  : `Click to insert ${ph}`
+                              }
+                            >
+                              {ph}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   </div>

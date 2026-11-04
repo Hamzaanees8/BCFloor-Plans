@@ -181,6 +181,10 @@ export default function RuntimeEmailEditorModal({
   const [availableVariables, setAvailableVariables] = useState<string[]>([]);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [textToInsert, setTextToInsert] = useState("");
+  const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
+  const [rolePlaceholderValues, setRolePlaceholderValues] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
   // Loading states
   const [loadingTemplate, setLoadingTemplate] = useState(false);
@@ -224,6 +228,9 @@ export default function RuntimeEmailEditorModal({
       if (stagedData[role]) {
         setCurrentSubject(stagedData[role].subject);
         setCurrentContent(stagedData[role].content);
+        if (rolePlaceholderValues[role]) {
+          setPlaceholderValues(rolePlaceholderValues[role]);
+        }
         setEditorKey((prev) => prev + 1);
         return;
       }
@@ -236,6 +243,7 @@ export default function RuntimeEmailEditorModal({
           tourUuid,
           vendorUuid,
           extraData,
+          isRuntime: true,
         });
         if (res.success && res.data) {
           const loadedHtml = res.data.content || res.data.html || "";
@@ -247,6 +255,14 @@ export default function RuntimeEmailEditorModal({
           setCurrentSubject(defaultSubj);
           setCurrentContent(loadedHtml);
           setEditorKey((prev) => prev + 1);
+
+          if (res.data.placeholder_values && typeof res.data.placeholder_values === "object") {
+            setPlaceholderValues(res.data.placeholder_values);
+            setRolePlaceholderValues((prev) => ({
+              ...prev,
+              [role]: res.data.placeholder_values,
+            }));
+          }
 
           if (res.data.variables && Array.isArray(res.data.variables)) {
             setAvailableVariables(res.data.variables);
@@ -266,6 +282,7 @@ export default function RuntimeEmailEditorModal({
       orderUuid,
       eventLabel,
       stagedData,
+      rolePlaceholderValues,
       serviceUuid,
       slotUuid,
       tourUuid,
@@ -286,13 +303,71 @@ export default function RuntimeEmailEditorModal({
     if (open) {
       setCurrentIndex(0);
       setStagedData({});
+      setRolePlaceholderValues({});
+      setPlaceholderValues({});
       initialContentRef.current = {};
     }
   }, [open]);
 
-  // Handle Tag click
+  // Helper to resolve live placeholder value
+  const getTagInfo = useCallback(
+    (tag: string) => {
+      const rawKey = tag.replace(/[{}]/g, "").trim();
+      const cleanKey = rawKey.toLowerCase();
+
+      // Check placeholderValues from backend
+      let matchedValue: string | null = null;
+      for (const [k, v] of Object.entries(placeholderValues)) {
+        if (k.toLowerCase() === cleanKey) {
+          if (v !== null && v !== undefined) {
+            const str = String(v).trim();
+            if (str !== "") {
+              matchedValue = str;
+            }
+          }
+          break;
+        }
+      }
+
+      // Contextual fallbacks from props if backend didn't have it
+      if (!matchedValue) {
+        if (cleanKey === "recipient_name" && recipientNames[currentRole]) {
+          matchedValue = recipientNames[currentRole]!.trim();
+        } else if (cleanKey === "agent_name" && recipientNames["agent"]) {
+          matchedValue = recipientNames["agent"]!.trim();
+        } else if (cleanKey === "vendor_name" && recipientNames["vendor"]) {
+          matchedValue = recipientNames["vendor"]!.trim();
+        } else if (cleanKey === "agent_email" && recipientEmails["agent"]) {
+          matchedValue = recipientEmails["agent"]!.trim();
+        } else if (cleanKey === "vendor_email" && recipientEmails["vendor"]) {
+          matchedValue = recipientEmails["vendor"]!.trim();
+        } else if (cleanKey === "custom_message" && extraData?.custom_message) {
+          matchedValue = String(extraData.custom_message).trim();
+        } else if (cleanKey === "changes_summary" && extraData?.changes_summary) {
+          matchedValue = String(extraData.changes_summary).trim();
+        } else if ((cleanKey === "amount" || cleanKey === "total_amount") && extraData?.amount) {
+          matchedValue = String(extraData.amount).trim();
+        }
+      }
+
+      return {
+        key: rawKey,
+        value: matchedValue,
+        hasValue: matchedValue !== null && matchedValue !== "",
+      };
+    },
+    [placeholderValues, currentRole, recipientNames, recipientEmails, extraData]
+  );
+
+  // Handle Tag click: insert actual value if available, fallback to tag
   const handleTagClick = (tag: string) => {
-    setTextToInsert(tag);
+    const info = getTagInfo(tag);
+
+    if (info.hasValue && info.value) {
+      setTextToInsert(info.value);
+    } else {
+      setTextToInsert(tag);
+    }
   };
 
   // Handle Signature insertion
@@ -365,10 +440,11 @@ export default function RuntimeEmailEditorModal({
       });
 
       if (res.success !== false) {
-        toast.success(
-          res.message ||
-            `Email notification${queueRoles.length > 1 ? "s" : ""} dispatched successfully!`,
-        );
+        if (eventType === "media_uploaded") {
+          toast.success("Media upload email sent to agent.");
+        } else {
+          toast.success("Email sent successfully.");
+        }
         onComplete?.();
         onClose();
       } else {
@@ -590,17 +666,24 @@ export default function RuntimeEmailEditorModal({
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 custom-scrollbar">
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleTagClick(tag)}
-                      className="px-2.5 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded text-left font-mono text-[11px] transition-colors cursor-pointer"
-                      title={`Insert ${tag}`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+                  {allTags.map((tag) => {
+                    const info = getTagInfo(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleTagClick(tag)}
+                        className="px-2.5 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded text-left font-mono text-[11px] transition-colors cursor-pointer"
+                        title={
+                          info.hasValue
+                            ? `Insert: "${info.value}"`
+                            : `Insert ${tag}`
+                        }
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

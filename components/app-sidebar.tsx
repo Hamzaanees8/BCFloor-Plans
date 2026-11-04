@@ -509,8 +509,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
       </SidebarHeader>
       <button
-        onClick={toggleSidebar}
-        aria-label="Toggle sidebar"
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleSidebar();
+        }}
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         style={{
           top: "calc(55px + var(--env-banner-height, 0px))",
         }}
@@ -525,13 +531,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         border border-[#D1D5DB]
         shadow-sm
         text-[#6B7280]
+        hover:bg-gray-50
+        cursor-pointer
         transition-all
   `}
       >
         {isCollapsed ? (
-          <PanelLeftOpen className="h-3" />
+          <PanelLeftOpen className="h-3 w-3" />
         ) : (
-          <PanelLeftClose className="h-3" />
+          <PanelLeftClose className="h-3 w-3" />
         )}
       </button>
       <div

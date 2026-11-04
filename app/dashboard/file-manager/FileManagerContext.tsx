@@ -10,7 +10,6 @@ import {
   useMemo,
   useEffect,
 } from "react";
-import { useSidebar } from "@/components/ui/sidebar";
 export type SelectedFiles = {
   file: File;
   type: string;
@@ -563,12 +562,6 @@ export const initialFormData: FormData = {
 };
 
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
-  const { setOpen } = useSidebar();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [setOpen]);
-
   const [files, setFiles] = useState<File[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<SelectedFiles[]>([]);
   const [selectedVideoFiles, setSelectedVideoFiles] = useState<SelectedFiles[]>(

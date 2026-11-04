@@ -190,7 +190,7 @@ export default function SendToClientModal({
 
     setIsSending(true);
     try {
-      const response = await SendMediaToClient(
+      await SendMediaToClient(
         {
           order_uuid: orderData.uuid,
           service_uuid: currentService?.uuid,
@@ -201,10 +201,6 @@ export default function SendToClientModal({
         token,
       );
 
-      toast.success(
-        response.message ||
-          `Media for "${serviceName}" successfully sent to the client!`,
-      );
       setShowNotifyPrompt(true);
     } catch (err: any) {
       console.error("Failed to send media to client:", err);
@@ -608,6 +604,7 @@ export default function SendToClientModal({
         }}
         onSkip={() => {
           setShowNotifyPrompt(false);
+          toast.success("Media sent to client.");
           onSuccess?.();
           onOpenChange(false);
         }}

@@ -336,6 +336,14 @@ const AddTemplateDialog: React.FC<Props> = ({
     title: string;
     description: string;
     onConfirm: () => void;
+    onCancel?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    secondaryAction?: {
+      label: string;
+      onClick: () => void;
+      className?: string;
+    };
   }>({
     open: false,
     title: "",
@@ -603,9 +611,33 @@ const AddTemplateDialog: React.FC<Props> = ({
         title: "CHANGE EVENT TYPE",
         description:
           "Changing the event type will replace your current design with the default design of the selected event. Are you sure you want to proceed?",
+        confirmText: "OK",
+        cancelText: "Cancel",
         onConfirm: () => {
           setType(newType);
           handleLoadBladeTemplate(newType, undefined, true);
+        },
+        secondaryAction: {
+          label: "Change Type Only",
+          onClick: async () => {
+            setType(newType);
+            try {
+              const role = recipientRoles[0] || "agent";
+              const res = await GetBladePreview(newType, role, undefined, {
+                loadDefault: true,
+              });
+              if (res.success && res.data) {
+                if (res.data.variables && Array.isArray(res.data.variables)) {
+                  setAvailableVariables(res.data.variables);
+                }
+                if (res.data.content) {
+                  defaultDesignRef.current = res.data.content;
+                }
+              }
+            } catch (err) {
+              console.error("Failed to load variables for new event type", err);
+            }
+          },
         },
       });
     } else {
@@ -1252,6 +1284,10 @@ const AddTemplateDialog: React.FC<Props> = ({
         title={confirmDialog.title}
         description={confirmDialog.description}
         onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
+        confirmText={confirmDialog.confirmText}
+        cancelText={confirmDialog.cancelText}
+        secondaryAction={confirmDialog.secondaryAction}
         hideShowAgain={true}
       />
     </Dialog>

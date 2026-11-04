@@ -34,6 +34,7 @@ export interface BladePreviewData {
     recipient_role: string;
     supported_roles: RecipientRole[];
     variables: string[];
+    placeholder_values?: Record<string, string>;
     subject: string;
     content: string;
     full_html: string;
@@ -85,6 +86,7 @@ export async function GetBladePreview(
         slotUuid?: string;
         tourUuid?: string;
         vendorUuid?: string;
+        isRuntime?: boolean;
         extraData?: Record<string, any>;
     }
 ) {
@@ -97,6 +99,7 @@ export async function GetBladePreview(
             ...(options?.slotUuid ? { slot_uuid: options.slotUuid } : {}),
             ...(options?.tourUuid ? { tour_uuid: options.tourUuid } : {}),
             ...(options?.vendorUuid ? { vendor_uuid: options.vendorUuid } : {}),
+            ...(options?.isRuntime ? { is_runtime: 1 } : {}),
             ...(options?.extraData ? options.extraData : {}),
         }
     });
