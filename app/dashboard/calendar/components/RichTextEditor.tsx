@@ -229,7 +229,6 @@ const boxBackgroundPlugin: any = {
         const menu = (this as any).submenu;
         const btn = (this as any).submenuActiveButton;
         if (menu && btn) {
-            // Overrule any negative or buggy top calculated by SunEditor
             const topPos = btn.offsetTop + btn.offsetHeight + 4;
             menu.style.top = `${topPos}px`;
             menu.style.maxHeight = "360px";
@@ -320,6 +319,68 @@ const boxBackgroundPlugin: any = {
     },
 };
 
+// Enhanced Font Color & Highlight Color plugins to guarantee menus open directly below
+// the clicked button and remain completely visible, interactive, and never clipped.
+const enhancedFontColor: any = {
+    ...plugins.fontColor,
+    on: function () {
+        if (plugins.fontColor?.on) {
+            plugins.fontColor.on.call(this);
+        }
+        const menu = (this as any).submenu;
+        const btn = (this as any).submenuActiveButton;
+        if (menu && btn) {
+            const topPos = btn.offsetTop + btn.offsetHeight + 4;
+            menu.style.top = `${topPos}px`;
+            menu.style.display = "block";
+            menu.style.visibility = "visible";
+            menu.style.height = "auto";
+            menu.style.maxHeight = "360px";
+            menu.style.overflowY = "auto";
+            menu.style.zIndex = "999999";
+
+            const toolbarW = (this as any).context?.element?.toolbar?.offsetWidth || 800;
+            const menuW = menu.offsetWidth || 280;
+            const leftPos = btn.offsetLeft || 0;
+            if (leftPos + menuW > toolbarW - 8) {
+                menu.style.left = `${Math.max(4, toolbarW - menuW - 12)}px`;
+            } else {
+                menu.style.left = `${leftPos}px`;
+            }
+        }
+    },
+};
+
+const enhancedHiliteColor: any = {
+    ...plugins.hiliteColor,
+    on: function () {
+        if (plugins.hiliteColor?.on) {
+            plugins.hiliteColor.on.call(this);
+        }
+        const menu = (this as any).submenu;
+        const btn = (this as any).submenuActiveButton;
+        if (menu && btn) {
+            const topPos = btn.offsetTop + btn.offsetHeight + 4;
+            menu.style.top = `${topPos}px`;
+            menu.style.display = "block";
+            menu.style.visibility = "visible";
+            menu.style.height = "auto";
+            menu.style.maxHeight = "360px";
+            menu.style.overflowY = "auto";
+            menu.style.zIndex = "999999";
+
+            const toolbarW = (this as any).context?.element?.toolbar?.offsetWidth || 800;
+            const menuW = menu.offsetWidth || 280;
+            const leftPos = btn.offsetLeft || 0;
+            if (leftPos + menuW > toolbarW - 8) {
+                menu.style.left = `${Math.max(4, toolbarW - menuW - 12)}px`;
+            } else {
+                menu.style.left = `${leftPos}px`;
+            }
+        }
+    },
+};
+
 export default function RichTextEditor({ value, onChange, insertText, onTextInserted }: RichTextEditorProps) {
     const editorRef = useRef<SunEditorCore | null>(null);
     const lastValueRef = useRef<string>(value);
@@ -328,6 +389,8 @@ export default function RichTextEditor({ value, onChange, insertText, onTextInse
     const customPlugins = useMemo(() => {
         return {
             ...plugins,
+            fontColor: enhancedFontColor,
+            hiliteColor: enhancedHiliteColor,
             emoji: emojiPlugin,
             boxBackground: boxBackgroundPlugin,
         };
@@ -353,12 +416,290 @@ export default function RichTextEditor({ value, onChange, insertText, onTextInse
     }, [value]);
 
     return (
-        <div className="w-full [&_.sun-editor]:min-h-[600px] [&_.sun-editor]:!border-none [&_.sun-editor-editable]:!font-['Arial',sans-serif] [&_.sun-editor-editable]:!text-[14px] [&_.sun-editor-editable]:text-[#3d4852] [&_.sun-editor-editable]:!leading-[1.6] [&_.sun-editor-editable_h1]:!text-[20px] [&_.sun-editor-editable_h2]:!text-[16px] [&_.sun-editor-editable_h3]:!text-[15px] [&_.sun-editor-editable_table]:!w-full [&_.sun-editor-editable_table]:!border-collapse [&_.sun-editor-editable_td]:!text-[14px] [&_.sun-editor-editable_strong]:!font-bold [&_.sun-editor-editable_b]:!font-bold [&_.sun-editor-editable_a]:text-[#15803D] [&_.sun-editor-editable_a]:underline [&_.se-list-layer]:!z-[1000] [&_.se-list-layer]:!bg-white [&_.se-list-layer]:!shadow-xl">
+        <div className="w-full h-full flex flex-col min-h-0 relative rich-text-editor-container overflow-hidden">
+            <style jsx global>{`
+                /* Hide hidden textarea rendered by suneditor-react so it doesn't take flex height */
+                .rich-text-editor-container textarea {
+                    display: none !important;
+                    position: absolute !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    border: none !important;
+                }
+                .rich-text-editor-container {
+                    width: 100% !important;
+                    height: 100% !important;
+                    flex: 1 1 auto !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    min-height: 0 !important;
+                    position: relative !important;
+                    overflow: hidden !important;
+                }
+                .rich-text-editor-container .sun-editor {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    height: 100% !important;
+                    width: 100% !important;
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    border: none !important;
+                    background: transparent !important;
+                    position: relative !important;
+                    overflow: hidden !important;
+                }
+                /* IMPORTANT: .se-container holds the toolbar and .se-wrapper */
+                .rich-text-editor-container .sun-editor .se-container {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    height: 100% !important;
+                    width: 100% !important;
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    position: relative !important;
+                    overflow: hidden !important;
+                }
+                .rich-text-editor-container .se-top-cell,
+                .rich-text-editor-container .se-toolbar {
+                    position: sticky !important;
+                    top: 0 !important;
+                    z-index: 50 !important;
+                    background-color: #f8fafc !important;
+                    border-bottom: 1px solid #e2e8f0 !important;
+                    flex-shrink: 0 !important;
+                    width: 100% !important;
+                    overflow: visible !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-menu-tray {
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 0 !important;
+                    z-index: 99999 !important;
+                    overflow: visible !important;
+                }
+                .rich-text-editor-container .se-wrapper {
+                    flex: 1 1 auto !important;
+                    height: 100% !important;
+                    width: 100% !important;
+                    min-height: 0 !important;
+                    position: relative !important;
+                    background-color: #ffffff !important;
+                    overflow: hidden !important;
+                }
+                /* This is the actual scrollable content area */
+                .rich-text-editor-container .se-wrapper .se-wrapper-inner.se-wrapper-wysiwyg {
+                    width: 100% !important;
+                    height: 100% !important;
+                    min-height: 100% !important;
+                    max-height: 100% !important;
+                    overflow-y: auto !important;
+                    overflow-x: auto !important;
+                    padding: 16px 20px !important;
+                    font-family: Arial, sans-serif !important;
+                    font-size: 14px !important;
+                    line-height: 1.6 !important;
+                    color: #3d4852 !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-wrapper .se-wrapper-inner.se-wrapper-wysiwyg::-webkit-scrollbar {
+                    width: 8px !important;
+                    height: 8px !important;
+                }
+                .rich-text-editor-container .se-wrapper .se-wrapper-inner.se-wrapper-wysiwyg::-webkit-scrollbar-track {
+                    background: #f8fafc !important;
+                }
+                .rich-text-editor-container .se-wrapper .se-wrapper-inner.se-wrapper-wysiwyg::-webkit-scrollbar-thumb {
+                    background: #cbd5e1 !important;
+                    border-radius: 4px !important;
+                }
+                .rich-text-editor-container .se-wrapper .se-wrapper-inner.se-wrapper-wysiwyg::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8 !important;
+                }
+                .rich-text-editor-container .se-resizing-bar {
+                    display: none !important;
+                }
+                /* Submenus, Popups & Color Pickers */
+                .rich-text-editor-container .se-list-layer,
+                .rich-text-editor-container .se-submenu {
+                    z-index: 999999 !important;
+                    background-color: #ffffff !important;
+                    border: 1px solid #cbd5e1 !important;
+                    border-radius: 8px !important;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+                    padding: 8px !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-list-layer .se-list-inner {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    overflow: visible !important;
+                }
+                .rich-text-editor-container .se-selector-color {
+                    display: block !important;
+                    width: 270px !important;
+                    max-width: 270px !important;
+                    margin: 0 auto 4px auto !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-selector-color .se-color-pallet {
+                    display: grid !important;
+                    grid-template-columns: repeat(9, 25px) !important;
+                    gap: 4px !important;
+                    padding: 2px !important;
+                    margin: 0 !important;
+                    list-style: none !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-selector-color .se-color-pallet li {
+                    display: block !important;
+                    width: 25px !important;
+                    height: 25px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    float: none !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-selector-color .se-color-pallet button {
+                    display: block !important;
+                    width: 25px !important;
+                    height: 25px !important;
+                    border-radius: 4px !important;
+                    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+                    cursor: pointer !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    text-indent: -9999px !important;
+                    transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-selector-color .se-color-pallet button:hover {
+                    transform: scale(1.2) !important;
+                    border-color: #2563eb !important;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25) !important;
+                    z-index: 10 !important;
+                    position: relative !important;
+                }
+                .rich-text-editor-container .se-form-group {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    padding-top: 8px !important;
+                    margin-top: 6px !important;
+                    border-top: 1px solid #e2e8f0 !important;
+                    width: 100% !important;
+                    min-height: 0 !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-form-group .se-color-input {
+                    flex: 1 !important;
+                    height: 30px !important;
+                    padding: 0 8px !important;
+                    border: 1px solid #cbd5e1 !important;
+                    border-radius: 6px !important;
+                    font-size: 12px !important;
+                    font-family: monospace !important;
+                    text-transform: uppercase !important;
+                    background: #ffffff !important;
+                    color: #1f2937 !important;
+                    outline: none !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-form-group button {
+                    height: 30px !important;
+                    width: 30px !important;
+                    border-radius: 6px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    border: 1px solid #cbd5e1 !important;
+                    cursor: pointer !important;
+                    padding: 0 !important;
+                    background: #f8fafc !important;
+                    color: #4b5563 !important;
+                    flex-shrink: 0 !important;
+                    box-sizing: border-box !important;
+                }
+                .rich-text-editor-container .se-form-group button:hover {
+                    background: #eff6ff !important;
+                    border-color: #3b82f6 !important;
+                    color: #2563eb !important;
+                }
+                .rich-text-editor-container .se-form-group button._se_color_picker_submit {
+                    background: #2563eb !important;
+                    border-color: #2563eb !important;
+                    color: #ffffff !important;
+                }
+                .rich-text-editor-container .se-form-group button._se_color_picker_submit:hover {
+                    background: #1d4ed8 !important;
+                }
+                .rich-text-editor-container .se-form-group button svg {
+                    width: 14px !important;
+                    height: 14px !important;
+                    fill: currentColor !important;
+                }
+            `}</style>
             <SunEditor
                 getSunEditorInstance={(sunEditor: SunEditorCore) => {
                     editorRef.current = sunEditor;
+                    const core = (sunEditor as any).core || sunEditor;
+
+                    if (core) {
+                        // Global safe menu positioning: ALWAYS position submenus directly below toolbar button
+                        // Never allow negative top or shrinking height which clips menus inside modal containers.
+                        core._setMenuPosition = function (element: HTMLElement, menu: HTMLElement) {
+                            if (!element || !menu) return;
+
+                            menu.style.visibility = "hidden";
+                            menu.style.display = "block";
+                            menu.style.height = "auto";
+                            menu.style.maxHeight = "360px";
+                            menu.style.overflowY = "auto";
+                            menu.style.zIndex = "999999";
+
+                            if (core.util?.addClass) {
+                                core.util.addClass(element, "on");
+                            } else {
+                                element.classList?.add("on");
+                            }
+
+                            const toolbar = core.context?.element?.toolbar;
+                            const toolbarW = toolbar?.offsetWidth || 800;
+                            const menuW = menu.offsetWidth || 280;
+
+                            let btnLeft = 0;
+                            let offsetEl: HTMLElement | null = element;
+                            while (offsetEl && offsetEl !== toolbar) {
+                                btnLeft += offsetEl.offsetLeft;
+                                offsetEl = offsetEl.offsetParent as HTMLElement | null;
+                            }
+
+                            let leftPos = btnLeft;
+                            if (leftPos + menuW > toolbarW - 8) {
+                                leftPos = Math.max(4, toolbarW - menuW - 12);
+                            }
+                            menu.style.left = `${Math.max(4, leftPos)}px`;
+
+                            let btnTop = 0;
+                            let offsetElTop: HTMLElement | null = element;
+                            while (offsetElTop && offsetElTop !== toolbar) {
+                                btnTop += offsetElTop.offsetTop;
+                                offsetElTop = offsetElTop.offsetParent as HTMLElement | null;
+                            }
+                            const topPos = btnTop + element.offsetHeight + 4;
+                            menu.style.top = `${topPos}px`;
+
+                            menu.style.visibility = "visible";
+                        };
+                    }
+
                     try {
-                        const editable = sunEditor?.core?.context?.element?.wysiwyg as HTMLElement | undefined;
+                        const editable = core?.context?.element?.wysiwyg as HTMLElement | undefined;
                         if (editable?.style) {
                             editable.style.fontFamily = "Arial, sans-serif";
                             editable.style.fontSize = "14px";
@@ -380,19 +721,20 @@ export default function RichTextEditor({ value, onChange, insertText, onTextInse
                 setOptions={{
                     plugins: customPlugins,
                     defaultStyle: "font-family: Arial, sans-serif; font-size: 14px; color: #3d4852; line-height: 1.6;",
-                    height: '600px',
+                    height: '100%',
+                    width: '100%',
                     strictMode: false,
                     strictHTMLValidation: false,
                     addTagsWhitelist: '*',
                     attributesWhitelist: {
                         all: 'style|class|id|width|height|color|bgcolor|border|cellpadding|cellspacing|align|valign',
                     },
-                    colorList: [
-                        '#000000', '#1F2937', '#374151', '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#FFFFFF',
-                        '#DC2626', '#EA580C', '#D97706', '#16A34A', '#0D9488', '#2563EB', '#4F46E5', '#7C3AED', '#DB2777',
-                        '#FEE2E2', '#FFEDD5', '#FEF3C7', '#DCFCE7', '#CCFBF1', '#DBEAFE', '#E0E7FF', '#EDE9FE', '#FCE7F3',
-                        '#991B1B', '#9A3412', '#92400E', '#166534', '#115E59', '#1E40AF', '#3730A3', '#5B21B6', '#9D174D',
-                    ],
+                    colorList: ([
+                        ['#000000', '#1F2937', '#374151', '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#FFFFFF'],
+                        ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899'],
+                        ['#FEE2E2', '#FFEDD5', '#FEF3C7', '#D1FAE5', '#CFFAFE', '#DBEAFE', '#E0E7FF', '#EDE9FE', '#FCE7F3'],
+                        ['#991B1B', '#9A3412', '#92400E', '#065F46', '#155E75', '#1E40AF', '#3730A3', '#5B21B6', '#9D174D'],
+                    ] as any as string[]),
                     buttonList: [
                         ['undo', 'redo'],
                         ['formatBlock'],

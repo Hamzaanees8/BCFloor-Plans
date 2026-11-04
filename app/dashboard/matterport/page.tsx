@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { isUserCoAgent } from "@/lib/permissions";
 import { GetInvoicesByOrder } from "@/app/dashboard/invoice/invoice_api";
 import { isRenewalInvoice } from "@/app/dashboard/billing/billing";
-import EmailPreviewEditModal from "@/components/EmailPreviewEditModal";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
 
 const CopyableLink = ({ url }: { url: string }) => {
   const [copied, setCopied] = useState(false);
@@ -692,16 +692,22 @@ const MatterportPage = () => {
         />
 
         {showReminderEditModal && selectedTourForReminder && (
-          <EmailPreviewEditModal
+          <RuntimeEmailEditorModal
             open={showReminderEditModal}
-            setOpen={setShowReminderEditModal}
+            onClose={() => setShowReminderEditModal(false)}
             eventType="matterport_expiry_reminder"
             eventLabel={`Matterport Reminder (${selectedTourForReminder.address || "Tour"})`}
+            queueRoles={["agent"]}
             tourUuid={selectedTourForReminder.tourUuid}
             orderUuid={selectedTourForReminder.orderuud}
-            defaultRoles={["agent"]}
-            allowedRoles={["agent", "admin"]}
-            onSuccess={() => {
+            recipientEmails={{
+              agent: selectedTourForReminder.agentEmail,
+            }}
+            recipientNames={{
+              agent: selectedTourForReminder.agentName || undefined,
+            }}
+            onComplete={() => {
+              setShowReminderEditModal(false);
               toast.success(`Renewal reminder sent to ${selectedTourForReminder.agentName || "agent"}`);
             }}
           />
@@ -825,16 +831,22 @@ const MatterportPage = () => {
       />
 
       {showReminderEditModal && selectedTourForReminder && (
-        <EmailPreviewEditModal
+        <RuntimeEmailEditorModal
           open={showReminderEditModal}
-          setOpen={setShowReminderEditModal}
+          onClose={() => setShowReminderEditModal(false)}
           eventType="matterport_expiry_reminder"
           eventLabel={`Matterport Reminder (${selectedTourForReminder.address || "Tour"})`}
+          queueRoles={["agent"]}
           tourUuid={selectedTourForReminder.tourUuid}
           orderUuid={selectedTourForReminder.orderuud}
-          defaultRoles={["agent"]}
-          allowedRoles={["agent", "admin"]}
-          onSuccess={() => {
+          recipientEmails={{
+            agent: selectedTourForReminder.agentEmail,
+          }}
+          recipientNames={{
+            agent: selectedTourForReminder.agentName || undefined,
+          }}
+          onComplete={() => {
+            setShowReminderEditModal(false);
             toast.success(`Renewal reminder sent to ${selectedTourForReminder.agentName || "agent"}`);
           }}
         />

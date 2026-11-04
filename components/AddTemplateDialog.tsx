@@ -480,7 +480,7 @@ const AddTemplateDialog: React.FC<Props> = ({
       const role = roleOverride || recipientRoles[0] || "agent";
       setLoadingBlade(true);
       try {
-        const res = await GetBladePreview(targetType, role);
+        const res = await GetBladePreview(targetType, role, undefined, { loadDefault: true });
         if (res.success && res.data) {
           const data = res.data;
           const newContent = data.content || "";
@@ -856,14 +856,16 @@ const AddTemplateDialog: React.FC<Props> = ({
             </div>
 
             {/* Row 3: Target Recipients (Admin, Agent, Vendor) & Status & View Mode */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm items-end">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm items-start">
               <div className="flex flex-col gap-1.5">
-                <Label className="font-semibold text-gray-700">
-                  Target Recipients <span className="text-red-500">*</span>
-                  <span className="text-xs font-normal text-gray-500 ml-1.5">
-                    (Select one or multiple)
-                  </span>
-                </Label>
+                <div className="min-h-[20px] flex items-center">
+                  <Label className="font-semibold text-gray-700">
+                    Target Recipients <span className="text-red-500">*</span>
+                    <span className="text-xs font-normal text-gray-500 ml-1.5">
+                      (Select one or multiple)
+                    </span>
+                  </Label>
+                </div>
                 <div className="flex flex-wrap items-center gap-2.5 bg-white px-3 rounded-md border border-[#DDDDDD] h-[46px]">
                   {[
                     {
@@ -906,56 +908,63 @@ const AddTemplateDialog: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center space-x-3 bg-white px-4 rounded-md border border-[#DDDDDD] h-[46px]">
-                  <Switch
-                    id="isActive"
-                    checked={isActive}
-                    onCheckedChange={setIsActive}
-                    className={
-                      isActive
-                        ? "data-[state=checked]:bg-[#6BAE41]"
-                        : "data-[state=unchecked]:bg-red-500"
-                    }
-                  />
-                  <Label
-                    htmlFor="isActive"
-                    className="cursor-pointer font-medium text-gray-700 text-xs"
-                  >
-                    Status:{" "}
-                    <strong
-                      className={isActive ? "text-[#6BAE41]" : "text-red-500"}
-                    >
-                      {isActive ? "Active" : "Inactive"}
-                    </strong>
-                  </Label>
+              <div className="flex flex-col gap-1.5">
+                <div className="min-h-[20px] flex items-center">
+                  <span className="font-semibold text-gray-700 text-sm">
+                    Status & Preview Mode
+                  </span>
                 </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center space-x-3 bg-white px-4 rounded-md border border-[#DDDDDD] h-[46px]">
+                    <Switch
+                      id="isActive"
+                      checked={isActive}
+                      onCheckedChange={setIsActive}
+                      className={
+                        isActive
+                          ? "data-[state=checked]:bg-[#6BAE41]"
+                          : "data-[state=unchecked]:bg-red-500"
+                      }
+                    />
+                    <Label
+                      htmlFor="isActive"
+                      className="cursor-pointer font-medium text-gray-700 text-xs"
+                    >
+                      Status:{" "}
+                      <strong
+                        className={isActive ? "text-[#6BAE41]" : "text-red-500"}
+                      >
+                        {isActive ? "Active" : "Inactive"}
+                      </strong>
+                    </Label>
+                  </div>
 
-                <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200 h-[46px]">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode("edit")}
-                    className={`h-full px-3.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      previewMode === "edit"
-                        ? "bg-[#4290E9] text-white shadow-xs"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
-                    }`}
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Editor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode("preview")}
-                    className={`h-full px-3.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      previewMode === "preview"
-                        ? "bg-[#4290E9] text-white shadow-xs"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    Full Email Preview
-                  </button>
+                  <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200 h-[46px]">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode("edit")}
+                      className={`h-full px-3.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        previewMode === "edit"
+                          ? "bg-[#4290E9] text-white shadow-xs"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                      }`}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Editor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode("preview")}
+                      className={`h-full px-3.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        previewMode === "preview"
+                          ? "bg-[#4290E9] text-white shadow-xs"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Full Email Preview
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1153,8 +1162,7 @@ const AddTemplateDialog: React.FC<Props> = ({
                   </div>
 
                   <div
-                    className="border border-[#DDDDDD] bg-white rounded-lg p-1.5 flex-1 w-full max-w-full overflow-y-auto shadow-inner"
-                    style={{ minHeight: 0 }}
+                    className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[460px] overflow-hidden shadow-inner relative"
                   >
                     {open && (
                       <RichTextEditor

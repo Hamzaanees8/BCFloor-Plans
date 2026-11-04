@@ -13,6 +13,9 @@ import { Services } from "../../services/page"
 import { useAppContext } from "@/app/context/AppContext"
 import { toast } from "sonner"
 import { UpdateOrderService } from "../../orders/orders"
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 import { Order, OrderService } from "../../orders/page"
 import { useFileManagerContext } from "../FileManagerContext"
 
@@ -43,6 +46,11 @@ export default function UpgradeServicePopup({
 }: PricingPopupProps) {
     const [selected, setSelected] = React.useState<string | null>(null)
     const [isLoading, setIsLoading] = React.useState(false)
+    const [showNotifyPrompt, setShowNotifyPrompt] = React.useState(false)
+    const [showEmailModal, setShowEmailModal] = React.useState(false)
+    const [targetEmailRoles, setTargetEmailRoles] = React.useState<RecipientRole[]>(["agent"])
+    const [upgradeSummary, setUpgradeSummary] = React.useState<string>("")
+    const [newTotalAmount, setNewTotalAmount] = React.useState<string>("")
     const { userType } = useAppContext()
     const { setIsPackageUpgrading } = useFileManagerContext()
 
@@ -125,13 +133,28 @@ export default function UpgradeServicePopup({
 
             toast.success('Plan upgraded successfully')
 
+            const previousOptionTitle = currentOption?.title || "Standard Package";
+            const newOptionTitle = selectedOption?.title || "Upgraded Package";
+            const serviceTitle = currentService?.name || "Service";
+            const summary = `${serviceTitle} upgraded from ${previousOptionTitle} to ${newOptionTitle}${selectedOption?.amount ? ` ($${Number(selectedOption.amount).toFixed(2)})` : ""}`;
+            setUpgradeSummary(summary);
+
+            const currentServiceAmt = Number(currentBookedService.amount || 0);
+            const newServiceAmt = Number(selectedOption.amount ?? 0);
+            const currentOrderTotal = Number(orderData.amount || 0);
+            const updatedTotal = currentOrderTotal > 0 ? (currentOrderTotal - currentServiceAmt + newServiceAmt) : newServiceAmt;
+            setNewTotalAmount(`$${updatedTotal.toFixed(2)}`);
+
             // Call success callback to refresh data in background
             if (onSuccess) {
                 await onSuccess()
             }
 
             // Close popup only after API and background refresh complete
-            setOpen(false)
+            setOpen(false);
+            if (userType === "admin") {
+                setShowNotifyPrompt(true);
+            }
         } catch (error) {
             console.error('Failed to upgrade service:', error)
             if (error instanceof Error) {
@@ -146,6 +169,7 @@ export default function UpgradeServicePopup({
     }
 
     return (
+        <>
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="w-[320px] p-4 rounded-none text-[#666]">
                 <DialogHeader className="mt-2">
@@ -199,5 +223,63 @@ export default function UpgradeServicePopup({
                 </Button>
             </DialogContent>
         </Dialog>
-    )
+
+        {/* Step 1: Post-Action Recipient Selection Prompt */}
+        <ActionNotificationPrompt
+            open={showNotifyPrompt}
+            onOpenChange={setShowNotifyPrompt}
+            title="SAVE AND EXIT"
+            description="Package has been upgraded successfully. Select who should receive an email notification:"
+            options={[
+                {
+                    role: "agent",
+                    label: "Notify Agent of Upgrade",
+                    sublabel: "Edit Notification",
+                    defaultChecked: true,
+                },
+                {
+                    role: "vendor",
+                    label: "Notify Vendor of Upgrade",
+                    sublabel: "Edit Notification",
+                    defaultChecked: false,
+                },
+            ]}
+            onProceed={(selectedRoles) => {
+                setShowNotifyPrompt(false);
+                setTargetEmailRoles(selectedRoles);
+                setShowEmailModal(true);
+            }}
+            onSkip={() => {
+                setShowNotifyPrompt(false);
+            }}
+        />
+
+        {/* Step 2: Streamlined Runtime Email Editor Modal */}
+        {showEmailModal && (
+            <RuntimeEmailEditorModal
+                open={showEmailModal}
+                onClose={() => setShowEmailModal(false)}
+                eventType="order_updated"
+                eventLabel="Package Upgraded"
+                queueRoles={targetEmailRoles}
+                orderUuid={orderData?.uuid}
+                serviceUuid={currentBookedService?.uuid}
+                recipientEmails={{
+                    agent: orderData?.agent?.email || (orderData as any)?.user?.email,
+                    vendor: (orderData as any)?.vendor?.email || (orderData?.services?.[0] as any)?.vendor?.email,
+                }}
+                recipientNames={{
+                    agent: orderData?.agent?.first_name ? `${orderData.agent.first_name} ${orderData.agent.last_name || ""}`.trim() : undefined,
+                    vendor: (orderData as any)?.vendor?.full_name || (orderData?.services?.[0] as any)?.vendor?.full_name || undefined,
+                }}
+                extraData={{
+                    changes_summary: upgradeSummary || "Order details and package updated.",
+                    amount: newTotalAmount || (orderData?.amount ? `$${Number(orderData.amount).toFixed(2)}` : undefined),
+                    total_amount: newTotalAmount || (orderData?.amount ? `$${Number(orderData.amount).toFixed(2)}` : undefined),
+                }}
+            />
+        )}
+        </>
+    );
 }
+

@@ -75,11 +75,29 @@ export async function PreviewTemplate(uuid: string, payload: { data: Record<stri
     return data;
 }
 
-export async function GetBladePreview(eventType: string, recipientRole: string = 'agent', orderUuid?: string) {
+export async function GetBladePreview(
+    eventType: string,
+    recipientRole: string = 'agent',
+    orderUuid?: string,
+    options?: {
+        loadDefault?: boolean;
+        serviceUuid?: string;
+        slotUuid?: string;
+        tourUuid?: string;
+        vendorUuid?: string;
+        extraData?: Record<string, any>;
+    }
+) {
     const response = await api.get(`/email-templates/blade-preview/${eventType}`, {
         params: {
             recipient_role: recipientRole,
-            ...(orderUuid ? { order_uuid: orderUuid } : {})
+            ...(orderUuid ? { order_uuid: orderUuid } : {}),
+            ...(options?.loadDefault ? { load_default: 1 } : {}),
+            ...(options?.serviceUuid ? { service_uuid: options.serviceUuid } : {}),
+            ...(options?.slotUuid ? { slot_uuid: options.slotUuid } : {}),
+            ...(options?.tourUuid ? { tour_uuid: options.tourUuid } : {}),
+            ...(options?.vendorUuid ? { vendor_uuid: options.vendorUuid } : {}),
+            ...(options?.extraData ? options.extraData : {}),
         }
     });
     return response.data;
@@ -93,6 +111,8 @@ export async function SendPreviewEmail(payload: {
     order_uuid?: string;
     tour_uuid?: string;
     service_uuid?: string;
+    slot_uuid?: string;
+    vendor_uuid?: string;
     options?: Record<string, any>;
 }) {
     const response = await api.post(`/email-templates/send-preview`, payload);

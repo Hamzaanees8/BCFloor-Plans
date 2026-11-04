@@ -1168,7 +1168,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 reason
             );
             toast.success("Service cancelled successfully");
-            setShowCancelServiceDialog(false);
+
             refreshOrders();
         } catch (err) {
             toast.error(

@@ -55,6 +55,7 @@ export interface EditOrderPayload {
   vendor_uuid?: string,
   notes?: AgentNote[],
   _method?: string,
+  suppress_email?: boolean,
 }
 export interface OrderServiceItem {
   uuid?: string; // Order service UUID (for updates)
@@ -301,6 +302,7 @@ export async function UpdateSlotTime(
     date: string;
     start_time: string;
     end_time: string;
+    suppress_email?: boolean;
   },
   token: string
 ) {
@@ -340,6 +342,7 @@ export async function UpdateOrderService(
 
   const formData = new FormData();
   formData.append('_method', 'PUT');
+  formData.append('suppress_email', '1');
 
   const hasNewService = services.some(service => !service.uuid);
   if (hasNewService) {
@@ -1164,10 +1167,10 @@ export async function PreviewCancelOrder(orderUuid: string, token: string) {
   return data;
 }
 
-export async function CancelOrder(orderUuid: string, token: string, reason?: string) {
+export async function CancelOrder(orderUuid: string, token: string, reason?: string, suppressEmail: boolean = true) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const payload = reason ? { reason } : {};
+  const payload = { ...(reason ? { reason } : {}), suppress_email: suppressEmail };
 
   const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel`, {
     method: "POST",
@@ -1207,10 +1210,10 @@ export async function PreviewCancelService(orderUuid: string, serviceUuid: strin
   return data;
 }
 
-export async function CancelService(orderUuid: string, serviceUuid: string, token: string, reason?: string) {
+export async function CancelService(orderUuid: string, serviceUuid: string, token: string, reason?: string, suppressEmail: boolean = true) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const payload = reason ? { reason } : {};
+  const payload = { ...(reason ? { reason } : {}), suppress_email: suppressEmail };
 
   const response = await fetch(`${API_URL}/orders/${orderUuid}/cancel-service/${serviceUuid}`, {
     method: "POST",

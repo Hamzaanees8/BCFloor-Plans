@@ -16,6 +16,9 @@ import { Order } from "../page";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useAppContext } from "@/app/context/AppContext";
 import { GetFilesData } from "@/app/dashboard/file-manager/file-manager";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 
 export interface CancelPreviewData {
   order_uuid: string;
@@ -62,8 +65,14 @@ export default function CancelOrderDialog({
     appliedSettings["admin"];
 
   const [reason, setReason] = useState("");
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>([
+    "agent",
+    "vendor",
+  ]);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [hasMediaState, setHasMediaState] = useState<boolean>(() =>
-    hasOrderMedia(orderData, previewData)
+    hasOrderMedia(orderData, previewData),
   );
 
   useEffect(() => {
@@ -85,14 +94,14 @@ export default function CancelOrderDialog({
         const toursList = Array.isArray(res.data)
           ? res.data
           : Array.isArray(res)
-          ? res
-          : [res];
+            ? res
+            : [res];
 
         const containsFiles = toursList.some(
           (t: any) =>
             (Array.isArray(t?.files) && t.files.length > 0) ||
             (Array.isArray(t?.snapshots) && t.snapshots.length > 0) ||
-            Boolean(t?.id || t?.uuid)
+            Boolean(t?.id || t?.uuid),
         );
 
         if (containsFiles) {
@@ -110,9 +119,12 @@ export default function CancelOrderDialog({
   const hasMedia = hasMediaState || hasOrderMedia(orderData, previewData);
   const isAdmin = role === "admin";
 
-  const paymentStatusUpper = (orderData?.payment_status || "").toUpperCase().trim();
+  const paymentStatusUpper = (orderData?.payment_status || "")
+    .toUpperCase()
+    .trim();
   const paidAmountNum = parseFloat(String(orderData?.paid_amount || "0"));
-  const totalPaidNum = typeof previewData?.total_paid === "number" ? previewData.total_paid : 0;
+  const totalPaidNum =
+    typeof previewData?.total_paid === "number" ? previewData.total_paid : 0;
 
   const isPaidOrPartiallyPaid =
     paymentStatusUpper === "PAID" ||
@@ -125,207 +137,344 @@ export default function CancelOrderDialog({
   const canCancel = isPaidOrPartiallyPaid
     ? false
     : isAdmin
-    ? true
-    : (!isPast && previewData.can_cancel);
+      ? true
+      : !isPast && previewData.can_cancel;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-[460px] font-alexandria p-0 overflow-hidden rounded-[10px] border border-[#BBBBBB]"
-        style={{ backgroundColor: roleSettings.pageBg, color: roleSettings.pageText }}
+    <>
+      <Dialog
+        open={open && !showNotifyPrompt && !showEmailModal}
+        onOpenChange={onOpenChange}
       >
-        <DialogHeader
-          className="px-6 py-4 border-b border-[#BBBBBB]"
+        <DialogContent
+          className="max-w-[460px] font-alexandria p-0 overflow-hidden rounded-[10px] border border-[#BBBBBB]"
           style={{
-            backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`,
+            backgroundColor: roleSettings.pageBg,
+            color: roleSettings.pageText,
           }}
         >
-          <DialogTitle
-            className="text-[16px] font-[600] uppercase flex items-center gap-2"
-            style={{ color: roleSettings.pageTabColor }}
+          <DialogHeader
+            className="px-6 py-4 border-b border-[#BBBBBB]"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`,
+            }}
           >
-            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
-            <span>{canCancel ? (mode === "service" ? "Cancel Service" : "Cancel Booking") : "Cancellation Unavailable"}</span>
-          </DialogTitle>
-        </DialogHeader>
+            <DialogTitle
+              className="text-[16px] font-[600] uppercase flex items-center gap-2"
+              style={{ color: roleSettings.pageTabColor }}
+            >
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+              <span>
+                {canCancel
+                  ? mode === "service"
+                    ? "Cancel Service"
+                    : "Cancel Booking"
+                  : "Cancellation Unavailable"}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="px-6 py-5 space-y-4">
-          {orderData && (
-            <div className="grid grid-cols-1 gap-2 bg-gray-50/50 p-4 rounded-lg border border-gray-100 text-[13px] text-gray-600">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-800 min-w-[80px]">Order ID:</span>
-                <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono font-bold text-gray-700">
-                  #{orderData.id}
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="font-semibold text-gray-800 min-w-[80px]">Address:</span>
-                <span className="truncate">{orderData.property_address}</span>
-              </div>
-              {targetName && (
+          <div className="px-6 py-5 space-y-4">
+            {orderData && (
+              <div className="grid grid-cols-1 gap-2 bg-gray-50/50 p-4 rounded-lg border border-gray-100 text-[13px] text-gray-600">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-800 min-w-[80px]">Service:</span>
-                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium border border-blue-100">
-                    {targetName}
+                  <span className="font-semibold text-gray-800 min-w-[80px]">
+                    Order ID:
+                  </span>
+                  <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono font-bold text-gray-700">
+                    #{orderData.id}
                   </span>
                 </div>
-              )}
-            </div>
-          )}
-
-          {!canCancel ? (
-            <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
-              <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
-              <div className="text-[13px] text-red-700 leading-relaxed">
-                {isPaidOrPartiallyPaid ? (
-                  <>
-                    <p className="font-[600]">Cancellation Unavailable</p>
-                    <p>You cannot cancel a paid order. You can only refund the order.</p>
-                  </>
-                ) : isPast ? (
-                  <>
-                    <p className="font-[600]">Cancellation Unavailable</p>
-                    <p>This booking is in the past. Agents cannot cancel past bookings. Please contact an administrator if you need to cancel this order.</p>
-                  </>
-                ) : (
-                  <p>Cancellation is no longer available for this {mode === "service" ? "service" : "booking"}.</p>
+                <div className="flex items-start gap-2">
+                  <span className="font-semibold text-gray-800 min-w-[80px]">
+                    Address:
+                  </span>
+                  <span className="truncate">{orderData.property_address}</span>
+                </div>
+                {targetName && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[80px]">
+                      Service:
+                    </span>
+                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium border border-blue-100">
+                      {targetName}
+                    </span>
+                  </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <>
-              {isPast ? (
-                <div className="space-y-3">
-                  <div className="flex gap-3 items-start bg-amber-50 border border-amber-300 rounded-[8px] px-4 py-3 text-amber-900">
-                    <AlertTriangle className="text-amber-600 mt-0.5 shrink-0" size={18} />
-                    <div className="text-[13px] leading-relaxed">
-                      <p className="font-[600]">This booking is in the past. Are you sure you want to cancel it?</p>
-                    </div>
-                  </div>
+            )}
 
-                  {hasMedia && (
-                    <div className="flex gap-3 items-start bg-red-50 border border-red-300 rounded-[8px] px-4 py-3 text-red-900">
-                      <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={18} />
+            {!canCancel ? (
+              <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
+                <XCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
+                <div className="text-[13px] text-red-700 leading-relaxed">
+                  {isPaidOrPartiallyPaid ? (
+                    <>
+                      <p className="font-[600]">Cancellation Unavailable</p>
+                      <p>
+                        You cannot cancel a paid order. You can only refund the
+                        order.
+                      </p>
+                    </>
+                  ) : isPast ? (
+                    <>
+                      <p className="font-[600]">Cancellation Unavailable</p>
+                      <p>
+                        This booking is in the past. Agents cannot cancel past
+                        bookings. Please contact an administrator if you need to
+                        cancel this order.
+                      </p>
+                    </>
+                  ) : (
+                    <p>
+                      Cancellation is no longer available for this{" "}
+                      {mode === "service" ? "service" : "booking"}.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {isPast ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-3 items-start bg-amber-50 border border-amber-300 rounded-[8px] px-4 py-3 text-amber-900">
+                      <AlertTriangle
+                        className="text-amber-600 mt-0.5 shrink-0"
+                        size={18}
+                      />
                       <div className="text-[13px] leading-relaxed">
-                        <p className="font-[600]">🚨 Warning: Media Files Included</p>
-                        <p className="text-red-800 text-[13px] mt-0.5">
-                          This booking contains uploaded media files (photos/videos). If you cancel this booking, all associated media will be lost.
+                        <p className="font-[600]">
+                          This booking is in the past. Are you sure you want to
+                          cancel it?
                         </p>
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                previewData.is_free ? (
+
+                    {hasMedia && (
+                      <div className="flex gap-3 items-start bg-red-50 border border-red-300 rounded-[8px] px-4 py-3 text-red-900">
+                        <AlertTriangle
+                          className="text-red-600 mt-0.5 shrink-0"
+                          size={18}
+                        />
+                        <div className="text-[13px] leading-relaxed">
+                          <p className="font-[600]">
+                            🚨 Warning: Media Files Included
+                          </p>
+                          <p className="text-red-800 text-[13px] mt-0.5">
+                            This booking contains uploaded media files
+                            (photos/videos). If you cancel this booking, all
+                            associated media will be lost.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : previewData.is_free ? (
                   <div className="flex gap-3 items-start bg-green-50 border border-green-200 rounded-[8px] px-4 py-3">
-                    <CheckCircle className="text-green-600 mt-0.5 shrink-0" size={18} />
+                    <CheckCircle
+                      className="text-green-600 mt-0.5 shrink-0"
+                      size={18}
+                    />
                     <div className="text-[13px] text-green-700 leading-relaxed">
                       <p>{previewData.message}</p>
                     </div>
                   </div>
                 ) : isAdmin ? (
                   <div className="flex gap-3 items-start bg-blue-50 border border-blue-200 rounded-[8px] px-4 py-3 text-blue-900">
-                    <AlertTriangle className="text-blue-500 mt-0.5 shrink-0" size={18} />
+                    <AlertTriangle
+                      className="text-blue-500 mt-0.5 shrink-0"
+                      size={18}
+                    />
                     <div className="text-[13px] text-blue-800 leading-relaxed">
-                      <p>This booking is within the {previewData.threshold_hours || 24}-hour cancellation window. The applicable cancellation fee will be charged to the assigned agent.</p>
+                      <p>
+                        This booking is within the{" "}
+                        {previewData.threshold_hours || 24}-hour cancellation
+                        window. The applicable cancellation fee will be charged
+                        to the assigned agent.
+                      </p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-[8px] px-4 py-3">
-                    <AlertTriangle className="text-red-500 mt-0.5 shrink-0" size={18} />
+                    <AlertTriangle
+                      className="text-red-500 mt-0.5 shrink-0"
+                      size={18}
+                    />
                     <div className="text-[13px] text-red-700 leading-relaxed">
                       <p>{previewData.message}</p>
                     </div>
                   </div>
-                )
-              )}
+                )}
 
-              {!isAdmin && previewData.total_paid > 0 && (
-                <p className="text-[14px] font-[600]" style={{ color: roleSettings.pageText }}>
-                  Expected Refund: ${previewData.expected_refund.toFixed(2)}
+                {!isAdmin && previewData.total_paid > 0 && (
+                  <p
+                    className="text-[14px] font-[600]"
+                    style={{ color: roleSettings.pageText }}
+                  >
+                    Expected Refund: ${previewData.expected_refund.toFixed(2)}
+                  </p>
+                )}
+
+                <div className="space-y-2 hidden">
+                  <label
+                    className="text-[13px] font-[500]"
+                    style={{ color: roleSettings.pageText }}
+                  >
+                    Reason for cancellation (optional)
+                  </label>
+                  <Textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Enter reason here..."
+                    maxLength={1000}
+                    className="resize-none h-24 border-[#BBBBBB]"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`,
+                      color: roleSettings.pageText,
+                    }}
+                  />
+                </div>
+
+                <p
+                  className="text-[13px]"
+                  style={{ color: roleSettings.pageText }}
+                >
+                  Are you sure you want to cancel{" "}
+                  {mode === "service" ? (
+                    <span className="font-[600]">
+                      {targetName || "this service"}
+                    </span>
+                  ) : (
+                    <span className="font-[600]">Order #{orderData.id}</span>
+                  )}
+                  ? This action cannot be undone.
                 </p>
-              )}
+              </>
+            )}
+          </div>
 
-              <div className="space-y-2">
-                <label className="text-[13px] font-[500]" style={{ color: roleSettings.pageText }}>
-                  Reason for cancellation (optional)
-                </label>
-                <Textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Enter reason here..."
-                  maxLength={1000}
-                  className="resize-none h-24 border-[#BBBBBB]"
+          <DialogFooter
+            className="px-6 py-4 border-t border-[#BBBBBB] flex flex-row gap-3 justify-end items-center flex-wrap"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`,
+            }}
+          >
+            {canCancel ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isLoading}
+                  className="h-[38px] px-5 text-[14px] font-[400] border-[#BBBBBB] hover:opacity-80"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`,
+                    backgroundColor: roleSettings.pageBg,
                     color: roleSettings.pageText,
                   }}
-                />
-              </div>
-
-              <p className="text-[13px]" style={{ color: roleSettings.pageText }}>
-                Are you sure you want to cancel{" "}
-                {mode === "service" ? (
-                  <span className="font-[600]">{targetName || "this service"}</span>
-                ) : (
-                  <span className="font-[600]">Order #{orderData.id}</span>
-                )}
-                ? This action cannot be undone.
-              </p>
-            </>
-          )}
-        </div>
-
-        <DialogFooter
-          className="px-6 py-4 border-t border-[#BBBBBB] flex flex-row gap-3 justify-end"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`,
-          }}
-        >
-          {canCancel ? (
-            <>
+                >
+                  Go Back
+                </Button>
+                <Button
+                  onClick={async () => {
+                    await onConfirm(reason);
+                    setShowNotifyPrompt(true);
+                  }}
+                  disabled={isLoading}
+                  className="h-[38px] px-5 text-[14px] font-[400] text-white bg-red-500 hover:bg-red-600 border-0 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    "Confirm Cancellation"
+                  )}
+                </Button>
+              </>
+            ) : (
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isLoading}
                 className="h-[38px] px-5 text-[14px] font-[400] border-[#BBBBBB] hover:opacity-80"
                 style={{
                   backgroundColor: roleSettings.pageBg,
                   color: roleSettings.pageText,
                 }}
               >
-                Go Back
+                Close
               </Button>
-              <Button
-                onClick={() => onConfirm(reason)}
-                disabled={isLoading}
-                className="h-[38px] px-5 text-[14px] font-[400] text-white bg-red-500 hover:bg-red-600 border-0"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Cancelling...
-                  </>
-                ) : (
-                  "Confirm Cancellation"
-                )}
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="h-[38px] px-5 text-[14px] font-[400] border-[#BBBBBB] hover:opacity-80"
-              style={{
-                backgroundColor: roleSettings.pageBg,
-                color: roleSettings.pageText,
-              }}
-            >
-              Close
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Step 1: Post-Action Recipient Selection Prompt */}
+      <ActionNotificationPrompt
+        open={showNotifyPrompt}
+        onOpenChange={setShowNotifyPrompt}
+        title="NOTIFY RECIPIENTS"
+        description={`${mode === "service" ? "Appointment" : "Order"} has been cancelled. Select who should receive an email notification:`}
+        options={[
+          {
+            role: "agent",
+            label: "Notify Agent of Cancellation",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+          {
+            role: "vendor",
+            label: "Notify Vendor of Cancellation",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+        ]}
+        onProceed={(selectedRoles) => {
+          setShowNotifyPrompt(false);
+          setTargetEmailRoles(selectedRoles);
+          setShowEmailModal(true);
+        }}
+        onSkip={() => {
+          setShowNotifyPrompt(false);
+          onOpenChange(false);
+        }}
+      />
+
+      {/* Step 2: Streamlined Runtime Email Editor Modal */}
+      {showEmailModal && (
+        <RuntimeEmailEditorModal
+          open={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false);
+            onOpenChange(false);
+          }}
+          eventType={mode === "service" ? "slot_cancelled" : "order_cancelled"}
+          eventLabel={
+            mode === "service" ? "Appointment Cancelled" : "Order Cancelled"
+          }
+          queueRoles={targetEmailRoles}
+          orderUuid={orderData?.uuid}
+          serviceUuid={previewData?.service_uuid}
+          recipientEmails={{
+            agent: orderData?.agent?.email || (orderData as any)?.user?.email,
+            vendor:
+              (orderData as any)?.vendor?.email ||
+              (orderData?.services?.[0] as any)?.vendor?.email,
+          }}
+          recipientNames={{
+            agent: orderData?.agent?.first_name
+              ? `${orderData.agent.first_name} ${orderData.agent.last_name || ""}`.trim()
+              : undefined,
+            vendor:
+              (orderData as any)?.vendor?.full_name ||
+              (orderData?.services?.[0] as any)?.vendor?.full_name ||
+              undefined,
+          }}
+          onComplete={() => {
+            setShowEmailModal(false);
+            onOpenChange(false);
+          }}
+        />
+      )}
+    </>
   );
 }

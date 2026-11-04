@@ -480,8 +480,8 @@ const Page = () => {
         try {
             await CancelOrder(orderToCancel.uuid, token);
             toast.success('Order cancelled successfully');
-            setShowCancelDialog(false);
-            setOrderToCancel(null);
+
+
             setOrderData(prev =>
                 prev.map(o =>
                     o.uuid === orderToCancel.uuid

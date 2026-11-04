@@ -640,6 +640,7 @@ function Page() {
         orderId,
         {
           release_media_before_payment: enable,
+          suppress_email: true,
           _method: "PUT",
         },
         token
@@ -725,7 +726,6 @@ function Page() {
     try {
       await CancelOrder(orderData.uuid, token, reason);
       toast.success("Order cancelled successfully");
-      setShowCancelDialog(false);
       setOrder_status("Cancelled");
       refreshOrders();
     } catch (err) {
@@ -819,7 +819,6 @@ function Page() {
     try {
       await CancelService(orderData.uuid, cancelTargetService.uuid, token, reason);
       toast.success("Service cancelled successfully");
-      setShowCancelServiceDialog(false);
       refreshOrders();
     } catch (err) {
       toast.error(

@@ -206,8 +206,6 @@ export default function OrderQuickViewCard({
         reason,
       );
       toast.success("Service cancelled successfully");
-      setShowCancelServiceDialog(false);
-      onClose();
       if (refreshOrders) {
         refreshOrders();
       }
@@ -508,7 +506,7 @@ export default function OrderQuickViewCard({
           servicePrice={parseFloat(serviceOptions.amount || "0")}
           onSuccess={() => {
             refreshOrders?.();
-            onClose();
+
           }}
         />
       )}

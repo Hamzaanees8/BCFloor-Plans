@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Trash2, AlertTriangle, Receipt } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import ActionNotificationPrompt from '@/components/ActionNotificationPrompt';
+import RuntimeEmailEditorModal from '@/components/RuntimeEmailEditorModal';
+import { RecipientRole } from '@/app/dashboard/global-settings/templates';
 
 interface ServiceRemovalPreview {
     service_name: string;
@@ -21,6 +24,9 @@ interface ServiceRemovalPreview {
     final_total: number;
     invoice_type: 'individual' | 'consolidated';
     invoice_number: string | null;
+    slot_uuid?: string;
+    vendor?: { uuid?: string; name: string; email: string } | null;
+    agent?: { name: string; email: string } | null;
 }
 
 type RemoveServiceModalProps = {
@@ -45,6 +51,9 @@ export default function RemoveServiceModal({
     const [loading, setLoading] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [preview, setPreview] = useState<ServiceRemovalPreview | null>(null);
+    const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["agent", "vendor"]);
 
     useEffect(() => {
         if (!isOpen || !orderUuid || !serviceUuid) {
@@ -76,11 +85,11 @@ export default function RemoveServiceModal({
     const handleConfirm = async () => {
         try {
             setLoading(true);
-            const res = (await api.delete(`/orders/${orderUuid}/services/${serviceUuid}`)).data;
+            const res = (await api.delete(`/orders/${orderUuid}/services/${serviceUuid}`, { data: { suppress_email: true } })).data;
             if (res.success) {
                 toast.success(res.message || `Service "${serviceName}" removed successfully.`);
                 onSuccess();
-                onClose();
+                setShowNotifyPrompt(true);
             } else {
                 toast.error(res.message || "Failed to remove service.");
             }
@@ -92,7 +101,8 @@ export default function RemoveServiceModal({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => { if (!loading && !open) onClose(); }}>
+        <>
+        <Dialog open={isOpen && !showNotifyPrompt && !showEmailModal} onOpenChange={(open) => { if (!loading && !open) onClose(); }}>
             <DialogContent className="max-w-md w-full bg-white rounded-lg p-6 font-alexandria">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-red-600 text-lg font-bold">
@@ -196,5 +206,72 @@ export default function RemoveServiceModal({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        {/* Step 1: Post-Action Recipient Selection Prompt */}
+        <ActionNotificationPrompt
+            open={showNotifyPrompt}
+            onOpenChange={(v) => {
+                setShowNotifyPrompt(v);
+            }}
+            title="NOTIFY RECIPIENTS"
+            description={`Service "${serviceName}" has been removed. Select who should receive an email notification:`}
+            options={[
+                {
+                    role: "agent",
+                    label: "Notify Agent of Service Cancellation",
+                    sublabel: "Edit Notification",
+                    defaultChecked: true,
+                },
+                ...(preview?.vendor?.email ? [{
+                    role: "vendor" as const,
+                    label: `Notify Assigned Vendor (${preview.vendor.name || "Vendor"})`,
+                    sublabel: "Edit Notification",
+                    defaultChecked: true,
+                }] : []),
+            ]}
+            onProceed={(selectedRoles) => {
+                setShowNotifyPrompt(false);
+                setTargetEmailRoles(selectedRoles);
+                setShowEmailModal(true);
+            }}
+            onSkip={() => {
+                setShowNotifyPrompt(false);
+                onClose();
+            }}
+        />
+
+        {/* Step 2: Streamlined Runtime Email Editor Modal */}
+        {showEmailModal && (
+            <RuntimeEmailEditorModal
+                open={showEmailModal}
+                onClose={() => {
+                    setShowEmailModal(false);
+                    onClose();
+                }}
+                eventType="slot_cancelled"
+                eventLabel="Service / Slot Removed"
+                queueRoles={targetEmailRoles}
+                orderUuid={orderUuid}
+                serviceUuid={serviceUuid}
+                slotUuid={preview?.slot_uuid}
+                extraData={{
+                    cancellation_reason: `Service "${serviceName}" removed from order`,
+                    reason: `Service "${serviceName}" removed from order`,
+                }}
+                recipientEmails={{
+                    agent: preview?.agent?.email,
+                    vendor: preview?.vendor?.email,
+                }}
+                recipientNames={{
+                    agent: preview?.agent?.name,
+                    vendor: preview?.vendor?.name,
+                }}
+                onComplete={() => {
+                    setShowEmailModal(false);
+                    onClose();
+                }}
+            />
+        )}
+    </>
     );
 }

@@ -8,16 +8,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, Calendar, User, MapPin } from "lucide-react";
 import { CalendarEvent } from "./BigCalendar";
@@ -29,7 +22,6 @@ import { splitSlotInto15MinChunks } from "../../orders/utils/serviceTimeUtils";
 import { UpdateSlotTime, getPropertyTimezone, resolveTimezoneFromProvince } from "../../orders/orders";
 import { sendEmailNotification } from "../calendar";
 import { api } from "@/lib/api";
-import { useAppContext } from "@/app/context/AppContext";
 import { toast } from "sonner";
 import dayjs from "dayjs";
 import { addMinutes, format, parse, differenceInMinutes } from "date-fns";
@@ -54,11 +46,25 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
   refreshOrders,
 }) => {
   const context = useOrderContext();
-  const { userType } = useAppContext();
-  const theme = userType || "admin";
   const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["agent", "vendor"]);
   const [showAgentNotificationPrompt, setShowAgentNotificationPrompt] = useState(false);
+  const originalScheduleRef = React.useRef<{ date: string; startTime: string; endTime: string } | null>(null);
+
+  useEffect(() => {
+    if (open && event && !originalScheduleRef.current) {
+      originalScheduleRef.current = {
+        date: dayjs(event.start).format("MMMM D, YYYY"),
+        startTime: dayjs(event.start).format("h:mm A"),
+        endTime: dayjs(event.end).format("h:mm A"),
+      };
+    }
+    if (!open) {
+      originalScheduleRef.current = null;
+    }
+  }, [open, event]);
 
   // Form inputs
   const [startTime, setStartTime] = useState<string>("08:00:00");
@@ -85,26 +91,6 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
     );
   }, [event, serviceData]);
 
-  const currentVendor = useMemo(() => {
-    if (!event || !vendorData) return null;
-    return (
-      vendorData.find(
-        (v) =>
-          v.uuid === event.vendor_id ||
-          String(v.id) === String(event.vendor_id),
-      ) || null
-    );
-  }, [event, vendorData]);
-
-  const vendorUuid = useMemo(() => {
-    return (
-      currentVendor?.uuid ||
-      (typeof event?.vendor_id === "string"
-        ? event.vendor_id
-        : String(event?.vendor_id || ""))
-    );
-  }, [currentVendor, event]);
-
   const matchedOrderService = useMemo(() => {
     if (!currentOrder || !event) return null;
     return (
@@ -127,6 +113,27 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
       ) || null
     );
   }, [currentOrder, event, globalService]);
+
+  const currentVendor = useMemo(() => {
+    if (!event) return null;
+    const found = vendorData?.find(
+      (v) =>
+        v.uuid === event.vendor_id ||
+        String(v.id) === String(event.vendor_id),
+    );
+    if (found) return found;
+    if (matchedSlot?.vendor) return matchedSlot.vendor;
+    return null;
+  }, [event, vendorData, matchedSlot]);
+
+  const vendorUuid = useMemo(() => {
+    return (
+      currentVendor?.uuid ||
+      (typeof event?.vendor_id === "string"
+        ? event.vendor_id
+        : String(event?.vendor_id || ""))
+    );
+  }, [currentVendor, event]);
 
   const dateStr = useMemo(() => {
     if (!event) return "";
@@ -415,17 +422,7 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
     updateTimeRange(format(newStart, "HH:mm:ss"), endTime);
   };
 
-  const agentNotificationValue = (
-    currentOrder?.agent as unknown as
-      | { notification_email?: boolean | number | string }
-      | undefined
-  )?.notification_email;
-  const agentNotificationsEnabled =
-    agentNotificationValue === true ||
-    agentNotificationValue === 1 ||
-    agentNotificationValue === "1" ||
-    agentNotificationValue === "true";
-
+  
   const saveSlotTime = async (notifyAgent: boolean) => {
     if (
       !event ||
@@ -463,6 +460,7 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
           date: dateStr,
           start_time,
           end_time,
+          suppress_email: true,
         },
         token,
       );
@@ -522,28 +520,28 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
       }
 
       refreshOrders();
-      onClose();
+      return true;
     } catch (err: any) {
       console.error("Failed to update slot time:", err);
       toast.error(err?.message || "Failed to update slot time.");
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSave = async () => {
-    if (agentNotificationsEnabled && currentOrder?.agent?.email) {
+    const success = await saveSlotTime(false);
+    if (success) {
       setShowAgentNotificationPrompt(true);
-      return;
     }
-
-    await saveSlotTime(false);
   };
 
   if (!event || !currentOrder || !globalService) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <>
+    <Dialog open={open && !showAgentNotificationPrompt && !showEmailModal} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-[45vw] w-[45vw] min-w-[500px] p-6 font-alexandria bg-white rounded-xl shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-y-auto">
         <DialogHeader className="border-b border-gray-100 pb-4 mb-4">
           <DialogTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -746,44 +744,72 @@ export const EditSlotTimeModal: React.FC<EditSlotTimeModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+      </Dialog>
 
-      <AlertDialog
+      {/* Step 1: Post-Action Recipient Selection Prompt */}
+      <ActionNotificationPrompt
         open={showAgentNotificationPrompt}
         onOpenChange={setShowAgentNotificationPrompt}
-      >
-        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[520px] min-h-[150px] p-5 font-alexandria rounded-[8px]">
-          <AlertDialogHeader className="space-y-2">
-            <AlertDialogTitle className={`${theme}-text text-[17px] font-semibold`}>
-              Notify Agent of Schedule Change?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-[13px] leading-5 text-gray-600">
-              The agent&apos;s notification setting is enabled. Send an email about this appointment change?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-1 flex-row justify-end gap-2">
-            <AlertDialogCancel
-              disabled={isSaving}
-              className={`mt-0 h-9 px-3 text-xs ${theme}-text ${theme}-border`}
-              onClick={() => {
-                setShowAgentNotificationPrompt(false);
-                void saveSlotTime(false);
-              }}
-            >
-              No, update silently
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isSaving}
-              className={`h-9 px-3 text-xs text-white ${theme}-bg hover:opacity-90`}
-              onClick={() => {
-                setShowAgentNotificationPrompt(false);
-                void saveSlotTime(true);
-              }}
-            >
-              Yes, notify agent
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Dialog>
+        title="SAVE AND EXIT"
+        description="Slot time has been updated successfully. Select who should receive an email notification:"
+        options={[
+          {
+            role: "agent",
+            label: "Notify Agent of Changes",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+          {
+            role: "vendor",
+            label: "Notify Vendor of Changes",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+        ]}
+        onProceed={(selectedRoles) => {
+          setShowAgentNotificationPrompt(false);
+          setTargetEmailRoles(selectedRoles);
+          setShowEmailModal(true);
+        }}
+        onSkip={() => {
+          setShowAgentNotificationPrompt(false);
+          onClose();
+        }}
+      />
+
+      {showEmailModal && (
+        <RuntimeEmailEditorModal
+          open={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false);
+            onClose();
+          }}
+          eventType="slot_rescheduled"
+          eventLabel="Appointment Rescheduled"
+          queueRoles={targetEmailRoles}
+          orderUuid={currentOrder?.uuid}
+          serviceUuid={globalService?.uuid}
+          slotUuid={matchedSlot?.uuid}
+          vendorUuid={vendorUuid}
+          extraData={{
+            old_date: originalScheduleRef.current?.date,
+            old_time: originalScheduleRef.current ? `${originalScheduleRef.current.startTime} - ${originalScheduleRef.current.endTime}` : undefined,
+            new_date: dateStr ? dayjs(dateStr).format("MMMM D, YYYY") : undefined,
+            new_time: `${dayjs(`2000-01-01 ${startTime}`).format("h:mm A")} - ${dayjs(`2000-01-01 ${endTime}`).format("h:mm A")}`,
+          }}
+          recipientEmails={{
+            agent: currentOrder?.agent?.email || (currentOrder as any)?.user?.email,
+            vendor: currentVendor?.email,
+          }}
+          recipientNames={{
+            agent: currentOrder?.agent?.first_name ? `${currentOrder.agent.first_name} ${currentOrder.agent.last_name || ""}`.trim() : undefined,
+            vendor: currentVendor?.first_name ? `${currentVendor.first_name} ${currentVendor.last_name || ""}`.trim() : undefined,
+          }}
+          onComplete={() => {
+            onClose();
+          }}
+        />
+      )}
+    </>
   );
 };

@@ -20,7 +20,10 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, Loader2, Search, X, Pencil, Download, CreditCard, DollarSign, CheckCircle2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Search, X, Pencil, Download, CreditCard, DollarSign, CheckCircle2, Trash2, Edit3 } from "lucide-react";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Get, GetVendors } from "../orders/orders";
@@ -354,6 +357,10 @@ const Page = () => {
   // Manual Pay Modal State
   const [manualPayInvoice, setManualPayInvoice] = useState<VendorInvoice | null>(null);
   const [isManualPayModalOpen, setIsManualPayModalOpen] = useState(false);
+  const [showPaymentEmailModal, setShowPaymentEmailModal] = useState(false);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["vendor"]);
+  const [savedPayInvoice, setSavedPayInvoice] = useState<any>(null);
   const [manualDate, setManualDate] = useState<string>(() =>
     new Date().toISOString().split("T")[0]
   );
@@ -460,7 +467,9 @@ const Page = () => {
         }
       }).catch(() => {});
 
+      setSavedPayInvoice(manualPayInvoice);
       setManualPayInvoice(null);
+      setShowNotifyPrompt(true);
     } catch (err: any) {
       console.error("Manual pay error:", err);
       toast.error(err.response?.data?.message || "Failed to mark invoice as paid");
@@ -3471,6 +3480,17 @@ const Page = () => {
                 Cancel
               </Button>
               <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPaymentEmailModal(true)}
+                disabled={isSubmittingManualPay}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center gap-1"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Customize Email & Pay</span>
+              </Button>
+              <Button
                 size="sm"
                 className="text-white hover:brightness-110"
                 style={{ backgroundColor: roleSettings.pageTabColor }}
@@ -3483,6 +3503,45 @@ const Page = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Step 1: Post-Action Recipient Selection Prompt */}
+      <ActionNotificationPrompt
+        open={showNotifyPrompt}
+        onOpenChange={setShowNotifyPrompt}
+        title="SAVE AND EXIT"
+        description="Vendor payment has been processed successfully. Select who should receive an email notification:"
+        options={[
+          {
+            role: "vendor",
+            label: "Notify Vendor of Payment",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+        ]}
+        onProceed={(selectedRoles) => {
+          setTargetEmailRoles(selectedRoles);
+          setShowPaymentEmailModal(true);
+        }}
+      />
+
+      {/* Step 2: Streamlined Runtime Email Editor Modal */}
+      {showPaymentEmailModal && savedPayInvoice && (
+        <RuntimeEmailEditorModal
+          open={showPaymentEmailModal}
+          onClose={() => setShowPaymentEmailModal(false)}
+          eventType="vendor_payment_processed"
+          eventLabel="Vendor Payout Processed"
+          queueRoles={targetEmailRoles}
+          recipientEmails={{
+            vendor: savedPayInvoice?.vendor?.email,
+          }}
+          recipientNames={{
+            vendor: savedPayInvoice?.vendor?.first_name
+              ? `${savedPayInvoice.vendor.first_name} ${savedPayInvoice.vendor.last_name || ""}`.trim()
+              : undefined,
+          }}
+        />
       )}
     </div>
   );

@@ -22,6 +22,9 @@ import { Order, Slot } from "../../orders/page";
 import { CalanderVendor } from "./BigCalendar";
 import { Services } from "../../services/page";
 import { ReassignBookingSlot, SwapBookingSlots } from "../calendar";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +88,9 @@ export default function VendorSwapReassignModal({
   const [selectedVendorUuid, setSelectedVendorUuid] = useState("");
   const [selectedSlotUuid, setSelectedSlotUuid] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["vendor", "agent"]);
 
   // ── Source slot (the slot we are acting on) ──
   const sourceSlot = useMemo(
@@ -189,6 +195,10 @@ export default function VendorSwapReassignModal({
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
+  const targetVendor = useMemo(() => {
+    return vendors.find((v) => v.uuid === selectedVendorUuid);
+  }, [vendors, selectedVendorUuid]);
+
   const handleSubmit = async () => {
     const token = localStorage.getItem("token") || "";
 
@@ -216,7 +226,7 @@ export default function VendorSwapReassignModal({
       }
 
       if (refreshOrders) refreshOrders();
-      onClose();
+      setShowNotifyPrompt(true);
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -237,7 +247,8 @@ export default function VendorSwapReassignModal({
       : !selectedSlotUuid);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <>
+    <Dialog open={open && !showNotifyPrompt && !showEmailModal} onOpenChange={onClose}>
       <DialogContent className="w-[55vw] max-w-[55vw] font-alexandria">
         <DialogHeader>
           <DialogTitle className={`text-[20px] font-[600] ${userType}-text`}>
@@ -417,5 +428,77 @@ export default function VendorSwapReassignModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Step 1: Post-Action Recipient Selection Prompt */}
+    <ActionNotificationPrompt
+      open={showNotifyPrompt}
+      onOpenChange={(v) => {
+        setShowNotifyPrompt(v);
+      }}
+      title="NOTIFY RECIPIENTS"
+      description={
+        mode === "reassign"
+          ? "Vendor has been reassigned successfully. Select who should receive an email notification:"
+          : "Slots have been swapped successfully. Select who should receive an email notification:"
+      }
+      options={[
+        {
+          role: "vendor",
+          label: mode === "reassign"
+            ? `Notify Newly Assigned Vendor (${targetVendor?.first_name || "New Vendor"})`
+            : "Notify Assigned Vendors",
+          sublabel: "Edit Notification",
+          defaultChecked: true,
+        },
+        {
+          role: "agent",
+          label: "Notify Agent of Changes",
+          sublabel: "Edit Notification",
+          defaultChecked: true,
+        },
+      ]}
+      onProceed={(selectedRoles) => {
+        setShowNotifyPrompt(false);
+        setTargetEmailRoles(selectedRoles);
+        setShowEmailModal(true);
+      }}
+      onSkip={() => {
+        setShowNotifyPrompt(false);
+        onClose();
+      }}
+    />
+
+    {/* Step 2: Streamlined Runtime Email Editor Modal */}
+    {showEmailModal && (
+      <RuntimeEmailEditorModal
+        open={showEmailModal}
+        onClose={() => {
+          setShowEmailModal(false);
+          onClose();
+        }}
+        eventType={mode === "reassign" ? "slot_booked" : "slot_rescheduled"}
+        eventLabel={mode === "reassign" ? "Vendor Reassigned" : "Slots Swapped"}
+        queueRoles={targetEmailRoles}
+        orderUuid={currentOrder?.uuid}
+        serviceUuid={currentService?.uuid}
+        slotUuid={sourceSlot?.uuid}
+        extraData={{
+          vendor_uuid: selectedVendorUuid,
+        }}
+        recipientEmails={{
+          vendor: targetVendor?.email,
+          agent: currentOrder?.agent?.email || (currentOrder as any)?.user?.email,
+        }}
+        recipientNames={{
+          vendor: targetVendor?.first_name ? `${targetVendor.first_name} ${targetVendor.last_name || ""}`.trim() : undefined,
+          agent: currentOrder?.agent?.first_name ? `${currentOrder.agent.first_name} ${currentOrder.agent.last_name || ""}`.trim() : undefined,
+        }}
+        onComplete={() => {
+          setShowEmailModal(false);
+          onClose();
+        }}
+      />
+    )}
+  </>
   );
 }

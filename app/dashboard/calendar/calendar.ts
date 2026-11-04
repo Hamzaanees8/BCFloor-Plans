@@ -316,7 +316,7 @@ export async function ReassignBookingSlot(
 ) {
   const response = await api.post(
     `/orders/slots/${slotUuid}/reassign`,
-    { vendor_id: newVendorUuid },
+    { vendor_id: newVendorUuid, suppress_email: true },
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data;
@@ -329,7 +329,7 @@ export async function SwapBookingSlots(
 ) {
   const response = await api.post(
     `/orders/slots/swap`,
-    { slot1_uuid: slotAUuid, slot2_uuid: slotBUuid },
+    { slot1_uuid: slotAUuid, slot2_uuid: slotBUuid, suppress_email: true },
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data;

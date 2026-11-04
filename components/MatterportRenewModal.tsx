@@ -21,6 +21,9 @@ import {
 import { Loader2, Calendar, ShieldCheck, Check, CreditCard, FileText, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { MatterportAd, RenewMatterport, RenewalPlan } from "@/app/dashboard/matterport/matterport";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 
 interface MatterportRenewModalProps {
   open: boolean;
@@ -55,6 +58,9 @@ export default function MatterportRenewModal({
   const [paymentMethod, setPaymentMethod] = useState<string>(isAgentView ? "stripe" : "manual");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState<boolean>(false);
+  const [showEmailModal, setShowEmailModal] = useState<boolean>(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["agent"]);
 
   const existingInvoice = tourItem?.latestInvoice || null;
   const isInvoicePaid = existingInvoice?.status === "paid" || existingInvoice?.paymentStatus === "PAID";
@@ -176,6 +182,7 @@ export default function MatterportRenewModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-white rounded-xl p-6 shadow-2xl border border-gray-100 font-alexandria max-h-[90vh] overflow-y-auto">
         <DialogHeader className="mb-4">
@@ -455,5 +462,57 @@ export default function MatterportRenewModal({
         )}
       </DialogContent>
     </Dialog>
+
+      {/* Step 1: Post-Action Recipient Selection Prompt */}
+      <ActionNotificationPrompt
+        open={showNotifyPrompt}
+        onOpenChange={(val) => {
+          setShowNotifyPrompt(val);
+          if (!val) onOpenChange(false);
+        }}
+        title="SAVE AND EXIT"
+        description="Matterport tour renewed successfully. Select who should receive an email notification:"
+        options={[
+          {
+            role: "agent",
+            label: "Notify Agent of Renewal",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+        ]}
+        onProceed={(selectedRoles) => {
+          setTargetEmailRoles(selectedRoles);
+          setShowEmailModal(true);
+        }}
+        onSkip={() => {
+          onOpenChange(false);
+        }}
+      />
+
+      {/* Step 2: Streamlined Runtime Email Editor Modal */}
+      {showEmailModal && (
+        <RuntimeEmailEditorModal
+          open={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false);
+            onOpenChange(false);
+          }}
+          eventType="matterport_renewed"
+          eventLabel="Matterport Renewed"
+          queueRoles={targetEmailRoles}
+          orderUuid={tourItem?.orderuud}
+          tourUuid={tourItem?.tourUuid || tourItem?.orderuud}
+          recipientEmails={{
+            agent: (tourItem as any)?.agent?.email || (tourItem as any)?.user?.email,
+          }}
+          recipientNames={{
+            agent: (tourItem as any)?.agent?.first_name ? `${(tourItem as any).agent.first_name} ${(tourItem as any).agent.last_name || ""}`.trim() : undefined,
+          }}
+          onComplete={() => {
+            onOpenChange(false);
+          }}
+        />
+      )}
+    </>
   );
 }

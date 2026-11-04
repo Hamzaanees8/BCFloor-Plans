@@ -75,6 +75,9 @@ interface TourConfimation {
 import { useOptionalAppContext } from "@/app/context/AppContext";
 import { useOptionalWhiteLabel } from "@/app/context/Whitelabel";
 import { PublishTour, featureSheetService } from "../file-manager";
+import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
+import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
+import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 import {
   FeatureSheetResponse,
   templateImages,
@@ -167,6 +170,9 @@ const TourConfirm = ({
   // const [confirmFloor, setConfirmFloor] = useState(false);
   const [open, setOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [showPublishEmailModal, setShowPublishEmailModal] = useState(false);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["agent"]);
   const [isPublished, setIsPublished] = useState(false);
   const [isSideContactOpen, setIsSideContactOpen] = useState(true);
   const [hasUserClosedSideContact, setHasUserClosedSideContact] = useState(false);
@@ -2523,6 +2529,52 @@ const TourConfirm = ({
         tourUuid={tourUuid || orderData?.tours?.[0]?.uuid || ""}
         propertyAddress={`${orderData?.property?.address || ""}, ${orderData?.property?.city || ""}, ${orderData?.property?.province || ""}`}
       />
+          {/* Step 1: Post-Action Recipient Selection Prompt */}
+      <ActionNotificationPrompt
+        open={showNotifyPrompt}
+        onOpenChange={setShowNotifyPrompt}
+        title="SAVE AND EXIT"
+        description="Virtual tour has been published successfully. Select who should receive an email notification:"
+        options={[
+          {
+            role: "agent",
+            label: "Notify Agent of Published Tour",
+            sublabel: "Edit Notification",
+            defaultChecked: true,
+          },
+          {
+            role: "vendor",
+            label: "Notify Vendor of Published Tour",
+            sublabel: "Edit Notification",
+            defaultChecked: false,
+          },
+        ]}
+        onProceed={(selectedRoles) => {
+          setTargetEmailRoles(selectedRoles);
+          setShowPublishEmailModal(true);
+        }}
+      />
+
+      {/* Step 2: Streamlined Runtime Email Editor Modal */}
+      {showPublishEmailModal && (
+        <RuntimeEmailEditorModal
+          open={showPublishEmailModal}
+          onClose={() => setShowPublishEmailModal(false)}
+          eventType="media_uploaded"
+          eventLabel="Tour Published"
+          queueRoles={targetEmailRoles}
+          orderUuid={orderData?.uuid}
+          tourUuid={tourUuid || orderData?.tours?.[0]?.uuid}
+          recipientEmails={{
+            agent: orderData?.agent?.email || (orderData as any)?.user?.email,
+            vendor: (orderData as any)?.vendor?.email || (orderData?.services?.[0] as any)?.vendor?.email,
+          }}
+          recipientNames={{
+            agent: orderData?.agent?.first_name ? `${orderData.agent.first_name} ${orderData.agent.last_name || ""}`.trim() : undefined,
+            vendor: (orderData as any)?.vendor?.full_name || (orderData?.services?.[0] as any)?.vendor?.full_name || undefined,
+          }}
+        />
+      )}
     </div>
   );
 };

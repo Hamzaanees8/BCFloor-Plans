@@ -573,7 +573,7 @@ const FileManager = () => {
     try {
       await EditOrderStatus(
         orderId as string,
-        { release_media_before_payment: enable, _method: "PUT" },
+        { release_media_before_payment: enable, suppress_email: true, _method: "PUT" },
         token,
       );
       if (orderData) {

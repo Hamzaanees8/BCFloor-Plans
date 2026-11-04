@@ -2784,6 +2784,7 @@ export interface SendToClientPayload {
   service_id?: string | number;
   custom_message?: string;
   recipient_emails?: string[];
+  suppress_email?: boolean;
 }
 
 export async function SendMediaToClient(
