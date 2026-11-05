@@ -312,7 +312,7 @@ export default function PrintRequestModal({
 
   const handleSubmit = async () => {
     if (!featureSheetUuid) {
-      toast.error("Invalid feature sheet. Please save first.");
+      toast.error("Please save your flyer or tabloid first.");
       return;
     }
 

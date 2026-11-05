@@ -164,7 +164,7 @@ export default function RuntimeEmailEditorModal({
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Staged data for each role: { subject: string, content: string }
-  const [stagedData, setStagedData] = useState<
+  const stagedDataRef = useRef<
     Record<string, { subject: string; content: string }>
   >({});
 
@@ -175,16 +175,18 @@ export default function RuntimeEmailEditorModal({
   // Current editor fields
   const [currentSubject, setCurrentSubject] = useState("");
   const [currentContent, setCurrentContent] = useState("");
-  const [editorKey, setEditorKey] = useState(0);
 
   // Dynamic tags & Signatures
   const [availableVariables, setAvailableVariables] = useState<string[]>([]);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [textToInsert, setTextToInsert] = useState("");
   const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
-  const [rolePlaceholderValues, setRolePlaceholderValues] = useState<
+  const rolePlaceholderValuesRef = useRef<
     Record<string, Record<string, string>>
   >({});
+  const loadedRolesRef = useRef<Set<string>>(new Set());
+  const extraDataRef = useRef(extraData);
+  extraDataRef.current = extraData;
 
   // Loading states
   const [loadingTemplate, setLoadingTemplate] = useState(false);
@@ -224,17 +226,22 @@ export default function RuntimeEmailEditorModal({
   // Load template for a specific role
   const loadRoleTemplate = useCallback(
     async (role: RecipientRole) => {
-      // If already staged in memory, use staged
-      if (stagedData[role]) {
-        setCurrentSubject(stagedData[role].subject);
-        setCurrentContent(stagedData[role].content);
-        if (rolePlaceholderValues[role]) {
-          setPlaceholderValues(rolePlaceholderValues[role]);
+      // If already staged in memory, restore immediately from memory
+      if (stagedDataRef.current[role]) {
+        setCurrentSubject(stagedDataRef.current[role].subject);
+        setCurrentContent(stagedDataRef.current[role].content);
+        if (rolePlaceholderValuesRef.current[role]) {
+          setPlaceholderValues(rolePlaceholderValuesRef.current[role]);
         }
-        setEditorKey((prev) => prev + 1);
         return;
       }
 
+      // If already fetched in this session, do not fetch again
+      if (loadedRolesRef.current.has(role)) {
+        return;
+      }
+
+      loadedRolesRef.current.add(role);
       setLoadingTemplate(true);
       try {
         const res = await GetBladePreview(eventType, role, orderUuid, {
@@ -242,7 +249,7 @@ export default function RuntimeEmailEditorModal({
           slotUuid,
           tourUuid,
           vendorUuid,
-          extraData,
+          extraData: extraDataRef.current,
           isRuntime: true,
         });
         if (res.success && res.data) {
@@ -254,23 +261,21 @@ export default function RuntimeEmailEditorModal({
           initialContentRef.current[role] = loadedHtml;
           setCurrentSubject(defaultSubj);
           setCurrentContent(loadedHtml);
-          setEditorKey((prev) => prev + 1);
 
           if (res.data.placeholder_values && typeof res.data.placeholder_values === "object") {
+            rolePlaceholderValuesRef.current[role] = res.data.placeholder_values;
             setPlaceholderValues(res.data.placeholder_values);
-            setRolePlaceholderValues((prev) => ({
-              ...prev,
-              [role]: res.data.placeholder_values,
-            }));
           }
 
           if (res.data.variables && Array.isArray(res.data.variables)) {
             setAvailableVariables(res.data.variables);
           }
         } else {
+          loadedRolesRef.current.delete(role);
           toast.error(res.message || `Failed to load template for ${role}`);
         }
       } catch (err) {
+        loadedRolesRef.current.delete(role);
         console.error(err);
         toast.error(`Failed to load template for ${role}`);
       } finally {
@@ -281,29 +286,27 @@ export default function RuntimeEmailEditorModal({
       eventType,
       orderUuid,
       eventLabel,
-      stagedData,
-      rolePlaceholderValues,
       serviceUuid,
       slotUuid,
       tourUuid,
       vendorUuid,
-      extraData,
     ],
   );
 
   // When modal opens or currentIndex changes, load template for currentRole
   useEffect(() => {
-    if (open && queueRoles.length > 0) {
+    if (open && queueRoles.length > 0 && currentRole) {
       loadRoleTemplate(currentRole);
     }
-  }, [open, currentIndex, queueRoles, currentRole, loadRoleTemplate]);
+  }, [open, currentIndex, queueRoles.length, currentRole, loadRoleTemplate]);
 
   // Reset state when opening anew
   useEffect(() => {
     if (open) {
       setCurrentIndex(0);
-      setStagedData({});
-      setRolePlaceholderValues({});
+      stagedDataRef.current = {};
+      rolePlaceholderValuesRef.current = {};
+      loadedRolesRef.current.clear();
       setPlaceholderValues({});
       initialContentRef.current = {};
     }
@@ -384,13 +387,13 @@ export default function RuntimeEmailEditorModal({
     { subject: string; content: string }
   > => {
     const updated = {
-      ...stagedData,
+      ...stagedDataRef.current,
       [currentRole]: {
         subject: currentSubject.trim(),
         content: currentContent,
       },
     };
-    setStagedData(updated);
+    stagedDataRef.current = updated;
     return updated;
   };
 
@@ -637,22 +640,20 @@ export default function RuntimeEmailEditorModal({
             {/* Row 3: Editor Layout (Left: RichTextEditor, Right: Dynamic Tags) */}
             <div className="flex-1 min-h-0 flex gap-5 items-stretch overflow-hidden">
               {/* Left Side: Editor */}
-              <div className="flex-1 border border-[#DDDDDD] rounded-lg bg-white shadow-2xs relative flex flex-col min-h-0 overflow-hidden">
+              <div className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[460px] overflow-hidden shadow-inner relative">
                 {loadingTemplate && (
                   <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-20 flex items-center justify-center gap-2 text-sm font-semibold text-[#4290E9]">
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Loading {roleMeta.label} template...
                   </div>
                 )}
-                <div className="flex-1 min-h-0 relative flex flex-col h-full w-full">
-                  <RichTextEditor
-                    key={`runtime-editor-${currentRole}-${editorKey}`}
-                    value={currentContent}
-                    onChange={(val) => setCurrentContent(val)}
-                    insertText={textToInsert}
-                    onTextInserted={() => setTextToInsert("")}
-                  />
-                </div>
+                <RichTextEditor
+                  key={`runtime-editor-${currentRole}`}
+                  value={currentContent}
+                  onChange={(val) => setCurrentContent(val)}
+                  insertText={textToInsert}
+                  onTextInserted={() => setTextToInsert("")}
+                />
               </div>
 
               {/* Right Side: Dynamic Tags Sidebar */}

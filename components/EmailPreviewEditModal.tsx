@@ -32,6 +32,8 @@ import { X, Send, Eye, Edit3, Loader2, FileText, Info } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
 import {
   GetBladePreview,
@@ -144,10 +146,10 @@ const DUMMY_PREVIEW_VALUES: Record<string, string> = {
   new_time: "2:00 PM - 3:30 PM",
   old_date: "November 1, 2026",
   old_time: "9:00 AM - 10:30 AM",
-  company_name: "commerx",
-  company_email: "moazam@commerx.com",
-  company_phone: "123456789",
-  invoice_number: "#INV-COMMERX-2026-00329",
+  company_name: "BC Floor Plans",
+  company_email: "mail@bcfloorplans.com",
+  company_phone: "604-788-7783",
+  invoice_number: "#INV-BCF-2026-00329",
   invoice_id: "1001",
   receipt_url: "https://billing.stripe.com/receipt/sample",
   copies: "50",
@@ -169,10 +171,23 @@ const DUMMY_PREVIEW_VALUES: Record<string, string> = {
   changes_summary: "Appointment rescheduled to Nov 5, 2026 at 2:00 PM",
 };
 
-function buildMasterPreviewHtml(content: string, orgName: string = "commerx", primaryColor: string = "#4290E9") {
+function buildMasterPreviewHtml(
+  content: string,
+  branding: {
+    name: string;
+    logoUrl?: string | null;
+    primaryColor: string;
+  } = {
+    name: "BC Floor Plans",
+    logoUrl: null,
+    primaryColor: "#6BAE41",
+  },
+) {
   if (content.includes("<!DOCTYPE") || content.includes("<html")) {
     return content;
   }
+
+  const { name, logoUrl, primaryColor } = branding;
 
   return `<!DOCTYPE html>
 <html>
@@ -196,7 +211,11 @@ function buildMasterPreviewHtml(content: string, orgName: string = "commerx", pr
                 <table width="600" cellpadding="0" cellspacing="0" style="width: 600px; max-width: 600px; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: left;">
                     <tr>
                         <td align="center" style="padding: 30px 20px; background-color: #ffffff; border-bottom: 3px solid ${primaryColor};">
-                            <h2 style="margin: 0; color: #333333; font-size: 24px; font-weight: bold; font-family: Arial, sans-serif;">${orgName}</h2>
+                            ${
+                              logoUrl
+                                ? `<img src="${logoUrl}" alt="${name} Logo" style="max-width: 200px; max-height: 80px; object-fit: contain; border: none; display: block;" />`
+                                : `<h2 style="margin: 0; color: #333333; font-size: 24px; font-weight: bold; font-family: Arial, sans-serif;">${name}</h2>`
+                            }
                         </td>
                     </tr>
                     <tr>
@@ -207,7 +226,7 @@ function buildMasterPreviewHtml(content: string, orgName: string = "commerx", pr
                     <tr>
                         <td style="padding: 25px 20px; text-align: center; background-color: #F9FAFB; border-top: 1px solid #E5E7EB; font-family: Arial, sans-serif;">
                             <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px;">
-                                &copy; ${new Date().getFullYear()} ${orgName}. All rights reserved.
+                                &copy; ${new Date().getFullYear()} ${name}. All rights reserved.
                             </p>
                             <p style="font-size: 11px; color: #D1D5DB; margin: 0;">
                                 Powered by <a href="https://tojuco.com" style="color: #9CA3AF; text-decoration: underline;">Tojuco</a>
@@ -236,6 +255,49 @@ export default function EmailPreviewEditModal({
   onCustomSend,
 }: EmailPreviewEditModalProps) {
   const { userType, organizationId } = useAppContext();
+  const { organization } = useOrganization();
+  const { appliedSettings, organizations } = useWhiteLabel();
+
+  const userInfo = useMemo(() => {
+    try {
+      return typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("userInfo") || "{}")
+        : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const currentOrgObj = useMemo(() => {
+    return (
+      organizations?.find((o) => o.uuid === organizationId) ||
+      organization ||
+      userInfo?.organization ||
+      null
+    );
+  }, [organizations, organizationId, organization, userInfo]);
+
+  const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
+  const orgLogo =
+    organization?.branding?.logo ||
+    appliedSettings?.admin?.logo ||
+    currentOrgObj?.company_logos_urls?.[0]?.url ||
+    null;
+  const orgPrimaryColor =
+    (typeof organization?.branding?.primary_color === "object"
+      ? (organization.branding.primary_color as { value: string }).value
+      : (organization?.branding?.primary_color as string)) ||
+    appliedSettings?.admin?.pageTabColor ||
+    "#6BAE41";
+  const orgEmail =
+    currentOrgObj?.contact_email ||
+    organization?.contact_email ||
+    "mail@bcfloorplans.com";
+  const orgPhone =
+    currentOrgObj?.contact_phone ||
+    organization?.contact_phone ||
+    "604-788-7783";
+  const orgSlug = currentOrgObj?.slug?.toUpperCase() || "BCF";
   const [selectedRoles, setSelectedRoles] = useState<RecipientRole[]>(defaultRoles);
   const [activeRoleTab, setActiveRoleTab] = useState<RecipientRole>(defaultRoles[0] || "agent");
 
@@ -298,7 +360,9 @@ export default function EmailPreviewEditModal({
       if (!eventType) return;
       setLoadingTemplate(true);
       try {
-        const res = await GetBladePreview(eventType, role, orderUuid);
+        const res = await GetBladePreview(eventType, role, orderUuid, {
+          organizationId: organizationId || undefined,
+        });
         if (res.success && res.data) {
           const data = res.data;
           const loadedHtml = data.html || data.content || "";
@@ -337,7 +401,7 @@ export default function EmailPreviewEditModal({
         setLoadingTemplate(false);
       }
     },
-    [eventType, orderUuid, eventLabel]
+    [eventType, orderUuid, eventLabel, organizationId]
   );
 
   // Keep placeholderValues in sync with active role tab
@@ -524,11 +588,37 @@ export default function EmailPreviewEditModal({
     }
   };
 
+  // Dynamically bound dummy preview values with active organization branding
+  const previewValues = useMemo(
+    () => ({
+      ...DUMMY_PREVIEW_VALUES,
+      company_name: orgName,
+      company_email: orgEmail,
+      company_phone: orgPhone,
+      invoice_number: `#INV-${orgSlug}-2026-00329`,
+    }),
+    [orgName, orgEmail, orgPhone, orgSlug],
+  );
+
   // Full simulated preview doc
   const fullPreviewDoc = useMemo(() => {
-    const interpolated = interpolateTemplate(currentContent, DUMMY_PREVIEW_VALUES);
-    return buildMasterPreviewHtml(interpolated, "commerx", "#4290E9");
-  }, [currentContent]);
+    let interpolated = currentContent || "<p>No content provided</p>";
+    Object.entries(previewValues).forEach(([key, val]) => {
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, "gi");
+      interpolated = interpolated.replace(regex, val);
+    });
+    interpolated = interpolateTemplate(interpolated, previewValues);
+
+    if (interpolated.includes("<!DOCTYPE") || interpolated.includes("<html")) {
+      return interpolated;
+    }
+
+    return buildMasterPreviewHtml(interpolated, {
+      name: orgName,
+      logoUrl: orgLogo,
+      primaryColor: orgPrimaryColor,
+    });
+  }, [currentContent, previewValues, orgName, orgLogo, orgPrimaryColor]);
 
   // Combined tags list
   const allTags = useMemo(() => {

@@ -37,6 +37,7 @@ interface FieldSidePanelProps {
   isSaving: boolean;
   onClose: () => void;
   userType?: string;
+  saveButtonText?: string;
 }
 
 // ─── Font Weight Map ──────────────────────────────────────────────────────────
@@ -176,6 +177,7 @@ export default function FieldSidePanel({
   isSaving,
   onClose,
   userType = "admin",
+  saveButtonText,
 }: FieldSidePanelProps) {
   const style: TextStyle = activeField?.currentStyle ?? { fontSize: "16px" };
   const customFonts: CustomFontOption[] = activeField?.customFonts ?? [];
@@ -605,7 +607,7 @@ export default function FieldSidePanel({
                 Saving…
               </>
             ) : (
-              "Save Sheet"
+              saveButtonText || "Save Flyer"
             )}
           </button>
         </div>

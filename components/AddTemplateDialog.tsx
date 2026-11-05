@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
 import { interpolateTemplate } from "@/lib/email-templates";
 import {
@@ -54,30 +56,141 @@ interface Props {
   initialData?: EmailTemplate | null;
 }
 
-const REGISTERED_EVENTS = [
-  { value: "order_created", label: "Order Created" },
-  { value: "order_updated", label: "Order Updated" },
-  { value: "order_cancelled", label: "Order Cancelled" },
-  { value: "slot_booked", label: "Appointment Scheduled (Slot Booked)" },
-  { value: "slot_cancelled", label: "Appointment Cancelled" },
-  { value: "slot_rescheduled", label: "Appointment Rescheduled" },
-  { value: "booking_reminder", label: "Booking Reminder" },
-  { value: "service_completed", label: "Service Completed" },
-  { value: "media_uploaded", label: "Media Uploaded / Ready" },
-  { value: "agent_payment_received", label: "Payment Received" },
-  { value: "vendor_payment_processed", label: "Vendor Payout Processed" },
-  { value: "invoice_created", label: "Invoice Created" },
-  { value: "matterport_expiry_reminder", label: "3D Tour Expiry Reminder" },
-  { value: "matterport_expired", label: "3D Tour Expired" },
-  { value: "matterport_renewed", label: "3D Tour Renewed" },
-  {
-    value: "new_print_request_submitted",
-    label: "New Print Request Submitted",
+export interface EventMetadata {
+  label: string;
+  description: string;
+  allowedRoles: RecipientRole[];
+  defaultRoles: RecipientRole[];
+  excludedExplanation?: string;
+}
+
+export const EVENT_METADATA: Record<string, EventMetadata> = {
+  order_created: {
+    label: "Order Created",
+    description: "Sent immediately when a client places a new service order.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent", "admin"],
+    excludedExplanation: "Vendors excluded (assigned to appointments later, not at order creation).",
   },
-  { value: "print_request_ready", label: "Print Request Ready" },
-  { value: "print_request_completed", label: "Print Request Completed" },
-  { value: "password_reset", label: "Password Reset" },
-];
+  order_updated: {
+    label: "Order Updated",
+    description: "Sent when an existing order's address, scope, or scheduled appointments are modified.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["admin", "agent", "vendor"],
+  },
+  order_cancelled: {
+    label: "Order Cancelled",
+    description: "Sent when an entire order is cancelled by the agent or admin.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["admin", "agent", "vendor"],
+  },
+  slot_booked: {
+    label: "Appointment Scheduled (Slot Booked)",
+    description: "Sent when a specific service appointment slot is assigned to a vendor.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["admin", "vendor"],
+  },
+  slot_cancelled: {
+    label: "Appointment Cancelled",
+    description: "Sent when an individual service appointment slot within an order is cancelled.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["admin", "agent", "vendor"],
+  },
+  slot_rescheduled: {
+    label: "Appointment Rescheduled",
+    description: "Sent when an appointment date or time slot is moved to a new window.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["admin", "vendor"],
+  },
+  booking_reminder: {
+    label: "Booking Reminder",
+    description: "Automated reminder sent prior to an upcoming appointment (e.g. 24 hours before).",
+    allowedRoles: ["agent", "vendor"],
+    defaultRoles: ["vendor"],
+    excludedExplanation: "Admins excluded (internal admins do not receive field reminder alerts).",
+  },
+  service_completed: {
+    label: "Service Completed",
+    description: "Sent when a field photographer or technician finishes work and marks service completed.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent"],
+    excludedExplanation: "Vendor excluded (the vendor performed the work).",
+  },
+  media_uploaded: {
+    label: "Media Uploaded / Ready",
+    description: "Sent to the agent when photos, floor plans, or 3D scans are uploaded and ready to download.",
+    allowedRoles: ["agent"],
+    defaultRoles: ["agent"],
+    excludedExplanation: "Admins & Vendors excluded (media delivery notifications are sent directly to the agent).",
+  },
+  agent_payment_received: {
+    label: "Payment Received",
+    description: "Sent when an agent successfully pays an invoice or completes credit card checkout.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent", "admin"],
+    excludedExplanation: "Vendors excluded (vendors are not involved in client billing).",
+  },
+  vendor_payment_processed: {
+    label: "Vendor Payout Processed",
+    description: "Sent when payout or commission to a subcontractor vendor is processed.",
+    allowedRoles: ["admin", "vendor"],
+    defaultRoles: ["vendor", "admin"],
+    excludedExplanation: "Agents excluded (agents do not receive subcontractor payout records).",
+  },
+  invoice_created: {
+    label: "Invoice Created",
+    description: "Sent when a new billing invoice is issued for an order.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent"],
+    excludedExplanation: "Vendors excluded (vendors do not receive client invoices).",
+  },
+  matterport_expiry_reminder: {
+    label: "3D Tour Expiry Reminder",
+    description: "Automated reminder sent before a 3D Tour hosting period expires (30, 14, 7, 1 days before).",
+    allowedRoles: ["agent"],
+    defaultRoles: ["agent"],
+    excludedExplanation: "Admins & Vendors excluded (sent directly to the agent to prompt renewal).",
+  },
+  matterport_expired: {
+    label: "3D Tour Expired",
+    description: "Sent on the day a 3D Tour hosting period expires to prompt the agent to renew before the tour goes offline.",
+    allowedRoles: ["agent"],
+    defaultRoles: ["agent"],
+    excludedExplanation: "Admins & Vendors excluded (sent directly to the agent).",
+  },
+  matterport_renewed: {
+    label: "3D Tour Renewed",
+    description: "Sent when a 3D Tour hosting period has been renewed successfully for another 6 or 12 months.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent", "admin"],
+    excludedExplanation: "Vendors excluded (vendors do not manage 3D tour hosting).",
+  },
+  new_print_request_submitted: {
+    label: "New Print Request Submitted",
+    description: "Sent when an agent submits a feature sheet / flyer print order.",
+    allowedRoles: ["admin"],
+    defaultRoles: ["admin"],
+    excludedExplanation: "Agents & Vendors excluded (internal admin alert to verify and dispatch files).",
+  },
+  print_request_completed: {
+    label: "Print Request Completed",
+    description: "Sent when physical printing is done and materials are ready for pickup or shipping.",
+    allowedRoles: ["admin", "agent"],
+    defaultRoles: ["agent", "admin"],
+    excludedExplanation: "Vendors excluded (print vendor fulfilled the job).",
+  },
+  password_reset: {
+    label: "Password Reset",
+    description: "Security email containing temporary secure link to reset account password.",
+    allowedRoles: ["admin", "agent", "vendor"],
+    defaultRoles: ["agent", "admin", "vendor"],
+  },
+};
+
+const REGISTERED_EVENTS = Object.entries(EVENT_METADATA).map(([key, meta]) => ({
+  value: key,
+  label: meta.label,
+}));
 
 const DEFAULT_DYNAMIC_TAGS = [
   "{{recipient_name}}",
@@ -193,7 +306,7 @@ const DUMMY_PREVIEW_VALUES: Record<string, string> = {
   new_time: "2:00 PM - 3:30 PM",
   old_date: "November 1, 2026",
   old_time: "9:00 AM - 10:30 AM",
-  invoice_number: "#INV-COMMERX-2026-00329",
+  invoice_number: "#INV-BCF-2026-00329",
   invoice_id: "1001",
   receipt_url: "https://billing.stripe.com/receipt/sample",
   copies: "50",
@@ -215,19 +328,28 @@ const DUMMY_PREVIEW_VALUES: Record<string, string> = {
     "High-resolution photos and Matterport scan are ready for download.",
   changes_summary: "Appointment rescheduled to Nov 5, 2026 at 2:00 PM",
   reset_link: "https://teams.tojuco.com/reset-password?token=sample",
-  company_name: "commerx",
-  company_email: "moazam@commerx.com",
-  company_phone: "123456789",
+  company_name: "BC Floor Plans",
+  company_email: "mail@bcfloorplans.com",
+  company_phone: "604-788-7783",
 };
 
 function buildMasterHtml(
   content: string,
-  orgName: string = "commerx",
-  primaryColor: string = "#2563EB",
+  branding: {
+    name: string;
+    logoUrl?: string | null;
+    primaryColor: string;
+  } = {
+    name: "BC Floor Plans",
+    logoUrl: null,
+    primaryColor: "#6BAE41",
+  },
 ) {
   if (content.includes("<!DOCTYPE") || content.includes("<html")) {
     return content;
   }
+
+  const { name, logoUrl, primaryColor } = branding;
 
   return `<!DOCTYPE html>
 <html>
@@ -252,7 +374,11 @@ function buildMasterHtml(
                     <!-- Header Branding -->
                     <tr>
                         <td align="center" style="padding: 30px 20px; background-color: #ffffff; border-bottom: 3px solid ${primaryColor};">
-                            <h2 style="margin: 0; color: #333333; font-size: 24px; font-weight: bold; font-family: Arial, sans-serif;">${orgName}</h2>
+                            ${
+                              logoUrl
+                                ? `<img src="${logoUrl}" alt="${name} Logo" style="max-width: 200px; max-height: 80px; object-fit: contain; border: none; display: block;" />`
+                                : `<h2 style="margin: 0; color: #333333; font-size: 24px; font-weight: bold; font-family: Arial, sans-serif;">${name}</h2>`
+                            }
                         </td>
                     </tr>
                     <!-- Content Body -->
@@ -265,7 +391,7 @@ function buildMasterHtml(
                     <tr>
                         <td style="padding: 25px 20px; text-align: center; background-color: #F9FAFB; border-top: 1px solid #E5E7EB; font-family: Arial, sans-serif;">
                             <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px;">
-                                &copy; ${new Date().getFullYear()} ${orgName}. All rights reserved.
+                                &copy; ${new Date().getFullYear()} ${name}. All rights reserved.
                             </p>
                             <p style="font-size: 11px; color: #D1D5DB; margin: 0;">
                                 Powered by <a href="https://tojuco.com" style="color: #9CA3AF; text-decoration: underline;">Tojuco</a>
@@ -287,6 +413,50 @@ const AddTemplateDialog: React.FC<Props> = ({
   initialData,
 }) => {
   const { userType, organizationId } = useAppContext();
+  const { organization } = useOrganization();
+  const { appliedSettings, organizations } = useWhiteLabel();
+
+  const userInfo = useMemo(() => {
+    try {
+      return typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("userInfo") || "{}")
+        : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const currentOrgObj = useMemo(() => {
+    return (
+      organizations?.find((o) => o.uuid === organizationId) ||
+      organization ||
+      userInfo?.organization ||
+      null
+    );
+  }, [organizations, organizationId, organization, userInfo]);
+
+  const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
+  const orgLogo =
+    organization?.branding?.logo ||
+    appliedSettings?.admin?.logo ||
+    currentOrgObj?.company_logos_urls?.[0]?.url ||
+    null;
+  const orgPrimaryColor =
+    (typeof organization?.branding?.primary_color === "object"
+      ? (organization.branding.primary_color as { value: string }).value
+      : (organization?.branding?.primary_color as string)) ||
+    appliedSettings?.admin?.pageTabColor ||
+    "#6BAE41";
+  const orgEmail =
+    currentOrgObj?.contact_email ||
+    organization?.contact_email ||
+    "mail@bcfloorplans.com";
+  const orgPhone =
+    currentOrgObj?.contact_phone ||
+    organization?.contact_phone ||
+    "604-788-7783";
+  const orgSlug = currentOrgObj?.slug?.toUpperCase() || "BCF";
+
   const [title, setTitle] = useState("");
   const [type, setType] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -361,11 +531,17 @@ const AddTemplateDialog: React.FC<Props> = ({
         const initContent = initialData.content || "";
         const initActive =
           initialData.is_active !== undefined ? initialData.is_active : true;
-        const initRoles =
+        const eventMeta = initType ? EVENT_METADATA[initType] : null;
+        let initRoles =
           Array.isArray(initialData.recipient_type) &&
           initialData.recipient_type.length > 0
             ? initialData.recipient_type
-            : (["agent"] as RecipientRole[]);
+            : (eventMeta?.defaultRoles || (["agent"] as RecipientRole[]));
+
+        if (eventMeta) {
+          const valid = initRoles.filter((r) => eventMeta.allowedRoles.includes(r));
+          initRoles = valid.length > 0 ? valid : eventMeta.defaultRoles;
+        }
 
         setTitle(initTitle);
         setType(initType);
@@ -488,7 +664,10 @@ const AddTemplateDialog: React.FC<Props> = ({
       const role = roleOverride || recipientRoles[0] || "agent";
       setLoadingBlade(true);
       try {
-        const res = await GetBladePreview(targetType, role, undefined, { loadDefault: true });
+        const res = await GetBladePreview(targetType, role, undefined, {
+          loadDefault: true,
+          organizationId: organizationId || undefined,
+        });
         if (res.success && res.data) {
           const data = res.data;
           const newContent = data.content || "";
@@ -526,7 +705,7 @@ const AddTemplateDialog: React.FC<Props> = ({
         setLoadingBlade(false);
       }
     },
-    [type, recipientRoles, title, initialData],
+    [type, recipientRoles, title, initialData, organizationId],
   );
 
   // User clicks "Load Default" (or "Reload Default Design")
@@ -590,6 +769,14 @@ const AddTemplateDialog: React.FC<Props> = ({
     });
   };
 
+  // Helper to adjust roles for a new event type
+  const sanitizeRolesForType = (targetType: string, currentRoles: RecipientRole[]) => {
+    const meta = EVENT_METADATA[targetType];
+    if (!meta) return currentRoles;
+    const valid = currentRoles.filter((r) => meta.allowedRoles.includes(r));
+    return valid.length > 0 ? valid : meta.defaultRoles;
+  };
+
   // Trigger template reload whenever template type changes
   const handleTypeChange = (newType: string) => {
     const normCurrent = content
@@ -615,16 +802,21 @@ const AddTemplateDialog: React.FC<Props> = ({
         cancelText: "Cancel",
         onConfirm: () => {
           setType(newType);
-          handleLoadBladeTemplate(newType, undefined, true);
+          const sanitized = sanitizeRolesForType(newType, recipientRoles);
+          setRecipientRoles(sanitized);
+          handleLoadBladeTemplate(newType, sanitized[0] || "agent", true);
         },
         secondaryAction: {
           label: "Change Type Only",
           onClick: async () => {
             setType(newType);
+            const sanitized = sanitizeRolesForType(newType, recipientRoles);
+            setRecipientRoles(sanitized);
+            const role = sanitized[0] || "agent";
             try {
-              const role = recipientRoles[0] || "agent";
               const res = await GetBladePreview(newType, role, undefined, {
                 loadDefault: true,
+                organizationId: organizationId || undefined,
               });
               if (res.success && res.data) {
                 if (res.data.variables && Array.isArray(res.data.variables)) {
@@ -642,11 +834,20 @@ const AddTemplateDialog: React.FC<Props> = ({
       });
     } else {
       setType(newType);
-      handleLoadBladeTemplate(newType, undefined, true);
+      const sanitized = sanitizeRolesForType(newType, recipientRoles);
+      setRecipientRoles(sanitized);
+      handleLoadBladeTemplate(newType, sanitized[0] || "agent", true);
     }
   };
 
   const handleRoleToggle = (role: RecipientRole) => {
+    const meta = type ? EVENT_METADATA[type] : null;
+    const allowed = meta ? meta.allowedRoles : (["admin", "agent", "vendor"] as RecipientRole[]);
+    if (!allowed.includes(role)) {
+      toast.error(`The ${role.toUpperCase()} role is not applicable for this event type.`);
+      return;
+    }
+
     if (recipientRoles.includes(role)) {
       if (recipientRoles.length === 1) {
         toast.error("At least one recipient role must be selected");
@@ -679,13 +880,23 @@ const AddTemplateDialog: React.FC<Props> = ({
       return;
     }
 
+    const meta = EVENT_METADATA[type];
+    const validRoles = meta
+      ? recipientRoles.filter((r) => meta.allowedRoles.includes(r))
+      : recipientRoles;
+
+    if (validRoles.length === 0) {
+      toast.error("Please select at least one valid recipient role for this event type");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         title,
         type,
         event_type: type,
-        recipient_type: recipientRoles,
+        recipient_type: validRoles,
         tags: tags.length > 0 ? tags : null,
         is_active: isActive,
         content,
@@ -736,25 +947,41 @@ const AddTemplateDialog: React.FC<Props> = ({
     }
   };
 
+  // Dynamically bound dummy preview values with active organization branding
+  const previewValues = useMemo(
+    () => ({
+      ...DUMMY_PREVIEW_VALUES,
+      company_name: orgName,
+      company_email: orgEmail,
+      company_phone: orgPhone,
+      invoice_number: `#INV-${orgSlug}-2026-00329`,
+    }),
+    [orgName, orgEmail, orgPhone, orgSlug],
+  );
+
   // Full preview document rendered in iframe
   const fullPreviewDoc = useMemo(() => {
     let rawHtml = content || "<p>No content provided</p>";
 
     // Replace all {{placeholders}} with realistic dummy values
-    Object.entries(DUMMY_PREVIEW_VALUES).forEach(([key, val]) => {
+    Object.entries(previewValues).forEach(([key, val]) => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, "gi");
       rawHtml = rawHtml.replace(regex, val);
     });
 
     // Also interpolate single brace or human readable placeholders if any
-    rawHtml = interpolateTemplate(rawHtml, DUMMY_PREVIEW_VALUES);
+    rawHtml = interpolateTemplate(rawHtml, previewValues);
 
     if (rawHtml.includes("<!DOCTYPE") || rawHtml.includes("<html")) {
       return rawHtml;
     }
 
-    return buildMasterHtml(rawHtml, "commerx");
-  }, [content]);
+    return buildMasterHtml(rawHtml, {
+      name: orgName,
+      logoUrl: orgLogo,
+      primaryColor: orgPrimaryColor,
+    });
+  }, [content, previewValues, orgName, orgLogo, orgPrimaryColor]);
 
   // Combine event specific variables and defaults without duplicates
   const allTags = Array.from(
@@ -885,6 +1112,44 @@ const AddTemplateDialog: React.FC<Props> = ({
                   <span>Start with Blank</span>
                 </Button>
               </div>
+
+              {/* Informative Helper Card explaining the selected event type and eligible recipients */}
+              {type && EVENT_METADATA[type] && (
+                <div className="p-3 bg-[#F0F7FF] border border-[#CBE2FC] rounded-md text-xs flex items-start gap-2.5 transition-all mt-1 shadow-2xs">
+                  <Info className="w-4 h-4 text-[#0078D4] shrink-0 mt-0.5" />
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-gray-800">
+                        {EVENT_METADATA[type].description}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-gray-600 mt-0.5">
+                      <span className="font-medium text-gray-700">Eligible Recipients:</span>
+                      <div className="flex items-center gap-1.5">
+                        {EVENT_METADATA[type].allowedRoles.map((r) => (
+                          <span
+                            key={r}
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                              r === "admin"
+                                ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                                : r === "agent"
+                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                            }`}
+                          >
+                            {r === "admin" ? "Admin" : r === "agent" ? "Agent" : "Vendor"}
+                          </span>
+                        ))}
+                      </div>
+                      {EVENT_METADATA[type].excludedExplanation && (
+                        <span className="text-[11px] text-gray-500 italic ml-1">
+                          • {EVENT_METADATA[type].excludedExplanation}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Row 3: Target Recipients (Admin, Agent, Vendor) & Status & View Mode */}
@@ -894,7 +1159,9 @@ const AddTemplateDialog: React.FC<Props> = ({
                   <Label className="font-semibold text-gray-700">
                     Target Recipients <span className="text-red-500">*</span>
                     <span className="text-xs font-normal text-gray-500 ml-1.5">
-                      (Select one or multiple)
+                      {type && EVENT_METADATA[type]?.allowedRoles.length === 1
+                        ? `(Exclusively sent to ${EVENT_METADATA[type].allowedRoles[0].toUpperCase()})`
+                        : "(Select one or multiple)"}
                     </span>
                   </Label>
                 </div>
@@ -916,27 +1183,32 @@ const AddTemplateDialog: React.FC<Props> = ({
                       color:
                         "bg-emerald-50 text-emerald-700 border-emerald-200",
                     },
-                  ].map((role) => {
-                    const checked = recipientRoles.includes(role.id);
-                    return (
-                      <label
-                        key={role.id}
-                        className={`h-[32px] flex items-center gap-2 px-3 rounded-md border cursor-pointer select-none text-xs font-medium transition-all ${
-                          checked
-                            ? `${role.color} font-bold ring-2 ring-offset-1 ring-blue-300 shadow-xs`
-                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => handleRoleToggle(role.id)}
-                          className="w-4 h-4 text-[#4290E9] rounded border-gray-300 focus:ring-[#4290E9] cursor-pointer"
-                        />
-                        <span>{role.label}</span>
-                      </label>
-                    );
-                  })}
+                  ]
+                    .filter((role) => {
+                      if (!type || !EVENT_METADATA[type]) return true;
+                      return EVENT_METADATA[type].allowedRoles.includes(role.id);
+                    })
+                    .map((role) => {
+                      const checked = recipientRoles.includes(role.id);
+                      return (
+                        <label
+                          key={role.id}
+                          className={`h-[32px] flex items-center gap-2 px-3 rounded-md border cursor-pointer select-none text-xs font-medium transition-all ${
+                            checked
+                              ? `${role.color} font-bold ring-2 ring-offset-1 ring-blue-300 shadow-xs`
+                              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleRoleToggle(role.id)}
+                            className="w-4 h-4 text-[#4290E9] rounded border-gray-300 focus:ring-[#4290E9] cursor-pointer"
+                          />
+                          <span>{role.label}</span>
+                        </label>
+                      );
+                    })}
                 </div>
               </div>
 

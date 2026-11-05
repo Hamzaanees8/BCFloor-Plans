@@ -126,6 +126,62 @@ const formatPdfName = (
 
   return trimmed;
 };
+
+export const isTabloidTemplate = (
+  templateKey: string | undefined | null,
+): boolean => {
+  if (!templateKey) return false;
+  const found = templateImages.find(
+    (t) => t.id === templateKey || t.url === templateKey,
+  );
+  if (found) {
+    return found.type === "tabloid";
+  }
+  const keyLower = templateKey.toLowerCase();
+  if (keyLower.includes("tabloid")) return true;
+  if (
+    [
+      "bcfpstandard2",
+      "bcfpstandard3",
+      "bcfpstandard4",
+      "bcfpstandard6",
+      "bcfpstandard7",
+      "bcfpstandard8",
+      "bcfpstandard9",
+      "bcfpstandard10",
+      "bcfpstandard11",
+      "bcfpstandard12",
+      "bcfpstandard14",
+      "bcfpstandard23",
+      "bcfpstandard24",
+    ].includes(keyLower)
+  ) {
+    return true;
+  }
+  return false;
+};
+
+export const getSheetDisplayName = (
+  templateKey: string | undefined | null,
+  isTabloidFallback?: boolean,
+): string => {
+  if (!templateKey) {
+    return isTabloidFallback ? "Tabloid" : "Flyer";
+  }
+  const label = getTemplateLabel(templateKey);
+  if (
+    label &&
+    (label.toLowerCase().includes("flyer") ||
+      label.toLowerCase().includes("tabloid"))
+  ) {
+    return label;
+  }
+  const isTabloid =
+    isTabloidFallback !== undefined
+      ? isTabloidFallback
+      : isTabloidTemplate(templateKey);
+  return isTabloid ? "Tabloid" : "Flyer";
+};
 import FieldSidePanel from "./FieldSidePanel";
 import DeletedFieldsPanel from "./DeletedFieldsPanel";
 
@@ -159,10 +215,12 @@ function FieldSidePanelConsumer({
   handleSaveFeatureSheet,
   isSaving,
   userType,
+  saveButtonText,
 }: {
   handleSaveFeatureSheet: () => Promise<FeatureSheetResponse | void>;
   isSaving: boolean;
   userType: string;
+  saveButtonText?: string;
 }) {
   const fieldPanel = useFieldPanel();
   if (!fieldPanel) return null;
@@ -178,6 +236,7 @@ function FieldSidePanelConsumer({
       isSaving={isSaving}
       onClose={closePanel}
       userType={userType}
+      saveButtonText={saveButtonText}
     />
   );
 }
@@ -333,6 +392,19 @@ const CreateFeatureSheet = forwardRef<
   // Stable session instance key: only changes when user explicitly selects a different sheet/template, NOT on save
   const [sheetInstanceId, setSheetInstanceId] = useState<string>(
     () => "inst_" + Math.random().toString(36).substring(2, 9),
+  );
+
+  const currentSavedSheet = featureSheets.find(
+    (s) => s.uuid === selectedSheetUuid,
+  );
+  const effectiveTemplateKey =
+    selectedTemplate || currentSavedSheet?.template_key || "";
+  const isCurrentTabloid =
+    isTabloidTemplate(effectiveTemplateKey) ||
+    (activeTab === "tabloid" && !effectiveTemplateKey);
+  const currentSheetDisplayName = getSheetDisplayName(
+    effectiveTemplateKey,
+    isCurrentTabloid,
   );
   const lastSavedPayloadRef = useRef<FeatureSheetResponse | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
@@ -814,6 +886,12 @@ const CreateFeatureSheet = forwardRef<
   };
 
   const handleDeleteFeatureSheet = async (uuid: string) => {
+    const targetSheet = featureSheets.find((s) => s.uuid === uuid);
+    const deleteLabel = getSheetDisplayName(
+      targetSheet?.template_key,
+      isTabloidTemplate(targetSheet?.template_key),
+    );
+    const isTab = isTabloidTemplate(targetSheet?.template_key);
     try {
       await featureSheetService.deleteFeatureSheet(uuid);
       setFeatureSheets((prev) => prev.filter((s) => s.uuid !== uuid));
@@ -833,10 +911,10 @@ const CreateFeatureSheet = forwardRef<
         deletedDetailFields: [],
         deletedStandardFieldIds: [],
       });
-      toast.success("Feature sheet deleted successfully!");
+      toast.success(`${deleteLabel} deleted successfully!`);
     } catch (error) {
-      console.error("Error deleting feature sheet:", error);
-      toast.error("Failed to delete feature sheet.");
+      console.error("Error deleting sheet:", error);
+      toast.error(`Failed to delete ${isTab ? "tabloid" : "flyer"}.`);
     } finally {
       setSheetToDelete(null);
       setConfirmOpen(false);
@@ -947,8 +1025,8 @@ const CreateFeatureSheet = forwardRef<
         );
         toast.success(
           newStatus
-            ? "Feature sheet published to public tour!"
-            : "Feature sheet unpublished from public tour.",
+            ? `${currentSheetDisplayName} published to public tour!`
+            : `${currentSheetDisplayName} unpublished from public tour.`,
         );
       } catch (err) {
         console.error("Error toggling publish status:", err);
@@ -969,7 +1047,9 @@ const CreateFeatureSheet = forwardRef<
     }
 
     setIsSaving(true);
-    setSaveStageStatus("Saving feature sheet & media...");
+    setSaveStageStatus(
+      `Saving ${isCurrentTabloid ? "tabloid" : "flyer"} & media...`,
+    );
     try {
       if (activeStandardRef.current) {
         const payload = await activeStandardRef.current.exportToPayload();
@@ -1016,7 +1096,16 @@ const CreateFeatureSheet = forwardRef<
           setSaveStageStatus(null);
         }
 
-        toast.success("Feature sheet saved successfully!");
+        const savedTemplateKey =
+          result.template_key ||
+          selectedTemplate ||
+          currentSavedSheet?.template_key ||
+          "";
+        const savedLabel = getSheetDisplayName(
+          savedTemplateKey,
+          isCurrentTabloid,
+        );
+        toast.success(`${savedLabel} saved successfully!`);
         return result;
       } else {
         toast.error(
@@ -1024,8 +1113,13 @@ const CreateFeatureSheet = forwardRef<
         );
       }
     } catch (error) {
-      console.error("Error saving feature sheet:", error);
-      toast.error("Failed to save feature sheet. Please try again.");
+      console.error(
+        `Error saving ${isCurrentTabloid ? "tabloid" : "flyer"}:`,
+        error,
+      );
+      toast.error(
+        `Failed to save ${isCurrentTabloid ? "tabloid" : "flyer"}. Please try again.`,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -1295,7 +1389,12 @@ const CreateFeatureSheet = forwardRef<
       // 5. Push into the active template component
       activeStandardRef.current.importFromPayload(mergedPayload);
 
-      toast.success(`Style copied from ${sourceSheet.template_key}!`);
+      const sourceLabel =
+        getSheetDisplayName(
+          sourceSheet.template_key,
+          isTabloidTemplate(sourceSheet.template_key),
+        ) || sourceSheet.template_key;
+      toast.success(`Style copied from ${sourceLabel}!`);
     } catch (err) {
       console.error("[CopyStyle] Failed to apply style:", err);
       toast.error("Failed to apply style. Please try again.");
@@ -1824,7 +1923,9 @@ const CreateFeatureSheet = forwardRef<
       setFeatureSheets((prev) => [...prev, newSheet]);
       setSelectedSheetUuid(newSheet.uuid);
 
-      toast.success("PDF feature sheet uploaded successfully!");
+      toast.success(
+        `PDF ${isCurrentTabloid ? "tabloid" : "flyer"} uploaded successfully!`,
+      );
     } catch (error) {
       console.error("Error uploading PDF feature sheet:", error);
       toast.error("Failed to upload PDF. Please try again.");
@@ -1917,6 +2018,7 @@ const CreateFeatureSheet = forwardRef<
         handleSaveFeatureSheet={handleSaveFeatureSheet}
         isSaving={isSaving}
         userType={userType as string}
+        saveButtonText={isCurrentTabloid ? "Save Tabloid" : "Save Flyer"}
       />
       <>
         <div className="w-full h-auto">
@@ -2074,7 +2176,7 @@ const CreateFeatureSheet = forwardRef<
                       : "bg-[#EEEEEE] hover:text-gray-700"
                   }`}
                 >
-                  Tabloid Feature Sheet
+                  Tabloid Sheets
                 </button>
                 <button
                   onClick={() => setActiveTab("my_sheets")}
@@ -2096,7 +2198,7 @@ const CreateFeatureSheet = forwardRef<
                     }
                     className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
                   >
-                    + Upload Feature Sheet
+                    + Upload {activeTab === "tabloid" ? "Tabloid" : "Flyer"}
                   </button>
                   <input
                     id="custom-pdf-upload"
@@ -2119,7 +2221,11 @@ const CreateFeatureSheet = forwardRef<
                     <h2
                       className={`text-[24px] font-semibold ${userType}-text mb-4`}
                     >
-                      Saved Feature Sheets
+                      {activeTab === "tabloid"
+                        ? "Saved Tabloids"
+                        : activeTab === "listing"
+                        ? "Saved Flyers"
+                        : "Saved Flyers & Tabloids"}
                     </h2>
                   </div>
                   {featureSheets
@@ -2188,7 +2294,9 @@ const CreateFeatureSheet = forwardRef<
                                   setSelectedSheetUuid(sheet.uuid);
                                 }}
                               >
-                                Edit Feature Sheet
+                                {isTabloidTemplate(sheet.template_key)
+                                  ? "Edit Tabloid"
+                                  : "Edit Flyer"}
                               </p>
                               {allowPrintRequest && (
                                 <p
@@ -2238,7 +2346,10 @@ const CreateFeatureSheet = forwardRef<
                                   )}
                                 </span>
                                 <span className="text-xs text-gray-400 mt-1 font-semibold uppercase tracking-wider">
-                                  Uploaded PDF Feature Sheet
+                                  Uploaded PDF{" "}
+                                  {isTabloidTemplate(sheet.template_key)
+                                    ? "Tabloid"
+                                    : "Flyer"}
                                 </span>
                                 <div className="mt-4 px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full flex items-center gap-1.5">
                                   <FileText className="w-3.5 h-3.5" />
@@ -2358,7 +2469,9 @@ const CreateFeatureSheet = forwardRef<
                   {activeTab !== "my_sheets" && (
                     <div className="col-span-full mt-4">
                       <h2 className="text-[24px] font-semibold text-[#666666] mb-4">
-                        Create New Feature Sheet
+                        {activeTab === "tabloid"
+                          ? "Create New Tabloid"
+                          : "Create New Flyer"}
                       </h2>
                     </div>
                   )}
@@ -2448,7 +2561,9 @@ const CreateFeatureSheet = forwardRef<
                             handleTemplateChange(template.id);
                           }}
                         >
-                          Edit Feature Sheet
+                          {template.type === "tabloid"
+                            ? "Edit Tabloid"
+                            : "Edit Flyer"}
                         </p>
                       </div>
                       <div
@@ -3075,7 +3190,7 @@ const CreateFeatureSheet = forwardRef<
                       className={`px-[14px] py-[19px] h-[60px] bg-[#E4E4E4] flex-1 ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
                     >
                       <span className="flex items-center gap-2">
-                        Feature Sheet Preview
+                        {isCurrentTabloid ? "Tabloid Preview" : "Flyer Preview"}
                         {selectedTemplate && (
                           <span className="normal-case text-[14px]">
                             ({formatPdfName(selectedTemplate)})
@@ -3098,7 +3213,12 @@ const CreateFeatureSheet = forwardRef<
                         {isSaving ? (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium">
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>{saveStageStatus || "Saving sheet..."}</span>
+                            <span>
+                              {saveStageStatus ||
+                                (isCurrentTabloid
+                                  ? "Saving tabloid..."
+                                  : "Saving flyer...")}
+                            </span>
                           </div>
                         ) : saveStageStatus ? (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium animate-fade-in">
@@ -3114,7 +3234,7 @@ const CreateFeatureSheet = forwardRef<
                             disabled={isSaving}
                             onClick={() => setRevertConfirmOpen(true)}
                             className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] h-[32px] text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border-2 border-red-500 hover:border-red-600 rounded-[6px] font-semibold transition-colors disabled:opacity-50"
-                            title="Revert to last saved version of this sheet"
+                            title={`Revert to last saved version of this ${isCurrentTabloid ? "tabloid" : "flyer"}`}
                           >
                             Revert to Saved
                           </button>
@@ -3145,7 +3265,7 @@ const CreateFeatureSheet = forwardRef<
                               Saving...
                             </>
                           ) : (
-                            "Save Sheet"
+                            isCurrentTabloid ? "Save Tabloid" : "Save Flyer"
                           )}
                         </button>
 
@@ -3605,7 +3725,9 @@ const CreateFeatureSheet = forwardRef<
                                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
                                 <div className="flex flex-col">
                                   <span className="text-sm font-semibold text-gray-800">
-                                    Saving Feature Sheet...
+                                    {isCurrentTabloid
+                                      ? "Saving Tabloid..."
+                                      : "Saving Flyer..."}
                                   </span>
                                   <span className="text-xs text-gray-500">
                                     Uploading media & persisting changes
@@ -3949,7 +4071,7 @@ const CreateFeatureSheet = forwardRef<
               </DialogTitle>
               <DialogDescription className="text-gray-600 pt-2 text-sm leading-relaxed">
                 Are you sure you want to revert to the last saved version of
-                this feature sheet? All unsaved edits made during this session
+                this {isCurrentTabloid ? "tabloid" : "flyer"}? All unsaved edits made during this session
                 will be discarded and cannot be recovered.
               </DialogDescription>
             </DialogHeader>
@@ -3988,7 +4110,7 @@ const CreateFeatureSheet = forwardRef<
           toggleShowAgain={handleToggleShowAgain}
           dialogType="delete"
           title="Confirm Deletion"
-          description="Are you sure you want to delete this feature sheet? This action cannot be undone."
+          description={`Are you sure you want to delete this ${isTabloidTemplate(featureSheets.find((s) => s.uuid === sheetToDelete)?.template_key) ? "tabloid" : "flyer"}? This action cannot be undone.`}
         />
         <PrintRequestModal
           open={isPrintModalOpen}

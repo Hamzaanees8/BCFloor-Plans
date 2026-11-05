@@ -87,6 +87,7 @@ export async function GetBladePreview(
         tourUuid?: string;
         vendorUuid?: string;
         isRuntime?: boolean;
+        organizationId?: string | null;
         extraData?: Record<string, any>;
     }
 ) {
@@ -100,6 +101,7 @@ export async function GetBladePreview(
             ...(options?.tourUuid ? { tour_uuid: options.tourUuid } : {}),
             ...(options?.vendorUuid ? { vendor_uuid: options.vendorUuid } : {}),
             ...(options?.isRuntime ? { is_runtime: 1 } : {}),
+            ...(options?.organizationId ? { organization_id: options.organizationId } : {}),
             ...(options?.extraData ? options.extraData : {}),
         }
     });

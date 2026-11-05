@@ -86,7 +86,7 @@ export default function FileManagerGallery({
       const file = e.target.files[0];
       const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif|avif)$/i.test(file.name);
       if (!isImage) {
-        toast.error("Only image files are allowed. PDF, video, and other files cannot be added to feature sheets.");
+        toast.error("Only image files are allowed. PDF, video, and other files cannot be added to flyers or tabloids.");
         e.target.value = "";
         return;
       }
@@ -355,7 +355,7 @@ export default function FileManagerGallery({
                 <ImageIcon className="w-8 h-8" />
               </div>
               <p className="text-lg font-bold text-gray-800 mb-1">No media in your gallery</p>
-              <p className="text-sm text-gray-500 mb-5 text-center max-w-sm">Upload a photo directly from your computer to use it in your feature sheet.</p>
+              <p className="text-sm text-gray-500 mb-5 text-center max-w-sm">Upload a photo directly from your computer to use it in your flyer or tabloid.</p>
               <label className="cursor-pointer">
                 <Button
                   type="button"

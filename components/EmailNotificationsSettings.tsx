@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { RefreshCcw, Save, Bell, Clock } from "lucide-react";
+import { RefreshCcw, Save, Bell, Clock, Info } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -15,6 +15,13 @@ import {
     TimingInterval
 } from "@/lib/email-templates";
 import IntervalSelector from "./IntervalSelector";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { EVENT_METADATA } from "./AddTemplateDialog";
 
 const EmailNotificationsSettings = () => {
     const { userType } = useAppContext();
@@ -237,8 +244,88 @@ const EmailNotificationsSettings = () => {
                             return (
                                 <tr key={event.event_type} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-5 align-top">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-sm font-semibold text-[#111827]">{event.label}</span>
+                                            
+                                            {/* Event Information Tooltip */}
+                                            {(() => {
+                                                const meta = EVENT_METADATA[event.event_type];
+                                                const excluded = meta?.excludedExplanation;
+                                                return (
+                                                    <TooltipProvider delayDuration={100}>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="inline-flex items-center justify-center p-0.5 text-[#4290E9] hover:text-[#2563EB] rounded-full hover:bg-blue-50 transition-colors focus:outline-none cursor-pointer"
+                                                                    aria-label={`Details for ${event.label}`}
+                                                                >
+                                                                    <Info className="w-3.5 h-3.5 text-[#4290E9]" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="right"
+                                                                align="start"
+                                                                className="w-[330px] p-3.5 bg-white text-gray-800 shadow-xl rounded-xl border border-gray-200 z-[99999] text-xs font-normal normal-case space-y-2.5"
+                                                            >
+                                                                <div>
+                                                                    <div className="font-bold text-gray-900 text-[13px] flex items-center justify-between">
+                                                                        <span>{meta?.label || event.label}</span>
+                                                                        {event.always_send && (
+                                                                            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                                                ALWAYS ON
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-gray-600 text-[11.5px] mt-1 leading-relaxed">
+                                                                        {meta?.description || event.description}
+                                                                    </p>
+                                                                </div>
+
+                                                                <div className="pt-2 border-t border-gray-100">
+                                                                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                                                                        Eligible Recipients:
+                                                                    </div>
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {event.recipients.includes("agent") && (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                                                                Agent
+                                                                            </span>
+                                                                        )}
+                                                                        {event.recipients.includes("vendor") && (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                                                Vendor
+                                                                            </span>
+                                                                        )}
+                                                                        {event.recipients.includes("admin") && (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                                                Admin
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {excluded && (
+                                                                    <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-500 italic leading-snug">
+                                                                        {excluded}
+                                                                    </div>
+                                                                )}
+
+                                                                {timed && (
+                                                                    <div className="pt-1.5 border-t border-gray-100 flex items-center gap-1.5 text-[10.5px] font-medium text-blue-700">
+                                                                        <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+                                                                        <span>Configurable reminder intervals.</span>
+                                                                    </div>
+                                                                )}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                );
+                                            })()}
+
                                             {timed && (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] px-2 py-0.5 rounded-full border border-[#BFDBFE]">
                                                     <Clock className="w-2.5 h-2.5" />
