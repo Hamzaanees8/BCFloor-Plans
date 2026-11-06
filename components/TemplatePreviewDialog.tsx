@@ -232,7 +232,7 @@ export default function TemplatePreviewDialog({
     if (organization?.branding?.logo) return organization.branding.logo;
 
     // C. Organization company_logos_urls (primary or first)
-    const orgLogos = currentOrgObj?.company_logos_urls || organization?.company_logos_urls || [];
+    const orgLogos = (currentOrgObj as any)?.company_logos_urls || (organization as any)?.company_logos_urls || [];
     if (orgLogos.length > 0) {
       const primary = orgLogos.find((l: any) => l.type === "primary_logo") || orgLogos[0];
       if (primary?.url) return primary.url;
@@ -246,8 +246,8 @@ export default function TemplatePreviewDialog({
     }
 
     // E. Direct logo properties
-    if (currentOrgObj?.logo) return currentOrgObj.logo;
-    if (organization?.logo) return organization.logo;
+    if ((currentOrgObj as any)?.logo) return (currentOrgObj as any).logo;
+    if ((organization as any)?.logo) return (organization as any).logo;
     if (userInfo?.company_logo_url) return userInfo.company_logo_url;
 
     // F. CSS Variable fallback (SSR / Whitelabel Domain wrapper)
@@ -287,7 +287,7 @@ export default function TemplatePreviewDialog({
     }
 
     // C. Direct primary color
-    const directColor = currentOrgObj?.primary_color || organization?.primary_color;
+    const directColor = (currentOrgObj as any)?.primary_color || (organization as any)?.primary_color;
     if (directColor) {
       if (typeof directColor === "object" && directColor.value) return directColor.value;
       if (typeof directColor === "string") return directColor;
