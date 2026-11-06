@@ -7,14 +7,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, Loader2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { interpolateTemplate } from "@/lib/email-templates";
 import {
   EmailTemplate,
-  PreviewTemplate,
   RecipientRole,
 } from "@/app/dashboard/global-settings/templates";
 
@@ -187,30 +186,7 @@ export default function TemplatePreviewDialog({
     );
   }, [organizations, organizationId, organization, userInfo]);
 
-  const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
-  const orgLogo =
-    organization?.branding?.logo ||
-    appliedSettings?.admin?.logo ||
-    currentOrgObj?.company_logos_urls?.[0]?.url ||
-    null;
-  const orgPrimaryColor =
-    (typeof organization?.branding?.primary_color === "object"
-      ? (organization.branding.primary_color as { value: string }).value
-      : (organization?.branding?.primary_color as string)) ||
-    appliedSettings?.admin?.pageTabColor ||
-    "#4290E9";
-  const orgEmail =
-    currentOrgObj?.contact_email ||
-    organization?.contact_email ||
-    "mail@bcfloorplans.com";
-  const orgPhone =
-    currentOrgObj?.contact_phone ||
-    organization?.contact_phone ||
-    "604-788-7783";
-
   const [activeRole, setActiveRole] = useState<RecipientRole>("agent");
-  const [loading, setLoading] = useState(false);
-  const [renderedHtml, setRenderedHtml] = useState<string>("");
 
   // Determine available roles for this template
   const availableRoles = useMemo<RecipientRole[]>(() => {
@@ -230,13 +206,122 @@ export default function TemplatePreviewDialog({
     }
   }, [open, template, availableRoles, activeRole]);
 
-  // Build dynamic preview data
+  // 1. Comprehensive Organization Name resolution (supports Whitelabel)
+  const orgName = useMemo(() => {
+    return (
+      currentOrgObj?.name ||
+      organization?.name ||
+      currentOrgObj?.from_name ||
+      organization?.from_name ||
+      userInfo?.organization?.name ||
+      "BC Floor Plans"
+    );
+  }, [currentOrgObj, organization, userInfo]);
+
+  // 2. Comprehensive Organization Logo resolution (supports Whitelabel)
+  const orgLogo = useMemo(() => {
+    // A. Applied Whitelabel Settings (for active role, admin, or agent)
+    const wlLogo =
+      appliedSettings?.[activeRole]?.logo ||
+      appliedSettings?.admin?.logo ||
+      appliedSettings?.agent?.logo;
+    if (wlLogo) return wlLogo;
+
+    // B. Organization Branding logo
+    if (currentOrgObj?.branding?.logo) return currentOrgObj.branding.logo;
+    if (organization?.branding?.logo) return organization.branding.logo;
+
+    // C. Organization company_logos_urls (primary or first)
+    const orgLogos = currentOrgObj?.company_logos_urls || organization?.company_logos_urls || [];
+    if (orgLogos.length > 0) {
+      const primary = orgLogos.find((l: any) => l.type === "primary_logo") || orgLogos[0];
+      if (primary?.url) return primary.url;
+    }
+
+    // D. User Session Organization logos
+    const userOrgLogos = userInfo?.organization?.company_logos_urls || userInfo?.company_logos_urls || [];
+    if (userOrgLogos.length > 0) {
+      const primary = userOrgLogos.find((l: any) => l.type === "primary_logo") || userOrgLogos[0];
+      if (primary?.url) return primary.url;
+    }
+
+    // E. Direct logo properties
+    if (currentOrgObj?.logo) return currentOrgObj.logo;
+    if (organization?.logo) return organization.logo;
+    if (userInfo?.company_logo_url) return userInfo.company_logo_url;
+
+    // F. CSS Variable fallback (SSR / Whitelabel Domain wrapper)
+    if (typeof document !== "undefined") {
+      const wrapper = document.getElementById("global-whitelabel-root");
+      if (wrapper) {
+        const style = window.getComputedStyle(wrapper);
+        const urlVar =
+          style.getPropertyValue("--org-logo").trim() ||
+          style.getPropertyValue("--logo-url").trim();
+        if (urlVar && urlVar !== "none") {
+          const match = urlVar.match(/url\(["']?(.*?)["']?\)/);
+          if (match && match[1]) return match[1];
+        }
+      }
+    }
+
+    return null;
+  }, [appliedSettings, activeRole, currentOrgObj, organization, userInfo]);
+
+  // 3. Comprehensive Organization Primary Color resolution (supports Whitelabel)
+  const orgPrimaryColor = useMemo(() => {
+    // A. Applied Whitelabel Color
+    const wlColor =
+      appliedSettings?.[activeRole]?.pageTabColor ||
+      appliedSettings?.admin?.pageTabColor ||
+      appliedSettings?.agent?.pageTabColor;
+    if (wlColor) return wlColor;
+
+    // B. Organization Branding primary color
+    const orgColor =
+      currentOrgObj?.branding?.primary_color ||
+      organization?.branding?.primary_color;
+    if (orgColor) {
+      if (typeof orgColor === "object" && orgColor.value) return orgColor.value;
+      if (typeof orgColor === "string") return orgColor;
+    }
+
+    // C. Direct primary color
+    const directColor = currentOrgObj?.primary_color || organization?.primary_color;
+    if (directColor) {
+      if (typeof directColor === "object" && directColor.value) return directColor.value;
+      if (typeof directColor === "string") return directColor;
+    }
+
+    return "#4290E9";
+  }, [appliedSettings, activeRole, currentOrgObj, organization]);
+
+  // 4. Contact details
+  const orgEmail =
+    currentOrgObj?.contact_email ||
+    organization?.contact_email ||
+    currentOrgObj?.from_email ||
+    organization?.from_email ||
+    "mail@bcfloorplans.com";
+
+  const orgPhone =
+    currentOrgObj?.contact_phone ||
+    organization?.contact_phone ||
+    "604-788-7783";
+
+  const orgSlug =
+    currentOrgObj?.slug?.toUpperCase() ||
+    organization?.slug?.toUpperCase() ||
+    "BCF";
+
+  // Build dynamic preview data identically to AddTemplateDialog (Create Template Popup)
   const currentPreviewValues = useMemo<Record<string, string>>(() => {
     const base: Record<string, string> = {
       ...DUMMY_PREVIEW_VALUES,
       company_name: orgName,
       company_email: orgEmail,
       company_phone: orgPhone,
+      invoice_number: `#INV-${orgSlug}-2026-00329`,
     };
 
     if (activeRole === "vendor") {
@@ -251,62 +336,35 @@ export default function TemplatePreviewDialog({
     }
 
     return base;
-  }, [orgName, orgEmail, orgPhone, activeRole]);
+  }, [orgName, orgEmail, orgPhone, orgSlug, activeRole]);
 
-  // Render preview document with fallback
-  useEffect(() => {
-    if (!open || !template) {
-      setRenderedHtml("");
-      return;
-    }
+  // Render preview document identically to AddTemplateDialog (Create Template Popup)
+  const renderedHtml = useMemo(() => {
+    if (!open || !template) return "";
 
-    // 1. Immediately create local fallback html
-    let localHtml =
+    let rawHtml =
       template.content ||
       "<p style='color:#888; text-align:center;'>No content in this template.</p>";
-    localHtml = interpolateTemplate(localHtml, currentPreviewValues);
 
-    if (!localHtml.includes("<!DOCTYPE") && !localHtml.includes("<html")) {
-      localHtml = buildMasterHtml(localHtml, {
-        name: orgName,
-        logoUrl: orgLogo,
-        primaryColor: orgPrimaryColor,
-      });
+    // 1. Replace all {{placeholders}} with realistic dummy values
+    Object.entries(currentPreviewValues).forEach(([key, val]) => {
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, "gi");
+      rawHtml = rawHtml.replace(regex, val);
+    });
+
+    // 2. Also interpolate single brace or human readable placeholders if any
+    rawHtml = interpolateTemplate(rawHtml, currentPreviewValues);
+
+    if (rawHtml.includes("<!DOCTYPE") || rawHtml.includes("<html")) {
+      return rawHtml;
     }
 
-    setRenderedHtml(localHtml);
-
-    // 2. Fetch backend blade preview if uuid exists
-    if (template.uuid) {
-      setLoading(true);
-      PreviewTemplate(template.uuid, {
-        data: currentPreviewValues,
-        recipient_role: activeRole,
-      })
-        .then((res) => {
-          if (res.success && res.data?.full_html) {
-            setRenderedHtml(res.data.full_html);
-          }
-        })
-        .catch((err) => {
-          console.error(
-            "Backend preview fetch error, using client template preview:",
-            err,
-          );
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [
-    open,
-    template,
-    activeRole,
-    currentPreviewValues,
-    orgName,
-    orgLogo,
-    orgPrimaryColor,
-  ]);
+    return buildMasterHtml(rawHtml, {
+      name: orgName,
+      logoUrl: orgLogo,
+      primaryColor: orgPrimaryColor,
+    });
+  }, [open, template, currentPreviewValues, orgName, orgLogo, orgPrimaryColor]);
 
   if (!template) return null;
 
@@ -351,7 +409,7 @@ export default function TemplatePreviewDialog({
               </div>
             </div>
 
-            {/* Controls: Role selector (if applicable), loading spinner, and Close button */}
+            {/* Controls: Role selector (if applicable) and Close button */}
             <div className="flex items-center gap-2.5 flex-shrink-0">
               {availableRoles.length > 1 && (
                 <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
@@ -372,13 +430,6 @@ export default function TemplatePreviewDialog({
                 </div>
               )}
 
-              {loading && (
-                <span className="flex items-center gap-1.5 text-[11px] text-[#4290E9] font-medium">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Updating...
-                </span>
-              )}
-
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -391,7 +442,7 @@ export default function TemplatePreviewDialog({
           </div>
         </DialogHeader>
 
-        {/* Body Viewport - Single clean scroll inside the preview iframe */}
+        {/* Body Viewport */}
         <div className="flex-1 w-full bg-[#ECEEF1] p-4 sm:p-6 overflow-hidden flex items-center justify-center">
           <iframe
             title="Email Template Preview"
