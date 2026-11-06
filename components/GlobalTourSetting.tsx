@@ -720,7 +720,9 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                             </div>
                         </div>
 
-                        <div className="mb-6">
+                        {/* Video resize settings hidden */}
+                        {false && (
+<div className="mb-6">
                             <h3 className="text-[14px] text-[#666666] font-[700] mb-3 px-4 h-[54px] bg-[#E4E4E4] flex items-center">VIDEO</h3>
                             <div className="w-full flex justify-center ">
                                 <div className="w-[500px] grid grid-cols-1 gap-4 px-4">
@@ -755,6 +757,7 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                 </div>
                             </div>
                         </div>
+                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>

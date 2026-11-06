@@ -64,6 +64,8 @@ import RevokeMediaReleaseConfirmDialog from "../components/RevokeMediaReleaseCon
 import MediaReleaseNoticeModal from "../../file-manager/components/MediaReleaseNoticeModal";
 import { isUserCoAgent } from "@/lib/permissions";
 import { useOrganization } from "@/app/context/OrganizationContext";
+import { getTourDomainUrl } from "@/lib/config/domains";
+import { slugify } from "@/lib/utils";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -210,7 +212,7 @@ function Page() {
   const [removeServiceModal, setRemoveServiceModal] = useState<{ open: boolean; service: any }>({ open: false, service: null });
   const [deleteInvoiceModal, setDeleteInvoiceModal] = useState<{ open: boolean; invoice: any }>({ open: false, invoice: null });
 
-  const [origin, setOrigin] = useState("");
+
 
   const [services, setServices] = useState<Services[]>([]);
   const [filesData, setFilesData] = useState<FilesData | null>(null);
@@ -272,9 +274,6 @@ function Page() {
     });
   };
 
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
 
   const router = useRouter();
   const params = useParams();
@@ -696,8 +695,7 @@ function Page() {
 
       await EditOrderStatus(orderId, payload, token);
 
-      // const updatedOrder = await GetOneOrder(token, orderId);
-      // setOrderData(updatedOrder.data);
+      await refreshOrders();
 
       toast.success("Order updated successfully");
     } catch (error) {
@@ -866,6 +864,19 @@ function Page() {
   };
 
   const isPast = isPastBooking(orderData);
+
+  // --- Tour URL resolution matching Confirmation tab ---
+  const activeOrg = organization || (orderData as any)?.organization;
+  const propAddress = orderData?.property_address || orderData?.property?.address || "";
+  const propLocation =
+    orderData?.property_location ||
+    (orderData?.property?.city
+      ? `${orderData.property.city}${orderData.property.province ? `-${orderData.property.province}` : ""}`
+      : "");
+  const addressSlug = [slugify(propAddress), slugify(propLocation)].filter(Boolean).join("-") || slugify(propAddress);
+  const tourUrl = orderData?.uuid
+    ? `${getTourDomainUrl(activeOrg)}/tour/${addressSlug}/${orderData.uuid}`
+    : "";
 
   // --- Cancel Order visibility logic ---
   const showCancelButton =
@@ -1397,7 +1408,7 @@ function Page() {
                       {orderData?.uuid ? (
                         <div className="relative w-full">
                           <Input
-                            value={`${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`}
+                            value={tourUrl}
                             readOnly
                             type="text"
                             className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
@@ -1405,9 +1416,10 @@ function Page() {
                           />
                           <Copy
                             onClick={() => {
-                              const url = `${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`;
-                              navigator.clipboard.writeText(url);
-                              toast.success("Tour link copied to clipboard");
+                              if (tourUrl) {
+                                navigator.clipboard.writeText(tourUrl);
+                                toast.success("Tour link copied to clipboard");
+                              }
                             }}
                             className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 h-[20px] w-[20px]"
                             style={{ color: roleSettings.pageTabColor }}
@@ -1647,44 +1659,53 @@ function Page() {
                   </p>
                   <div className="grid gap-[15px]">
                     {orderData?.services?.map((service) => {
+                      const isCancelled = (service as any).status === "cancelled";
                       const isPaid =
                         service.payment_status?.toUpperCase() === "PAID";
                       const originalPrice = getOriginalPrice(service);
                       return (
                         <p
                           key={service.id}
-                          className="grid grid-cols-4 gap-[15px] items-center group relative"
+                          className={`grid grid-cols-4 gap-[15px] items-center group relative ${isCancelled ? "opacity-60" : ""}`}
                         >
-                          <span className="col-span-3 flex items-center gap-2">
+                          <span className={`col-span-3 flex items-center gap-2 ${isCancelled ? "line-through text-gray-500" : ""}`}>
                             {service.service?.name ||
                               service.optionName ||
                               "Unknown Service"}
-                            {isPaid && (
-                              <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
-                                Paid
+                            {isCancelled ? (
+                              <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 rounded font-semibold uppercase no-underline">
+                                Cancelled
                               </span>
-                            )}
-                            {showCancelButton && (
-                              <button
-                                onClick={() => handleCancelServiceClick(service.uuid, service.service?.name || service.optionName || "Unknown Service")}
-                                className="transition-opacity ml-2 text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 flex-shrink-0"
-                                title="Cancel this service"
-                              >
-                                Cancel Service
-                              </button>
-                            )}
-                            {userType === "admin" && !isPaid && orderData?.order_status !== "Cancelled" && (
-                              <button
-                                onClick={() => setRemoveServiceModal({ open: true, service })}
-                                className="transition-opacity ml-1.5 text-[10px] text-red-600 hover:text-white bg-red-100 hover:bg-red-600 px-2 py-0.5 rounded border border-red-300 font-semibold flex-shrink-0"
-                                title="Directly remove this unpaid service and delete its invoice"
-                              >
-                                Remove Service
-                              </button>
+                            ) : (
+                              <>
+                                {isPaid && (
+                                  <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
+                                    Paid
+                                  </span>
+                                )}
+                                {showCancelButton && (
+                                  <button
+                                    onClick={() => handleCancelServiceClick(service.uuid, service.service?.name || service.optionName || "Unknown Service")}
+                                    className="transition-opacity ml-2 text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 flex-shrink-0"
+                                    title="Cancel this service"
+                                  >
+                                    Cancel Service
+                                  </button>
+                                )}
+                                {userType === "admin" && !isPaid && orderData?.order_status !== "Cancelled" && (
+                                  <button
+                                    onClick={() => setRemoveServiceModal({ open: true, service })}
+                                    className="transition-opacity ml-1.5 text-[10px] text-red-600 hover:text-white bg-red-100 hover:bg-red-600 px-2 py-0.5 rounded border border-red-300 font-semibold flex-shrink-0"
+                                    title="Directly remove this unpaid service and delete its invoice"
+                                  >
+                                    Remove Service
+                                  </button>
+                                )}
+                              </>
                             )}
                           </span>
                           {userType !== "vendor" && (
-                            <span className="col-span-1">
+                            <span className={`col-span-1 ${isCancelled ? "line-through text-gray-400" : ""}`}>
                               <span>${originalPrice.toFixed(2)}</span>
                             </span>
                           )}
@@ -1704,12 +1725,14 @@ function Page() {
                     ) || invoices[0];
                     const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
 
-                    // Calculate subtotal from services (actual catalog / booking prices)
+                    // Calculate subtotal from services (actual catalog / booking prices, excluding cancelled)
                     const subtotal =
-                      orderData?.services?.reduce(
-                        (sum, s) => sum + getOriginalPrice(s),
-                        0,
-                      ) || 0;
+                      orderData?.services
+                        ?.filter((s: any) => s.status !== "cancelled")
+                        ?.reduce(
+                          (sum, s) => sum + getOriginalPrice(s),
+                          0,
+                        ) || 0;
 
                     // Calculate total discount from orderData.totals array or applied package
                     const totalDiscount =

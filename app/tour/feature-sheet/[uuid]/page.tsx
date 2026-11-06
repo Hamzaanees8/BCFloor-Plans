@@ -51,8 +51,8 @@ const FeatureSheetPreviewPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // 1. Fetch feature sheet
-        const sheetResponse = await featureSheetService.getFeatureSheet(uuid);
+        // 1. Fetch feature sheet (public tour preview)
+        const sheetResponse = await featureSheetService.getFeatureSheet(uuid, true);
         const sheet = Array.isArray(sheetResponse) ? sheetResponse[0] : (sheetResponse as any).data || sheetResponse;
         
         if (!sheet) {
@@ -64,7 +64,7 @@ const FeatureSheetPreviewPage = () => {
         // 2. Fetch order data (needed for templates)
         if (sheet.order_id) {
           let order = null;
-          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+          const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("agentToken")) : null;
 
           if (token) {
             try {

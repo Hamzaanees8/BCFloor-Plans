@@ -9,6 +9,7 @@ interface BlockedMediaMessageProps {
   orderService?: any;
   onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
   bookingIndex?: number;
+  isCancelled?: boolean;
 }
 
 export const BlockedMediaMessage: React.FC<BlockedMediaMessageProps> = ({
@@ -16,7 +17,12 @@ export const BlockedMediaMessage: React.FC<BlockedMediaMessageProps> = ({
   orderService,
   onOpenInvoice,
   bookingIndex,
+  isCancelled,
 }) => {
+  const isCancelledBooking =
+    isCancelled ||
+    orderService?.status === "cancelled" ||
+    (orderService?.service as any)?.status === "cancelled";
   const displayName =
     serviceName || orderService?.service?.name || "This Service";
   const optionTitle = orderService?.option?.title;
@@ -33,14 +39,16 @@ export const BlockedMediaMessage: React.FC<BlockedMediaMessageProps> = ({
           </div>
           <div>
             <h3 className="text-base font-semibold text-rose-900 leading-tight">
-              Media Access Revoked
+              {isCancelledBooking ? "Service Booking Cancelled" : "Media Access Revoked"}
             </h3>
             <p className="text-xs text-rose-700 mt-0.5">
-              Access restricted following service refund
+              {isCancelledBooking
+                ? "This service has been cancelled"
+                : "Access restricted following service refund"}
             </p>
           </div>
           <span className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-200/80 text-rose-800 uppercase tracking-wide">
-            Refunded
+            {isCancelledBooking ? "Cancelled" : "Refunded"}
           </span>
         </div>
 
@@ -49,14 +57,23 @@ export const BlockedMediaMessage: React.FC<BlockedMediaMessageProps> = ({
           {/* Main Professional Notice */}
           <div className="space-y-2">
             <p className="text-[15px] leading-relaxed text-gray-700 font-medium">
-              Access to the media files and package upgrades for{" "}
-              <span className="text-gray-900 font-bold">{displayName}</span> has
-              been restricted by administration following a refund of this service.
+              {isCancelledBooking ? (
+                <>
+                  The booking for <span className="text-gray-900 font-bold">{displayName}</span> has
+                  been cancelled by administration. Media files and package upgrades are disabled.
+                </>
+              ) : (
+                <>
+                  Access to the media files and package upgrades for{" "}
+                  <span className="text-gray-900 font-bold">{displayName}</span> has
+                  been restricted by administration following a refund of this service.
+                </>
+              )}
             </p>
             <p className="text-sm leading-relaxed text-gray-500">
-              Photos, videos, floor plans, and additional media assets for this
-              specific booking are unavailable. Upgrades and file selections have
-              been disabled.
+              {isCancelledBooking
+                ? "Photos, videos, floor plans, and additional media assets for this cancelled booking are unavailable to view or download."
+                : "Photos, videos, floor plans, and additional media assets for this specific booking are unavailable. Upgrades and file selections have been disabled."}
             </p>
           </div>
 

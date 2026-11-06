@@ -816,31 +816,57 @@ const VendorWorkHours = ({
     setShowGallery(false);
   };
 
+  const isFilesDragEvent = (e: DragEvent): boolean => {
+    if (!e.dataTransfer) return false;
+    const types = e.dataTransfer.types;
+    if (!types) return false;
+    return Array.from(types).some((t) => t.toLowerCase() === 'files');
+  };
+
+  const resetDragState = useCallback(() => {
+    dragCounter.current = 0;
+    setDragging(false);
+  }, []);
+
   const handleDragEnter = useCallback((e: DragEvent) => {
+    if (!isFilesDragEvent(e)) return;
     e.preventDefault();
     dragCounter.current += 1;
     setDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
+    if (!isFilesDragEvent(e)) return;
     e.preventDefault();
     dragCounter.current -= 1;
-    if (dragCounter.current === 0) {
-      setDragging(false);
+    if (dragCounter.current <= 0) {
+      resetDragState();
     }
-  }, []);
+    if (
+      e.clientX <= 0 ||
+      e.clientY <= 0 ||
+      e.clientX >= window.innerWidth ||
+      e.clientY >= window.innerHeight ||
+      !e.relatedTarget
+    ) {
+      resetDragState();
+    }
+  }, [resetDragState]);
 
   const handleDragOverWindow = useCallback((e: DragEvent) => {
+    if (!isFilesDragEvent(e)) return;
     e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
   }, []);
 
   const handleDropWindow = useCallback(
     (e: DragEvent) => {
+      resetDragState();
+      if (!isFilesDragEvent(e)) return;
       e.preventDefault();
       e.stopPropagation();
-
-      setDragging(false);
-      dragCounter.current = 0;
 
       const droppedFiles = Array.from(e.dataTransfer?.files || []);
       if (droppedFiles.length > 0) {
@@ -848,26 +874,42 @@ const VendorWorkHours = ({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [portfolioImages, setPortfolioImages],
+    [portfolioImages, setPortfolioImages, resetDragState],
   );
 
   useEffect(() => {
+    const handleDragEnd = () => resetDragState();
+    const handleMouseUp = () => resetDragState();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") resetDragState();
+    };
+    const handleWindowBlur = () => resetDragState();
+
     window.addEventListener("dragenter", handleDragEnter);
     window.addEventListener("dragleave", handleDragLeave);
     window.addEventListener("dragover", handleDragOverWindow);
     window.addEventListener("drop", handleDropWindow);
+    window.addEventListener("dragend", handleDragEnd);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       window.removeEventListener("dragenter", handleDragEnter);
       window.removeEventListener("dragleave", handleDragLeave);
       window.removeEventListener("dragover", handleDragOverWindow);
       window.removeEventListener("drop", handleDropWindow);
+      window.removeEventListener("dragend", handleDragEnd);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("blur", handleWindowBlur);
     };
   }, [
     handleDragEnter,
     handleDragLeave,
     handleDragOverWindow,
     handleDropWindow,
+    resetDragState,
   ]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -1927,8 +1969,11 @@ const VendorWorkHours = ({
                 </p>
                 <div className="w-full flex flex-col">
                   {dragging && (
-                    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                      <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
+                    <div
+                      onClick={resetDragState}
+                      className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm cursor-pointer"
+                    >
+                      <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300 pointer-events-none">
                         <div className="bg-[#4290E9] p-6 rounded-full shadow-2xl">
                           <DownloadIcon
                             width="48px"

@@ -11,6 +11,7 @@ import { GetPublicTours } from '@/app/agent/agent'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { toast } from 'sonner'
 import type { Tour } from '@/lib/types'
+import { getTourDomainUrl } from '@/lib/config/domains'
 import MobileBottomNav from '@/components/mobile/MobileBottomNav'
 import MobileMoreMenu from '@/components/mobile/MobileMoreMenu'
 
@@ -110,7 +111,8 @@ export default function MobileAgentTours() {
       tour.orders?.property_address ||
       tour.orders?.property?.address ||
       'Property Tour'
-    const url = `${window.location.origin}${getTourUrl(tour)}`
+    const activeOrg = (tour as any)?.organization || (tour.orders as any)?.organization;
+    const url = `${getTourDomainUrl(activeOrg)}${getTourUrl(tour)}`
 
     if (navigator.share) {
       try {

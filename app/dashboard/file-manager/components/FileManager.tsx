@@ -2034,11 +2034,16 @@ const FileManager = () => {
       };
     }
 
+    const isServiceCancelled =
+      currentBookedService?.status === "cancelled" ||
+      (currentBookedService?.service as any)?.status === "cancelled";
+
     const isMediaBlockedForAgent =
       userType === "agent" &&
-      !orderData?.release_media_before_payment &&
-      (currentBookedService?.media_access === false ||
-        (currentBookedService?.service as any)?.media_access === false);
+      (isServiceCancelled ||
+        (!orderData?.release_media_before_payment &&
+          (currentBookedService?.media_access === false ||
+            (currentBookedService?.service as any)?.media_access === false)));
 
     if (isMediaBlockedForAgent) {
       return (
@@ -2049,6 +2054,7 @@ const FileManager = () => {
           orderService={currentBookedService}
           onOpenInvoice={handleOpenInvoice}
           bookingIndex={activeServiceIndex}
+          isCancelled={isServiceCancelled}
         />
       );
     }
@@ -4079,26 +4085,46 @@ const FileManager = () => {
                 {Array.from(groupedServices.entries()).map(
                   ([serviceUuid, group]) => {
                     const isActive = serviceUuid === activeTab;
+                    const isGroupCancelled = group.every(
+                      (s: any) =>
+                        s.status === "cancelled" ||
+                        s.service?.status === "cancelled",
+                    );
                     return (
                       <div
                         key={serviceUuid}
                         onClick={() => handleTabChange(serviceUuid)}
-                        className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                        className={`cursor-pointer flex flex-col items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
                           isScrolled
                             ? "h-[32px] md:h-[36px]"
                             : "h-[45px] md:h-[60px]"
                         } ${
-                          isActive
-                            ? `${userType}-bg text-white ${userType}-border`
-                            : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                          isGroupCancelled
+                            ? isActive
+                              ? "bg-red-600 text-white border-red-700"
+                              : "text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
+                            : isActive
+                              ? `${userType}-bg text-white ${userType}-border`
+                              : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
                         }`}
                         style={{
                           backgroundColor: isActive
-                            ? undefined
-                            : `var(--${userType}-page-bg, #F2F2F2)`,
+                            ? isGroupCancelled
+                              ? "#DC2626"
+                              : undefined
+                            : isGroupCancelled
+                              ? "#FEF2F2"
+                              : `var(--${userType}-page-bg, #F2F2F2)`,
                         }}
                       >
-                        {group[0].service.name}
+                        <span className={isGroupCancelled ? "line-through" : ""}>
+                          {group[0].service.name}
+                        </span>
+                        {isGroupCancelled && (
+                          <span className="text-[6.5px] md:text-[7.5px] font-bold bg-red-600 text-white px-1 py-0.2 rounded mt-0.5 uppercase tracking-tight">
+                            Cancelled
+                          </span>
+                        )}
                       </div>
                     );
                   },
@@ -4265,9 +4291,13 @@ const FileManager = () => {
                       </div>
 
                       {/* Status Badge */}
-                      {userType !== "vendor" && (
-                        <div className="flex items-center gap-2">
-                          {isRefunded ? (
+                      <div className="flex items-center gap-2">
+                        {booking.status === "cancelled" ? (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-red-600 text-white uppercase tracking-wider">
+                            CANCELLED
+                          </span>
+                        ) : userType !== "vendor" ? (
+                          isRefunded ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -4297,9 +4327,9 @@ const FileManager = () => {
                             >
                               UNPAID
                             </button>
-                          )}
-                        </div>
-                      )}
+                          )
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })}
@@ -4472,7 +4502,33 @@ const FileManager = () => {
               );
             })()}
 
-          <div className="pb-24 md:pb-0">{renderContent()}</div>
+          <div className="pb-24 md:pb-0">
+            {activeServiceGroup && (activeServiceGroup[activeServiceIndex]?.status === "cancelled" || (activeServiceGroup[activeServiceIndex]?.service as any)?.status === "cancelled") && userType !== "agent" && (
+              <div className="w-full bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center justify-between font-alexandria shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold text-sm">
+                    !
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold bg-red-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">
+                        Cancelled Service
+                      </span>
+                      <span className="text-sm font-semibold text-red-900">
+                        {activeServiceGroup[activeServiceIndex]?.service?.name || "This Service"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-700 mt-0.5">
+                      {userType === "vendor"
+                        ? "This service booking has been cancelled. Uploading and modifying files is disabled."
+                        : "This service booking was cancelled. Media access is restricted for the agent."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {renderContent()}
+          </div>
         </>
       )}
 

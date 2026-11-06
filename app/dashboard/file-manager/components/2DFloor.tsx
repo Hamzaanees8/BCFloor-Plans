@@ -306,8 +306,15 @@ const Service: React.FC<
     setSuccess(true);
   };
 
+  const isServiceCancelled =
+    currentBookedService?.status === "cancelled" ||
+    (currentBookedService?.service as any)?.status === "cancelled";
+
   const handleFilesChange = (selectedFiles: File[]) => {
-    if (userType === "agent") {
+    if (userType === "agent" || isServiceCancelled) {
+      if (isServiceCancelled) {
+        toast.error("Cannot upload files to a cancelled service.");
+      }
       return;
     }
 
@@ -1328,12 +1335,24 @@ const Service: React.FC<
             {userType !== "agent" ? (
               <div className="flex gap-2 items-center">
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg transition-all duration-300 ${
+                  onClick={() => {
+                    if (isServiceCancelled) {
+                      toast.error("Cannot upload files to a cancelled service.");
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={isServiceCancelled}
+                  className={`justify-center rounded-[6px] font-raleway border-[1px] ${
+                    isServiceCancelled
+                      ? "bg-gray-400 border-gray-400 cursor-not-allowed opacity-60 text-white"
+                      : `${userType}-border ${userType}-bg text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`
+                  } flex gap-[5px] items-center transition-all duration-300 ${
                     isScrolled
                       ? "h-[24px] w-[70px] text-[10px]"
                       : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
                   } px-1 md:px-4`}
+                  title={isServiceCancelled ? "Cannot upload files to a cancelled service" : undefined}
                 >
                   Add File
                 </Button>
@@ -1815,7 +1834,7 @@ const Service: React.FC<
             }
           }}
           onDropFiles={handleFilesChange}
-          onClickUpload={userType === "agent" ? undefined : () => fileInputRef.current?.click()}
+          onClickUpload={userType === "agent" || isServiceCancelled ? undefined : () => fileInputRef.current?.click()}
           renderItem={renderFileItem}
           disabled={isSaving}
           userTypeOverride={userType}
@@ -1953,7 +1972,7 @@ const Service: React.FC<
             : undefined
         }
         onReplace={
-          editingFile && "file" in editingFile
+          editingFile && "file" in editingFile && !isServiceCancelled
             ? () => {
                 setReplacingFile(editingFile.file);
                 fileInputRef.current?.click();

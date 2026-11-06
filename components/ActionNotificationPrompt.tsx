@@ -12,22 +12,21 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import WarningIcon from "@/components/Icons";
 import { useAppContext } from "@/app/context/AppContext";
-import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 
-export interface RecipientOption {
-  role: RecipientRole;
+export interface RecipientOption<T = string> {
+  role: T;
   label: string;
   sublabel?: string;
   defaultChecked?: boolean;
 }
 
-interface ActionNotificationPromptProps {
+interface ActionNotificationPromptProps<T = string> {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
-  options?: RecipientOption[];
-  onProceed: (selectedRoles: RecipientRole[]) => void;
+  options?: RecipientOption<T>[];
+  onProceed: (selectedRoles: T[]) => void;
   onSkip?: () => void;
 }
 
@@ -46,17 +45,17 @@ const DEFAULT_OPTIONS: RecipientOption[] = [
   },
 ];
 
-export default function ActionNotificationPrompt({
+export default function ActionNotificationPrompt<T extends string = string>({
   open,
   onOpenChange,
   title = "SAVE AND EXIT",
   description = "Are you sure you want to save and exit? Select who should receive an email notification:",
-  options = DEFAULT_OPTIONS,
+  options = DEFAULT_OPTIONS as RecipientOption<T>[],
   onProceed,
   onSkip,
-}: ActionNotificationPromptProps) {
+}: ActionNotificationPromptProps<T>) {
   const { userType } = useAppContext();
-  const [selectedRoles, setSelectedRoles] = useState<RecipientRole[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<T[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -67,7 +66,7 @@ export default function ActionNotificationPrompt({
     }
   }, [open, options]);
 
-  const handleToggle = (role: RecipientRole) => {
+  const handleToggle = (role: T) => {
     setSelectedRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );

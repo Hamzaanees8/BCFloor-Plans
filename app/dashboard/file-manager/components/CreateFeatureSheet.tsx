@@ -341,7 +341,7 @@ const CreateFeatureSheet = forwardRef<
     restoreAllDetailFieldsHandler,
   } = useFileManagerContext();
   const { userType } = useAppContext();
-  const { allowPrintRequest } = usePortalSettings();
+  const { allowPrintRequest } = usePortalSettings(!isReadonly);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const [openingInvoiceSheetUuid, setOpeningInvoiceSheetUuid] = useState<
@@ -1506,7 +1506,7 @@ const CreateFeatureSheet = forwardRef<
   }, [featureSheets]);
 
   useEffect(() => {
-    if (!orderData?.uuid) return;
+    if (!orderData?.uuid || isReadonly) return;
 
     let pollingInterval: NodeJS.Timeout | null = null;
 
@@ -1561,6 +1561,7 @@ const CreateFeatureSheet = forwardRef<
     };
   }, [
     orderData?.uuid,
+    isReadonly,
     hasProcessingSheetImages,
     selectedSheetUuid,
     selectedTemplate,
@@ -1570,7 +1571,7 @@ const CreateFeatureSheet = forwardRef<
 
   useEffect(() => {
     const fetchAgentSheets = async () => {
-      if (activeTab !== "my_sheets") return;
+      if (activeTab !== "my_sheets" || isReadonly) return;
       setLoadingAgentSheets(true);
       try {
         const response = await featureSheetService.getFeatureSheetsByAgent();
@@ -1586,7 +1587,7 @@ const CreateFeatureSheet = forwardRef<
     };
 
     fetchAgentSheets();
-  }, [activeTab]);
+  }, [activeTab, isReadonly]);
 
   // Force load the specific sheet if previewSheetUuid is provided or in readonly mode
   useEffect(() => {

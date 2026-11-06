@@ -339,7 +339,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     const events = orderData?.flatMap((order) => {
         if (!order || !order.slots || !order.uuid) return [];
-        const sortedSlots = [...order.slots].sort((a, b) => {
+        const sortedSlots = [...order.slots]
+            .filter((s: any) => s.status !== 'cancelled')
+            .sort((a, b) => {
             const aStart = dayjs(`${a.date} ${a.start_time}`);
             const bStart = dayjs(`${b.date} ${b.start_time}`);
             return aStart.diff(bStart);
@@ -393,7 +395,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         let displayStartTime = firstSlot.start_time;
                         let displayEndTime = lastSlot.custom_end_time || lastSlot.end_time;
 
-                        if (userType === 'vendor' || userType === 'admin') {
+                        if (userType === 'vendor') {
                             displayStartTime = convertTimeToTimezone(firstSlot.date, firstSlot.start_time, propertyTz, vendorTz) || firstSlot.start_time;
                             displayEndTime = convertTimeToTimezone(lastSlot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
                         }
@@ -415,7 +417,6 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             custom_duration: firstSlot.custom_duration ?? undefined,
                             custom_end_time: firstSlot.custom_end_time ?? undefined,
                             buffer_minutes: firstSlot.buffer_minutes ?? undefined,
-                            // @ts-expect-error skip
                             color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
                             resourceId: firstSlot.vendor?.uuid,
                             property_timezone: propertyTz,
@@ -439,7 +440,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 let displayStartTime = firstSlot.start_time;
                 let displayEndTime = lastSlot.custom_end_time || lastSlot.end_time;
 
-                if (userType === 'vendor' || userType === 'admin') {
+                if (userType === 'vendor') {
                     displayStartTime = convertTimeToTimezone(firstSlot.date, firstSlot.start_time, propertyTz, vendorTz) || firstSlot.start_time;
                     displayEndTime = convertTimeToTimezone(lastSlot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
                 }
@@ -461,8 +462,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     custom_duration: firstSlot.custom_duration ?? undefined,
                     custom_end_time: firstSlot.custom_end_time ?? undefined,
                     buffer_minutes: firstSlot.buffer_minutes ?? undefined,
-                    // @ts-expect-error skip
-                    color_id: firstSlot.vendor?.company?.vendor_id,
+
+                    color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
                     resourceId: firstSlot.vendor?.uuid,
                     property_timezone: propertyTz,
                     vendor_timezone: vendorTz,
@@ -1304,7 +1305,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
         // Process order events for monthly view
         orderData?.forEach((order) => {
-            order.slots.forEach((slot) => {
+            order.slots.forEach((slot: any) => {
+                if (slot.status === 'cancelled') return;
                 const slotDate = dayjs(slot.date);
 
                 // Only include slots that fall within the current month view
@@ -1334,7 +1336,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     let displayStartTime = slot.start_time;
                     let displayEndTime = slot.custom_end_time || slot.end_time;
 
-                    if (userType === 'vendor' || userType === 'admin') {
+                    if (userType === 'vendor') {
                         displayStartTime = convertTimeToTimezone(slot.date, slot.start_time, propertyTz, vendorTz) || slot.start_time;
                         displayEndTime = convertTimeToTimezone(slot.date, displayEndTime, propertyTz, vendorTz) || displayEndTime;
                     }
@@ -1354,7 +1356,6 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         custom_duration: slot.custom_duration ?? undefined,
                         custom_end_time: slot.custom_end_time ?? undefined,
                         buffer_minutes: slot.buffer_minutes ?? undefined,
-                        // @ts-expect-error skip
                         color_id: Number(slot.vendor?.company?.vendor_id ?? 0),
                         property_timezone: propertyTz,
                         vendor_timezone: vendorTz,

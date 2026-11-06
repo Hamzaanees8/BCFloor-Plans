@@ -41,7 +41,7 @@ export interface RuntimeEmailEditorModalProps {
   onClose: () => void;
   eventType: string;
   eventLabel: string;
-  queueRoles: RecipientRole[];
+  queueRoles: (RecipientRole | string)[];
   orderUuid?: string;
   tourUuid?: string;
   serviceUuid?: string;
@@ -51,10 +51,13 @@ export interface RuntimeEmailEditorModalProps {
   recipientEmails?: Record<string, string | undefined>;
   recipientNames?: Record<string, string | undefined>;
   onComplete?: () => void;
+  onCustomSend?: (
+    staged: Record<string, { subject: string; content: string }>,
+  ) => Promise<boolean | void>;
 }
 
 const ROLE_CONFIG: Record<
-  RecipientRole,
+  string,
   { label: string; badgeBg: string; textColor: string; border: string }
 > = {
   agent: {
@@ -65,6 +68,18 @@ const ROLE_CONFIG: Record<
   },
   vendor: {
     label: "FOR VENDOR",
+    badgeBg: "bg-[#059669]",
+    textColor: "text-white",
+    border: "border-emerald-600",
+  },
+  old_vendor: {
+    label: "FOR PREVIOUS VENDOR",
+    badgeBg: "bg-[#DC2626]",
+    textColor: "text-white",
+    border: "border-red-600",
+  },
+  new_vendor: {
+    label: "FOR NEW VENDOR",
     badgeBg: "bg-[#059669]",
     textColor: "text-white",
     border: "border-emerald-600",
@@ -157,6 +172,7 @@ export default function RuntimeEmailEditorModal({
   recipientEmails = {},
   recipientNames = {},
   onComplete,
+  onCustomSend,
 }: RuntimeEmailEditorModalProps) {
   const { organizationId } = useAppContext();
 
@@ -169,8 +185,8 @@ export default function RuntimeEmailEditorModal({
   >({});
 
   // Active role being edited
-  const currentRole: RecipientRole =
-    queueRoles[currentIndex] || queueRoles[0] || "agent";
+  const currentRole: string =
+    (queueRoles[currentIndex] as string) || (queueRoles[0] as string) || "agent";
 
   // Current editor fields
   const [currentSubject, setCurrentSubject] = useState("");
@@ -187,6 +203,8 @@ export default function RuntimeEmailEditorModal({
   const loadedRolesRef = useRef<Set<string>>(new Set());
   const extraDataRef = useRef(extraData);
   extraDataRef.current = extraData;
+  const recipientNamesRef = useRef(recipientNames);
+  recipientNamesRef.current = recipientNames;
 
   // Loading states
   const [loadingTemplate, setLoadingTemplate] = useState(false);
@@ -225,7 +243,7 @@ export default function RuntimeEmailEditorModal({
 
   // Load template for a specific role
   const loadRoleTemplate = useCallback(
-    async (role: RecipientRole) => {
+    async (role: RecipientRole | string) => {
       // If already staged in memory, restore immediately from memory
       if (stagedDataRef.current[role]) {
         setCurrentSubject(stagedDataRef.current[role].subject);
@@ -244,12 +262,46 @@ export default function RuntimeEmailEditorModal({
       loadedRolesRef.current.add(role);
       setLoadingTemplate(true);
       try {
-        const res = await GetBladePreview(eventType, role, orderUuid, {
+        let roleEventType = eventType;
+        let roleForPreview: string = role;
+        let roleVendorUuid = vendorUuid;
+
+        if ((role as string) === "old_vendor") {
+          roleEventType = "slot_cancelled";
+          roleForPreview = "vendor";
+          roleVendorUuid = extraDataRef.current?.old_vendor_uuid || vendorUuid;
+        } else if ((role as string) === "new_vendor") {
+          roleEventType = "slot_booked";
+          roleForPreview = "vendor";
+          roleVendorUuid = extraDataRef.current?.new_vendor_uuid || vendorUuid;
+        }
+
+        const roleRecipientName =
+          recipientNamesRef.current[role] ||
+          ((role as string) === "old_vendor"
+            ? extraDataRef.current?.old_vendor_name
+            : (role as string) === "new_vendor"
+            ? extraDataRef.current?.new_vendor_name
+            : undefined);
+
+        const roleVendorName =
+          (role as string) === "old_vendor"
+            ? extraDataRef.current?.old_vendor_name
+            : (role as string) === "new_vendor"
+            ? extraDataRef.current?.new_vendor_name
+            : undefined;
+
+        const res = await GetBladePreview(roleEventType, roleForPreview, orderUuid, {
           serviceUuid,
           slotUuid,
           tourUuid,
-          vendorUuid,
-          extraData: extraDataRef.current,
+          vendorUuid: roleVendorUuid,
+          extraData: {
+            ...extraDataRef.current,
+            recipient_name: roleRecipientName,
+            vendor_name: roleVendorName,
+            vendor_uuid: roleVendorUuid,
+          },
           isRuntime: true,
         });
         if (res.success && res.data) {
@@ -415,6 +467,25 @@ export default function RuntimeEmailEditorModal({
       return;
     }
 
+    // If a custom send handler is provided (e.g., multi-event vendor reassignment)
+    if (onCustomSend) {
+      setSending(true);
+      try {
+        const success = await onCustomSend(updatedStaged);
+        if (success !== false) {
+          toast.success("Email(s) dispatched successfully.");
+          onComplete?.();
+          onClose();
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err?.response?.data?.message || "Failed to send email");
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
     // Otherwise, this is the final role! Dispatch all emails!
     setSending(true);
     try {
@@ -431,7 +502,7 @@ export default function RuntimeEmailEditorModal({
 
       const res = await SendPreviewEmail({
         event_type: eventType,
-        recipient_roles: queueRoles,
+        recipient_roles: queueRoles as any,
         content_overrides: contentOverrides,
         subject_overrides: subjectOverrides,
         order_uuid: orderUuid,

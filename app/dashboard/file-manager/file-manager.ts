@@ -2272,16 +2272,34 @@ export class FeatureSheetService {
     }
   }
 
-  async getFeatureSheet(uuid: string): Promise<FeatureSheetResponse> {
-    const response = await api.get(
-      `/feature-sheets/${uuid}`,
-    );
+  async getFeatureSheet(
+    uuid: string,
+    isPublicView: boolean = false,
+  ): Promise<FeatureSheetResponse> {
+    try {
+      const endpoint = `/feature-sheets/${uuid}${isPublicView ? "?public=true" : ""}`;
+      const response = await api.get(endpoint);
 
-    if (response.status !== 200) {
-      throw new Error("Failed to fetch feature sheet");
+      if (response.status === 200) {
+        return response.data;
+      }
+    } catch (err) {
+      console.warn("api.get failed for feature sheet, attempting fetch fallback:", err);
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const endpoint = `${baseUrl}/feature-sheets/${uuid}${isPublicView ? "?public=true" : ""}`;
+        const res = await fetch(endpoint);
+        if (res.ok) {
+          const json = await res.json();
+          return json.data || json;
+        }
+      } catch (fetchErr) {
+        console.error("Failed to fetch feature sheet fallback:", fetchErr);
+      }
+      throw err;
     }
 
-    return response.data;
+    throw new Error("Failed to fetch feature sheet");
   }
 
   async getFeatureSheetsByOrder(

@@ -167,6 +167,8 @@ type Agent = {
     primary_phone: string;
     secondary_phone?: string;
     company_name: string;
+    company?: { uuid: string; company_name: string; vendor_id?: string | number };
+
     website: string;
     license_number: string;
     certifications: string[];
@@ -213,6 +215,8 @@ type Vendor = {
     last_name: string;
     full_name: string;
     company_name: string;
+    company?: { uuid: string; company_name: string; vendor_id?: string | number };
+
     addresses: Address[];
     email: string;
     secondary_email: string;
@@ -256,6 +260,7 @@ export type OrderService = {
     payment_status?: string;
     media_access?: boolean | null;
     is_completed?: boolean | number;
+    status?: string;
     option: {
         id: number;
         uuid: string;

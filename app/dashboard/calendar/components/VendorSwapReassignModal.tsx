@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import { Services } from "../../services/page";
 import { ReassignBookingSlot, SwapBookingSlots } from "../calendar";
 import ActionNotificationPrompt from "@/components/ActionNotificationPrompt";
 import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
-import { RecipientRole } from "@/app/dashboard/global-settings/templates";
+import { SendPreviewEmail } from "@/app/dashboard/global-settings/templates";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ export default function VendorSwapReassignModal({
   const [isLoading, setIsLoading] = useState(false);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [targetEmailRoles, setTargetEmailRoles] = useState<RecipientRole[]>(["vendor", "agent"]);
+  const [targetEmailRoles, setTargetEmailRoles] = useState<string[]>([]);
 
   // ── Source slot (the slot we are acting on) ──
   const sourceSlot = useMemo(
@@ -195,11 +195,64 @@ export default function VendorSwapReassignModal({
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
+  // Capture old vendor when modal opens so subsequent order refreshes don't mutate it
+  const [capturedOldVendor, setCapturedOldVendor] = useState<any>(null);
+
+  useEffect(() => {
+    if (open && sourceSlot) {
+      const vId = sourceSlot?.vendor?.uuid ?? sourceSlot?.vendor_id;
+      const found = vendors.find((v) => v.uuid === vId || String(v.id) === String(vId));
+      if (found) {
+        setCapturedOldVendor(found);
+      }
+    }
+    if (!open) {
+      setCapturedOldVendor(null);
+    }
+  }, [open, sourceSlot, vendors]);
+
   const targetVendor = useMemo(() => {
     return vendors.find((v) => v.uuid === selectedVendorUuid);
   }, [vendors, selectedVendorUuid]);
 
-  const handleSubmit = async () => {
+  const oldVendor = useMemo(() => {
+    if (capturedOldVendor) return capturedOldVendor;
+    const vId = sourceSlot?.vendor?.uuid ?? sourceSlot?.vendor_id;
+    return vendors.find((v) => v.uuid === vId || String(v.id) === String(vId));
+  }, [capturedOldVendor, vendors, sourceSlot]);
+
+  const oldVendorName = oldVendor?.first_name
+    ? `${oldVendor.first_name} ${oldVendor.last_name || ""}`.trim()
+    : "Previous Vendor";
+  const newVendorName = targetVendor?.first_name
+    ? `${targetVendor.first_name} ${targetVendor.last_name || ""}`.trim()
+    : "New Vendor";
+  const agentName = currentOrder?.agent?.first_name
+    ? `${currentOrder.agent.first_name} ${currentOrder.agent.last_name || ""}`.trim()
+    : "Agent";
+
+  const handleSubmit = () => {
+    if (!sourceSlot?.uuid) {
+      toast.error("Could not find the booking slot for this service.");
+      return;
+    }
+
+    if (mode === "reassign") {
+      if (!selectedVendorUuid) {
+        toast.error("Please select a vendor.");
+        return;
+      }
+    } else {
+      if (!selectedSlotUuid) {
+        toast.error("Please select a slot to swap with.");
+        return;
+      }
+    }
+
+    setShowNotifyPrompt(true);
+  };
+
+  const handlePromptProceed = async (selectedRoles: string[]) => {
     const token = localStorage.getItem("token") || "";
 
     if (!sourceSlot?.uuid) {
@@ -210,23 +263,26 @@ export default function VendorSwapReassignModal({
     setIsLoading(true);
     try {
       if (mode === "reassign") {
-        if (!selectedVendorUuid) {
-          toast.error("Please select a vendor.");
-          return;
-        }
-        await ReassignBookingSlot(sourceSlot.uuid, selectedVendorUuid, token);
+        await ReassignBookingSlot(sourceSlot.uuid, selectedVendorUuid, token, {
+          notify_old_vendor: false,
+          notify_new_vendor: false,
+          notify_agent: false,
+        });
         toast.success("Vendor reassigned successfully.");
       } else {
-        if (!selectedSlotUuid) {
-          toast.error("Please select a slot to swap with.");
-          return;
-        }
         await SwapBookingSlots(sourceSlot.uuid, selectedSlotUuid, token);
         toast.success("Slots swapped successfully.");
       }
 
-      if (refreshOrders) refreshOrders();
-      setShowNotifyPrompt(true);
+      setShowNotifyPrompt(false);
+
+      if (selectedRoles.length > 0) {
+        setTargetEmailRoles(selectedRoles);
+        setShowEmailModal(true);
+      } else {
+        if (refreshOrders) refreshOrders();
+        onClose();
+      }
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -236,6 +292,87 @@ export default function VendorSwapReassignModal({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCustomSend = async (staged: Record<string, { subject: string; content: string }>) => {
+    const promises: Promise<any>[] = [];
+
+    if (staged.old_vendor && oldVendor?.email) {
+      promises.push(
+        SendPreviewEmail({
+          event_type: "slot_cancelled",
+          recipient_roles: ["vendor"],
+          vendor_uuid: oldVendor.uuid,
+          slot_uuid: sourceSlot?.uuid,
+          order_uuid: currentOrder.uuid,
+          service_uuid: currentService.uuid,
+          options: {
+            vendor_uuid: oldVendor.uuid,
+            recipient_name: oldVendorName,
+            vendor_name: oldVendorName,
+            vendor_email: oldVendor.email,
+          },
+          content_overrides: { vendor: staged.old_vendor.content },
+          subject_overrides: { vendor: staged.old_vendor.subject },
+        })
+      );
+    }
+
+    if (staged.new_vendor && targetVendor?.email) {
+      promises.push(
+        SendPreviewEmail({
+          event_type: "slot_booked",
+          recipient_roles: ["vendor"],
+          vendor_uuid: targetVendor.uuid,
+          slot_uuid: sourceSlot?.uuid,
+          order_uuid: currentOrder.uuid,
+          service_uuid: currentService.uuid,
+          options: {
+            vendor_uuid: targetVendor.uuid,
+            recipient_name: newVendorName,
+            vendor_name: newVendorName,
+            vendor_email: targetVendor.email,
+          },
+          content_overrides: { vendor: staged.new_vendor.content },
+          subject_overrides: { vendor: staged.new_vendor.subject },
+        })
+      );
+    }
+
+    if (staged.agent && (currentOrder.agent?.email || (currentOrder as any)?.user?.email)) {
+      promises.push(
+        SendPreviewEmail({
+          event_type: "slot_rescheduled",
+          recipient_roles: ["agent"],
+          slot_uuid: sourceSlot?.uuid,
+          order_uuid: currentOrder.uuid,
+          service_uuid: currentService.uuid,
+          options: {
+            recipient_name: agentName,
+            vendor_name: newVendorName,
+          },
+          content_overrides: { agent: staged.agent.content },
+          subject_overrides: { agent: staged.agent.subject },
+        })
+      );
+    }
+
+    if (staged.vendor && mode === "swap") {
+      promises.push(
+        SendPreviewEmail({
+          event_type: "slot_rescheduled",
+          recipient_roles: ["vendor"],
+          slot_uuid: sourceSlot?.uuid,
+          order_uuid: currentOrder.uuid,
+          service_uuid: currentService.uuid,
+          content_overrides: { vendor: staged.vendor.content },
+          subject_overrides: { vendor: staged.vendor.subject },
+        })
+      );
+    }
+
+    await Promise.all(promises);
+    return true;
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -429,8 +566,8 @@ export default function VendorSwapReassignModal({
       </DialogContent>
     </Dialog>
 
-    {/* Step 1: Post-Action Recipient Selection Prompt */}
-    <ActionNotificationPrompt
+    {/* Step 1: Recipient Selection & Dispatch Prompt */}
+    <ActionNotificationPrompt<string>
       open={showNotifyPrompt}
       onOpenChange={(v) => {
         setShowNotifyPrompt(v);
@@ -438,63 +575,89 @@ export default function VendorSwapReassignModal({
       title="NOTIFY RECIPIENTS"
       description={
         mode === "reassign"
-          ? "Vendor has been reassigned successfully. Select who should receive an email notification:"
-          : "Slots have been swapped successfully. Select who should receive an email notification:"
+          ? "Select who should receive an email notification for this reassignment:"
+          : "Select who should receive an email notification for this swap:"
       }
-      options={[
-        {
-          role: "vendor",
-          label: mode === "reassign"
-            ? `Notify Newly Assigned Vendor (${targetVendor?.first_name || "New Vendor"})`
-            : "Notify Assigned Vendors",
-          sublabel: "Edit Notification",
-          defaultChecked: true,
-        },
-        {
-          role: "agent",
-          label: "Notify Agent of Changes",
-          sublabel: "Edit Notification",
-          defaultChecked: true,
-        },
-      ]}
-      onProceed={(selectedRoles) => {
-        setShowNotifyPrompt(false);
-        setTargetEmailRoles(selectedRoles);
-        setShowEmailModal(true);
-      }}
+      options={
+        mode === "reassign"
+          ? [
+              {
+                role: "old_vendor",
+                label: `Notify Previous Vendor (${oldVendorName})`,
+                sublabel: "Sends slot cancellation notice",
+                defaultChecked: true,
+              },
+              {
+                role: "new_vendor",
+                label: `Notify Newly Assigned Vendor (${newVendorName})`,
+                sublabel: "Sends appointment scheduled notice",
+                defaultChecked: true,
+              },
+              {
+                role: "agent",
+                label: `Notify Agent (${agentName})`,
+                sublabel: "Sends appointment update notice",
+                defaultChecked: true,
+              },
+            ]
+          : [
+              {
+                role: "vendor",
+                label: "Notify Assigned Vendors",
+                sublabel: "Sends schedule update notice",
+                defaultChecked: true,
+              },
+              {
+                role: "agent",
+                label: `Notify Agent (${agentName})`,
+                sublabel: "Sends schedule update notice",
+                defaultChecked: true,
+              },
+            ]
+      }
+      onProceed={handlePromptProceed}
       onSkip={() => {
         setShowNotifyPrompt(false);
         onClose();
       }}
     />
 
-    {/* Step 2: Streamlined Runtime Email Editor Modal */}
+    {/* Step 2: Runtime Email Editor Modal */}
     {showEmailModal && (
       <RuntimeEmailEditorModal
         open={showEmailModal}
         onClose={() => {
+          if (refreshOrders) refreshOrders();
           setShowEmailModal(false);
           onClose();
         }}
-        eventType={mode === "reassign" ? "slot_booked" : "slot_rescheduled"}
-        eventLabel={mode === "reassign" ? "Vendor Reassigned" : "Slots Swapped"}
-        queueRoles={targetEmailRoles}
-        orderUuid={currentOrder?.uuid}
-        serviceUuid={currentService?.uuid}
+        eventType="slot_rescheduled"
+        eventLabel="Vendor Reassignment"
+        queueRoles={targetEmailRoles as any}
+        orderUuid={currentOrder.uuid}
+        serviceUuid={currentService.uuid}
         slotUuid={sourceSlot?.uuid}
+        vendorUuid={selectedVendorUuid}
         extraData={{
-          vendor_uuid: selectedVendorUuid,
+          old_vendor_uuid: oldVendor?.uuid,
+          new_vendor_uuid: targetVendor?.uuid,
+          old_vendor_name: oldVendorName,
+          new_vendor_name: newVendorName,
+          service_name: currentService.name,
         }}
         recipientEmails={{
-          vendor: targetVendor?.email,
-          agent: currentOrder?.agent?.email || (currentOrder as any)?.user?.email,
+          old_vendor: oldVendor?.email,
+          new_vendor: targetVendor?.email,
+          agent: currentOrder.agent?.email || (currentOrder as any)?.user?.email,
         }}
         recipientNames={{
-          vendor: targetVendor?.first_name ? `${targetVendor.first_name} ${targetVendor.last_name || ""}`.trim() : undefined,
-          agent: currentOrder?.agent?.first_name ? `${currentOrder.agent.first_name} ${currentOrder.agent.last_name || ""}`.trim() : undefined,
+          old_vendor: oldVendorName,
+          new_vendor: newVendorName,
+          agent: agentName,
         }}
+        onCustomSend={handleCustomSend}
         onComplete={() => {
-          setShowEmailModal(false);
+          if (refreshOrders) refreshOrders();
           onClose();
         }}
       />

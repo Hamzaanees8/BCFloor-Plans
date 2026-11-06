@@ -11,12 +11,16 @@ export interface UsePortalSettingsReturn {
   refreshSettings: () => Promise<void>;
 }
 
-export function usePortalSettings(): UsePortalSettingsReturn {
+export function usePortalSettings(enabled: boolean = true): UsePortalSettingsReturn {
   const [portalSettings, setPortalSettings] = useState<PortalSettingsPayload | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await GetTourSettings();
@@ -38,11 +42,15 @@ export function usePortalSettings(): UsePortalSettingsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    if (enabled) {
+      fetchSettings();
+    } else {
+      setIsLoading(false);
+    }
+  }, [fetchSettings, enabled]);
 
   const allowPrintRequest = portalSettings?.allow_print_request ?? false;
 

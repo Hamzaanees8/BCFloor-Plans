@@ -1409,8 +1409,16 @@ export default function QuickViewCard(props: QuickViewCardProps) {
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     <div className="flex flex-col gap-[4px] mb-2">
                       <span className="text-[15px] font-[400] text-[#666666]">
-                        <span className="font-bold">Updated by:</span>{" "}
-                        {orgCreatedByName}
+                        <span className="font-bold">
+                          {(data as NotificationData).type?.toLowerCase().includes("created")
+                            ? "Created by:"
+                            : "Updated by:"}
+                        </span>{" "}
+                        {["agent", "co_agent", "agent_admin", "assistant"].includes((userType || "").toLowerCase())
+                          ? orgCreatedByName
+                          : ((data as NotificationData).created_by_name?.trim() ||
+                             (data as NotificationData).meta_data?.updated_by ||
+                             orgCreatedByName)}
                       </span>
                       <span className="text-[15px] font-[400] text-[#666666]">
                         <span className="font-bold">Date:</span>{" "}

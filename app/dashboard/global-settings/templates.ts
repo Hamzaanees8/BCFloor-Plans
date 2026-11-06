@@ -110,7 +110,7 @@ export async function GetBladePreview(
 
 export async function SendPreviewEmail(payload: {
     event_type: string;
-    recipient_roles: RecipientRole[];
+    recipient_roles: (RecipientRole | string)[];
     content_overrides: Record<string, string>;
     subject_overrides?: Record<string, string>;
     order_uuid?: string;

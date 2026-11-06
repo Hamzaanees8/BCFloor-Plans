@@ -262,7 +262,15 @@ function FileTab1({
     group: "HDR_photos",
   });
 
+  const isServiceCancelled =
+    currentBookedService?.status === "cancelled" ||
+    (currentBookedService?.service as any)?.status === "cancelled";
+
   const handleFileInputClick = () => {
+    if (isServiceCancelled) {
+      toast.error("Cannot upload files to a cancelled service.");
+      return;
+    }
     setFiles([]);
     fileInputRef.current?.click();
   };
@@ -522,7 +530,10 @@ function FileTab1({
   };
 
   const handleDropFiles = (droppedFiles: File[]) => {
-    if (effectiveUserType === "agent" || userType === "agent") {
+    if (effectiveUserType === "agent" || userType === "agent" || isServiceCancelled) {
+      if (isServiceCancelled) {
+        toast.error("Cannot upload files to a cancelled service.");
+      }
       return;
     }
 
@@ -2099,11 +2110,17 @@ function FileTab1({
               <div className="flex gap-2 items-center">
                 <Button
                   onClick={handleFileInputClick}
-                  className={`${effectiveUserType}-bg flex justify-center items-center hover-${effectiveUserType}-bg transition-all duration-300 ${
+                  disabled={isServiceCancelled}
+                  className={`${
+                    isServiceCancelled
+                      ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
+                      : `${effectiveUserType}-bg hover-${effectiveUserType}-bg cursor-pointer`
+                  } flex justify-center items-center transition-all duration-300 ${
                     isScrolled
                       ? "h-[24px] w-[70px] text-[10px]"
                       : "h-[26px] w-[80px] text-[10px] md:h-[32px] md:w-[130px] md:text-[12px]"
                   } px-1 md:px-4`}
+                  title={isServiceCancelled ? "Cannot upload files to a cancelled service" : undefined}
                 >
                   Add File
                 </Button>
@@ -2781,7 +2798,7 @@ function FileTab1({
             items={fileItems}
             onItemsChange={handleFileItemsChange}
             onDropFiles={handleDropFiles}
-            onClickUpload={effectiveUserType === "agent" ? undefined : handleFileInputClick}
+            onClickUpload={effectiveUserType === "agent" || isServiceCancelled ? undefined : handleFileInputClick}
             renderItem={renderFileItem}
             disabled={isSaving}
             userTypeOverride={effectiveUserType}
@@ -2928,7 +2945,7 @@ function FileTab1({
               : undefined
           }
           onReplace={
-            editingFile && "file" in editingFile
+            editingFile && "file" in editingFile && !isServiceCancelled
               ? () => {
                   setReplacingFile(editingFile.file);
                   fileInputRef.current?.click();

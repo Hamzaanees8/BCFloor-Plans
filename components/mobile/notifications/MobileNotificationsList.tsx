@@ -23,8 +23,14 @@ export default function MobileNotificationsList({
   onNotificationClick,
 }: MobileNotificationsListProps) {
   const { organization } = useOrganization();
-  const createdByName =
+  const companyName =
     organization?.name || organization?.from_name || "Support Team";
+  const isAgent = [
+    "agent",
+    "co_agent",
+    "agent_admin",
+    "assistant",
+  ].includes((userType || "").toLowerCase());
   
   const getNotificationAddress = (notification: NotificationData) => {
     const address =
@@ -116,7 +122,9 @@ export default function MobileNotificationsList({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap justify-between mb-1.5">
                     <span className="text-xs font-semibold text-gray-900 truncate">
-                      {createdByName}
+                      {isAgent
+                        ? companyName
+                        : (notification.created_by_name?.trim() || companyName)}
                     </span>
                     <span className="text-[10px] text-gray-500 shrink-0">
                       {formattedDate}

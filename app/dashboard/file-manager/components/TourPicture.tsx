@@ -549,138 +549,6 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     <div>
       <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
 
-        {/* ── Arrange Photos ─────────────────────────────────────────────── */}
-        {/* ── Arrange Photos ─────────────────────────────────────────────── */}
-        <AccordionItem value="item-1">
-          <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
-            <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
-              Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
-            </AccordionTrigger>
-            {globalSortedPhotos.length > 0 && !isVendor && (
-              <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                {Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting) ? (
-                  <div className="flex items-center gap-2">
-                    {isSaving ? (
-                      <span className="flex items-center gap-1.5 text-[12px] font-medium text-amber-600 bg-white/90 px-2.5 py-1 rounded-md border border-amber-300 shadow-sm">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving sort…
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[12px] font-medium text-emerald-700 bg-white/90 px-2.5 py-1 rounded-md border border-emerald-300 shadow-sm">
-                        <Check className="w-3.5 h-3.5" /> Auto-sort active
-                      </span>
-                    )}
-                  </div>
-                ) : isReorderMode ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-[12px] border-[#BBBBBB] text-[#666666]"
-                      onClick={handleCancelReorder}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={`h-8 text-[12px] ${userType}-bg hover:${userType}-bg hover:opacity-90 text-white transition-all`}
-                      onClick={handleSaveReorder}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? "Saving..." : "Done"}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    className={`h-8 text-[12px] gap-1.5 font-medium ${userType}-bg hover:opacity-90 text-white transition-all`}
-                    onClick={() => setIsReorderMode(true)}
-                  >
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> Sort Images
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-          <AccordionContent>
-            <div>
-              {(selectedFiles?.length > 0 || globalSortedPhotos.length > 0) && (
-                <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                  <p className="text-[#666666] text-[13px] font-medium">
-                    Note: The sorted images will be shown in public tour and MLS sync.
-                  </p>
-                  <GridSizeToggle />
-                </div>
-              )}
-              {(selectedFiles?.length > 0 || globalSortedPhotos.length > 0) && (
-                <div className="w-full bg-[#BBBBBB] p-3 space-y-3">
-                  {/* Pending (local, not-yet-uploaded) files — shown above the grid */}
-                  {selectedFiles.length > 0 && (
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${imagesPerRow}, minmax(0, 1fr))` }}>
-                      {selectedFiles.map((file, idx) => (
-                        <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                          <div className="relative w-full aspect-video overflow-hidden">
-                            <OptimizedImagePreview
-                              file={file.file}
-                              alt="preview"
-                              className="absolute inset-0 w-full h-full object-contain"
-                            />
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  className={`absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] ${isVendor ? "cursor-default" : "cursor-pointer"}`}
-                                  style={{
-                                    clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                                    backgroundColor: file.upload ? "#6BAE41" : "#E06D5E",
-                                  }}
-                                  onClick={() => {
-                                    if (isVendor) return;
-                                    setSelectedFiles((prev) =>
-                                      prev.flatMap((f) => {
-                                        if (f.file === file.file && f.service_id === file.service_id) {
-                                          return f.upload ? [{ ...f, upload: false }] : [];
-                                        }
-                                        return [f];
-                                      })
-                                    );
-                                  }}
-                                >
-                                  {file.upload ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="left" align="start" className="mt-2 mr-2">
-                                {isVendor ? "Visibility setting" : file.upload ? "Hide from agent" : "Make visible to agent"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="flex items-center justify-between px-2 py-1 bg-[#BBBBBB] text-[14px]">
-                            <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
-                              <CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {selectedFiles.length})
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Globally ordered uploaded photos — drag-sortable in reorder mode */}
-                  {fileItems.length > 0 && (
-                    <SortableGrid
-                      items={fileItems}
-                      onOrderChange={handleGlobalReorder}
-                      mode={isReorderMode ? "reorder" : "upload"}
-                      renderItem={renderPhotoCard}
-                      columns={imagesPerRow}
-                      disabled={isSaving}
-                      readOnly={isVendor}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
         {/* ── Slideshow Settings ─────────────────────────────────────────── */}
         <AccordionItem value="item-2">
           <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`} style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
@@ -954,6 +822,137 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   </div>
                 </div>
               </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* ── Arrange Photos ─────────────────────────────────────────────── */}
+        <AccordionItem value="item-1">
+          <div className="flex items-center justify-between pr-4 bg-[#E4E4E4] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px]">
+            <AccordionTrigger className={`px-[14px] py-[19px] flex-1 hover:no-underline ${userType}-text text-[14px] md:text-[18px] font-[600] uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current border-none h-full`}>
+              Arrange Photos ({globalSortedPhotos.length + selectedFiles.length})
+            </AccordionTrigger>
+            {globalSortedPhotos.length > 0 && !isVendor && (
+              <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                {Boolean(tourSettings?.always_enable_sorting ?? tourDefaultSettings?.always_enable_sorting) ? (
+                  <div className="flex items-center gap-2">
+                    {isSaving ? (
+                      <span className="flex items-center gap-1.5 text-[12px] font-medium text-amber-600 bg-white/90 px-2.5 py-1 rounded-md border border-amber-300 shadow-sm">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving sort…
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[12px] font-medium text-emerald-700 bg-white/90 px-2.5 py-1 rounded-md border border-emerald-300 shadow-sm">
+                        <Check className="w-3.5 h-3.5" /> Auto-sort active
+                      </span>
+                    )}
+                  </div>
+                ) : isReorderMode ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[12px] border-[#BBBBBB] text-[#666666]"
+                      onClick={handleCancelReorder}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={`h-8 text-[12px] ${userType}-bg hover:${userType}-bg hover:opacity-90 text-white transition-all`}
+                      onClick={handleSaveReorder}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? "Saving..." : "Done"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    className={`h-8 text-[12px] gap-1.5 font-medium ${userType}-bg hover:opacity-90 text-white transition-all`}
+                    onClick={() => setIsReorderMode(true)}
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Sort Images
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          <AccordionContent>
+            <div>
+              {(selectedFiles?.length > 0 || globalSortedPhotos.length > 0) && (
+                <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                  <p className="text-[#666666] text-[13px] font-medium">
+                    Note: The sorted images will be shown in public tour and MLS sync.
+                  </p>
+                  <GridSizeToggle />
+                </div>
+              )}
+              {(selectedFiles?.length > 0 || globalSortedPhotos.length > 0) && (
+                <div className="w-full bg-[#BBBBBB] p-3 space-y-3">
+                  {/* Pending (local, not-yet-uploaded) files — shown above the grid */}
+                  {selectedFiles.length > 0 && (
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${imagesPerRow}, minmax(0, 1fr))` }}>
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="bg-[#BBBBBB] h-auto relative">
+                          <div className="relative w-full aspect-video overflow-hidden">
+                            <OptimizedImagePreview
+                              file={file.file}
+                              alt="preview"
+                              className="absolute inset-0 w-full h-full object-contain"
+                            />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={`absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] ${isVendor ? "cursor-default" : "cursor-pointer"}`}
+                                  style={{
+                                    clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                    backgroundColor: file.upload ? "#6BAE41" : "#E06D5E",
+                                  }}
+                                  onClick={() => {
+                                    if (isVendor) return;
+                                    setSelectedFiles((prev) =>
+                                      prev.flatMap((f) => {
+                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                          return f.upload ? [{ ...f, upload: false }] : [];
+                                        }
+                                        return [f];
+                                      })
+                                    );
+                                  }}
+                                >
+                                  {file.upload ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                                {isVendor ? "Visibility setting" : file.upload ? "Hide from agent" : "Make visible to agent"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="flex items-center justify-between px-2 py-1 bg-[#BBBBBB] text-[14px]">
+                            <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
+                              <CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {selectedFiles.length})
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Globally ordered uploaded photos — drag-sortable in reorder mode */}
+                  {fileItems.length > 0 && (
+                    <SortableGrid
+                      items={fileItems}
+                      onOrderChange={handleGlobalReorder}
+                      mode={isReorderMode ? "reorder" : "upload"}
+                      renderItem={renderPhotoCard}
+                      columns={imagesPerRow}
+                      disabled={isSaving}
+                      readOnly={isVendor}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>

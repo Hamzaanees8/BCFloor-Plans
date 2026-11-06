@@ -418,38 +418,43 @@ function FileTab2({
     setPreviewFiles((prev) => [...prev, ...newFiles]);
   }, [userType, setPreviewFiles]);
 
+  const isFilesDragEvent = (e: DragEvent): boolean => {
+    if (!e.dataTransfer) return false;
+    const types = e.dataTransfer.types;
+    if (!types) return false;
+    return Array.from(types).some((t) => t.toLowerCase() === 'files');
+  };
+
   const handleDrop = useCallback((e: DragEvent) => {
+    dragCounter.current = 0;
+    if (userType === "agent" || !isFilesDragEvent(e)) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
 
-    dragCounter.current = 0;
-
-    if (userType === "agent") {
-      return;
-    }
-
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
-
     handleFilesChange(droppedFiles);
   }, [userType, handleFilesChange]);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
+    if (userType === "agent" || !isFilesDragEvent(e)) return;
     e.preventDefault();
-    if (userType === "agent") return;
     dragCounter.current += 1;
   }, [userType]);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
+    if (userType === "agent" || !isFilesDragEvent(e)) return;
     e.preventDefault();
-    if (userType === "agent") return;
     dragCounter.current -= 1;
-    if (dragCounter.current === 0) {
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
     }
   }, [userType]);
 
   const handleDragOver = useCallback((e: DragEvent) => {
+    if (userType === "agent" || !isFilesDragEvent(e)) return;
     e.preventDefault();
-    if (userType === "agent") return;
   }, [userType]);
 
   useEffect(() => {

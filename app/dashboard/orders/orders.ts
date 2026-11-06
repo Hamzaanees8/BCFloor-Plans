@@ -394,9 +394,12 @@ export async function Get(token: string) {
   try {
     const response = await fetch(`${API_URL}/orders`, {
       method: "GET",
+      cache: "no-store",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
       },
     });
 

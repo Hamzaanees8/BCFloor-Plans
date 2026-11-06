@@ -805,6 +805,17 @@ const ListingsFrom = () => {
   //   inputRef.current?.showPicker(); // Trigger native date picker
   // };
 
+  // Tour links for the commented-out "Additional Details" accordion
+  // const activeOrg = organization || (currentListing as any)?.organization || (currentListing?.orders?.[0] as any)?.organization;
+  // const tourDomainUrl = getTourDomainUrl(activeOrg);
+  // const listingAddressSlug = slugify(currentListing?.address || "");
+  // const brandedTourUrl = currentListing?.orders?.[0]?.uuid
+  //   ? `${tourDomainUrl}/tour/${listingAddressSlug}/${currentListing.orders[0].uuid}?type=branded`
+  //   : "";
+  // const unbrandedTourUrl = currentListing?.orders?.[0]?.uuid
+  //   ? `${tourDomainUrl}/tour/${listingAddressSlug}/${currentListing.orders[0].uuid}?type=unbranded`
+  //   : "";
+
   return (
     <div className="font-alexandria">
       <div
@@ -1284,7 +1295,7 @@ const ListingsFrom = () => {
                       </div>
                       <div>
                         <label htmlFor="">
-                          Year Contstructed{" "}
+                          Year Constructed{" "}
                           {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
@@ -1417,7 +1428,7 @@ const ListingsFrom = () => {
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Withdrawn">Withdrawn</SelectItem>
                             <SelectItem value="Expired">
-                              ConExpireddo
+                              Expired
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1698,22 +1709,17 @@ const ListingsFrom = () => {
           {currentListing?.orders?.[0]?.uuid ? (
             <div className="relative w-full">
               <Input
-                value={`${origin}/tour/${currentListing?.address?.replace(
-                  /\s+/g,
-                  "-"
-                )}/${currentListing?.orders?.[0]?.uuid}?type=branded`}
+                value={brandedTourUrl}
                 readOnly
                 type="text"
                 className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
               />
               <Copy
                 onClick={() => {
-                  const url = `${origin}/tour/${currentListing?.address?.replace(
-                    /\s+/g,
-                    "-"
-                  )}/${currentListing?.orders?.[0]?.uuid}?type=branded`;
-                  navigator.clipboard.writeText(url);
-                  toast.success("Branded Tour link copied to clipboard");
+                  if (brandedTourUrl) {
+                    navigator.clipboard.writeText(brandedTourUrl);
+                    toast.success("Branded Tour link copied to clipboard");
+                  }
                 }}
                 className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
                 strokeWidth={1}
@@ -1744,22 +1750,17 @@ const ListingsFrom = () => {
           {currentListing?.orders?.[0]?.uuid ? (
             <div className="relative w-full">
               <Input
-                value={`${origin}/tour/${currentListing?.address?.replace(
-                  /\s+/g,
-                  "-"
-                )}/${currentListing?.orders?.[0]?.uuid}?type=unbranded`}
+                value={unbrandedTourUrl}
                 readOnly
                 type="text"
                 className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
               />
               <Copy
                 onClick={() => {
-                  const url = `${origin}/tour/${currentListing?.address?.replace(
-                    /\s+/g,
-                    "-"
-                  )}/${currentListing?.orders?.[0]?.uuid}?type=unbranded`;
-                  navigator.clipboard.writeText(url);
-                  toast.success("Unbranded Tour link copied to clipboard");
+                  if (unbrandedTourUrl) {
+                    navigator.clipboard.writeText(unbrandedTourUrl);
+                    toast.success("Unbranded Tour link copied to clipboard");
+                  }
                 }}
                 className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
                 strokeWidth={1}

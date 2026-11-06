@@ -3,7 +3,6 @@ import React from "react";
 import RuntimeEmailEditorModal from "@/components/RuntimeEmailEditorModal";
 import { RecipientRole } from "@/app/dashboard/global-settings/templates";
 import type { Order } from "../../orders/page";
-import type { VendorData as Vendor } from "@/components/QuickViewCard";
 import { AgentData } from "../../agents/page";
 
 type Service = { name?: string };
@@ -21,7 +20,7 @@ type Props = {
   setVendorChecked?: (value: boolean) => void;
   order?: Order;
   agent?: AgentData;
-  vendor?: Vendor;
+  vendor?: any;
   service?: Service;
 };
 

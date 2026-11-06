@@ -312,13 +312,25 @@ const Page = () => {
       ((notification.order as any)?.uuid != null && String((notification.order as any).uuid).toLowerCase().includes(addressSearch)) ||
       ((notification as any).order_id != null && String((notification as any).order_id).toLowerCase().includes(addressSearch));
 
-    const createdByName =
+    const companyName =
       organization?.name || organization?.from_name || "Support Team";
+
+    const isAgent = [
+      "agent",
+      "co_agent",
+      "agent_admin",
+      "assistant",
+    ].includes((userType || "").toLowerCase());
+
+    const displayName = isAgent
+      ? companyName
+      : (notification.created_by_name?.trim() || companyName);
 
     const matchesName =
       nameSearch === "" ||
-      createdByName.toLowerCase().includes(nameSearch) ||
-      notification.created_by_name?.toLowerCase().includes(nameSearch);
+      displayName.toLowerCase().includes(nameSearch) ||
+      (notification.created_by_name?.toLowerCase().includes(nameSearch) ?? false) ||
+      companyName.toLowerCase().includes(nameSearch);
 
     const matchesReadStatus =
       filterReadStatus === "all" ||
@@ -335,14 +347,26 @@ const Page = () => {
       accessorKey: "created_by_name",
       header: "Created By",
       cell: ({ row }) => {
-        const createdByName =
+        const companyName =
           organization?.name || organization?.from_name || "Support Team";
+
+        const isAgent = [
+          "agent",
+          "co_agent",
+          "agent_admin",
+          "assistant",
+        ].includes((userType || "").toLowerCase());
+
+        const displayName = isAgent
+          ? companyName
+          : (row.original.created_by_name?.trim() || companyName);
+
         return (
           <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
             {!row.original.is_read && (
               <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
             )}
-            <span>{createdByName}</span>
+            <span>{displayName}</span>
           </div>
         );
       },

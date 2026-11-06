@@ -98,14 +98,29 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
   // Helper to check if a service or the entire order is paid or media is released
   const isServicePaid = useCallback(
     (serviceUuid: string, fileIsPaid?: boolean) => {
+      const service = orderData?.services.find(
+        (s) =>
+          s.service?.uuid === serviceUuid ||
+          s.uuid === serviceUuid ||
+          String(s.service_id) === String(serviceUuid) ||
+          String(s.service?.id) === String(serviceUuid),
+      );
+
+      if (userType === "agent") {
+        if (
+          service?.status === "cancelled" ||
+          service?.media_access === false ||
+          (service?.service as any)?.media_access === false
+        ) {
+          return false;
+        }
+      }
+
       if (fileIsPaid !== undefined && fileIsPaid) return true;
 
       if (userType !== "agent") return true;
       if (orderData?.release_media_before_payment) return true;
       if (orderData?.payment_status === "PAID") return true;
-      const service = orderData?.services.find(
-        (s) => s.service.uuid === serviceUuid || s.uuid === serviceUuid,
-      );
       if (
         service?.media_access === true ||
         (service?.service as any)?.media_access === true
@@ -257,9 +272,14 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
     if (groupedOrderServices && groupedOrderServices.size > 0) {
       groupedOrderServices.forEach((group, serviceUuid) => {
         group.forEach((booking, idx) => {
+          const isServiceCancelled =
+            booking.status === "cancelled" ||
+            (booking.service as any)?.status === "cancelled";
+
           const isMediaBlocked =
             userType === "agent" &&
-            (booking.media_access === false ||
+            (isServiceCancelled ||
+              booking.media_access === false ||
               (booking.service as any)?.media_access === false);
           if (isMediaBlocked) return;
 
@@ -274,9 +294,11 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
             orderData?.payment_status === "PAID" ||
             booking.payment_status === "PAID";
           const label =
-            group.length > 1
-              ? `${booking.service.name} — Booking #${idx + 1}`
-              : booking.service.name;
+            isServiceCancelled
+              ? `${booking.service.name} (Cancelled)`
+              : group.length > 1
+                ? `${booking.service.name} — Booking #${idx + 1}`
+                : booking.service.name;
           sections.push({
             key: `${serviceUuid}-${idx}`,
             serviceUuid,

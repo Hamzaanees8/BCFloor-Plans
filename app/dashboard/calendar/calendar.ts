@@ -309,14 +309,27 @@ export async function ManualSyncCalendar(orderIds: number[]) {
   return response.data;
 }
 
+export interface ReassignSlotNotifications {
+  notify_old_vendor?: boolean;
+  notify_new_vendor?: boolean;
+  notify_agent?: boolean;
+}
+
 export async function ReassignBookingSlot(
   slotUuid: string,
   newVendorUuid: string,
   token: string,
+  notifications?: ReassignSlotNotifications,
 ) {
   const response = await api.post(
     `/orders/slots/${slotUuid}/reassign`,
-    { vendor_id: newVendorUuid, suppress_email: true },
+    {
+      vendor_id: newVendorUuid,
+      notify_old_vendor: notifications?.notify_old_vendor ?? true,
+      notify_new_vendor: notifications?.notify_new_vendor ?? true,
+      notify_agent: notifications?.notify_agent ?? true,
+      suppress_email: false,
+    },
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data;

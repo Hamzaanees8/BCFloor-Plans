@@ -303,7 +303,8 @@ export default function OneDayCalendar({
     return orderData
       ?.filter(order => currentOrderId ? order.id !== currentOrderId : true)
       .map(order => order.slots)
-      .flat();
+      .flat()
+      .filter((slot: any) => slot && slot.status !== 'cancelled');
   }, [orderData, currentOrderId]);
 
   // Sync currentDate with existing selected slot
