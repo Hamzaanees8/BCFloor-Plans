@@ -53,6 +53,7 @@ import {
 } from "../utils/filePermissions";
 import { GridSizeToggle } from "./dual-mode/GridSizeToggle";
 import { MediaDateBoundary } from "./FileManager";
+import RequestedAreasPopover from "./RequestedAreasPopover";
 type Props = {
   orderData: Order | null;
   setOrderData?: React.Dispatch<React.SetStateAction<Order | null>>;
@@ -1370,6 +1371,10 @@ const Service: React.FC<
                     Download Files
                   </Button>
                 )}
+                <RequestedAreasPopover
+                  orderData={orderData}
+                  isScrolled={isScrolled}
+                />
               </div>
             ) : (
               <div className="flex gap-2 items-center">
@@ -1418,6 +1423,10 @@ const Service: React.FC<
                 >
                   Download Files
                 </Button>
+                <RequestedAreasPopover
+                  orderData={orderData}
+                  isScrolled={isScrolled}
+                />
               </div>
             )}
           </div>

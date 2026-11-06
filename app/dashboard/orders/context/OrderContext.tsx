@@ -187,6 +187,10 @@ type OrderContextType = {
     setIsBookNowMode: Dispatch<SetStateAction<boolean>>;
 
     portalSettings: PortalSettingsPayload | null;
+    floorplanAreas: string[];
+    setFloorplanAreas: Dispatch<SetStateAction<string[]>>;
+    floorplanNotes: string;
+    setFloorplanNotes: Dispatch<SetStateAction<string>>;
     setPortalSettings: Dispatch<SetStateAction<PortalSettingsPayload | null>>;
 
     resetOrderData: () => void;
@@ -243,6 +247,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
 
     // Schedule toggle maps persisted in context so tab navigation doesn't reset them
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
+    const [floorplanAreas, setFloorplanAreas] = useState<string[]>([]);
+    const [floorplanNotes, setFloorplanNotes] = useState<string>('');
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
 
@@ -369,6 +375,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setShowAllVendorsMap({});
         setRecommendTimeMap({});
         setPortalSettings(null);
+        setFloorplanAreas([]);
+        setFloorplanNotes('');
     }, []);
 
     const clearSelections = useCallback(() => {
@@ -399,6 +407,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setShowAllVendorsMap({});
         setRecommendTimeMap({});
         setPortalSettings(null);
+        setFloorplanAreas([]);
+        setFloorplanNotes('');
     }, []);
 
     return (
@@ -480,6 +490,10 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setIsBookNowMode,
                 portalSettings,
                 setPortalSettings,
+                floorplanAreas,
+                setFloorplanAreas,
+                floorplanNotes,
+                setFloorplanNotes,
                 resetOrderData,
                 clearSelections
             }}

@@ -104,6 +104,21 @@ export default function OrderQuickViewCard({
     (note: any) => note.internal === "true" || note.is_internal === true,
   );
 
+  const orderMeta = React.useMemo(() => {
+    if (!CurrentOrder?.meta) return null;
+    if (typeof CurrentOrder.meta === "string") {
+      try {
+        return JSON.parse(CurrentOrder.meta);
+      } catch {
+        return null;
+      }
+    }
+    return CurrentOrder.meta;
+  }, [CurrentOrder?.meta]);
+
+  const floorplanAreas = orderMeta?.floorplan_areas;
+  const floorplanNotes = orderMeta?.floorplan_notes;
+
   const serviceOptions = CurrentOrder?.services?.find((service) => {
     return service.service.uuid == CurrentService?.uuid;
   });
@@ -253,7 +268,7 @@ export default function OrderQuickViewCard({
             className={`text-[15px] font-[400] leading-[32px] ${userType}-text`}
           >
             <span className="text-[#666666] mr-1">Agent:</span>
-            {userType === "admin" ? (
+{userType === "admin" ? (
               <Link
                 className="hover:underline"
                 href={`/dashboard/agents/create/${CurrentOrder?.agent?.uuid}`}
@@ -272,7 +287,7 @@ export default function OrderQuickViewCard({
             className={` text-[15px] font-[400] leading-[32px] ${userType}-text`}
           >
             <span className="text-[#666666] mr-1">Vendor:</span>
-            {userType === "admin" ? (
+{userType === "admin" ? (
               <Link
                 className="hover:underline"
                 href={`/ashboard/vendors/create/${OrderVendor?.uuid}`}
@@ -378,6 +393,21 @@ export default function OrderQuickViewCard({
               {serviceOptions?.option?.title}
             </span>
           </div>
+          {floorplanAreas && Array.isArray(floorplanAreas) && floorplanAreas.length > 0 && (
+            <div className="grid grid-cols-1 gap-y-[2px] p-2.5 bg-blue-50/70 border border-blue-200 rounded-md my-1">
+              <span className="text-blue-900 text-[11px] font-[700] uppercase tracking-wide">
+                📐 Other Areas to Measure
+              </span>
+              <span className="text-[13px] font-medium text-blue-800 leading-snug">
+                {floorplanAreas.join(", ")}
+              </span>
+              {floorplanNotes && (
+                <span className="text-[12px] text-blue-700 italic mt-0.5">
+                  Note: {floorplanNotes}
+                </span>
+              )}
+            </div>
+          )}
           {userType === "admin" ? (
             <>
               <div className="grid grid-cols-1 gap-y-[0px]">

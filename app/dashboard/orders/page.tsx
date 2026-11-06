@@ -47,6 +47,7 @@ export type Order = {
     refunded_amount?: string;
     lock_materials?: boolean;
     release_media_before_payment?: boolean;
+    meta?: any;
     services: OrderService[];
     logs: {
         id: number;

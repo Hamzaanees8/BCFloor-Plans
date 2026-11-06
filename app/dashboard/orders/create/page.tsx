@@ -120,6 +120,8 @@ const OrderForm = () => {
         setAppliedCodeDiscount,
         setAppliedQuantityDiscounts,
         setInitComplete,
+        setFloorplanAreas,
+        setFloorplanNotes,
         isLoading,
         setServicesData,
         setAgentsData,
@@ -398,11 +400,24 @@ const OrderForm = () => {
             });
             setIsSplitInvoice(currentUser.split_invoice || false);
             setLastPopulatedAgentId(currentUser.agent?.uuid || "");
+            if (currentUser.meta) {
+                try {
+                    const parsedMeta = typeof currentUser.meta === "string" ? JSON.parse(currentUser.meta) : currentUser.meta;
+                    if (parsedMeta?.floorplan_areas && Array.isArray(parsedMeta.floorplan_areas)) {
+                        setFloorplanAreas(parsedMeta.floorplan_areas);
+                    }
+                    if (parsedMeta?.floorplan_notes && typeof parsedMeta.floorplan_notes === "string") {
+                        setFloorplanNotes(parsedMeta.floorplan_notes);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse order meta for floorplan areas", e);
+                }
+            }
             setTimeout(() => {
                 setInitComplete(true);
             }, 50);
         }
-    }, [currentUser, setSelectedAgentId, setSelectedListingId, setTempPropertyData, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices, setLastPopulatedAgentId]);
+    }, [currentUser, setSelectedAgentId, setSelectedListingId, setTempPropertyData, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices, setLastPopulatedAgentId, setFloorplanAreas, setFloorplanNotes]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 

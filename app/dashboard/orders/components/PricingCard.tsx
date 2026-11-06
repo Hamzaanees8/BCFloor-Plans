@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, Plus, AlertTriangle, Printer } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { Check, AlertTriangle, Printer, ShoppingCart, Trash2 } from "lucide-react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { CleanedProductOption } from "../../services/services";
 import { SelectedService } from "./Services";
 import { Services } from "../../services/page";
@@ -146,6 +146,25 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const calculatedCustomPrice = customCalcResult?.price ?? null;
 
+  const displayedPricingOptions = useMemo(() => {
+    if (!pricingOptions || pricingOptions.length === 0) return [];
+    return pricingOptions.filter((option) => {
+      // Photos, Staging, and all non-sqft-gated services: always show every option
+      if (!isFloorplanOrTour) return true;
+      // Admin showAll override
+      if (showAll) return true;
+      // No sqft entered yet: show all so the user can see available tiers
+      if (!squareFootage) return true;
+      // If option has a sq_ft_range string, test against range
+      if (option.sq_ft_range && typeof option.sq_ft_range === "string" && option.sq_ft_range.trim() !== "") {
+        return isSqFtInRange(option.sq_ft_range, squareFootage);
+      }
+      // Pure sq_ft_rate option without range (e.g. 2D/3D Floor Plans): always visible
+      if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
+      return false;
+    });
+  }, [pricingOptions, isFloorplanOrTour, showAll, squareFootage]);
+
   const recommendedOption = useMemo(() => {
     if (!pricingOptions || pricingOptions.length === 0 || !squareFootage || squareFootage <= 0) return null;
     return pricingOptions.find(
@@ -156,6 +175,41 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         isSqFtInRange(opt.sq_ft_range, squareFootage)
     ) || null;
   }, [pricingOptions, squareFootage]);
+
+  const hasManyOptions = displayedPricingOptions.length > 5;
+  const optionsContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasManyOptions) return;
+    const targetTitle = isEdit
+      ? (selectedOption || recommendedOption?.title)
+      : (recommendedOption?.title || selectedOption);
+
+    if (!targetTitle) return;
+
+    const container = optionsContainerRef.current;
+    if (!container) return;
+
+    const timer = setTimeout(() => {
+      if (!container) return;
+      const escapedTitle = (typeof window !== 'undefined' && window.CSS && CSS.escape)
+        ? CSS.escape(targetTitle)
+        : (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(targetTitle) : targetTitle.replace(/["\\]/g, ''));
+      const targetElement = container.querySelector(`[data-option-title="${escapedTitle}"]`) as HTMLElement | null;
+      if (targetElement) {
+        const targetTop = targetElement.offsetTop;
+        const targetHeight = targetElement.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const scrollPos = targetTop - (containerHeight / 2) + (targetHeight / 2);
+        container.scrollTo({
+          top: Math.max(0, scrollPos),
+          behavior: 'smooth'
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [hasManyOptions, isEdit, recommendedOption, isEdit ? selectedOption : null]);
 
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
@@ -546,27 +600,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           <div className="flex items-start justify-between mb-2">
             <div className="flex justify-between gap-2 w-full items-center">
               <div
-                onClick={handleToggleService}
-                title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
-                className={`
-                          w-6 h-6 flex justify-center items-center shrink-0 transition-all
-                          ${(isPaid || isBooked || hasPastSlots) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer hover:scale-110"}
-                          ${isEffectivelySelected ? "p-1 rounded-md bg-[#6BAE41] border-[2px] border-[#6BAE41]" : "text-[#6BAE41]"}
-                        `}
-              >
-                {isEffectivelySelected ? (
-                  <Check className="text-white w-4 h-4 stroke-[3]" />
-                ) : (
-                  <Plus className="w-6 h-6 text-[#6BAE41] stroke-[2.5]" />
-                )}
-              </div>
-              <div
-                className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid || isBooked || hasPastSlots ? "" : "cursor-pointer"}`}
-                style={{ color: roleSettings.pageText }}
-                onClick={handleToggleService}
+                className="text-[16px] flex-1 text-left select-none"
+                style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}
               >
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <p>{title}</p>
+                  <p className="font-[600]">{title}</p>
                 </div>
                 {isDIYPrint && (
                   <p className="text-[11px] text-violet-500 font-medium mt-0.5">
@@ -575,7 +613,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 )}
               </div>
               <div className="text-right">
-                <div className={`text-[20px] font-[500]`} style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
+                <div className="text-[20px] font-[500]" style={{ color: isEffectivelySelected ? "#6BAE41" : roleSettings.pageText }}>
                   ${selectedPrice !== null ? (Number(selectedPrice) + Number(addOnsTotal || 0)).toFixed(2) : ''}
                 </div>
               </div>
@@ -606,23 +644,16 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       }));
                       handleSelectService(value);
                     }}
-                    className="flex flex-col ">
-                    <div className="flex flex-col items-center justify-between gap-[10px]">
-                      {pricingOptions?.filter((option) => {
-                        // Photos, Staging, and all non-sqft-gated services: always show every option
-                        if (!isFloorplanOrTour) return true;
-                        // Admin showAll override
-                        if (showAll) return true;
-                        // No sqft entered yet: show all so the user can see available tiers
-                        if (!squareFootage) return true;
-                        // If option has a sq_ft_range string, test against range
-                        if (option.sq_ft_range && typeof option.sq_ft_range === "string" && option.sq_ft_range.trim() !== "") {
-                          return isSqFtInRange(option.sq_ft_range, squareFootage);
-                        }
-                        // Pure sq_ft_rate option without range (e.g. 2D/3D Floor Plans): always visible
-                        if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
-                        return false;
-                      }).map((option, idx) => {
+                    className="flex flex-col">
+                    <div
+                      ref={optionsContainerRef}
+                      className={`flex flex-col gap-2 ${
+                        hasManyOptions
+                          ? "max-h-[190px] overflow-y-auto pr-1 thin-scroll"
+                          : ""
+                      }`}
+                    >
+                      {displayedPricingOptions.map((option, idx) => {
                         const isRecommended = Boolean(
                           squareFootage > 0 &&
                           option.sq_ft_range &&
@@ -634,6 +665,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         return (
                         <div
                           key={idx}
+                          data-option-title={option?.title ?? ""}
                           className={`w-full flex items-center justify-between gap-2 p-1.5 rounded-md transition-all ${
                             isRecommended
                               ? 'bg-emerald-50/80 border border-emerald-300/80 shadow-xs'
@@ -881,6 +913,44 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
               </div>
             </div>
           )}
+          <div className="flex justify-center mt-3 pt-2">
+            <button
+              type="button"
+              onClick={handleToggleService}
+              disabled={isPaid || isBooked || hasPastSlots || !selectedOption}
+              title={
+                isPaid
+                  ? "Cannot modify - service has been paid"
+                  : hasPastSlots
+                  ? "Cannot modify - service schedule is in the past"
+                  : isBooked
+                  ? "Service is already booked"
+                  : !selectedOption
+                  ? "Please select an option first"
+                  : ""
+              }
+              className={`
+                w-full sm:w-[80%] h-9 flex items-center justify-center gap-2 rounded-md font-medium text-[13px] transition-all
+                ${(isPaid || isBooked || hasPastSlots || !selectedOption) ? "cursor-not-allowed opacity-50" : "cursor-pointer active:scale-[0.98]"}
+                ${isEffectivelySelected
+                  ? "bg-white border-2 border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 font-semibold shadow-xs"
+                  : "bg-[#6BAE41] border border-[#6BAE41] text-white hover:bg-[#5ca134] hover:border-[#5ca134] font-semibold shadow-sm hover:shadow"
+                }
+              `}
+            >
+              {isEffectivelySelected ? (
+                <>
+                  <Trash2 className="w-4 h-4 text-red-600 stroke-[2]" />
+                  <span className="font-semibold text-red-600">Remove from Cart</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-4 h-4 text-white stroke-[2.5]" />
+                  <span className="font-semibold text-white">Add to Cart</span>
+                </>
+              )}
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

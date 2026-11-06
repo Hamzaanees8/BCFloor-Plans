@@ -22,7 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Copy, File, Loader2, RotateCcw, Edit2, Save, X, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Copy, File, Loader2, RotateCcw, Edit2, Save, X, Trash2, Ban, ChevronDown } from "lucide-react";
 import { isPastBooking } from "@/lib/bookingUtils";
 //import Link from 'next/link';
 import {
@@ -1559,7 +1565,7 @@ function Page() {
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full max-w-[560px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
                 <div className="flex flex-col gap-[10px]">
                   <div className="flex justify-between gap-[12px]">
                     <div className="flex gap-[12px] items-center">
@@ -1628,34 +1634,51 @@ function Page() {
 
                     if (packageName) {
                       return (
-                        <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">Package ({packageName})</span>
-                          {userType !== "vendor" && (
-                            <span className="col-span-1">
-                              ${packagePrice.toFixed(2)}
-                            </span>
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                          <span>Package ({packageName})</span>
+                          {userType !== "vendor" ? (
+                            <>
+                              <span className="text-right whitespace-nowrap min-w-[70px]">
+                                ${packagePrice.toFixed(2)}
+                              </span>
+                              <span />
+                            </>
+                          ) : (
+                            <>
+                              <span />
+                              <span />
+                            </>
                           )}
                         </p>
                       );
                     }
 
                     return (
-                      <p className="grid grid-cols-4 gap-[15px]">
-                        <span className="col-span-3">Services Total</span>
-                        {userType !== "vendor" && (
-                          <span className="col-span-1">
-                            ${totalServicePrice.toFixed(2)}
-                          </span>
+                      <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                        <span>Services Total</span>
+                        {userType !== "vendor" ? (
+                          <>
+                            <span className="text-right whitespace-nowrap min-w-[70px]">
+                              ${totalServicePrice.toFixed(2)}
+                            </span>
+                            <span />
+                          </>
+                        ) : (
+                          <>
+                            <span />
+                            <span />
+                          </>
                         )}
                       </p>
                     );
                   })()}
 
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Items</span>
-                    <span className="col-span-1">
+                  <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                    <span>Items</span>
+                    <span className="text-right whitespace-nowrap min-w-[70px]">
                       {orderData?.services?.length}
                     </span>
+                    <span />
                   </p>
                   <div className="grid gap-[15px]">
                     {orderData?.services?.map((service) => {
@@ -1663,53 +1686,100 @@ function Page() {
                       const isPaid =
                         service.payment_status?.toUpperCase() === "PAID";
                       const originalPrice = getOriginalPrice(service);
+
+                      const canCancel = showCancelButton && !isCancelled;
+                      const canRemove =
+                        userType === "admin" &&
+                        !isPaid &&
+                        !isCancelled &&
+                        orderData?.order_status !== "Cancelled";
+                      const hasActions = canCancel || canRemove;
+
                       return (
-                        <p
+                        <div
                           key={service.id}
-                          className={`grid grid-cols-4 gap-[15px] items-center group relative ${isCancelled ? "opacity-60" : ""}`}
+                          className={`grid grid-cols-[1fr_auto_100px] gap-x-4 items-center group relative ${isCancelled ? "opacity-60" : ""}`}
                         >
-                          <span className={`col-span-3 flex items-center gap-2 ${isCancelled ? "line-through text-gray-500" : ""}`}>
-                            {service.service?.name ||
-                              service.optionName ||
-                              "Unknown Service"}
+                          <div className={`flex items-center gap-2 min-w-0 ${isCancelled ? "line-through text-gray-500" : ""}`}>
+                            <span className="truncate">
+                              {service.service?.name ||
+                                service.optionName ||
+                                "Unknown Service"}
+                            </span>
                             {isCancelled ? (
-                              <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 rounded font-semibold uppercase no-underline">
+                              <span className="text-[11px] bg-red-100 text-red-600 border border-red-200 px-2.5 py-0.5 rounded-full font-medium no-underline shrink-0">
                                 Cancelled
                               </span>
+                            ) : isPaid ? (
+                              <span className="text-[11px] bg-[#6BAE41] text-white px-2 py-0.5 rounded-full font-semibold uppercase shrink-0">
+                                Paid
+                              </span>
                             ) : (
-                              <>
-                                {isPaid && (
-                                  <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
-                                    Paid
-                                  </span>
-                                )}
-                                {showCancelButton && (
-                                  <button
-                                    onClick={() => handleCancelServiceClick(service.uuid, service.service?.name || service.optionName || "Unknown Service")}
-                                    className="transition-opacity ml-2 text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 flex-shrink-0"
-                                    title="Cancel this service"
-                                  >
-                                    Cancel Service
-                                  </button>
-                                )}
-                                {userType === "admin" && !isPaid && orderData?.order_status !== "Cancelled" && (
-                                  <button
-                                    onClick={() => setRemoveServiceModal({ open: true, service })}
-                                    className="transition-opacity ml-1.5 text-[10px] text-red-600 hover:text-white bg-red-100 hover:bg-red-600 px-2 py-0.5 rounded border border-red-300 font-semibold flex-shrink-0"
-                                    title="Directly remove this unpaid service and delete its invoice"
-                                  >
-                                    Remove Service
-                                  </button>
-                                )}
-                              </>
+                              <span className="text-[11px] bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full font-medium shrink-0">
+                                Active
+                              </span>
                             )}
-                          </span>
-                          {userType !== "vendor" && (
-                            <span className={`col-span-1 ${isCancelled ? "line-through text-gray-400" : ""}`}>
+                          </div>
+
+                          {userType !== "vendor" ? (
+                            <span className={`text-right whitespace-nowrap min-w-[70px] ${isCancelled ? "line-through text-gray-400" : ""}`}>
                               <span>${originalPrice.toFixed(2)}</span>
                             </span>
+                          ) : (
+                            <span />
                           )}
-                        </p>
+
+                          <div className="flex justify-end items-center">
+                            {hasActions && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-300 rounded-md text-[13px] font-medium text-gray-700 hover:bg-gray-50 focus:outline-none shadow-sm cursor-pointer transition-colors group data-[state=open]:bg-gray-100"
+                                  >
+                                    <span>Actions</span>
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-500 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-[170px] bg-white rounded-lg shadow-lg border border-gray-200 p-1 font-alexandria z-50"
+                                >
+                                  {canCancel && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleCancelServiceClick(
+                                          service.uuid,
+                                          service.service?.name ||
+                                            service.optionName ||
+                                            "Unknown Service"
+                                        )
+                                      }
+                                      className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-md cursor-pointer outline-none font-normal"
+                                    >
+                                      <Ban className="w-4 h-4 text-gray-600" />
+                                      <span>Cancel Service</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canRemove && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setRemoveServiceModal({
+                                          open: true,
+                                          service,
+                                        })
+                                      }
+                                      className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-md cursor-pointer outline-none font-normal"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-gray-600" />
+                                      <span>Remove Service</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -1771,32 +1841,35 @@ function Page() {
                     return (
                       <>
                         {/* Subtotal */}
-                        <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">Subtotal</span>
-                          <span className="col-span-1">
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                          <span>Subtotal</span>
+                          <span className="text-right whitespace-nowrap min-w-[70px]">
                             ${subtotal.toFixed(2)}
                           </span>
+                          <span />
                         </p>
 
                         {/* Discount */}
                         {totalDiscount > 0 && (
                           <>
-                            <p className="grid grid-cols-4 gap-[15px]">
-                              <span className="col-span-3">Discount</span>
-                              <span className="col-span-1">
+                            <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                              <span>Discount</span>
+                              <span className="text-right whitespace-nowrap min-w-[70px]">
                                 -${totalDiscount.toFixed(2)} ({discountPercent}%)
                               </span>
+                              <span />
                             </p>
                             {(() => {
                               const agentTotalItem = orderData?.totals?.find((t: any) => t.discount_type === 'agent');
                               if (agentTotalItem && parseFloat(agentTotalItem.amount) < 0) {
                                 const agentMetaName = (orderData as any)?.meta?.agent_discount?.name || "VIP";
                                 return (
-                                  <p className="grid grid-cols-4 gap-[15px] text-emerald-600 text-[13px] pl-2">
-                                    <span className="col-span-3">↳ Agent Discount ({agentMetaName})</span>
-                                    <span className="col-span-1">
+                                  <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center text-emerald-600 text-[13px] pl-2">
+                                    <span>↳ Agent Discount ({agentMetaName})</span>
+                                    <span className="text-right whitespace-nowrap min-w-[70px]">
                                       -${Math.abs(parseFloat(agentTotalItem.amount)).toFixed(2)}
                                     </span>
+                                    <span />
                                   </p>
                                 );
                               }
@@ -1806,53 +1879,59 @@ function Page() {
                         )}
 
                         {/* GST/HST */}
-                        <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">GST/HST {taxRate > 0 ? `(${taxRate}%)` : ""}</span>
-                          <span className="col-span-1">${gstAmount.toFixed(2)}</span>
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                          <span>GST/HST {taxRate > 0 ? `(${taxRate}%)` : ""}</span>
+                          <span className="text-right whitespace-nowrap min-w-[70px]">${gstAmount.toFixed(2)}</span>
+                          <span />
                         </p>
 
                         {/* PST/RST/QST */}
-                        <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">PST/RST/QST</span>
-                          <span className="col-span-1">$0.00</span>
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                          <span>PST/RST/QST</span>
+                          <span className="text-right whitespace-nowrap min-w-[70px]">$0.00</span>
+                          <span />
                         </p>
 
                         {/* Order/Quote approx. */}
-                        <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">Order/Quote approx.</span>
-                          <span className="col-span-1">
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center">
+                          <span>Order/Quote approx.</span>
+                          <span className="text-right whitespace-nowrap min-w-[70px]">
                             ${grandTotal.toFixed(2)}
                           </span>
+                          <span />
                         </p>
 
                         {/* Show paid amount if any payment has been made */}
                         {paidAmount > 0 && (
-                          <p className="grid grid-cols-4 gap-[15px] text-[#6BAE41]">
-                            <span className="col-span-3">Paid</span>
-                            <span className="col-span-1">
+                          <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center text-[#6BAE41]">
+                            <span>Paid</span>
+                            <span className="text-right whitespace-nowrap min-w-[70px]">
                               -${paidAmount.toFixed(2)}
                             </span>
+                            <span />
                           </p>
                         )}
 
                         {/* Show refunded amount if any refund has been processed */}
                         {refundedAmount > 0 && (
-                          <p className="grid grid-cols-4 gap-[15px] text-red-500">
-                            <span className="col-span-3">Refunded</span>
-                            <span className="col-span-1">
+                          <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center text-red-500">
+                            <span>Refunded</span>
+                            <span className="text-right whitespace-nowrap min-w-[70px]">
                               +${refundedAmount.toFixed(2)}
                             </span>
+                            <span />
                           </p>
                         )}
 
                         {/* Show balance due */}
-                        <p className="grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2">
-                          <span className="col-span-3">
+                        <p className="grid grid-cols-[1fr_auto_100px] gap-x-4 items-center text-[20px] md:text-[24px] font-[500] border-t pt-2">
+                          <span>
                             {(paidAmount > 0 || refundedAmount > 0) ? "Balance Due" : "Amount Due"}
                           </span>
-                          <span className="col-span-1">
+                          <span className="text-right whitespace-nowrap min-w-[70px]">
                             ${Math.max(0, balanceDue).toFixed(2)}
                           </span>
+                          <span />
                         </p>
                       </>
                     );

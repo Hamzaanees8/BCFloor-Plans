@@ -88,6 +88,18 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // };
 
 
+    const orderMeta = React.useMemo(() => {
+        try {
+            if (!currentOrder?.meta) return {};
+            return typeof currentOrder.meta === 'string' ? JSON.parse(currentOrder.meta) : currentOrder.meta;
+        } catch {
+            return {};
+        }
+    }, [currentOrder?.meta]);
+
+    const floorplanAreas: string[] = Array.isArray(orderMeta?.floorplan_areas) ? orderMeta.floorplan_areas : [];
+    const floorplanNotes: string = orderMeta?.floorplan_notes || '';
+
     const currentAgent = agentData.find((ag) => ag.uuid === agent)
 
 
@@ -785,6 +797,37 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                         </div>
                         <div>
                             <Schedule currentOrder={currentOrder} squareFootage={squareFootage || totalSquareFootage || currentOrder?.property?.square_footage} invalidServices={invalidServices} />
+                            {(floorplanAreas.length > 0 || floorplanNotes) && (
+                                <div className="w-full mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-1.5 mb-2">
+                                        <span>📐</span> Floor Plan - Other Areas to Measure
+                                    </h4>
+                                    {floorplanAreas.length > 0 && (
+                                        <div className="mb-2">
+                                            <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider block mb-1">
+                                                Requested Areas
+                                            </span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {floorplanAreas.map((area, idx) => (
+                                                    <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                                        {area}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {floorplanNotes && (
+                                        <div>
+                                            <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider block mb-0.5">
+                                                Special Instructions
+                                            </span>
+                                            <p className="text-xs text-blue-900 bg-white/70 p-2 rounded border border-blue-100 whitespace-pre-wrap">
+                                                {floorplanNotes}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             {/* <div className='col-span-5 flex items-center justify-end mt-[10px]'>
                                 <label className='flex items-center justify-end gap-x-[10px] cursor-pointer'>
                                     <input

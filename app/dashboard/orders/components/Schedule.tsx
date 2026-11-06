@@ -7,7 +7,8 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
+import { AlertTriangle, CalendarIcon, Images, Info, Loader2, MapPin } from 'lucide-react'
+import FloorplanAreasModal from './FloorplanAreasModal'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
@@ -139,7 +140,13 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         setRecommendTimeMap,
         portalSettings,
         setPortalSettings,
+        floorplanAreas,
     } = useOrderContext();
+
+
+    const [isFloorplanModalOpen, setIsFloorplanModalOpen] = useState(false);
+
+
 
     useEffect(() => {
         if (vendorsData.length === 0) {
@@ -655,6 +662,10 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                             return slotDate < today;
                         });
 
+                        const sTitle = (service.title || currentService?.name || '').toLowerCase();
+                        const sCat = (currentService?.category?.name || '').toLowerCase();
+                        const isFloorPlanService = sTitle.includes('floor plan') || sTitle.includes('floorplan') || sCat.includes('floor plan');
+
                         return (
                             <React.Fragment key={idx}>
                                 <div className={cn(
@@ -705,6 +716,29 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     )}
                                                 </span>
                                             </p>
+                                            {isFloorPlanService && (
+                                                <div className="mt-2.5 pt-2 border-t border-dashed border-gray-200">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setIsFloorplanModalOpen(true);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer shadow-xs"
+                                                    >
+                                                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                                                        {floorplanAreas.length > 0
+                                                            ? `Other Areas to Measure (${floorplanAreas.length})`
+                                                            : `+ Add Other Areas to Measure`}
+                                                    </button>
+                                                    {floorplanAreas.length > 0 && (
+                                                        <p className="text-[11px] text-gray-600 mt-1 line-clamp-1" title={floorplanAreas.join(", ")}>
+                                                            <span className="font-semibold text-gray-700">Other Areas:</span> {floorplanAreas.join(", ")}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className={cn(
                                             "shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-xs",
@@ -1302,6 +1336,10 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 })()}
                     </div>
             )}
+            <FloorplanAreasModal
+                open={isFloorplanModalOpen}
+                onOpenChange={setIsFloorplanModalOpen}
+            />
         </div>
     )
 }

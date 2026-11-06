@@ -83,7 +83,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         setTempPropertyData,
         servicesData: services,
         listingsData,
-        isBookNowMode
+        isBookNowMode,
+        floorplanAreas,
+        floorplanNotes
     } = useOrderContext();
     const { userType } = useAppContext()
     const router = useRouter();
@@ -591,6 +593,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 payment_status: "UNPAID",
                 split_invoice: isSplitInvoice ? 1 : 0,
                 ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
+                ...(floorplanAreas && floorplanAreas.length > 0 && { floorplan_areas: floorplanAreas }),
+                ...(floorplanNotes && floorplanNotes.trim() && { floorplan_notes: floorplanNotes.trim() }),
                 co_agents: coAgents,
                 agent_discount: agentDiscount ? {
                     uuid: agentDiscount.uuid,
@@ -1216,6 +1220,21 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         </Accordion>
                                     )}
                                 </div>
+                                {floorplanAreas && floorplanAreas.length > 0 && (
+                                    <div className="col-span-2 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs">
+                                        <p className="font-semibold text-blue-900 mb-1 flex items-center gap-1.5">
+                                            📐 Floor Plan - Other Areas to Measure:
+                                        </p>
+                                        <p className="text-blue-800">
+                                            {floorplanAreas.join(', ')}
+                                        </p>
+                                        {floorplanNotes && floorplanNotes.trim() && (
+                                            <p className="text-blue-700 mt-1 italic">
+                                                Note: {floorplanNotes}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="col-span-2 grid grid-cols-7 gap-x-[30px]">
                                     <div className="col-span-6">
                                         <label htmlFor="" className='font-normal text-sm text-[#666666]'>Discount Code</label>

@@ -44,6 +44,8 @@ export interface OrderPayload {
   notify_vendor?: number | boolean;
   notify_admin?: number | boolean;
   agent_discount?: Record<string, any> | null;
+  floorplan_areas?: string[];
+  floorplan_notes?: string;
 }
 export interface EditOrderPayload {
   order_status?: "Processing" | "Completed" | "Cancelled" | string;
@@ -56,6 +58,8 @@ export interface EditOrderPayload {
   notes?: AgentNote[],
   _method?: string,
   suppress_email?: boolean,
+  floorplan_areas?: string[],
+  floorplan_notes?: string,
 }
 export interface OrderServiceItem {
   uuid?: string; // Order service UUID (for updates)

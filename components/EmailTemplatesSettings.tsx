@@ -2,14 +2,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import DropdownActions from "./DropdownActions";
 import { EmailTemplate, GetTemplates, DeleteTemplate, UpdateTemplate } from "@/app/dashboard/global-settings/templates";
 import AddTemplateDialog from "./AddTemplateDialog";
+import TemplatePreviewDialog from "./TemplatePreviewDialog";
 import { DateTime } from "luxon";
 import SignatureCreatorDialog from "./SignatureCreatorDialog";
 import { Signature, GetSignatures, DeleteSignature } from "@/app/dashboard/global-settings/signatures";
@@ -24,8 +26,10 @@ const EmailTemplatesSettings = () => {
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [signatures, setSignatures] = useState<Signature[]>([]);
     const [openAddDialog, setOpenAddDialog] = useState(false);
+    const [openPreviewDialog, setOpenPreviewDialog] = useState(false);
     const [openSignatureDialog, setOpenSignatureDialog] = useState(false);
     const [templateToEdit, setTemplateToEdit] = useState<EmailTemplate | null>(null);
+    const [templateToPreview, setTemplateToPreview] = useState<EmailTemplate | null>(null);
     const [signatureToEdit, setSignatureToEdit] = useState<Signature | null>(null);
     const [loading, setLoading] = useState(true);
     const [sigsLoading, setSigsLoading] = useState(true);
@@ -150,11 +154,6 @@ const EmailTemplatesSettings = () => {
 
     const columns: ColumnDef<EmailTemplate>[] = [
         {
-            accessorKey: "sort_order",
-            header: "ORDER",
-            cell: ({ row }) => <div className="text-[#666666] font-mono text-xs">{row.getValue("sort_order") ?? "-"}</div>,
-        },
-        {
             accessorKey: "title",
             header: "TITLE",
             cell: ({ row }) => <div className="text-[#333333] font-semibold text-xs">{row.getValue("title")}</div>,
@@ -190,6 +189,28 @@ const EmailTemplatesSettings = () => {
                             <span className="text-[10px] text-gray-400 font-mono">{typeVal}</span>
                         )}
                     </div>
+                );
+            },
+        },
+        {
+            id: "preview",
+            header: "PREVIEW",
+            cell: ({ row }) => {
+                return (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setTemplateToPreview(row.original);
+                            setOpenPreviewDialog(true);
+                        }}
+                        className="h-7 px-3 text-xs font-semibold text-[#4290E9] border-[#4290E9]/30 bg-blue-50/70 hover:bg-[#4290E9] hover:text-white hover:border-[#4290E9] rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs group"
+                        title="Preview Template"
+                    >
+                        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        <span>Preview</span>
+                    </Button>
                 );
             },
         },
@@ -243,16 +264,31 @@ const EmailTemplatesSettings = () => {
             cell: ({ row }) => {
                 const isTemplateActive = row.original.is_active !== undefined ? row.original.is_active : true;
                 return (
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            checked={isTemplateActive}
+                            onCheckedChange={() => handleToggleStatus(row.original.uuid, isTemplateActive)}
+                            className={isTemplateActive ? "data-[state=checked]:bg-[#6BAE41]" : "data-[state=unchecked]:bg-red-500"}
+                        />
+                    </div>
+                );
+            },
+        },
+        {
+            id: "actions",
+            header: "ACTIONS",
+            cell: ({ row }) => {
+                return (
                     <div className="flex items-center gap-[10px]">
-                        <div className="flex items-center space-x-2">
-                            <Switch
-                                checked={isTemplateActive}
-                                onCheckedChange={() => handleToggleStatus(row.original.uuid, isTemplateActive)}
-                                className={isTemplateActive ? "data-[state=checked]:bg-[#6BAE41]" : "data-[state=unchecked]:bg-red-500"}
-                            />
-                        </div>
                         <DropdownActions
                             options={[
+                                {
+                                    label: "Preview",
+                                    onClick: () => {
+                                        setTemplateToPreview(row.original);
+                                        setOpenPreviewDialog(true);
+                                    },
+                                },
                                 {
                                     label: "Edit",
                                     onClick: () => {
@@ -373,6 +409,18 @@ const EmailTemplatesSettings = () => {
                 }}
                 onSuccess={fetchTemplates}
                 initialData={templateToEdit}
+            />
+            <TemplatePreviewDialog
+                open={openPreviewDialog}
+                setOpen={(open) => {
+                    setOpenPreviewDialog(open);
+                    if (!open) setTemplateToPreview(null);
+                }}
+                template={templateToPreview}
+                onEdit={(template) => {
+                    setTemplateToEdit(template);
+                    setOpenAddDialog(true);
+                }}
             />
             <SignatureCreatorDialog
                 open={openSignatureDialog}

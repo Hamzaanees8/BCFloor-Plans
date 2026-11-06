@@ -19,6 +19,7 @@ import { Order, OrderService } from "../../orders/page";
 import UpgradeServicePopup from "./UpgradeServicePopup";
 import PayInvoiceModal from "./PayInvoiceModal";
 import AgentNotificationModal from "./AgentNotificationModal";
+import RequestedAreasPopover from "./RequestedAreasPopover";
 import { CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -542,7 +543,12 @@ function FileTab2({
             top: isScrolled ? `${stickyOffset}px` : "auto",
           }}
         >
-          <div className="shrink-0"></div>
+          <div className="shrink-0 flex gap-2 items-center">
+            <RequestedAreasPopover
+              orderData={orderData}
+              isScrolled={isScrolled}
+            />
+          </div>
           <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
             <p className="flex flex-col items-center pointer-events-auto">
               <span
