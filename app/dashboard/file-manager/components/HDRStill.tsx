@@ -98,6 +98,7 @@ function FileTab1({
   onShowHiddenMedia,
   onRefreshAll,
   onSendToClient,
+  invoices = [],
 }: {
   currentService?: Services;
   orderData: Order | null;
@@ -113,6 +114,7 @@ function FileTab1({
   onShowHiddenMedia?: () => void;
   onRefreshAll?: () => Promise<void> | void;
   onSendToClient?: () => void;
+  invoices?: any[];
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [sortBy, setSortBy] = useState<"order" | "name" | "date">("order");
@@ -2570,15 +2572,91 @@ function FileTab1({
                 currentServiceFiles?.filter(
                   (f) => f.is_agent_approved && !f.is_complimentary,
                 ).length || 0;
-              const currentLimit = bookingToUse?.option?.quantity || 0;
-              const isOverLimit = selectedCount > currentLimit;
+              const baseLimit = bookingToUse?.option?.quantity || 0;
+
+              const isServicePaid =
+                bookingToUse?.payment_status === "PAID" ||
+                orderData?.payment_status === "PAID";
+
+              // Calculate how many extra items have been paid for in paid invoices.
+              // Note: An order may have multiple paid invoices (consolidated + service-specific, or split),
+              // which duplicate the same extra items. We calculate the max extra count per invoice to avoid double-counting.
+              let paidExtraCount = 0;
+              if (invoices && Array.isArray(invoices)) {
+                const extraPerInvoice = invoices
+                  .filter((inv: any) => (inv.status || "").toLowerCase() === "paid")
+                  .map((inv: any) => {
+                    let invCount = 0;
+                    (inv.items || []).forEach((item: any) => {
+                      const isThisService =
+                        (bookingToUse?.id &&
+                          Number(item.order_service_id) === Number(bookingToUse.id)) ||
+                        (currentService?.name &&
+                          item.description
+                            ?.toLowerCase()
+                            .includes(currentService.name.toLowerCase()));
+                      const isExtraItem =
+                        Boolean(item.is_extra) ||
+                        /Extra (Photos|Media|Videos|Floor Plans|Files)/i.test(
+                          item.description || "",
+                        );
+                      const isDiscount =
+                        item.meta?.type === "package_discount" ||
+                        item.meta?.type === "agent_discount" ||
+                        (item.description || "")
+                          .toLowerCase()
+                          .includes("discount");
+                      if (isThisService && isExtraItem && !isDiscount) {
+                        invCount = Math.max(invCount, Number(item.quantity) || 0);
+                      }
+                    });
+                    return invCount;
+                  });
+                paidExtraCount = extraPerInvoice.length > 0 ? Math.max(...extraPerInvoice, 0) : 0;
+              }
+
+              const hasUnpaidExtraInvoice = Boolean(
+                invoices?.some((inv: any) => {
+                  const isUnpaid =
+                    (inv.status || "").toLowerCase() !== "paid" &&
+                    (inv.status || "").toLowerCase() !== "void";
+                  if (!isUnpaid) return false;
+                  return (inv.items || []).some((item: any) => {
+                    const matchesService =
+                      (bookingToUse?.id &&
+                        Number(item.order_service_id) ===
+                          Number(bookingToUse.id)) ||
+                      (currentService?.name &&
+                        item.description
+                          ?.toLowerCase()
+                          .includes(currentService.name.toLowerCase()));
+                    const isExtra =
+                      item.is_extra ||
+                      /Extra (Photos|Media|Videos|Floor Plans|Files)/i.test(
+                        item.description || "",
+                      );
+                    return matchesService && isExtra;
+                  });
+                }),
+              );
+
+              const effectivePaidExtra =
+                paidExtraCount > 0
+                  ? paidExtraCount
+                  : isServicePaid && !hasUnpaidExtraInvoice
+                    ? Math.max(0, selectedCount - baseLimit)
+                    : 0;
+
+              const effectiveLimit = baseLimit + effectivePaidExtra;
+              const unpaidExcess = Math.max(0, selectedCount - effectiveLimit);
+              const isOverLimit = unpaidExcess > 0;
 
               // Find next option
               const sortedOptions = [
                 ...(currentService?.product_options || []),
               ].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
               const nextOption = sortedOptions.find(
-                (opt) => (opt.quantity || 0) > currentLimit,
+                (opt) => (opt.quantity || 0) > effectiveLimit,
               );
 
               const currentAmount = parseFloat(
@@ -2588,10 +2666,9 @@ function FileTab1({
                 ? parseFloat(String(nextOption.amount || "0"))
                 : 0;
               const diffAmount = nextAmount - currentAmount;
-              const excess = Math.max(0, selectedCount - currentLimit);
               const unitPrice =
-                currentLimit > 0 ? currentAmount / currentLimit : 0;
-              const extraCharge = excess * unitPrice;
+                baseLimit > 0 ? currentAmount / baseLimit : 0;
+              const extraCharge = unpaidExcess * unitPrice;
 
               return (
                 <>
@@ -2605,14 +2682,14 @@ function FileTab1({
                         {isPackageUpgrading ? (
                           <Skeleton className="h-6 w-10 inline-block align-middle" />
                         ) : (
-                          currentLimit
+                          effectiveLimit
                         )}
                       </span>
                     </span>
                     <span
                       className={`text-[11px] md:text-[12px] mt-1 ${isOverLimit ? "text-[#E06D5E] font-medium" : "text-[#7D7D7D]"}`}
                     >
-                      {isOverLimit ? `Selected (+${excess} extra)` : "Selected"}
+                      {isOverLimit ? `Selected (+${unpaidExcess} extra)` : "Selected"}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">

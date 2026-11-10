@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
@@ -983,9 +983,15 @@ const FileManager = () => {
     }
   }, [servicesData, orderData, filterServicesForVendor]);
 
+  const processedSessionIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     if (!sessionId) return; // no payment session to process
+
+    // Guard against duplicate execution (e.g. multiple re-renders before session_id is stripped)
+    if (processedSessionIdRef.current === sessionId) return;
+    processedSessionIdRef.current = sessionId;
 
     const processStripePayment = async () => {
       toast.info("Processing your payment, please wait...");
@@ -1528,6 +1534,12 @@ const FileManager = () => {
   const syncExtraItemsToInvoice = async (invoice: any): Promise<any> => {
     if (!filesData?.files || !orderData) return invoice;
 
+    // Do not modify paid, void, or refunded invoices
+    const invStatus = (invoice.status || "").toLowerCase();
+    if (invStatus === "paid" || invStatus === "void" || invStatus === "refunded") {
+      return invoice;
+    }
+
     const baseItems = invoice.items || [];
     // Filter out previously injected extra media to recalculate accurately
     const cleanedBaseItems = baseItems.filter(
@@ -1542,7 +1554,23 @@ const FileManager = () => {
       unit_price: number;
     }[] = [];
 
+    // Track processed order_service_ids to avoid duplicate extra-photo entries.
+    // Discount/area-charge items (is_extra=true) share the same order_service_id as the
+    // base service item, which causes one extra-photo line to be generated per invoice item
+    // for the same service (e.g. one for the base line + one for the agent discount line).
+    const seenExtraServiceIds = new Set<number>();
+
     cleanedBaseItems.forEach((item: any) => {
+      // Skip is_extra items (agent discounts, package discounts, area charges).
+      // They share order_service_id with the base service item and would produce
+      // a duplicate "N Extra Photos (Agent Discount: ...)" line for the same service.
+      const isDiscountOrExtra =
+        item.is_extra ||
+        item.meta?.type === "package_discount" ||
+        item.meta?.type === "agent_discount" ||
+        item.description?.toLowerCase().includes("discount");
+      if (isDiscountOrExtra) return;
+
       let os = item.order_service || item.orderService;
 
       // If the invoice item's order_service lacks the option data, fetch it from orderData.services
@@ -1557,8 +1585,52 @@ const FileManager = () => {
         }
       }
 
+      // Deduplicate: only process each order_service once
+      const osIdForDedup = os?.id as number | undefined;
+      if (osIdForDedup && seenExtraServiceIds.has(osIdForDedup)) return;
+      if (osIdForDedup) seenExtraServiceIds.add(osIdForDedup);
+
       const serviceId = os.service_id || os.service?.id;
-      const currentLimit = Number(os.option.quantity) || 1;
+      const baseLimit = Number(os.option.quantity) || 1;
+
+      // Count extra items already paid on any existing paid invoice (use max per invoice to avoid double-counting consolidated vs service invoices)
+      let alreadyPaidExtraCount = 0;
+      if (invoices && Array.isArray(invoices)) {
+        const extraPerInvoice = invoices
+          .filter(
+            (inv: any) =>
+              (inv.status || "").toLowerCase() === "paid" &&
+              inv.id !== invoice.id &&
+              inv.uuid !== invoice.uuid,
+          )
+          .map((inv: any) => {
+            let invCount = 0;
+            (inv.items || []).forEach((item: any) => {
+              const isThisService =
+                (os.id && Number(item.order_service_id) === Number(os.id)) ||
+                (os.service?.name &&
+                  item.description
+                    ?.toLowerCase()
+                    .includes(os.service.name.toLowerCase()));
+              const isExtraItem =
+                Boolean(item.is_extra) ||
+                /Extra (Photos|Media|Videos|Floor Plans|Files)/i.test(
+                  item.description || "",
+                );
+              const isDiscount =
+                item.meta?.type === "package_discount" ||
+                item.meta?.type === "agent_discount" ||
+                (item.description || "").toLowerCase().includes("discount");
+              if (isThisService && isExtraItem && !isDiscount) {
+                invCount = Math.max(invCount, Number(item.quantity) || 0);
+              }
+            });
+            return invCount;
+          });
+        alreadyPaidExtraCount = extraPerInvoice.length > 0 ? Math.max(...extraPerInvoice, 0) : 0;
+      }
+
+      const effectiveLimit = baseLimit + alreadyPaidExtraCount;
 
       const selectedCount = filesData.files.filter(
         (f: any) =>
@@ -1570,9 +1642,9 @@ const FileManager = () => {
           !f.is_deleted,
       ).length;
 
-      if (selectedCount > currentLimit) {
-        const extraCount = selectedCount - currentLimit;
-        const unitPrice = parseFloat(os.option.amount) / currentLimit;
+      if (selectedCount > effectiveLimit) {
+        const extraCount = selectedCount - effectiveLimit;
+        const unitPrice = parseFloat(os.option.amount) / baseLimit;
 
         let extraLabel = "Photos";
         const catName = os.service?.category?.name?.toLowerCase() || "";
@@ -1591,7 +1663,7 @@ const FileManager = () => {
 
         extraItems.push({
           order_service_id: os.id,
-          description: `${extraCount} Extra ${extraLabel} (${item.description || os.option?.title || "Service"})`,
+          description: `${extraCount} Extra ${extraLabel} (${os.service?.name || item.description || os.option?.title || "Service"})`,
           quantity: extraCount,
           unit_price: parseFloat(unitPrice.toFixed(2)),
         });
@@ -2113,6 +2185,7 @@ const FileManager = () => {
             currentService={activeService}
             orderData={orderData}
             currentBookedService={currentBookedService}
+            invoices={invoices}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => {
@@ -2156,6 +2229,7 @@ const FileManager = () => {
             currentService={activeService}
             orderData={orderData}
             currentBookedService={currentBookedService}
+            invoices={invoices}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => {
@@ -2204,6 +2278,7 @@ const FileManager = () => {
             currentService={activeService}
             orderData={orderData}
             currentBookedService={currentBookedService}
+            invoices={invoices}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => {
@@ -2226,6 +2301,7 @@ const FileManager = () => {
             currentService={activeService}
             orderData={orderData}
             currentBookedService={currentBookedService}
+            invoices={invoices}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onShowHiddenMedia={() => {
@@ -2735,6 +2811,75 @@ const FileManager = () => {
           (f) => f.is_agent_approved && !f.is_complimentary,
         ).length;
 
+        const isServicePaid =
+          bookingToUse?.payment_status === "PAID" ||
+          orderData?.payment_status === "PAID";
+
+        let paidExtraCount = 0;
+        if (invoices && Array.isArray(invoices)) {
+          const extraPerInvoice = invoices
+            .filter((inv: any) => (inv.status || "").toLowerCase() === "paid")
+            .map((inv: any) => {
+              let invCount = 0;
+              (inv.items || []).forEach((item: any) => {
+                const isThisService =
+                  (bookingToUse?.id &&
+                    Number(item.order_service_id) === Number(bookingToUse.id)) ||
+                  (bookingToUse?.service?.name &&
+                    item.description
+                      ?.toLowerCase()
+                      .includes(bookingToUse.service.name.toLowerCase()));
+                const isExtraItem =
+                  Boolean(item.is_extra) ||
+                  /Extra (Photos|Media|Videos|Floor Plans|Files)/i.test(
+                    item.description || "",
+                  );
+                const isDiscount =
+                  item.meta?.type === "package_discount" ||
+                  item.meta?.type === "agent_discount" ||
+                  (item.description || "").toLowerCase().includes("discount");
+                if (isThisService && isExtraItem && !isDiscount) {
+                  invCount = Math.max(invCount, Number(item.quantity) || 0);
+                }
+              });
+              return invCount;
+            });
+          paidExtraCount = extraPerInvoice.length > 0 ? Math.max(...extraPerInvoice, 0) : 0;
+        }
+
+        const hasUnpaidExtraInvoice = Boolean(
+          invoices?.some((inv: any) => {
+            const isUnpaid =
+              (inv.status || "").toLowerCase() !== "paid" &&
+              (inv.status || "").toLowerCase() !== "void";
+            if (!isUnpaid) return false;
+            return (inv.items || []).some((item: any) => {
+              const matchesService =
+                (bookingToUse?.id &&
+                  Number(item.order_service_id) === Number(bookingToUse.id)) ||
+                (bookingToUse?.service?.name &&
+                  item.description
+                    ?.toLowerCase()
+                    .includes(bookingToUse.service.name.toLowerCase()));
+              const isExtra =
+                item.is_extra ||
+                /Extra (Photos|Media|Videos|Floor Plans|Files)/i.test(
+                  item.description || "",
+                );
+              return matchesService && isExtra;
+            });
+          }),
+        );
+
+        const effectivePaidExtra =
+          paidExtraCount > 0
+            ? paidExtraCount
+            : isServicePaid && !hasUnpaidExtraInvoice
+              ? Math.max(0, selectedCount - packageLimit)
+              : 0;
+
+        const effectiveLimit = packageLimit + effectivePaidExtra;
+
         const serviceName = bookingToUse?.service?.name?.toLowerCase() || "";
         let mediaLabel = "photos";
         if (serviceName.includes("video") || serviceName.includes("reel"))
@@ -2747,7 +2892,7 @@ const FileManager = () => {
         )
           mediaLabel = "tours";
 
-        if (selectedCount > packageLimit) {
+        if (selectedCount > effectiveLimit) {
           const fullService =
             servicesData?.find(
               (srv) =>
@@ -2759,7 +2904,7 @@ const FileManager = () => {
           return {
             type: "over_limit" as const,
             selectedCount,
-            packageLimit,
+            packageLimit: effectiveLimit,
             mediaLabel,
             bookingToUse,
             currentService: fullService,
@@ -2776,6 +2921,7 @@ const FileManager = () => {
       orderData,
       filesData,
       servicesData,
+      invoices,
     ],
   );
 
