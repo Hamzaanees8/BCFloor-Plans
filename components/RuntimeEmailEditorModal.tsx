@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,10 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
+import EmailEditorCanvasWrapper from "./EmailEditorCanvasWrapper";
 import {
   GetBladePreview,
   SendPreviewEmail,
@@ -175,6 +178,38 @@ export default function RuntimeEmailEditorModal({
   onCustomSend,
 }: RuntimeEmailEditorModalProps) {
   const { organizationId } = useAppContext();
+  const { organization } = useOrganization();
+  const { appliedSettings, organizations } = useWhiteLabel();
+
+  const currentOrgObj = useMemo(() => {
+    return (
+      organizations?.find((o) => o.uuid === organizationId) ||
+      organization ||
+      null
+    );
+  }, [organizations, organizationId, organization]);
+
+  const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
+  const orgLogo =
+    organization?.branding?.logo ||
+    appliedSettings?.admin?.logo ||
+    (currentOrgObj as any)?.company_logos_urls?.[0]?.url ||
+    null;
+  const orgPrimaryColor =
+    (typeof organization?.branding?.primary_color === "object"
+      ? (organization.branding.primary_color as { value: string }).value
+      : (organization?.branding?.primary_color as string)) ||
+    appliedSettings?.admin?.pageTabColor ||
+    "#6BAE41";
+  const orgEmail =
+    currentOrgObj?.contact_email ||
+    organization?.contact_email ||
+    "mail@bcfloorplans.com";
+  const orgPhone =
+    currentOrgObj?.contact_phone ||
+    organization?.contact_phone ||
+    "604-788-7783";
+  const isWhitelabel = Boolean((currentOrgObj as any)?.is_whitelabel || (organization as any)?.is_whitelabel);
 
   // Navigation across queue: 0, 1, ...
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -710,8 +745,15 @@ export default function RuntimeEmailEditorModal({
 
             {/* Row 3: Editor Layout (Left: RichTextEditor, Right: Dynamic Tags) */}
             <div className="flex-1 min-h-0 flex gap-5 items-stretch overflow-hidden">
-              {/* Left Side: Editor */}
-              <div className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[460px] overflow-hidden shadow-inner relative">
+              {/* Left Side: Editor with realistic Header and Footer Canvas */}
+              <EmailEditorCanvasWrapper
+                orgName={orgName}
+                logoUrl={orgLogo}
+                primaryColor={orgPrimaryColor}
+                orgEmail={orgEmail}
+                orgPhone={orgPhone}
+                isWhitelabel={isWhitelabel}
+              >
                 {loadingTemplate && (
                   <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-20 flex items-center justify-center gap-2 text-sm font-semibold text-[#4290E9]">
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -725,7 +767,7 @@ export default function RuntimeEmailEditorModal({
                   insertText={textToInsert}
                   onTextInserted={() => setTextToInsert("")}
                 />
-              </div>
+              </EmailEditorCanvasWrapper>
 
               {/* Right Side: Dynamic Tags Sidebar */}
               <div className="w-[260px] shrink-0 border border-[#DDDDDD] rounded-lg bg-white p-3 flex flex-col shadow-2xs min-h-0 overflow-hidden">

@@ -35,6 +35,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
+import EmailEditorCanvasWrapper from "./EmailEditorCanvasWrapper";
 import {
   GetBladePreview,
   SendPreviewEmail,
@@ -281,7 +282,7 @@ export default function EmailPreviewEditModal({
   const orgLogo =
     organization?.branding?.logo ||
     appliedSettings?.admin?.logo ||
-    currentOrgObj?.company_logos_urls?.[0]?.url ||
+    (currentOrgObj as any)?.company_logos_urls?.[0]?.url ||
     null;
   const orgPrimaryColor =
     (typeof organization?.branding?.primary_color === "object"
@@ -976,8 +977,13 @@ export default function EmailPreviewEditModal({
                     </div>
                   </div>
 
-                  <div
-                    className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[460px] overflow-hidden shadow-inner relative"
+                  <EmailEditorCanvasWrapper
+                    orgName={orgName}
+                    logoUrl={orgLogo}
+                    primaryColor={orgPrimaryColor}
+                    orgEmail={orgEmail}
+                    orgPhone={orgPhone}
+                    isWhitelabel={Boolean(currentOrgObj?.is_whitelabel || organization?.is_whitelabel)}
                   >
                     <RichTextEditor
                       key={`editor_${activeRoleTab}`}
@@ -986,7 +992,7 @@ export default function EmailPreviewEditModal({
                       insertText={textToInsert}
                       onTextInserted={() => setTextToInsert("")}
                     />
-                  </div>
+                  </EmailEditorCanvasWrapper>
                 </div>
 
                 {/* Right Side: Dynamic Tags */}

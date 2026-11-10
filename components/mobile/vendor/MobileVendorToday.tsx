@@ -27,7 +27,8 @@ import {
   StickyNote,
   Eye,
   Coffee,
-  FileText
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import SquareFootage from '@/app/dashboard/calendar/components/SquareFootage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -74,6 +75,55 @@ function getStatusColor(status: string): string {
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200';
   }
+}
+
+function formatNoteDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function getServiceJobTitle(s: any): string {
+  const sName = s.service?.name?.trim() || '';
+  const optTitle = s.option?.title?.trim() || s.optionName?.trim() || '';
+
+  if (!optTitle) return sName;
+  if (!sName) return optTitle;
+
+  if (optTitle.toLowerCase().includes(sName.toLowerCase())) {
+    return optTitle;
+  }
+  if (/photo|hdr|video|tour|drone|aerial|matterport|floor\s*plan|measure/i.test(optTitle)) {
+    return optTitle;
+  }
+  return `${sName} (${optTitle})`;
+}
+
+function getPhotoCount(s: any): string | null {
+  const optTitle = s.option?.title || s.optionName || '';
+  const sName = s.service?.name || '';
+  const isPhoto = /photo|hdr|aerial|drone/i.test(sName) || /photo|hdr|aerial|drone/i.test(optTitle);
+  if (!isPhoto) return null;
+
+  const match = optTitle.match(/(\d+)\s*(?:HDR\s*)?Photos?/i);
+  if (match) {
+    return `${match[1]} Photos`;
+  }
+  if (s.option?.quantity && Number(s.option.quantity) > 0) {
+    return `${s.option.quantity} Photos`;
+  }
+  return optTitle || 'Photography';
 }
 
 interface SlotWithOrder {
@@ -403,37 +453,110 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
     }
     const { order, slot } = item.data;
     const isExpanded = expandedId === order.id;
-    const services = order.services
-      ?.map((s) => s.service?.name)
-      .filter(Boolean)
-      .join(', ');
+
+    // ── Safe Data Extraction ─────────────────────────────────────────────
+    const orderMeta = (() => {
+      if (!order.meta) return {};
+      if (typeof order.meta === 'string') {
+        try {
+          return JSON.parse(order.meta);
+        } catch {
+          return {};
+        }
+      }
+      return order.meta;
+    })();
+
+    // Suite number (if any)
+    const suiteNumber = (
+      order.property?.suite ||
+      (order as any).suite ||
+      (orderMeta as any)?.suite ||
+      ''
+    ).toString().trim();
+
+    // Floor plan extra areas & notes
+    const floorplanAreas: string[] = Array.isArray(orderMeta?.floorplan_areas)
+      ? orderMeta.floorplan_areas
+      : [];
+    const floorplanNotes: string = orderMeta?.floorplan_notes || '';
+
+    // Agent details & notes
     const agentName = order.agent
-      ? `${order.agent.first_name} ${order.agent.last_name}`
-      : '';
+      ? `${order.agent.first_name || ''} ${order.agent.last_name || ''}`.trim()
+      : (order as any).agent_name || '';
+    const agentPhone = order.agent?.primary_phone || order.agent?.secondary_phone || '';
+    const agentNotes = order.agent?.notes ? String(order.agent.notes).trim() : '';
+
+    // Vendor details (for admin view)
     const vendorName = slot.vendor
-      ? `${slot.vendor.first_name} ${slot.vendor.last_name}`
+      ? `${slot.vendor.first_name || ''} ${slot.vendor.last_name || ''}`.trim()
       : order.vendor
-        ? `${order.vendor.first_name} ${order.vendor.last_name}`
+        ? `${order.vendor.first_name || ''} ${order.vendor.last_name || ''}`.trim()
         : '';
-    const vendorEmail = slot.vendor?.email || order.vendor?.email;
-    const vendorPhone = slot.vendor?.primary_phone || order.vendor?.primary_phone;
-    const totalFootage = order.areas?.reduce((sum, a) => sum + (a.footage || 0), 0) || 0;
-    const latestNote = order.notes?.length ? order.notes[order.notes.length - 1] : null;
+    const vendorEmail = slot.vendor?.email || order.vendor?.email || '';
+    const vendorPhone = slot.vendor?.primary_phone || order.vendor?.primary_phone || '';
+
+    // Appointment notes (Additional details)
+    const appointmentNotes: Array<{ note: string; name?: string; date?: string; internal?: string | boolean }> = (() => {
+      if (!order.notes) return [];
+      if (Array.isArray(order.notes)) return order.notes;
+      if (typeof order.notes === 'string') {
+        try {
+          const parsed = JSON.parse(order.notes);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    })();
+
+    // Square footage
+    const measuredSqFt = order.areas?.reduce((sum, a) => sum + (Number(a.footage) || 0), 0) || 0;
+    const propertySqFt = Number(order.property?.square_footage) || 0;
+    const totalSqFt = measuredSqFt > 0 ? measuredSqFt : propertySqFt;
+
+    // Appointment Name / Job Title
+    const serviceJobTitles = order.services?.map(getServiceJobTitle).filter(Boolean) || [];
+    const appointmentTitle = serviceJobTitles.length > 0
+      ? Array.from(new Set(serviceJobTitles)).join(', ')
+      : 'Appointment';
+
+    // Photos detection for pills
+    const photoPills = (order.services?.map(getPhotoCount).filter(Boolean) || []) as string[];
+
+    // Open maps in Google Maps / native maps app
+    const openMaps = (e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+      const suiteStr = suiteNumber
+        ? (suiteNumber.toLowerCase().includes('suite') || suiteNumber.toLowerCase().includes('#') || suiteNumber.toLowerCase().includes('unit')
+            ? suiteNumber
+            : `Suite ${suiteNumber}`)
+        : '';
+      const addressParts = [
+        order.property_address || order.property?.address,
+        suiteStr,
+        order.property_location || [order.property?.city, order.property?.province, order.property?.postal_code].filter(Boolean).join(', ')
+      ].filter(Boolean).join(', ');
+
+      window.open(`https://maps.google.com/?q=${encodeURIComponent(addressParts)}`, '_blank');
+    };
 
     return (
       <Card
         key={`${order.id}-${slot.date}-${slot.start_time}`}
-        className="border border-gray-200 shadow-sm overflow-hidden"
+        className="border border-gray-200 shadow-sm overflow-hidden bg-white"
       >
         <CardContent className="p-0">
           {/* Main section – always visible */}
           <div
-            className="p-4 cursor-pointer active:bg-gray-50 transition-colors"
+            className="p-3.5 cursor-pointer active:bg-gray-50/80 transition-colors"
             onClick={() => toggleExpand(order.id)}
           >
             {/* Time and Status */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-[15px] font-semibold text-gray-900">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5 text-[14px] font-semibold text-gray-900">
                 <Clock className="w-4 h-4 text-[#DC9600]" />
                 {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
               </div>
@@ -442,162 +565,390 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
               </Badge>
             </div>
 
-            {/* Address */}
-            <div className="flex items-start gap-2 mb-2">
-              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-              <span className="text-[13px] text-gray-700 leading-tight">{order.property_address}</span>
+            {/* Appointment Name (Job Title) */}
+            <div className="mb-1.5">
+              <h3 className="text-[15px] font-bold text-gray-900 leading-snug">
+                {appointmentTitle}
+              </h3>
             </div>
 
-            {/* Order Number */}
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span className="text-[12px] font-medium text-gray-600">Order #{order.id}</span>
+            {/* Admin only: Order Number */}
+            {userType === 'admin' && (
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="text-[11px] font-medium text-gray-600">Order #{order.id}</span>
+              </div>
+            )}
+
+            {/* Address & Suite + Inline Navigate Button (Click to open maps) */}
+            <div className="flex items-center justify-between gap-2 mb-1.5 p-2 rounded-lg bg-gray-50/90 hover:bg-amber-50/50 border border-gray-200/80 hover:border-amber-300 transition-all">
+              <div
+                className="flex items-start gap-2 flex-1 min-w-0 cursor-pointer group"
+                onClick={openMaps}
+                role="button"
+                tabIndex={0}
+                title="Tap to open in Maps"
+              >
+                <MapPin className="w-4 h-4 text-[#DC9600] mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-semibold text-gray-900 group-hover:text-amber-800 underline decoration-gray-300 group-hover:decoration-amber-500 transition-colors leading-tight truncate">
+                      {order.property_address}
+                    </span>
+                    {suiteNumber && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                        Suite {suiteNumber.replace(/^(suite|unit|#)\s*/i, '#')}
+                      </span>
+                    )}
+                  </div>
+                  {order.property_location && (
+                    <span className="text-[11px] text-gray-500 block truncate mt-0.5">
+                      {order.property_location}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Compact Navigate button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-[32px] px-2.5 text-[11px] font-semibold border-[#DC9600] text-[#DC9600] hover:bg-[#DC9600]/10 shrink-0 rounded-md"
+                onClick={openMaps}
+              >
+                <Navigation className="w-3.5 h-3.5 mr-1" />
+                Navigate
+              </Button>
             </div>
 
-            {/* Navigate button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mb-3 h-[48px] w-full text-[13px] font-medium border-[#DC9600] text-[#DC9600] hover:bg-[#DC9600]/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(
-                  `https://maps.google.com/?q=${encodeURIComponent(
-                    (order.property_address || '') + ' ' + (order.property_location || '')
-                  )}`,
-                  '_blank'
-                );
-              }}
-            >
-              <Navigation className="w-4 h-4 mr-2" />
-              Navigate
-            </Button>
-
-            {/* Services */}
-            {services && (
-              <div className="flex items-center gap-2 mb-1.5">
-                <Wrench className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                <span className="text-[12px] text-gray-600">{services}</span>
+            {/* Agent Name & Direct Phone (Email is not required for vendor) */}
+            {agentName && (
+              <div className="flex items-center justify-between gap-2 mb-1.5 py-1 px-2 rounded-md bg-gray-50/70 border border-gray-150">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="text-[12px] font-semibold text-gray-800 truncate">
+                    {agentName}
+                  </span>
+                  {order.agent?.company_name && (
+                    <span className="text-[10px] text-gray-400 truncate hidden sm:inline">
+                      • {order.agent.company_name}
+                    </span>
+                  )}
+                </div>
+                {agentPhone && (
+                  <a
+                    href={`tel:${agentPhone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 shrink-0"
+                  >
+                    <Phone className="w-3 h-3" />
+                    <span>{agentPhone}</span>
+                  </a>
+                )}
               </div>
             )}
 
-            {/* User Info (Agent/Vendor) */}
-            {(userType === 'vendor' || userType === 'admin') && agentName && (
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                <span className="text-[12px] text-gray-600">
-                  {agentName} {userType === 'admin' ? '(Agent)' : ''}
+            {/* Quick Highlights Summary Row */}
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+                <Ruler className="w-3 h-3 text-gray-500" />
+                {totalSqFt.toLocaleString()} ft²
+              </span>
+              {photoPills && photoPills.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                  <Camera className="w-3 h-3 text-blue-500" />
+                  {photoPills.join(', ')}
                 </span>
-              </div>
-            )}
-            {(userType === 'agent' || userType === 'admin') && vendorName && (
-              <div className="flex items-center gap-2 mb-1">
-                <Camera className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                <span className="text-[12px] text-gray-600">
-                  {vendorName} {userType === 'admin' ? '(Vendor)' : ''}
+              )}
+              {floorplanAreas.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                  <span>📐</span>
+                  {floorplanAreas.length} extra area{floorplanAreas.length > 1 ? 's' : ''}
                 </span>
-              </div>
-            )}
+              )}
+              {appointmentNotes.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  <StickyNote className="w-3 h-3 text-amber-500" />
+                  {appointmentNotes.length} note{appointmentNotes.length > 1 ? 's' : ''}
+                </span>
+              )}
+              {agentNotes && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  <User className="w-3 h-3 text-amber-600" />
+                  Agent notes
+                </span>
+              )}
+            </div>
 
             {/* Expand indicator */}
-            <div className="flex justify-center mt-2">
+            <div className="flex items-center justify-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100 text-[11px] font-medium text-gray-500">
+              <span>{isExpanded ? 'Hide details' : 'View full appointment details'}</span>
               {isExpanded ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
               )}
             </div>
           </div>
 
           {/* Expanded section */}
           {isExpanded && (
-            <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-3">
-              {/* Square footage */}
-              <div className="flex items-center gap-2">
-                <Ruler className="w-4 h-4 text-gray-400" />
-                <span className="text-[13px] text-gray-700">
-                  Total Square Footage: <strong>{totalFootage.toLocaleString()} ft²</strong>
-                </span>
+            <div className="border-t border-gray-100 bg-gray-50/70 p-3 space-y-2.5">
+              {/* SECTION 1: Job Details (What is being done) */}
+              <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-2">
+                <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1.5 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
+                  <Wrench className="w-3.5 h-3.5 text-[#DC9600]" />
+                  <span>Job Details (What is being done)</span>
+                </div>
+
+                {/* Services and Option Titles */}
+                {order.services && order.services.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {order.services.map((os, idx) => {
+                      const sName = os.service?.name || '';
+                      const optTitle = os.option?.title || os.optionName || '';
+                      const photoInfo = getPhotoCount(os);
+                      return (
+                        <div key={idx} className="p-2 rounded-md bg-gray-50/80 border border-gray-150 text-xs">
+                          <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                              <span>{sName}</span>
+                              {optTitle && optTitle !== sName && (
+                                <span className="font-medium text-gray-600">({optTitle})</span>
+                              )}
+                            </div>
+                            {os.option?.service_duration && (
+                              <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                                <Clock className="w-3 h-3" />
+                                {os.option.service_duration}
+                              </span>
+                            )}
+                          </div>
+                          {photoInfo && (
+                            <div className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-semibold">
+                              <Camera className="w-3 h-3" />
+                              <span>{photoInfo}</span>
+                            </div>
+                          )}
+                          {os.custom && (
+                            <p className="text-gray-500 mt-0.5 text-[11px] italic">{os.custom}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No services specified</p>
+                )}
+
+                {/* Square footage details */}
+                <div className="pt-1.5 border-t border-gray-100 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 flex items-center gap-1 font-medium">
+                      <Ruler className="w-3.5 h-3.5 text-gray-400" />
+                      Total Square Footage:
+                    </span>
+                    <strong className="text-[13px] text-gray-900">
+                      {totalSqFt.toLocaleString()} ft²
+                    </strong>
+                  </div>
+
+                  {order.areas && order.areas.length > 0 && (
+                    <div className="grid grid-cols-2 gap-1 bg-gray-50 p-1.5 rounded text-[11px] text-gray-600">
+                      {order.areas.map((ar, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="truncate">{(ar as any).custom_title || ar.type}:</span>
+                          <span className="font-semibold text-gray-800 ml-1">
+                            {Number(ar.footage || 0).toLocaleString()} ft²
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Side-by-side compact buttons */}
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <Button
+                      className="w-full h-[34px] text-[12px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 px-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewSqftOrder(order);
+                      }}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                      <span className="truncate">View Sq Ft</span>
+                    </Button>
+                    {userType !== 'agent' && (
+                      <Button
+                        className="w-full h-[34px] text-[12px] font-medium text-white hover:opacity-90 px-2"
+                        style={{ backgroundColor: roleColor }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/orders/${order.uuid}?mobile_sqft=1`);
+                        }}
+                      >
+                        <Ruler className="w-3.5 h-3.5 mr-1 shrink-0" />
+                        <span className="truncate">Edit Sq Ft</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Other areas to measure */}
+                {(floorplanAreas.length > 0 || floorplanNotes) && (
+                  <div className="p-2 bg-blue-50/80 border border-blue-200 rounded-md text-xs space-y-1">
+                    <div className="font-bold text-blue-900 flex items-center gap-1 text-[11px]">
+                      <span>📐</span>
+                      <span>Other Areas to Measure</span>
+                    </div>
+                    {floorplanAreas.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {floorplanAreas.map((area, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200"
+                          >
+                            {area}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {floorplanNotes && (
+                      <p className="text-blue-700 mt-0.5 italic text-[10px] leading-snug">
+                        <span className="font-semibold not-italic">Notes:</span> {floorplanNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Latest note */}
-              {latestNote && (
-                <div className="flex items-start gap-2">
-                  <StickyNote className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                  <div className="text-[12px] text-gray-600">
-                    <span className="font-medium">{latestNote.name}:</span> {latestNote.note}
+              {/* SECTION 2: Additional Details (Appointment Notes) */}
+              <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
+                <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
+                  <StickyNote className="w-3.5 h-3.5 text-[#DC9600]" />
+                  <span>Additional Details (Appointment Notes)</span>
+                </div>
+                {appointmentNotes.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {appointmentNotes.map((noteItem, idx) => (
+                      <div key={idx} className="p-2 rounded bg-gray-50/70 border border-gray-150 text-xs">
+                        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                          {noteItem.note}
+                        </p>
+                        {(noteItem.name || noteItem.date) && (
+                          <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-gray-200/60 text-[10px] text-gray-400">
+                            {noteItem.name && <span className="font-semibold text-gray-600">{noteItem.name}</span>}
+                            {noteItem.name && noteItem.date && <span>•</span>}
+                            {noteItem.date && <span>{formatNoteDate(noteItem.date)}</span>}
+                            {(noteItem.internal === 'true' || noteItem.internal === true) && (
+                              <span className="ml-auto px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-red-50 text-red-600 border border-red-200">
+                                Internal
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No notes for this appointment</p>
+                )}
+              </div>
+
+              {/* SECTION 3: Agent Details (Notes about the agent) */}
+              <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
+                <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
+                  <User className="w-3.5 h-3.5 text-[#DC9600]" />
+                  <span>Agent Details</span>
+                </div>
+                {agentNotes ? (
+                  <div className="p-2 rounded bg-amber-50/70 border border-amber-200 text-xs">
+                    <p className="text-amber-900 whitespace-pre-wrap leading-relaxed">
+                      {agentNotes}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No specific agent details</p>
+                )}
+
+                {/* Compact Agent Contact Details */}
+                {agentName && (
+                  <div className="pt-1.5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                    <div className="flex items-center gap-1 text-gray-700">
+                      <span className="text-gray-400">Agent:</span>
+                      <span className="font-semibold">{agentName}</span>
+                    </div>
+                    {agentPhone && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Phone:</span>
+                        <a
+                          href={`tel:${agentPhone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-blue-600 underline flex items-center gap-0.5"
+                        >
+                          <Phone className="w-3 h-3" />
+                          {agentPhone}
+                        </a>
+                      </div>
+                    )}
+                    {order.agent?.secondary_phone && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Alt:</span>
+                        <a
+                          href={`tel:${order.agent.secondary_phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-blue-600 underline flex items-center gap-0.5"
+                        >
+                          <Phone className="w-3 h-3" />
+                          {order.agent.secondary_phone}
+                        </a>
+                      </div>
+                    )}
+                    {userType === 'admin' && order.agent?.email && (
+                      <div className="flex items-center gap-1 w-full pt-0.5">
+                        <span className="text-gray-400">Email:</span>
+                        <a href={`mailto:${order.agent.email}`} className="text-blue-600 underline truncate">
+                          {order.agent.email}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Vendor Contact (Admin / Agent only) */}
+              {(userType === 'agent' || userType === 'admin') && (vendorEmail || vendorPhone) && (
+                <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
+                    <Camera className="w-3.5 h-3.5 text-gray-400" />
+                    <span>Vendor Contact</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                    {vendorName && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Vendor:</span>
+                        <span className="font-semibold text-gray-900">{vendorName}</span>
+                      </div>
+                    )}
+                    {vendorPhone && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Phone:</span>
+                        <a href={`tel:${vendorPhone}`} className="text-blue-600 underline">
+                          {vendorPhone}
+                        </a>
+                      </div>
+                    )}
+                    {vendorEmail && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Email:</span>
+                        <a href={`mailto:${vendorEmail}`} className="text-blue-600 underline">
+                          {vendorEmail}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-
-              {/* Agent contact */}
-              {(userType === 'vendor' || userType === 'admin') && order.agent?.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <a
-                    href={`mailto:${order.agent.email}`}
-                    className="text-[12px] text-blue-600 underline"
-                  >
-                    {order.agent.email} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Agent)</span> : ''}
-                  </a>
-                </div>
-              )}
-              {(userType === 'vendor' || userType === 'admin') && order.agent?.primary_phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <a
-                    href={`tel:${order.agent.primary_phone}`}
-                    className="text-[12px] text-blue-600 underline"
-                  >
-                    {order.agent.primary_phone} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Agent)</span> : ''}
-                  </a>
-                </div>
-              )}
-
-              {/* Vendor contact */}
-              {(userType === 'agent' || userType === 'admin') && vendorEmail && (
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <a
-                    href={`mailto:${vendorEmail}`}
-                    className="text-[12px] text-blue-600 underline"
-                  >
-                    {vendorEmail} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Vendor)</span> : ''}
-                  </a>
-                </div>
-              )}
-              {(userType === 'agent' || userType === 'admin') && vendorPhone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <a
-                    href={`tel:${vendorPhone}`}
-                    className="text-[12px] text-blue-600 underline"
-                  >
-                    {vendorPhone} {userType === 'admin' ? <span className="text-gray-500 no-underline">(Vendor)</span> : ''}
-                  </a>
-                </div>
-              )}
-
-              {/* Edit Square Footage button */}
-              <div className="flex flex-col gap-2">
-                <Button
-                  className="w-full h-[48px] text-[14px] font-medium text-[#7D7D7D] bg-white border border-[#D0D0D0] hover:bg-gray-50"
-                  onClick={() => setViewSqftOrder(order)}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Square Footage
-                </Button>
-                {userType !== 'agent' && (
-                  <Button
-                    className="w-full h-[48px] text-[14px] font-medium text-white hover:opacity-90"
-                    style={{ backgroundColor: roleColor }}
-                    onClick={() => router.push(`/dashboard/orders/${order.uuid}?mobile_sqft=1`)}
-                  >
-                    <Ruler className="w-4 h-4 mr-2" />
-                    Edit Square Footage
-                  </Button>
-                )}
-              </div>
             </div>
           )}
         </CardContent>

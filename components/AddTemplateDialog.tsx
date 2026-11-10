@@ -35,6 +35,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
+import EmailEditorCanvasWrapper from "./EmailEditorCanvasWrapper";
 import { interpolateTemplate } from "@/lib/email-templates";
 import {
   EmailTemplate,
@@ -439,7 +440,7 @@ const AddTemplateDialog: React.FC<Props> = ({
   const orgLogo =
     organization?.branding?.logo ||
     appliedSettings?.admin?.logo ||
-    currentOrgObj?.company_logos_urls?.[0]?.url ||
+    (currentOrgObj as any)?.company_logos_urls?.[0]?.url ||
     null;
   const orgPrimaryColor =
     (typeof organization?.branding?.primary_color === "object"
@@ -1015,9 +1016,9 @@ const AddTemplateDialog: React.FC<Props> = ({
             handleRequestClose();
           }
         }}
-        className="w-[1150px] max-w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-[#FAFAFA] rounded-[12px] font-alexandria shadow-2xl"
+        className="w-[1240px] max-w-[96vw] h-[96vh] p-0 flex flex-col overflow-hidden bg-[#FAFAFA] rounded-[12px] font-alexandria shadow-2xl"
       >
-        <DialogHeader className="px-8 py-4 flex-shrink-0 bg-white z-20 border-b border-[#EEEEEE]">
+        <DialogHeader className="px-8 py-3.5 flex-shrink-0 bg-white z-20 border-b border-[#EEEEEE]">
           <DialogTitle className="flex justify-between items-center text-[#4290E9] uppercase text-[20px] font-[700] tracking-tight">
             <span>
               {initialData ? "Edit Email Template" : "Create Email Template"}
@@ -1037,7 +1038,7 @@ const AddTemplateDialog: React.FC<Props> = ({
           onSubmit={handleSubmit}
           className="flex flex-col flex-1 overflow-hidden text-[#666666]"
         >
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-5 flex flex-col gap-5">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-4 flex flex-col gap-4">
             {/* Row 1: Template Title (Full width for extra content & variables) */}
             <div className="flex flex-col gap-1.5 text-sm">
               <Label htmlFor="title" className="font-semibold text-gray-700">
@@ -1345,7 +1346,7 @@ const AddTemplateDialog: React.FC<Props> = ({
               </div>
             ) : (
               /* EDIT MODE: Editor on Left, Dynamic Tags on Right */
-              <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[550px]">
+              <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[660px]">
                 {/* Left Side: Editor */}
                 <div className="flex-[3] flex flex-col gap-3 relative z-10 min-w-0">
                   <div className="flex justify-between items-center">
@@ -1465,8 +1466,13 @@ const AddTemplateDialog: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div
-                    className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[460px] overflow-hidden shadow-inner relative"
+                  <EmailEditorCanvasWrapper
+                    orgName={orgName}
+                    logoUrl={orgLogo}
+                    primaryColor={orgPrimaryColor}
+                    orgEmail={orgEmail}
+                    orgPhone={orgPhone}
+                    isWhitelabel={Boolean(currentOrgObj?.is_whitelabel || organization?.is_whitelabel)}
                   >
                     {open && (
                       <RichTextEditor
@@ -1477,7 +1483,7 @@ const AddTemplateDialog: React.FC<Props> = ({
                         onTextInserted={() => setTextToInsert("")}
                       />
                     )}
-                  </div>
+                  </EmailEditorCanvasWrapper>
                 </div>
 
                 {/* Right Side: Placeholders */}
