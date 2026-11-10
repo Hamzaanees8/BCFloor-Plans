@@ -126,6 +126,69 @@ function getPhotoCount(s: any): string | null {
   return optTitle || 'Photography';
 }
 
+function matchServiceSlot(os: any, sl: any): boolean {
+  if (!os || !sl) return false;
+
+  const osSid = os.service_id !== undefined && os.service_id !== null ? String(os.service_id) : '';
+  const osSvcId = os.service?.id !== undefined && os.service?.id !== null ? String(os.service.id) : '';
+  const osSvcUuid = os.service?.uuid ? String(os.service.uuid) : '';
+  const osUuid = os.uuid ? String(os.uuid) : '';
+
+  const slSid = sl.service_id !== undefined && sl.service_id !== null ? String(sl.service_id) : '';
+  const slSvcId = sl.service?.id !== undefined && sl.service?.id !== null ? String(sl.service.id) : '';
+  const slSvcUuid = sl.service?.uuid ? String(sl.service.uuid) : '';
+
+  if (slSid) {
+    if (osSid && slSid === osSid) return true;
+    if (osSvcId && slSid === osSvcId) return true;
+    if (osSvcUuid && slSid === osSvcUuid) return true;
+  }
+  if (slSvcId) {
+    if (osSid && slSvcId === osSid) return true;
+    if (osSvcId && slSvcId === osSvcId) return true;
+  }
+  if (slSvcUuid) {
+    if (osSvcUuid && slSvcUuid === osSvcUuid) return true;
+    if (osUuid && slSvcUuid === osUuid) return true;
+  }
+
+  return false;
+}
+
+function getServiceSlotsDisplay(
+  os: any,
+  orderSlots?: any[],
+  currentSlot?: any
+): string {
+  // 1. Look in order.slots for a slot matching this service
+  const matched = (orderSlots || []).filter((sl: any) => matchServiceSlot(os, sl));
+
+  if (matched.length > 0) {
+    const sorted = [...matched].sort((a, b) => {
+      const dComp = (a.date || '').localeCompare(b.date || '');
+      if (dComp !== 0) return dComp;
+      return (a.start_time || '').localeCompare(b.start_time || '');
+    });
+
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const startStr = formatTime(first.start_time);
+    const endStr = formatTime(last.custom_end_time || last.end_time);
+
+    return `${startStr} – ${endStr}`;
+  }
+
+  // 2. If not found in orderSlots, check if currentSlot matches this service
+  if (currentSlot && matchServiceSlot(os, currentSlot)) {
+    const startStr = formatTime(currentSlot.start_time);
+    const endStr = formatTime(currentSlot.custom_end_time || currentSlot.end_time);
+    return `${startStr} – ${endStr}`;
+  }
+
+  // 3. Never fall back to another service's slot
+  return '';
+}
+
 interface SlotWithOrder {
   order: Order;
   slot: Order['slots'][number];
@@ -151,7 +214,20 @@ type ScheduleItem =
 export default function MobileVendorToday({ vendorData, setVendorData }: { vendorData?: any[], setVendorData?: any }) {
   const router = useRouter();
   const { appliedSettings } = useWhiteLabel();
-  const { userType } = useAppContext();
+  const { userType: contextUserType } = useAppContext();
+  const userType = React.useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('userType');
+      if (stored) return stored;
+      try {
+        const uInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        if (uInfo?.type) return uInfo.type;
+        if (uInfo?.role) return uInfo.role;
+      } catch {}
+      if (window.location.hostname.includes('vendor')) return 'vendor';
+    }
+    return contextUserType || 'vendor';
+  }, [contextUserType]);
 
   const roleColor = appliedSettings?.[(userType as keyof typeof appliedSettings) || 'admin']?.pageTabColor || '#DC9600';
 
@@ -255,17 +331,148 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
 
   // ── Derive today's and upcoming slots ──────────────────────────────────
 
+  // User & Vendor Identification
+  const userInfo = React.useMemo(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      return JSON.parse(localStorage.getItem('userInfo') || '{}');
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const loggedInVendorUuid = userInfo?.uuid || userInfo?.data?.uuid || userInfo?.user?.uuid;
+  const loggedInVendorId = userInfo?.id || userInfo?.data?.id || userInfo?.user?.id || userInfo?.vendor_id;
+
+  const currentVendor = React.useMemo(() => {
+    if (!vendorData || !Array.isArray(vendorData)) return null;
+    return (
+      vendorData.find((v: any) => {
+        if (loggedInVendorUuid && v.uuid === loggedInVendorUuid) return true;
+        if (
+          loggedInVendorId &&
+          (Number(v.id) === Number(loggedInVendorId) ||
+            String(v.id) === String(loggedInVendorId))
+        )
+          return true;
+        if (
+          userInfo?.email &&
+          v.email &&
+          v.email.toLowerCase() === userInfo.email.toLowerCase()
+        )
+          return true;
+        return false;
+      }) || null
+    );
+  }, [vendorData, loggedInVendorUuid, loggedInVendorId, userInfo?.email]);
+
+  const userVendorUuids = React.useMemo(() => {
+    const set = new Set<string>();
+    if (loggedInVendorUuid) set.add(String(loggedInVendorUuid).toLowerCase());
+    if (currentVendor?.uuid) set.add(String(currentVendor.uuid).toLowerCase());
+    return set;
+  }, [loggedInVendorUuid, currentVendor]);
+
+  const userVendorIds = React.useMemo(() => {
+    const set = new Set<string>();
+    if (loggedInVendorId !== undefined && loggedInVendorId !== null) set.add(String(loggedInVendorId));
+    if (currentVendor?.id !== undefined && currentVendor?.id !== null) set.add(String(currentVendor.id));
+    return set;
+  }, [loggedInVendorId, currentVendor]);
+
+  const userVendorEmails = React.useMemo(() => {
+    const set = new Set<string>();
+    if (userInfo?.email) set.add(String(userInfo.email).toLowerCase());
+    if (userInfo?.user?.email) set.add(String(userInfo.user.email).toLowerCase());
+    if (currentVendor?.email) set.add(String(currentVendor.email).toLowerCase());
+    return set;
+  }, [userInfo, currentVendor]);
+
+  const isSlotForLoggedInVendor = useCallback(
+    (slot: any): boolean => {
+      // If slot is explicitly cancelled, never show it
+      if (slot?.status && String(slot.status).toLowerCase() === 'cancelled') {
+        return false;
+      }
+
+      // If admin view, allow all active slots
+      if (userType !== 'vendor') {
+        return true;
+      }
+      if (!slot) return false;
+
+      // Match by slot.vendor
+      if (slot.vendor) {
+        if (slot.vendor.uuid && userVendorUuids.has(String(slot.vendor.uuid).toLowerCase())) return true;
+        if (slot.vendor.id !== undefined && userVendorIds.has(String(slot.vendor.id))) return true;
+        if (slot.vendor.email && userVendorEmails.has(String(slot.vendor.email).toLowerCase())) return true;
+      }
+
+      // Match by slot.vendor_id
+      if (slot.vendor_id !== undefined && slot.vendor_id !== null) {
+        const vid = String(slot.vendor_id);
+        if (userVendorIds.has(vid)) return true;
+        if (userVendorUuids.has(vid.toLowerCase())) return true;
+      }
+
+      return false;
+    },
+    [userType, userVendorUuids, userVendorIds, userVendorEmails]
+  );
+
+  const isServiceForLoggedInVendor = useCallback(
+    (os: any, orderSlots?: any[], currentSlot?: any): boolean => {
+      if (userType !== 'vendor') return true;
+      if (!os) return false;
+
+      // 1. Direct vendor_id on os (UUID or numeric ID)
+      if (os.vendor_id !== undefined && os.vendor_id !== null) {
+        const vid = String(os.vendor_id);
+        if (userVendorIds.has(vid)) return true;
+        if (userVendorUuids.has(vid.toLowerCase())) return true;
+      }
+
+      // 2. Check if orderSlots has an active matching slot for this vendor
+      if (orderSlots && orderSlots.length > 0) {
+        const matchingSlots = orderSlots.filter(
+          (sl: any) =>
+            matchServiceSlot(os, sl) &&
+            String(sl.status || '').toLowerCase() !== 'cancelled'
+        );
+        if (matchingSlots.some(isSlotForLoggedInVendor)) {
+          return true;
+        }
+      }
+
+      // 3. Check if currentSlot matches this service and is for this vendor
+      if (
+        currentSlot &&
+        String(currentSlot.status || '').toLowerCase() !== 'cancelled' &&
+        matchServiceSlot(os, currentSlot) &&
+        isSlotForLoggedInVendor(currentSlot)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [userType, userVendorIds, userVendorUuids, isSlotForLoggedInVendor]
+  );
+
   // Extract breaks from vendorData
   const allBreaks = React.useMemo(() => {
     const breaks: TimeOffEvent[] = [];
     if (!vendorData) return breaks;
 
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-    const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
-
     vendorData.forEach((vendor: any) => {
       // Filter out other vendors' breaks if logged in as a vendor
-      if (userType === 'vendor' && vendor.uuid !== userUuid) return;
+      if (userType === 'vendor') {
+        const isCurrent =
+          (vendor.uuid && userVendorUuids.has(String(vendor.uuid).toLowerCase())) ||
+          (vendor.id !== undefined && userVendorIds.has(String(vendor.id))) ||
+          (vendor.email && userVendorEmails.has(String(vendor.email).toLowerCase()));
+        if (!isCurrent) return;
+      }
 
       if (vendor.additional_breaks && Array.isArray(vendor.additional_breaks)) {
         vendor.additional_breaks.forEach((brk: any) => {
@@ -283,22 +490,31 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
       }
     });
     return breaks;
-  }, [vendorData, userType]);
+  }, [vendorData, userType, userVendorUuids, userVendorIds, userVendorEmails]);
 
   const datesWithBookings = React.useMemo(() => {
     const dates = new Set<string>();
     orders.forEach((order) => {
+      // Exclude cancelled orders
+      if (String(order.order_status || '').toLowerCase() === 'cancelled') return;
+
       order.slots?.forEach((slot) => {
+        // Exclude cancelled slots
+        if (String((slot as any).status || '').toLowerCase() === 'cancelled') return;
+
+        if (userType === 'vendor' && !isSlotForLoggedInVendor(slot)) {
+          return;
+        }
         if (slot.date) dates.add(slot.date);
       });
     });
     allBreaks.forEach(brk => {
-      // Break might span multiple days, simplify by using start_date
-      const startDateStr = brk.start.toISOString().split('T')[0];
-      dates.add(startDateStr);
+      // Use localized YYYY-MM-DD format (avoids UTC toISOString day shift)
+      const dateStr = brk.start.toLocaleDateString('en-CA');
+      dates.add(dateStr);
     });
     return dates;
-  }, [orders, allBreaks]);
+  }, [orders, allBreaks, userType, isSlotForLoggedInVendor]);
 
   const nextBookingDate = React.useMemo(() => {
     const sortedDates = Array.from(datesWithBookings).sort();
@@ -319,7 +535,18 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
   const buildScheduleList = (filterFn: (date: string) => boolean): ScheduleItem[] => {
     const items: ScheduleItem[] = [];
     orders.forEach((order) => {
+      // Exclude cancelled orders
+      if (String(order.order_status || '').toLowerCase() === 'cancelled') return;
+
       order.slots?.forEach((slot) => {
+        // Exclude cancelled slots
+        if (String((slot as any).status || '').toLowerCase() === 'cancelled') return;
+
+        // When logged in as vendor, only show this vendor's slots!
+        if (userType === 'vendor' && !isSlotForLoggedInVendor(slot)) {
+          return;
+        }
+
         if (filterFn(slot.date)) {
           items.push({ type: 'order', data: { order, slot }, date: slot.date, startTime: slot.start_time });
         }
@@ -517,14 +744,26 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
     const propertySqFt = Number(order.property?.square_footage) || 0;
     const totalSqFt = measuredSqFt > 0 ? measuredSqFt : propertySqFt;
 
+    // Filter services relevant to the logged-in vendor
+    const vendorServices = (order.services || []).filter((os: any) => {
+      if (userType !== 'vendor') return true;
+      return isServiceForLoggedInVendor(os, order.slots, slot);
+    });
+    const displayServices = vendorServices.length > 0 ? vendorServices : (order.services || []);
+
+    // Specific service for this slot if distinct
+    const currentSlotService = displayServices.find((os) => matchServiceSlot(os, slot));
+
     // Appointment Name / Job Title
-    const serviceJobTitles = order.services?.map(getServiceJobTitle).filter(Boolean) || [];
-    const appointmentTitle = serviceJobTitles.length > 0
-      ? Array.from(new Set(serviceJobTitles)).join(', ')
-      : 'Appointment';
+    const serviceJobTitles = displayServices.map(getServiceJobTitle).filter(Boolean);
+    const appointmentTitle = currentSlotService && displayServices.length > 1 && (order.slots || []).length > 1
+      ? getServiceJobTitle(currentSlotService)
+      : serviceJobTitles.length > 0
+        ? Array.from(new Set(serviceJobTitles)).join(', ')
+        : 'Appointment';
 
     // Photos detection for pills
-    const photoPills = (order.services?.map(getPhotoCount).filter(Boolean) || []) as string[];
+    const photoPills = (displayServices.map(getPhotoCount).filter(Boolean) || []) as string[];
 
     // Open maps in Google Maps / native maps app
     const openMaps = (e?: React.MouseEvent) => {
@@ -621,33 +860,6 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
               </Button>
             </div>
 
-            {/* Agent Name & Direct Phone (Email is not required for vendor) */}
-            {agentName && (
-              <div className="flex items-center justify-between gap-2 mb-1.5 py-1 px-2 rounded-md bg-gray-50/70 border border-gray-150">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                  <span className="text-[12px] font-semibold text-gray-800 truncate">
-                    {agentName}
-                  </span>
-                  {order.agent?.company_name && (
-                    <span className="text-[10px] text-gray-400 truncate hidden sm:inline">
-                      • {order.agent.company_name}
-                    </span>
-                  )}
-                </div>
-                {agentPhone && (
-                  <a
-                    href={`tel:${agentPhone}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 shrink-0"
-                  >
-                    <Phone className="w-3 h-3" />
-                    <span>{agentPhone}</span>
-                  </a>
-                )}
-              </div>
-            )}
-
             {/* Quick Highlights Summary Row */}
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
@@ -672,12 +884,6 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
                   {appointmentNotes.length} note{appointmentNotes.length > 1 ? 's' : ''}
                 </span>
               )}
-              {agentNotes && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                  <User className="w-3 h-3 text-amber-600" />
-                  Agent notes
-                </span>
-              )}
             </div>
 
             {/* Expand indicator */}
@@ -694,7 +900,64 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
           {/* Expanded section */}
           {isExpanded && (
             <div className="border-t border-gray-100 bg-gray-50/70 p-3 space-y-2.5">
-              {/* SECTION 1: Job Details (What is being done) */}
+              {/* SECTION 1: Agent Details */}
+              {agentName && (
+                <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
+                    <User className="w-3.5 h-3.5 text-[#DC9600]" />
+                    <span>Agent Details</span>
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1 leading-snug">
+                        <span className="text-gray-400 font-medium mr-1.5">Name:</span>
+                        <span className="font-semibold text-gray-900 break-words line-clamp-2">
+                          {agentName}
+                        </span>
+                      </div>
+                      {agentPhone && (
+                        <a
+                          href={`tel:${agentPhone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 shrink-0"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{agentPhone}</span>
+                        </a>
+                      )}
+                    </div>
+                    {order.agent?.secondary_phone && order.agent.secondary_phone !== agentPhone && (
+                      <div className="flex items-center justify-between text-xs pt-0.5">
+                        <span className="text-gray-400">Alt Phone:</span>
+                        <a
+                          href={`tel:${order.agent.secondary_phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-blue-600 underline flex items-center gap-0.5"
+                        >
+                          <Phone className="w-3 h-3" />
+                          {order.agent.secondary_phone}
+                        </a>
+                      </div>
+                    )}
+                    {userType === 'admin' && order.agent?.email && (
+                      <div className="flex items-center justify-between text-xs pt-0.5">
+                        <span className="text-gray-400">Email (Admin):</span>
+                        <a href={`mailto:${order.agent.email}`} className="text-blue-600 underline truncate">
+                          {order.agent.email}
+                        </a>
+                      </div>
+                    )}
+                    {agentNotes && (
+                      <div className="p-2 mt-1 rounded bg-amber-50/70 border border-amber-200 text-xs text-amber-900">
+                        <span className="font-semibold text-amber-950">Agent Note: </span>
+                        {agentNotes}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2: Job Details (What is being done) */}
               <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-2">
                 <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1.5 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
                   <Wrench className="w-3.5 h-3.5 text-[#DC9600]" />
@@ -702,36 +965,53 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
                 </div>
 
                 {/* Services and Option Titles */}
-                {order.services && order.services.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {order.services.map((os, idx) => {
-                      const sName = os.service?.name || '';
-                      const optTitle = os.option?.title || os.optionName || '';
+                {displayServices && displayServices.length > 0 ? (
+                  <div className="space-y-2">
+                    {displayServices.map((os, idx) => {
+                      const sName = os.service?.name?.trim() || '';
+                      const optTitle = os.option?.title?.trim() || os.optionName?.trim() || '';
                       const photoInfo = getPhotoCount(os);
+                      const serviceSlotTime = getServiceSlotsDisplay(os, order.slots, slot);
+                      const duration = os.option?.service_duration?.trim() || '';
+
                       return (
-                        <div key={idx} className="p-2 rounded-md bg-gray-50/80 border border-gray-150 text-xs">
-                          <div className="flex items-center justify-between gap-1 flex-wrap">
-                            <div className="flex items-center gap-1.5 font-bold text-gray-900">
-                              <span>{sName}</span>
-                              {optTitle && optTitle !== sName && (
-                                <span className="font-medium text-gray-600">({optTitle})</span>
-                              )}
+                        <div key={idx} className="p-2.5 rounded-lg bg-gray-50/80 border border-gray-150 text-xs space-y-1">
+                          {/* Service Name on its own line */}
+                          <div className="font-bold text-[13px] text-gray-900 leading-snug">
+                            {sName}
+                          </div>
+
+                          {/* Option title on separate line if present and different */}
+                          {optTitle && optTitle.toLowerCase() !== sName.toLowerCase() && (
+                            <div className="text-[12px] font-medium text-gray-700 leading-snug">
+                              {optTitle}
                             </div>
-                            {os.option?.service_duration && (
-                              <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
-                                <Clock className="w-3 h-3" />
-                                {os.option.service_duration}
+                          )}
+
+                          {/* Slot time, Duration, Photo pills row */}
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {serviceSlotTime && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#DC9600] bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                <Clock className="w-3 h-3 text-[#DC9600]" />
+                                Slot: {serviceSlotTime}
+                              </span>
+                            )}
+                            {duration && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                                ⏱ {duration}
+                              </span>
+                            )}
+                            {photoInfo && (!optTitle || !optTitle.toLowerCase().includes(photoInfo.toLowerCase())) && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
+                                <Camera className="w-3 h-3" />
+                                {photoInfo}
                               </span>
                             )}
                           </div>
-                          {photoInfo && (
-                            <div className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-semibold">
-                              <Camera className="w-3 h-3" />
-                              <span>{photoInfo}</span>
-                            </div>
-                          )}
+
+                          {/* Custom notes */}
                           {os.custom && (
-                            <p className="text-gray-500 mt-0.5 text-[11px] italic">{os.custom}</p>
+                            <p className="text-gray-500 mt-1 text-[11px] italic">{os.custom}</p>
                           )}
                         </div>
                       );
@@ -822,7 +1102,7 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
                 )}
               </div>
 
-              {/* SECTION 2: Additional Details (Appointment Notes) */}
+              {/* SECTION 3: Additional Details (Appointment Notes) */}
               <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
                 <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
                   <StickyNote className="w-3.5 h-3.5 text-[#DC9600]" />
@@ -852,67 +1132,6 @@ export default function MobileVendorToday({ vendorData, setVendorData }: { vendo
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400 italic">No notes for this appointment</p>
-                )}
-              </div>
-
-              {/* SECTION 3: Agent Details (Notes about the agent) */}
-              <div className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
-                <div className="flex items-center gap-1.5 border-b border-gray-100 pb-1 text-[12px] font-bold text-gray-800 uppercase tracking-wide">
-                  <User className="w-3.5 h-3.5 text-[#DC9600]" />
-                  <span>Agent Details</span>
-                </div>
-                {agentNotes ? (
-                  <div className="p-2 rounded bg-amber-50/70 border border-amber-200 text-xs">
-                    <p className="text-amber-900 whitespace-pre-wrap leading-relaxed">
-                      {agentNotes}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">No specific agent details</p>
-                )}
-
-                {/* Compact Agent Contact Details */}
-                {agentName && (
-                  <div className="pt-1.5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                    <div className="flex items-center gap-1 text-gray-700">
-                      <span className="text-gray-400">Agent:</span>
-                      <span className="font-semibold">{agentName}</span>
-                    </div>
-                    {agentPhone && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-400">Phone:</span>
-                        <a
-                          href={`tel:${agentPhone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-blue-600 underline flex items-center gap-0.5"
-                        >
-                          <Phone className="w-3 h-3" />
-                          {agentPhone}
-                        </a>
-                      </div>
-                    )}
-                    {order.agent?.secondary_phone && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-400">Alt:</span>
-                        <a
-                          href={`tel:${order.agent.secondary_phone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-blue-600 underline flex items-center gap-0.5"
-                        >
-                          <Phone className="w-3 h-3" />
-                          {order.agent.secondary_phone}
-                        </a>
-                      </div>
-                    )}
-                    {userType === 'admin' && order.agent?.email && (
-                      <div className="flex items-center gap-1 w-full pt-0.5">
-                        <span className="text-gray-400">Email:</span>
-                        <a href={`mailto:${order.agent.email}`} className="text-blue-600 underline truncate">
-                          {order.agent.email}
-                        </a>
-                      </div>
-                    )}
-                  </div>
                 )}
               </div>
 
